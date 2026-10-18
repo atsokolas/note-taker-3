@@ -3,7 +3,7 @@ import ArticleReader from './ArticleReader';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import * as Router from 'react-router-dom';
 import { writeReturnTicket } from './wiki/open-sentence/openSentenceJourney';
-import { getArticleReadingState, saveArticleReadingState } from '../api/articleReadingState';
+import { checkOriginalSource, getArticleReadingState, markPassageOpened, saveArticleReadingState } from '../api/articleReadingState';
 import { createHighlight } from '../api/highlights';
 import { libraryExplorations } from '../api/authoredExplorations';
 jest.mock('../api/authoredExplorations', () => ({
@@ -11,6 +11,7 @@ jest.mock('../api/authoredExplorations', () => ({
   libraryExplorations: { load: jest.fn(), save: jest.fn(), keep: jest.fn(), discard: jest.fn() }
 }));
 import { listWikiPages } from '../api/wiki';
+import { fetchMarginNotes } from '../api/retrieval';
 import { fileReadingProposal, getPushesAgainst } from '../api/judgmentResolution';
 import useTextSelection from './reader/useTextSelection';
 import { handOffSentence, resetFirstPaint } from '../motion/columnMotion';
@@ -20,7 +21,7 @@ import { buildArticlePassageHref } from '../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../utils/sourceDisplayText';
 import { passageFromSelection } from './wiki/open-sentence/LibraryPassagePicker';
 
-jest.mock('../api/articleReadingState', () => ({ getArticleReadingState: jest.fn(async () => null), saveArticleReadingState: jest.fn(async () => {}) }));
+jest.mock('../api/articleReadingState', () => ({ getArticleReadingState: jest.fn(async () => null), saveArticleReadingState: jest.fn(async () => {}), markPassageOpened: jest.fn(async () => {}), checkOriginalSource: jest.fn(async () => null) }));
 jest.mock('../api/highlights', () => ({
   createHighlight: jest.fn(),
   updateHighlight: jest.fn()
@@ -28,6 +29,7 @@ jest.mock('../api/highlights', () => ({
 jest.mock('../api/wiki', () => ({
   listWikiPages: jest.fn(async () => [])
 }));
+jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn(async () => []) }));
 jest.mock('../api/judgmentResolution', () => ({
   getPushesAgainst: jest.fn(async () => null),
   fileReadingProposal: jest.fn(async () => ({}))
@@ -58,6 +60,8 @@ beforeEach(() => {
   getPushesAgainst.mockResolvedValue(null);
   getArticleReadingState.mockResolvedValue(null);
   saveArticleReadingState.mockResolvedValue();
+  markPassageOpened.mockResolvedValue();
+  checkOriginalSource.mockResolvedValue(null);
   libraryExplorations.load.mockResolvedValue({ userId: 'owner-1', explorations: [] });
 });
 
@@ -71,6 +75,7 @@ describe('ArticleReader', () => {
     jest.spyOn(Router, 'useLocation').mockImplementation(() => ({ pathname: window.location.pathname, search: window.location.search, hash: window.location.hash }));
     resetFirstPaint();
     listWikiPages.mockResolvedValue([]);
+    fetchMarginNotes.mockResolvedValue([]);
     usePrefersReducedMotion.mockReturnValue(false);
     useFinePointer.mockReturnValue(true);
     useTextSelection.mockReturnValue({
@@ -121,6 +126,23 @@ describe('ArticleReader', () => {
     }
   });
 
+  it('sets a passage you marked elsewhere beside the paragraph it is close to', async () => {
+    const paragraph = 'Surgeons resisted written checklists for years, insisting that judgment and memory were enough in the theatre.';
+    fetchMarginNotes.mockResolvedValue([{
+      paragraph: 0,
+      relation: 'close',
+      highlight: { _id: 'h-elsewhere', text: 'A checklist is a net for the expert who forgets the obvious step, not a crutch.', articleId: 'article-2', articleTitle: 'The Checklist Manifesto' }
+    }]);
+    render(
+      <MemoryRouter>
+        <ArticleReader article={{ _id: 'article-1', title: 'Theatre', content: `<p>Short opener.</p><p>${paragraph}</p>` }} highlights={[]} />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('link', { name: /You marked something close in The Checklist Manifesto/ })).toHaveAttribute('href', expect.stringContaining('article-2'));
+    expect(fetchMarginNotes).toHaveBeenCalledWith({ articleId: 'article-1', paragraphs: [paragraph] });
+    expect(document.querySelector('.library-margin-note')).toHaveAttribute('data-beside', '1');
+  });
+
   it('stays readable while no article is selected', () => {
     render(<ArticleReader />);
     expect(screen.getByText('Select an article to start reading.')).toBeVisible();
@@ -149,6 +171,22 @@ describe('ArticleReader', () => {
     expect(onOpenedSentence).toHaveBeenLastCalledWith('A source sentence.');
     expect(libraryExplorations.load).toHaveBeenCalledTimes(1);
     expect(libraryExplorations.save).not.toHaveBeenCalled();
+  });
+
+  it('opens a footnote in place, dresses a filing, and says when the original is gone', async () => {
+    const article = {
+      _id: 'article-1',
+      title: 'Costco 10-K 2025',
+      url: 'https://www.sec.gov/Archives/costco.htm',
+      sourceGoneAt: '2026-10-01T00:00:00Z',
+      content: '<p>Revenue rose 7%.<sup><a href="#fn1">1</a></sup></p><ol><li id="fn1">Net of membership fees.</li></ol>'
+    };
+    const { container } = render(<ArticleReader article={article} highlights={[]} />);
+    expect(container.querySelector('.article-reader')).toHaveAttribute('data-source-kind', 'filing');
+    expect(screen.getByText(/The original is gone\. Your copy isn/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: '1' }));
+    expect(screen.getByRole('note')).toHaveTextContent('Net of membership fees.');
+    expect(window.location.hash).toBe('');
   });
 
   it('finds authored work from the article itself without a requested highlight', async () => {

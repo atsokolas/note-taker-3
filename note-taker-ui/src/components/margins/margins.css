@@ -1,0 +1,145 @@
+/* Your library in the margins. Notes are set like marginalia, not cards: small
+   sans lead, the quoted words in the reading serif, a hairline at the left.
+   Nothing here is glass; the mark's card is paper, because it opens over
+   text. */
+
+.library-margins {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.library-margin-note {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: auto;
+  color: var(--vellum-subtle, var(--text-muted));
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.library-margin-note__body {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 2px 0 2px 12px;
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 80%, transparent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.library-margin-note__body:hover,
+.library-margin-note__body:focus-visible {
+  border-left-color: var(--wiki-warm-accent);
+  color: var(--ink-human, var(--vellum-ink));
+}
+
+.library-margin-note__body:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--wiki-warm-accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.library-margin-note__lead cite {
+  font-style: italic;
+}
+
+.library-margin-note__quote {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-human, var(--vellum-ink));
+  font-family: var(--font-serif);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.library-margin-note__hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+}
+
+/* A ghost is a suggestion, not a fact yet: quieter until it is wanted. */
+.library-margin-note.is-ghost .library-margin-note__body {
+  opacity: 0.72;
+}
+
+.library-margin-note.is-ghost .library-margin-note__body:hover,
+.library-margin-note.is-ghost .library-margin-note__body:focus-visible {
+  opacity: 1;
+}
+
+/* Too narrow for a margin: a small mark after the paragraph, opened by tap. */
+.library-margin-note.is-mark {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  transform: translate(-100%, -2px);
+}
+
+.library-margin-note__mark {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--wiki-warm-accent);
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.library-margin-note.is-open {
+  z-index: 1;
+}
+
+.library-margin-note__card .library-margin-note__body {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.library-margin-note__card {
+  box-sizing: border-box;
+  width: min(320px, calc(100vw - 32px));
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 80%, transparent);
+  border-radius: 6px;
+  background: var(--noeis-canvas, var(--surface-card));
+}
+
+@media (pointer: coarse) {
+  .library-margin-note__mark {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .library-margin-note.is-arriving {
+    animation: library-margin-arrive 240ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-margin-note__body {
+    transition: none;
+  }
+}
+
+@keyframes library-margin-arrive {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

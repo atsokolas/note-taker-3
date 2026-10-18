@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useCssMagneticLerp from '../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
+import { timeLeftLine, wordCount } from './readerDress';
 
 const clamp01 = (n) => Math.max(0, Math.min(1, n));
 
@@ -14,6 +15,8 @@ const MagneticReadingRail = ({
   const reducedMotion = usePrefersReducedMotion();
   const finePointer = useFinePointer();
   const magnet = useCssMagneticLerp('--magnetic-x', 0.2);
+  const words = useRef(0);
+  const [timeLeft, setTimeLeft] = useState('');
 
   const motionOk = enabled && !reducedMotion && finePointer;
 
@@ -28,6 +31,7 @@ const MagneticReadingRail = ({
     bar.style.setProperty('--reading-progress', String(seen));
     /* Out of the way until the reading is under way: a fifth of the piece. */
     railRef.current?.classList.toggle('is-shown', seen >= 0.2);
+    setTimeLeft(timeLeftLine(words.current, seen));
   }, [contentRef]);
 
   const handlePointerMove = useCallback((event) => {
@@ -73,14 +77,19 @@ const MagneticReadingRail = ({
   useEffect(() => {
     const root = rootRef?.current;
     if (!root) return undefined;
+    const countWords = () => { words.current = wordCount(contentRef?.current?.textContent); };
     const syncLayout = () => {
       const rect = root.getBoundingClientRect();
       root.style.setProperty('--magnetic-rail-left', `${Math.max(0, rect.left)}px`);
       root.style.setProperty('--magnetic-rail-width', `${rect.width}px`);
       updateProgress();
     };
+    countWords();
     syncLayout();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncLayout) : null;
+    /* The piece changes size when its text does; recount then, not per scroll. */
+    const ro = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => { countWords(); syncLayout(); })
+      : null;
     if (ro) ro.observe(root);
     window.addEventListener('scroll', syncLayout, { passive: true, capture: true });
     window.addEventListener('resize', syncLayout);
@@ -89,7 +98,7 @@ const MagneticReadingRail = ({
       window.removeEventListener('scroll', syncLayout, true);
       window.removeEventListener('resize', syncLayout);
     };
-  }, [rootRef, updateProgress]);
+  }, [contentRef, rootRef, updateProgress]);
 
   const scrollTop = useCallback(() => {
     const content = contentRef?.current;
@@ -116,7 +125,7 @@ const MagneticReadingRail = ({
           >
             Top
           </button>
-          <span className="magnetic-reading-rail__hint">Reading</span>
+          <span className="magnetic-reading-rail__hint">{timeLeft || 'Reading'}</span>
         </div>
       </div>
     </div>

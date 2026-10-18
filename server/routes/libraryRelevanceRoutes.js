@@ -12,6 +12,8 @@ const {
   buildLibraryRoomProjection,
   buildLibraryShelvesProjection
 } = require('../services/libraryRoomProjectionService');
+const { buildTrail } = require('../services/readingTrail');
+const { buildReadingMap } = require('../services/readingMapService');
 
 const parseLimit = value => {
   if (value === undefined || value === null || value === '') return 40;
@@ -24,6 +26,8 @@ const isObjectId = value => /^[a-f\d]{24}$/i.test(String(value || '').trim());
 const buildLibraryRelevanceRouter = ({
   authenticateToken,
   getFoldersWithCounts,
+  // Tests hand the trail its retrieval and model; the app uses the real ones.
+  trail = {},
   ...models
 } = {}) => {
   const router = express.Router();
@@ -86,6 +90,17 @@ const buildLibraryRelevanceRouter = ({
     } catch (error) {
       console.error('Error building Library room projection:', error);
       return res.status(500).json({ error: 'Failed to load Library.' });
+    }
+  });
+
+  /* Everything read, as one picture. Cached per reader until the library or
+     the writing that names its blind spots changes. */
+  router.get('/api/library/map', authenticateToken, async (req, res) => {
+    try {
+      return res.status(200).json(await buildReadingMap({ userId: req.user.id, models }));
+    } catch (error) {
+      console.error('Error building reading map:', error);
+      return res.status(500).json({ error: 'Failed to draw the reading map.' });
     }
   });
 
@@ -170,6 +185,21 @@ const buildLibraryRelevanceRouter = ({
     } catch (error) {
       console.error('Error building Library source detail:', error);
       return res.status(500).json({ error: 'Failed to load Library source context.' });
+    }
+  });
+
+  // What to read next on a subject: your pieces first, the gap, and the
+  // works from outside that fill it. The service says what qualifies.
+  router.get('/api/library/trail', authenticateToken, async (req, res) => {
+    const subject = String(req.query.subject || '').replace(/\s+/g, ' ').trim();
+    if (!subject || subject.length > 120) {
+      return res.status(400).json({ error: 'Name a subject of up to 120 characters.' });
+    }
+    try {
+      return res.status(200).json(await buildTrail({ userId: req.user.id, subject, models, ...trail }));
+    } catch (error) {
+      console.error('Error laying a reading trail:', error);
+      return res.status(500).json({ error: 'Failed to lay the trail.' });
     }
   });
 

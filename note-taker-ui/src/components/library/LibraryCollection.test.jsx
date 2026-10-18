@@ -166,3 +166,9 @@ test('missing kept pages are not claimed to be an empty canon', async () => {
   await waitFor(() => expect(getLibraryCollection).toHaveBeenCalled());
   expect(screen.queryByText('Nothing here yet.')).not.toBeInTheDocument();
 });
+
+test('a search offers a trail on the same words', async () => {
+  renderCollection({ query: 'attention ' });
+  expect(await screen.findByRole('link', { name: 'What to read next on it →' }))
+    .toHaveAttribute('href', '/library/trail?subject=attention');
+});

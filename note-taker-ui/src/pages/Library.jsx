@@ -37,6 +37,7 @@ import { isProceduralShelf } from './readingDriftModel';
 import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import LibraryCollection from '../components/library/LibraryCollection';
+import LibraryReadingRoom from '../components/library/LibraryReadingRoom';
 import { buildArticlePassageHref } from '../utils/sourceRoutes';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
 import LibraryActions from '../components/library/LibraryActions';
@@ -108,7 +109,6 @@ const Library = () => {
   });
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const [filingLaunching, setFilingLaunching] = useState(false);
-  const [filingReceipt, setFilingReceipt] = useState(null);
   /* Kept pages and beliefs for the canon, or null until they have been read.
      Null travels all the way to the shelf so it can stay silent rather than
      announce an empty canon it has not looked at. */
@@ -275,15 +275,11 @@ const Library = () => {
   const handleReviewFiling = useCallback(async () => {
     if (filingLaunching) return;
     setFilingLaunching(true);
-    setFilingReceipt(null);
     systemStatus.clearRecoverableFailure();
     systemStatus.setBackgroundWork({ label: 'Filing the library', stage: 'Staging suggestions' });
     try {
       const result = await startLibraryFilingSuggestions();
       const receipt = result?.receipt && typeof result.receipt === 'object' ? result.receipt : null;
-      if (receipt?.summary) {
-        setFilingReceipt(receipt);
-      }
       const nextThreadId = String(result?.thread?.threadId || result?.thread?._id || '').trim();
       const href = nextThreadId
         ? `/think?tab=threads&threadId=${encodeURIComponent(nextThreadId)}`
@@ -297,10 +293,6 @@ const Library = () => {
       navigate(href);
     } catch (error) {
       console.error('Failed to start library filing suggestions:', error);
-      setFilingReceipt({
-        stage: 'error',
-        summary: 'Could not stage filing suggestions. Try again in a moment.'
-      });
       systemStatus.setRecoverableFailure({
         stage: 'Library filing',
         message: 'Could not stage filing suggestions. Try again in a moment.',
@@ -1020,11 +1012,6 @@ const Library = () => {
       onArticleQueryChange={handleArticleQueryChange}
       onQueryChange={handleHighlightQueryChange}
       allArticles={allArticles}
-      unfiledCount={unfiledCount}
-      onReviewFiling={handleReviewFiling}
-      filingLaunching={filingLaunching}
-      filingReceipt={filingReceipt}
-      onToggleSuppressed={handleToggleSuppressedItems}
       corpusTotal={corpusTotal}
       rawCorpusTotal={rawCorpusTotal}
       suppressedCount={suppressedCount}
@@ -1109,6 +1096,7 @@ const Library = () => {
           <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>← Back to collection</button>
         </div> : null}
         <div className={`library-reader ${!isReadingView ? 'is-shelf' : ''}`} data-testid="library-main">
+          {collectionView && scope === 'all' && !isReadingView && !articleQuery ? <LibraryReadingRoom onOpen={handleSelectArticle} /> : null}
           {collectionView ? <LibraryCollection
             scope={scope} folderId={shelfFolderId} folderName={selectedFolderName} revision={collectionRevision}
             query={articleQuery} sort={collectionSort} onQueryChange={handleArticleQueryChange}

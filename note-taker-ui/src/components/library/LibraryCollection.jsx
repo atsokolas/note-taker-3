@@ -344,7 +344,10 @@ export default function LibraryCollection({
           {state.loading
             ? 'Searching saved sources…'
             : `${state.total} matching sources in ${scope === 'all' ? 'your Library' : 'this collection'}.`}{' '}
-          Searches saved titles, source text, and passage notes.
+          Searches saved titles, source text, and passage notes.{' '}
+          <Link className="library-search-trail" to={`/library/trail?subject=${encodeURIComponent(query.trim())}`}>
+            What to read next on it →
+          </Link>
         </p>
       ) : null}
       {state.error ? (

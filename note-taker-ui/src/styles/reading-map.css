@@ -1,0 +1,225 @@
+/* A reading map. The page is paper; the subjects are named in the reading
+   serif the way a cartographer letters a region; the dots are ink, quiet
+   until you reach for one. Every colour is a theme token so the map redraws
+   itself in each palette. */
+
+.reading-map {
+  width: min(100% - 32px, 1180px);
+  margin: 0 auto;
+  padding: 34px 0 64px;
+}
+
+.reading-map__quiet {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+}
+
+.reading-map__frame {
+  position: relative;
+  height: clamp(460px, calc(100vh - 260px), 820px);
+  margin-top: 22px;
+  overflow: hidden;
+  border-radius: var(--noeis-radius-panel, 16px);
+  background: color-mix(in srgb, var(--noeis-paper-muted) 55%, var(--noeis-paper));
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+
+.reading-map__frame.is-dragging {
+  cursor: grabbing;
+}
+
+.reading-map__frame:focus-visible {
+  box-shadow: 0 0 0 2px var(--noeis-thread);
+}
+
+.reading-map__svg {
+  display: block;
+}
+
+.reading-map__halo {
+  fill: color-mix(in srgb, var(--noeis-thread) 5%, transparent);
+  stroke: color-mix(in srgb, var(--noeis-rule) 70%, transparent);
+  stroke-width: 1;
+  transition: fill var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+.reading-map__halo.is-active {
+  fill: color-mix(in srgb, var(--noeis-thread) 12%, transparent);
+  stroke: var(--noeis-thread);
+}
+
+.reading-map__name {
+  fill: var(--noeis-ink);
+  font-family: var(--font-serif);
+  font-size: 19px;
+  letter-spacing: 0.01em;
+  paint-order: stroke;
+  stroke: color-mix(in srgb, var(--noeis-paper-muted) 55%, var(--noeis-paper));
+  stroke-width: 5px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.reading-map__name.is-active {
+  fill: var(--noeis-thread-strong);
+}
+
+.reading-map__dot {
+  fill: color-mix(in srgb, var(--noeis-ink) 62%, transparent);
+  stroke: var(--noeis-paper);
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: fill var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+.reading-map__dot:hover,
+.reading-map__dot.is-active {
+  fill: var(--noeis-thread-strong);
+}
+
+/* A blind spot is drawn as absence: a dashed ring around nothing, its name
+   in italic, lighter than the subjects you have read. */
+.reading-map__gap-ring {
+  fill: none;
+  stroke: var(--noeis-ink-subtle);
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+}
+
+.reading-map__gap-name {
+  fill: var(--noeis-ink-muted);
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-style: italic;
+  paint-order: stroke;
+  stroke: color-mix(in srgb, var(--noeis-paper-muted) 55%, var(--noeis-paper));
+  stroke-width: 4px;
+  pointer-events: none;
+}
+
+.reading-map__gap-notes {
+  max-width: 620px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.reading-map__gap-notes em,
+.reading-map__subject--gaps em {
+  font-family: var(--font-serif);
+  color: var(--text-secondary);
+}
+
+/* Floating controls are the only glass on the page. */
+.reading-map__card {
+  position: absolute;
+  z-index: 2;
+  width: max-content;
+  max-width: 300px;
+  padding: 10px 14px;
+  transform: translate(14px, -50%);
+  border: 1px solid var(--noeis-rule);
+  border-radius: var(--noeis-radius-control, 10px);
+  background: var(--noeis-floating);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--noeis-shadow-float);
+  pointer-events: none;
+}
+
+.reading-map__card-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.reading-map__card-line {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-family: var(--font-serif);
+  font-size: 0.86rem;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.reading-map__reset {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 6px 12px;
+  border: 1px solid var(--noeis-rule);
+  border-radius: var(--noeis-radius-pill, 999px);
+  background: var(--noeis-floating);
+  backdrop-filter: blur(14px);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.reading-map__reset:hover,
+.reading-map__reset:focus-visible {
+  color: var(--text-primary);
+}
+
+/* The phone's map is its index. */
+.reading-map__list {
+  margin-top: 18px;
+}
+
+.reading-map__subject {
+  padding: 22px 0 6px;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 62%, transparent);
+}
+
+.reading-map__subject h2 {
+  margin: 0 0 10px;
+  color: var(--text-primary);
+  font-family: var(--font-serif);
+  font-size: 1.3rem;
+  font-weight: 400;
+}
+
+.reading-map__subject ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reading-map__subject li {
+  margin: 0 0 14px;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.reading-map__subject a {
+  color: var(--text-primary);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule-strong) 70%, transparent);
+}
+
+.reading-map__subject li p {
+  margin: 4px 0 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reading-map__halo,
+  .reading-map__dot {
+    transition: none;
+  }
+}

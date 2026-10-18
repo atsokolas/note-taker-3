@@ -158,6 +158,8 @@ const importMetaSchema = new mongoose.Schema({
   draftTemplateLabel: { type: String, default: '', trim: true },
   externalId: { type: String, default: '', trim: true },
   parentExternalId: { type: String, default: '', trim: true },
+  // Tags the source carried where it came from (Pocket, Instapaper), kept as written.
+  tags: { type: [String], default: undefined },
   importSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'ImportSession', default: null },
   importedAt: { type: Date, default: null },
   searchableAt: { type: Date, default: null },
@@ -198,6 +200,9 @@ const articleSchema = new mongoose.Schema({
       startOffsetApprox: Number
     },
     createdAt: { type: Date, default: Date.now },
+    /* How many times its passage has been opened. The reader deepens the ink
+       a step or two; the number itself is never shown. */
+    opens: { type: Number, default: 0, min: 0 },
     importMeta: { type: importMetaSchema, default: () => ({}) }
   }],
   pdfs: { type: [pdfAttachmentSchema], default: [] },
@@ -221,7 +226,17 @@ const articleSchema = new mongoose.Schema({
   placementReason: { type: String, default: '', trim: true },
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
-  archived: { type: Boolean, default: false }
+  archived: { type: Boolean, default: false },
+  /* Stamped by GET /articles/:id. lastOpenedAt is read by the reading loop.
+     Opens within half an hour are one visit; previousVisitAt is when the
+     visit before this one began, which the reader's return greeting reads. */
+  lastOpenedAt: { type: Date, default: null },
+  visitStartedAt: { type: Date, default: null },
+  previousVisitAt: { type: Date, default: null },
+  /* Set only when we already learned it: a fetch, or the reader's own Open
+     source check, answered 404 or 410. Never crawled for. */
+  sourceGoneAt: { type: Date, default: null },
+  sourceCheckedAt: { type: Date, default: null }
 }, { timestamps: true });
 
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });

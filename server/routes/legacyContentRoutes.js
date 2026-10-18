@@ -9,9 +9,12 @@ const {
   fetchArticleBody: readArticleBody,
   fetchReadableArticle: defaultFetchReadableArticle
 } = require('../services/readableArticle');
+const { isGoneStatus } = require('../lib/publicUrlFetch');
 const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
 
 const ARTICLE_PLACEMENTS = new Set(['stream', 'later', 'setAside']);
+/* Opens closer together than this are one visit. */
+const VISIT_GAP_MS = 30 * 60 * 1000;
 
 const hasText = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
@@ -56,7 +59,20 @@ const buildLegacyContentRouter = ({
      private address, every redirect re-checked. A plainer fetcher here would
      have let a caller point the server at its own metadata service and read the
      answer back out of their Library. */
-  const fetchArticleBody = (url) => readArticleBody({ url, fetchReadable: fetchReadableArticle });
+  const fetchArticleBody = async (url) => {
+    let status = 0;
+    const content = await readArticleBody({
+      url,
+      fetchReadable: async (args) => {
+        const readable = await fetchReadableArticle(args);
+        status = readable.status || 0;
+        return readable;
+      }
+    });
+    /* A fetch that answered Not Found or Gone has told us the original is
+       dead. That is worth keeping; we never go looking for it otherwise. */
+    return { content, gone: isGoneStatus(status) };
+  };
 
   const emitWikiSourceEvent = async (payload = {}) => {
     try {
@@ -216,8 +232,11 @@ const buildLegacyContentRouter = ({
          still their body. The fetch is a backstop for the empty case alone. */
       let resolvedContent = typeof content === 'string' ? content.trim() : '';
       let contentSource = resolvedContent ? 'request' : '';
+      let sourceGone = false;
       if (!resolvedContent && !hasText(existing?.content)) {
-        resolvedContent = await fetchArticleBody(url);
+        const fetched = await fetchArticleBody(url);
+        resolvedContent = fetched.content;
+        sourceGone = fetched.gone;
         contentSource = resolvedContent ? 'fetched' : 'missing';
       }
 
@@ -229,6 +248,7 @@ const buildLegacyContentRouter = ({
         ...(author ? { author } : {}),
         ...(publicationDate ? { publicationDate } : {}),
         ...(siteName ? { siteName } : {}),
+        ...(sourceGone ? { sourceGoneAt: new Date() } : {}),
         ...(pdfs !== undefined ? { pdfs: normalizePdfs(pdfs) } : {}),
         /* A placement chosen on the save card. Three decisions, one card:
            the piece arrives already filed and already placed, so it never
@@ -623,6 +643,10 @@ const buildLegacyContentRouter = ({
           'placement',
           'placementAt',
           'placementReason',
+          'lastOpenedAt',
+          'visitStartedAt',
+          'previousVisitAt',
+          'sourceGoneAt',
           'createdAt',
           'updatedAt'
         ].join(' '))
@@ -631,14 +655,21 @@ const buildLegacyContentRouter = ({
       if (!article) {
         return res.status(404).json({ error: "Article not found or you do not have permission to view it." });
       }
-      // Stamp the read. `lastOpenedAt` has existed on the schema since the
-      // beginning with nothing writing it, which left "have I read this?"
-      // answerable only for articles the user also highlighted. Fire-and-forget
-      // and without touching `updatedAt` — reading is not editing, and a failure
-      // here must never cost the reader their article.
-      Article.updateOne({ _id: id, userId }, { $set: { lastOpenedAt: new Date() } }, { timestamps: false })
-        .catch(error => console.error('Failed to stamp article lastOpenedAt:', error.message));
-      res.status(200).json(article);
+      // Stamp the read, fire-and-forget and without touching `updatedAt`:
+      // reading is not editing, and a failure here must never cost the
+      // reader their article. Opens closer together than VISIT_GAP_MS are one
+      // visit, so a refresh or a refetch does not move `previousVisitAt` —
+      // the reader greets a return, not a reload.
+      const now = new Date();
+      const { lastOpenedAt, visitStartedAt, previousVisitAt, ...served } = article;
+      const visitBegins = !lastOpenedAt || now - new Date(lastOpenedAt) > VISIT_GAP_MS;
+      const lastVisitAt = (visitBegins ? visitStartedAt || lastOpenedAt : previousVisitAt) || null;
+      Article.updateOne(
+        { _id: id, userId },
+        { $set: { lastOpenedAt: now, ...(visitBegins ? { visitStartedAt: now, previousVisitAt: lastVisitAt } : {}) } },
+        { timestamps: false }
+      ).catch(error => console.error('Failed to stamp article lastOpenedAt:', error.message));
+      res.status(200).json({ ...served, lastVisitAt });
     } catch (error) {
       console.error("❌ Error fetching single article by ID:", error);
       if (error.name === 'CastError') {

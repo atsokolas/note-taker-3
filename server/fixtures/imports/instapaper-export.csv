@@ -1,0 +1,5 @@
+URL,Title,Selection,Folder,Timestamp
+https://example.com/essays/attention,"On Attention, Again","Attention is the beginning of devotion.",Essays,1700000000
+https://example.com/news/today,Today in brief,,Unread,1700000100
+https://example.com/longform/cities,The Life of Cities,,Archive,1700000200
+not-a-url,Broken row,,Unread,1700000300

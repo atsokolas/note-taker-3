@@ -108,6 +108,15 @@
   font: 11px/1.6 var(--noeis-ui-font, sans-serif);
   margin: 9px 0 0;
 }
+.library-search-trail {
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  transition: color 160ms ease;
+}
+.library-search-trail:hover {
+  color: var(--library-accent, var(--text-primary));
+}
 .library-personal-trace {
   display: flex;
   align-items: baseline;
@@ -195,15 +204,28 @@
   text-decoration: underline;
   text-underline-offset: 5px;
 }
+/* "You stopped here on Tuesday." The line sits in the gap above the
+   paragraph, so fading it moves nothing; reduced motion simply removes it. */
 .article-reader-content .is-reading-place {
+  position: relative;
   scroll-margin-top: 180px;
 }
 .article-reader-content .is-reading-place::before {
   content: attr(data-stopped);
-  display: block;
-  margin-bottom: 10px;
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 2px;
   color: var(--text-muted);
   font: 12px/1.5 var(--noeis-ui-font, sans-serif);
+  pointer-events: none;
+  transition: opacity 900ms ease;
+}
+.article-reader-content .is-reading-place.is-stopped-faded::before {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .article-reader-content .is-reading-place::before { transition: none; }
 }
 .article-reader-content .is-reading-before {
   box-shadow: -3px 0 color-mix(in srgb, var(--noeis-thread, #b1862e) 35%, transparent);
@@ -230,6 +252,67 @@
 }
 .article-done.is-settled {
   opacity: 0.45;
+}
+/* Explain it back sits under the done line, as quiet as it. */
+.explain-back {
+  margin: 12px 0 0;
+  font: 14px/1.5 var(--noeis-ui-font, sans-serif);
+  color: var(--text-muted);
+}
+.explain-back button {
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--noeis-thread, #b1862e) 55%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.explain-back button:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+.explain-back.is-open {
+  display: grid;
+  gap: 10px;
+  max-width: 640px;
+}
+.explain-back textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--noeis-rule);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font: 16px/1.55 var(--font-serif);
+  resize: vertical;
+}
+.explain-back__actions {
+  display: flex;
+  gap: 18px;
+}
+.explain-back__note {
+  margin: 4px 0 0;
+}
+.explain-back__missed ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.explain-back__missed li p {
+  margin: 0 0 4px;
+  color: var(--text-primary);
+}
+.explain-back__missed blockquote {
+  margin: 0;
+  padding-left: 14px;
+  border-left: 2px solid var(--noeis-rule);
+  font: italic 16px/1.55 var(--font-serif);
+  color: var(--text-secondary);
 }
 .article-passage-thought {
   padding: 16px 20px;
@@ -305,6 +388,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .library-collection-row,
+  .library-search-trail,
   .article-done {
     transition: none;
   }

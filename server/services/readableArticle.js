@@ -132,7 +132,14 @@ const fetchReadableArticle = async ({ url, fetchImpl, lookup } = {}) => {
     const content = bodyFrom(html).slice(0, MAX_CONTENT_LENGTH);
     return { ok: true, url: finalUrl, title: titleFrom(html), content, error: '' };
   } catch (error) {
-    return { ok: false, url: '', title: '', content: '', error: String(error?.message || 'Could not read that source.') };
+    return {
+      ok: false,
+      url: '',
+      title: '',
+      content: '',
+      error: String(error?.message || 'Could not read that source.'),
+      status: Number(error?.status) || 0
+    };
   }
 };
 

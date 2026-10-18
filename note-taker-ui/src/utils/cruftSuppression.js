@@ -60,15 +60,3 @@ export const filterReturnViewItems = (items = []) => (
 export const filterLibraryBrowseItems = (items = []) => (
   (Array.isArray(items) ? items : []).filter((item) => !isSuppressedFromLibraryBrowse(item))
 );
-
-export const countSuppressedInCollection = (items = []) => (
-  (Array.isArray(items) ? items : []).filter(isSuppressedFromReturnView).length
-);
-
-export const composeCruftSuppressionNotice = (count = 0) => {
-  const total = Number(count) || 0;
-  if (total <= 0) return '';
-  const label = total === 1 ? 'import' : 'imports';
-  const verb = total === 1 ? 'was' : 'were';
-  return `${total} low-signal ${label} ${verb} kept out of your return view.`;
-};

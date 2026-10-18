@@ -1,7 +1,5 @@
 import {
-  composeCruftSuppressionNotice,
   filterLibraryBrowseItems,
-  countSuppressedInCollection,
   filterReturnViewItems,
   isSuppressedFromLibraryBrowse,
   isSuppressedFromReturnView,
@@ -52,20 +50,16 @@ describe('cruftSuppression', () => {
     ]);
   });
 
-  it('filters ranked collections and composes the maintenance notice', () => {
+  it('filters ranked collections', () => {
     const items = [
       { title: 'investing' },
       { title: 'Blah' },
       { title: 'Test' },
       { title: 'Playing to Win' }
     ];
-    expect(countSuppressedInCollection(items)).toBe(2);
     expect(filterReturnViewItems(items).map((item) => item.title)).toEqual([
       'investing',
       'Playing to Win'
     ]);
-    expect(composeCruftSuppressionNotice(7)).toBe(
-      '7 low-signal imports were kept out of your return view.'
-    );
   });
 });

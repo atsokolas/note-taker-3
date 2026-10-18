@@ -160,6 +160,11 @@ const server = app.listen(0, '127.0.0.1', async () => {
       ['author', 'importedAt', 'provider', 'publicationDate', 'siteName', 'sourceLabel', 'sourceType']
     );
 
+    const map = await request('/api/library/map');
+    assert.strictEqual(map.response.status, 200);
+    assert.strictEqual(map.body.status, 'quiet');
+    assert.deepStrictEqual(map.body.sources, []);
+
     const invalidDetail = await request('/api/library/relevance/not-an-id');
     assert.strictEqual(invalidDetail.response.status, 400);
     assert.strictEqual(isObjectId('64f100000000000000000021'), true);

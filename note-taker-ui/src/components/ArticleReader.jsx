@@ -13,7 +13,14 @@ import PassageThought from './reader/PassageThought';
 import ReadFresh, { useReadFresh } from './reader/ReadFresh';
 import useArticleReadingPlace from './reader/useArticleReadingPlace';
 import MagneticReadingRail from './reader/MagneticReadingRail';
+import ReturnGreeting from './reader/ReturnGreeting';
+import FootnotePeek from './reader/FootnotePeek';
+import OpenSource from './reader/OpenSource';
+import usePassageOpens from './reader/usePassageOpens';
+import { sourceKind } from './reader/readerDress';
+import ExplainItBack from './reader/ExplainItBack';
 import PassageDoor from './reader/PassageDoorView';
+import { ArticleMargins } from './margins/LibraryMargins';
 import { heldHighlightIds, sourceWhereabouts } from './reader/sourceWhereabouts';
 import OpenedLibraryPassage, { LibraryOriginReturn } from './wiki/open-sentence/OpenedLibraryPassage';
 import { matchingReturnTicket } from './wiki/open-sentence/openSentenceJourney';
@@ -33,7 +40,7 @@ import {
   readArticlePassageFragment
 } from '../utils/articlePassageAnchor';
 import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
-import { originalUrl, sourceLabel } from './library/libraryColumnModel';
+import { sourceLabel } from './library/libraryColumnModel';
 import { formatCalendarDate } from '../utils/dateDisplay';
 import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 
@@ -215,10 +222,12 @@ const ArticleReader = ({
     return () => { cancelled = true; };
   }, [articleId]);
   const fireTourSignal = useTourSignal();
+  const inkedHighlights = usePassageOpens({ articleId, highlightId: focusedHighlightId, highlights });
   const html = useMemo(
-    () => renderArticleContentWithHighlights(article, highlights),
-    [article, highlights]
+    () => renderArticleContentWithHighlights(article, inkedHighlights),
+    [article, inkedHighlights]
   );
+  const dress = useMemo(() => sourceKind(article), [article]);
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     const readLocation = () => setPassageLocation({
@@ -372,7 +381,7 @@ const ArticleReader = ({
     return '';
   })();
 
-  useArticleReadingPlace({
+  const arrival = useArticleReadingPlace({
     articleId, contentRef, contentKey: article?.content,
     explicitDestination: Boolean(focusedHighlightId || location.hash || new URLSearchParams(location.search).has('searchMissing') || location.state?.explicitPassage),
     enabled: Boolean(articleId && hasReadableContent(article?.content))
@@ -485,7 +494,7 @@ const ArticleReader = ({
   };
 
   return (
-    <div className="article-reader" ref={readerRootRef} data-read-fresh={reading.readFresh || undefined}>
+    <div className="article-reader" ref={readerRootRef} data-read-fresh={reading.readFresh || undefined} data-source-kind={dress || undefined}>
       {selectionState.isOpen && !reading.readFresh && (
         <SelectionMenu
           ref={menuRef}
@@ -529,9 +538,7 @@ const ArticleReader = ({
           <div className="article-reader-meta">
             {/* When it was published. When you saved it lives in the source record. */}
             {published ? <span>{published}</span> : null}
-            {originalUrl(article) ? (
-              <a href={originalUrl(article)} target="_blank" rel="noopener noreferrer">Open source</a>
-            ) : null}
+            <OpenSource key={article._id} article={article} />
           </div>
           {folioLine ? <ArticleFolioLine line={folioLine} articleId={article._id} /> : null}
         </div>
@@ -571,6 +578,7 @@ const ArticleReader = ({
       {!focusedHighlight && passageFragment.status === 'ready' ? (
         <LibraryOriginReturn ticket={matchingReturnTicket({ articleId, passage: passageFragment.anchor.text, anchor: passageFragment.anchor })} />
       ) : null}
+      <ReturnGreeting key={articleId} article={article} highlights={highlights} arrival={arrival} contentRef={contentRef} />
       {articleId ? (
         <OpenedLibraryPassage
           key={articleId}
@@ -626,6 +634,15 @@ const ArticleReader = ({
       ) : (
         <>
           <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
+          <FootnotePeek contentRef={contentRef} />
+          <ArticleMargins
+            articleId={articleId}
+            contentRef={contentRef}
+            frameRef={readerRootRef}
+            contentKey={article.content}
+            layoutKey={contentMarkup.__html}
+            hidden={Boolean(reading.readFresh)}
+          />
           <div className="article-passage-threads" aria-label="Connections to held judgments">
             {highlights
               .filter((highlight) => !heldPassages.has(String(highlight?._id || highlight?.id || '')))
@@ -649,6 +666,7 @@ const ArticleReader = ({
           <button type="button" aria-pressed={placement === 'setAside'} onClick={() => park(placement === 'setAside' ? 'stream' : 'setAside')}>Set aside</button>
         </p>
       ) : null}
+      <ExplainItBack articleId={articleId} />
       {sourceTrace}
       {closingLine || whereabouts.length || against ? (
         <ul className="article-whereabouts" aria-label="Where this piece went">

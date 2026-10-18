@@ -8,8 +8,6 @@ const jwt = require('jsonwebtoken');
 const PDFDocument = require('pdfkit');
 const archiver = require('archiver');
 const multer = require('multer');
-const Papa = require('papaparse');
-const path = require('path');
 const crypto = require('crypto');
 const { ensureWorkspace } = require('./utils/workspaceUtils');
 const {
@@ -644,6 +642,7 @@ const { buildAgentProposedChangeRouter } = require('./routes/agentProposedChange
 const { buildAgentStructureProposalRouter } = require('./routes/agentStructureProposalRoutes');
 const { buildArticleReadingStateRouter } = require('./routes/articleReadingStateRoutes');
 const { buildLibraryCollectionRouter } = require('./routes/libraryCollectionRoutes');
+const { buildReadingRoomRouter } = require('./routes/readingRoomRoutes');
 const { buildAgentChatRouter } = require('./routes/agentChatRoutes');
 const {
   createAgentTokenSecret,
@@ -4540,23 +4539,6 @@ async function authenticateAgentBridgeToken(req, res, next) {
   }
 }
 
-const findRowValue = (row, keys) => {
-  if (!row) return '';
-  for (const key of keys) {
-    if (row[key] !== undefined && row[key] !== null) return row[key];
-    const match = Object.keys(row).find(k => k.toLowerCase() === String(key).toLowerCase());
-    if (match && row[match] !== undefined && row[match] !== null) return row[match];
-  }
-  return '';
-};
-
-const parseTagList = (value) => (
-  String(value || '')
-    .split(',')
-    .map(tag => tag.trim())
-    .filter(Boolean)
-);
-
 const slugify = (value) => (
   String(value || '')
     .toLowerCase()
@@ -4988,7 +4970,9 @@ app.use(buildLibraryRelevanceRouter({
   WikiSourceEvent,
   NoeisReceipt,
   Connection,
-  ReferenceEdge
+  ReferenceEdge,
+  Question,
+  VectorItem
 }));
 
 app.use(buildReadingLoopRouter({
@@ -5470,6 +5454,7 @@ app.use(buildPersonalAgentRouter({
 app.use(buildEditionThoughtRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Edition, Note }));
 app.use(buildArticleReadingStateRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Article, ArticleReadingState }));
 app.use(buildLibraryCollectionRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, mongoose, Article, ArticleReadingState }));
+app.use(buildReadingRoomRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, mongoose, Article, ArticleReadingState }));
 
 app.use(buildEditionRouter({
   auth: authenticateUserOrAgentToken,
@@ -5849,14 +5834,11 @@ const importRouter = buildImportRouter({
   authenticateToken,
   isAccountActive,
   upload,
-  Papa,
-  findRowValue,
   slugify,
-  parseTagList,
   Article,
+  Folder,
   trackEvent,
   EVENT_NAMES,
-  path,
   crypto,
   TagMeta,
   NotebookEntry,

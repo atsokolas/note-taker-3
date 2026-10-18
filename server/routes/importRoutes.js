@@ -25,6 +25,7 @@ const {
 const {
   buildReadwisePreviewSummary
 } = require('../services/import/readwiseTransform');
+const { FORMAT_LABELS, parseExportFile } = require('../services/import/exportFiles');
 const {
   fetchUrlForIngest,
   normalizeIngestText
@@ -84,14 +85,11 @@ const buildImportRouter = ({
   authenticateToken,
   isAccountActive = async () => false,
   upload,
-  Papa,
-  findRowValue,
   slugify,
-  parseTagList,
   Article,
+  Folder = null,
   trackEvent,
   EVENT_NAMES,
-  path,
   crypto,
   TagMeta,
   NotebookEntry,
@@ -663,6 +661,7 @@ const buildImportRouter = ({
     touched = [],
     nextAction = null,
     error = null,
+    summary = '',
     createdAt = new Date(),
     completedAt = new Date()
   } = {}) => {
@@ -686,7 +685,7 @@ const buildImportRouter = ({
       sourceLabel: safeLabel,
       status,
       title: `${safeLabel} import ${status === 'failed' ? 'failed' : 'finished'}`,
-      summary: error?.message || buildImportReceiptSummary(metrics),
+      summary: error?.message || summary || buildImportReceiptSummary(metrics),
       metrics,
       touched,
       nextAction,
@@ -1069,7 +1068,8 @@ const buildImportRouter = ({
     folderPlacement,
     importMeta,
     createdAt,
-    updatedAt
+    updatedAt,
+    skipUnchanged = false
   }) => {
     const existing = await NotebookEntry.findOne({
       userId,
@@ -1091,6 +1091,16 @@ const buildImportRouter = ({
     const nextFolder = preserveUserOwnedFolder
       ? (existing?.folder || null)
       : (folderPlacement?.folder?._id || null);
+
+    if (
+      skipUnchanged
+      && existing
+      && existing.title === title
+      && existing.content === content
+      && String(existing.folder || '') === String(nextFolder || '')
+    ) {
+      return { entry: existing, created: false, updated: false };
+    }
 
     if (existing) {
       existing.title = title;
@@ -1360,215 +1370,358 @@ const buildImportRouter = ({
     });
   };
 
-  const handleReadwiseImport = async (req, res) => {
+  /* One door for every export file: Kindle, Apple Books, Pocket, Instapaper,
+     Readwise CSV, and folders of Markdown from Notion or Obsidian. The files
+     are read by services/import/exportFiles into sources and notes; this lands
+     them. Safe to repeat: a source is found again by its address, a highlight
+     by its words, a note by its path, and nothing is added twice. */
+  const EXPORT_LIMITS = { files: 2000, bytes: 60 * 1024 * 1024 };
+  const EXPORT_UNITS = {
+    kindle: 'book',
+    'apple-books': 'book',
+    pocket: 'article',
+    instapaper: 'article',
+    readwise: 'source',
+    markdown: 'note'
+  };
+  const sameText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+  const receiveExportFiles = (req, res, next) => {
+    const tooLarge = () => res.status(413).json({ error: 'That is more than 60 MB at once. Bring it in a few smaller batches.' });
+    if (Number(req.headers['content-length'] || 0) > EXPORT_LIMITS.bytes) return tooLarge();
+    // The header is optional (chunked uploads omit it), so count the bytes as they arrive.
+    let received = 0;
+    const meter = (chunk) => {
+      received += chunk.length;
+      if (received <= EXPORT_LIMITS.bytes) return;
+      req.off('data', meter);
+      req.unpipe();
+      res.set('Connection', 'close');
+      tooLarge();
+      req.resume();
+    };
+    req.on('data', meter);
+    return upload.array('files', EXPORT_LIMITS.files)(req, res, (error) => {
+      req.off('data', meter);
+      if (res.headersSent) return undefined;
+      if (!error) return next();
+      const message = error.code === 'LIMIT_FILE_SIZE'
+        ? 'One of those files is larger than 15 MB.'
+        : error.code === 'LIMIT_UNEXPECTED_FILE'
+          ? `Bring in up to ${EXPORT_LIMITS.files} files at a time.`
+          : 'Those files could not be read.';
+      return res.status(413).json({ error: message });
+    });
+  };
+
+  const inBatches = async (values, size, work) => {
+    for (let index = 0; index < values.length; index += size) {
+      await Promise.all(values.slice(index, index + size).map(work));
+    }
+  };
+
+  const landExportSources = async ({ userId, sources, sourceLabel, importSessionId, indexing }) => {
+    const tally = { newSources: 0, newHighlights: 0, sourcesWithNewHighlights: 0, alreadyHere: 0 };
+    if (!sources.length) return { tally, articles: [] };
+    const addresses = [...new Set(sources.flatMap(source => [source.url, ...(source.aliases || [])]))];
+    const byUrl = new Map();
+    for (let index = 0; index < addresses.length; index += 1000) {
+      const found = await Article.find({ userId, url: { $in: addresses.slice(index, index + 1000) } });
+      found.forEach(article => byUrl.set(article.url, article));
+    }
+    // Folders and concepts are matched by name, never made: an export's
+    // shelves become this library's shelves only where the reader already has them.
+    const folders = Folder ? await Folder.find({ userId }).select('name').lean() : [];
+    const folderByName = new Map(folders.map(folder => [sameText(folder.name), folder._id]));
+    const concepts = TagMeta?.find ? await TagMeta.find({ userId }).select('name').lean() : [];
+    const conceptByName = new Map(concepts.map(concept => [sameText(concept.name), concept._id]));
+
+    const dirty = new Set();
+    const madeNow = new Set();
+    const newHighlights = [];
+    const pins = [];
+    sources.forEach((source) => {
+      const provider = source.provider;
+      let article = byUrl.get(source.url) || (source.aliases || []).map(alias => byUrl.get(alias)).find(Boolean);
+      const importMeta = {
+        provider,
+        sourceType: 'file_upload',
+        sourceLabel,
+        sourceUrl: /^https?:/i.test(source.url) ? source.url : '',
+        importSessionId: importSessionId || null,
+        importedAt: new Date(),
+        ...(source.tags?.length ? { tags: source.tags } : {})
+      };
+      if (!article) {
+        const folderName = [source.folderName, ...(source.tags || [])].find(name => folderByName.has(sameText(name)));
+        article = new Article({
+          url: source.url,
+          title: deriveImportedTitle({
+            metadataTitle: source.title,
+            content: source.highlights[0]?.text || '',
+            author: source.author,
+            sourceType: 'csv',
+            url: source.url
+          }),
+          author: source.author || '',
+          content: '',
+          userId,
+          folder: folderName ? folderByName.get(sameText(folderName)) : null,
+          importMeta
+        });
+        if (source.savedAt) article.createdAt = source.savedAt;
+        byUrl.set(source.url, article);
+        madeNow.add(article);
+        dirty.add(article);
+        tally.newSources += 1;
+      } else if (!source.highlights.length && !madeNow.has(article)) {
+        tally.alreadyHere += 1;
+      }
+      (source.tags || []).forEach((tag) => {
+        const conceptId = conceptByName.get(sameText(tag));
+        if (conceptId) pins.push({ conceptId, article });
+      });
+
+      const held = new Set((article.highlights || []).map(highlight => sameText(highlight.text)));
+      let added = 0;
+      source.highlights.forEach((highlight) => {
+        const words = sameText(highlight.text);
+        if (!words) return;
+        if (held.has(words)) {
+          tally.alreadyHere += 1;
+          return;
+        }
+        held.add(words);
+        article.highlights.push({
+          text: highlight.text,
+          note: highlight.note || '',
+          tags: highlight.tags || [],
+          ...(highlight.createdAt ? { createdAt: highlight.createdAt } : {}),
+          importMeta: { ...importMeta, sourcePath: highlight.location || '' }
+        });
+        newHighlights.push({ article, highlight: article.highlights[article.highlights.length - 1] });
+        added += 1;
+      });
+      if (added) {
+        dirty.add(article);
+        tally.newHighlights += added;
+        tally.sourcesWithNewHighlights += 1;
+      }
+    });
+
+    const articles = [...dirty];
+    await inBatches(articles, 50, article => article.save());
+    if (pins.length && TagMeta?.bulkWrite) {
+      await TagMeta.bulkWrite(pins.map(({ conceptId, article }) => ({
+        updateOne: { filter: { _id: conceptId, userId }, update: { $addToSet: { pinnedArticleIds: article._id } } }
+      })));
+    }
+    // The wiki reads passages, so it hears about the ones that arrived. A bare
+    // saved link has nothing in it to read yet.
+    const withPassages = new Set(newHighlights.map(({ article }) => article));
+    await inBatches([...withPassages], 50, article => emitWikiSourceEvent({
+      userId,
+      sourceType: 'article',
+      sourceObjectId: article._id,
+      provider: article.importMeta?.provider || 'import',
+      eventType: 'imported',
+      title: article.title,
+      summary: article.content || '',
+      url: article.url,
+      sourceUpdatedAt: article.updatedAt || new Date(),
+      metadata: { source: 'export-file', importSessionId }
+    }));
+    await inBatches(newHighlights, 50, ({ article, highlight }) => emitWikiSourceEvent({
+      userId,
+      sourceType: 'highlight',
+      sourceObjectId: highlight._id,
+      parentObjectId: article._id,
+      provider: highlight.importMeta?.provider || 'import',
+      eventType: 'imported',
+      title: article.title,
+      summary: [highlight.text, highlight.note].filter(Boolean).join(' - '),
+      url: article.url,
+      sourceUpdatedAt: highlight.createdAt || new Date(),
+      metadata: { source: 'export-file', importSessionId }
+    }));
+    await inBatches(articles, 50, article => queueIndexingAttempt(
+      indexing,
+      () => enqueueArticleEmbedding(article),
+      `Article indexing failed for ${article.title || article._id}`
+    ));
+    await inBatches(newHighlights, 50, ({ article, highlight }) => queueIndexingAttempt(
+      indexing,
+      () => enqueueHighlightEmbedding({ highlight, article }),
+      `Highlight indexing failed for ${article.title || article._id}`
+    ));
+    return { tally, articles };
+  };
+
+  /* A Notion or Obsidian note is the reader's own writing, so it lands in
+     Think beside their other notes, in folders mirroring the ones it came from. */
+  const landExportNotes = async ({ userId, notes, importSessionId, indexing }) => {
+    const tally = { notesCreated: 0, notesUpdated: 0, alreadyHere: 0 };
+    const entries = [];
+    const placements = new Map();
+    for (const note of notes) {
+      const [root = '', ...rest] = note.folderPath;
+      const placementKey = note.folderPath.join('/');
+      if (!placements.has(placementKey)) {
+        placements.set(placementKey, await ensureNotebookImportFolderPath({
+          userId,
+          provider: 'markdown',
+          sourceType: 'file_upload',
+          sourceLabel: root,
+          folderOwnership: NOTEBOOK_IMPORT_FOLDER_OWNERSHIP,
+          sourcePath: rest
+        }));
+      }
+      const folderPlacement = placements.get(placementKey);
+      const { entry, created, updated } = await upsertImportedNotebookEntry({
+        userId,
+        provider: 'markdown',
+        externalId: note.externalId,
+        title: note.title,
+        content: note.content,
+        blocks: note.blocks.map(block => ({ id: crypto.randomUUID(), ...block })),
+        tags: note.tags,
+        folderPlacement,
+        skipUnchanged: true,
+        importMeta: {
+          provider: 'markdown',
+          sourceType: 'file_upload',
+          sourceLabel: root || 'Markdown',
+          sourcePath: folderPlacement.sourcePath,
+          folderOwnership: NOTEBOOK_IMPORT_FOLDER_OWNERSHIP,
+          externalId: note.externalId,
+          importSessionId: importSessionId || null,
+          importedAt: new Date()
+        }
+      });
+      if (!created && !updated) {
+        tally.alreadyHere += 1;
+        continue;
+      }
+      tally[created ? 'notesCreated' : 'notesUpdated'] += 1;
+      entries.push(entry);
+    }
+    await inBatches(entries, 50, entry => queueIndexingAttempt(
+      indexing,
+      () => enqueueNotebookEmbedding(entry),
+      `Notebook indexing failed for ${entry.title || entry._id}`
+    ));
+    return { tally, entries };
+  };
+
+  /* The receipt says what happened in the reader's terms: highlights from
+     books, saved articles, notes, and what was already here. When nothing
+     could be read it says so, and nothing else. */
+  const describeExportLanding = ({ formats, sources, notes, unreadable, unattachedNotes }) => {
+    const units = [...new Set(formats.map(format => EXPORT_UNITS[format]).filter(unit => unit && unit !== 'note'))];
+    const unit = units.length === 1 ? units[0] : 'source';
+    const parts = [];
+    if (sources.newHighlights) {
+      parts.push(`Imported ${pluralize(sources.newHighlights, 'highlight')} from ${pluralize(sources.sourcesWithNewHighlights, unit)}`);
+    }
+    const bareSaves = sources.newSources - (sources.newHighlights ? sources.sourcesWithNewHighlights : 0);
+    if (bareSaves > 0) parts.push(`${parts.length ? 'saved' : 'Saved'} ${pluralize(bareSaves, unit === 'source' ? 'article' : unit)}`);
+    if (notes.notesCreated) parts.push(`${parts.length ? 'brought in' : 'Brought in'} ${pluralize(notes.notesCreated, 'note')}`);
+    if (notes.notesUpdated) parts.push(`${parts.length ? 'refreshed' : 'Refreshed'} ${pluralize(notes.notesUpdated, 'note')}`);
+    const alreadyHere = sources.alreadyHere + notes.alreadyHere;
+    let summary = parts.join('; ');
+    if (summary && alreadyHere) summary += `; ${alreadyHere} ${alreadyHere === 1 ? 'was' : 'were'} already here`;
+    if (!summary) {
+      summary = alreadyHere
+        ? 'Everything in that export was already here'
+        : 'Nothing in those files read as highlights, saved articles or notes';
+    }
+    const asides = [];
+    if (unattachedNotes) asides.push(`${pluralize(unattachedNotes, 'Kindle note')} had no highlight to sit beside and ${unattachedNotes === 1 ? 'was' : 'were'} left out.`);
+    if (unreadable) asides.push(`${pluralize(unreadable, 'entry', 'entries')} could not be read.`);
+    return [`${summary}.`, ...asides].join(' ');
+  };
+
+  router.post('/api/import/files', authenticateToken, receiveExportFiles, async (req, res) => {
     const importSessionId = readImportSessionId(req);
     const userId = req.user.id;
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (!files.length) return res.status(400).json({ error: 'Choose an export file or a folder of notes.' });
+    // Browsers send a folder's inner paths alongside the files, in order.
+    const paths = [].concat(req.body?.paths || []);
+    const readable = files
+      .map((file, index) => ({ name: file.originalname, path: toTrimmedString(paths[index]), text: file.buffer.toString('utf8') }))
+      .filter(file => !(file.path || file.name).split('/').some(segment => segment.startsWith('.')));
+    const sourceLabel = files.length === 1 ? (files[0].originalname || 'Export file') : (toTrimmedString(paths[0]).split('/')[0] || 'Export files');
 
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'CSV file is required.' });
-      }
-
       await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
           session.status = 'importing';
-          session.sourceLabel = session.sourceLabel || req.file.originalname || 'Readwise CSV';
+          session.sourceLabel = session.sourceLabel || sourceLabel;
           clearImportOrganizationOffer(session);
-          session.progress = {
-            ...(session.progress || {}),
-            stage: 'upload_received',
-            indexingState: 'not_started'
-          };
+          session.progress = { ...(session.progress || {}), stage: 'upload_received', indexingState: 'not_started' };
         }
       });
 
-      const csvText = req.file.buffer.toString('utf8');
-      const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
-      const rows = Array.isArray(parsed.data) ? parsed.data : [];
-
-      let importedArticles = 0;
-      let importedHighlights = 0;
-      let skippedRows = 0;
-      let duplicateSkips = 0;
-      let invalidSkips = 0;
-
-      const articleCache = new Map();
-      const dirtyArticles = new Set();
-      const pendingHighlightRefs = [];
-      for (const row of rows) {
-        const highlightText = toTrimmedString(findRowValue(row, ['Highlight', 'Text', 'Highlight text']));
-        if (!highlightText) {
-          skippedRows += 1;
-          invalidSkips += 1;
-          continue;
-        }
-
-        const metadataTitle = toTrimmedString(findRowValue(row, ['Title', 'Book Title', 'Article Title']));
-        const author = toTrimmedString(findRowValue(row, ['Author']));
-        let url = toTrimmedString(findRowValue(row, ['URL', 'Source URL', 'Link']));
-        if (!url) {
-          const base = `${slugify(metadataTitle)}-${slugify(author || 'source')}`;
-          url = `import://readwise/${base || 'untitled'}`;
-        }
-
-        const note = toTrimmedString(findRowValue(row, ['Note', 'Notes']));
-        const tagsValue = findRowValue(row, ['Tags', 'Tag']);
-        const tags = parseTagList(tagsValue);
-        const tagList = tags.length > 0 ? tags : ['imported'];
-        const dateValue = findRowValue(row, ['Highlighted at', 'Created at', 'Added', 'Date']);
-        const parsedDate = dateValue ? new Date(dateValue) : null;
-        const createdAt = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
-        const title = deriveImportedTitle({
-          metadataTitle,
-          content: highlightText,
-          author,
-          sourceType: /(?:x\.com|twitter\.com)/i.test(url) ? 'social_thread' : 'csv',
-          url,
-          publishedAt: createdAt
-        });
-
-        let article = articleCache.get(url);
-        if (!article) {
-          article = await Article.findOne({ userId, url });
-          if (!article) {
-            article = new Article({
-              url,
-              title,
-              content: '',
-              userId,
-              importMeta: {
-                provider: 'readwise',
-                sourceType: 'csv',
-                sourceLabel: req.file.originalname || 'Readwise CSV',
-                sourceUrl: url,
-                importSessionId: importSessionId || null,
-                importedAt: new Date()
-              }
-            });
-            importedArticles += 1;
-          } else if (isFragmentTitle(article.title)) {
-            article.title = title;
-            dirtyArticles.add(article);
-          }
-          articleCache.set(url, article);
-        }
-
-        const alreadyExists = (article.highlights || []).some(h => h.text === highlightText);
-        if (alreadyExists) {
-          skippedRows += 1;
-          duplicateSkips += 1;
-          continue;
-        }
-
-        article.highlights.push({
-          text: highlightText,
-          note,
-          tags: tagList,
-          createdAt,
-          importMeta: {
-            provider: 'readwise',
-            sourceType: 'csv',
-            sourceLabel: req.file.originalname || 'Readwise CSV',
-            sourceUrl: url,
-            importSessionId: importSessionId || null,
-            importedAt: new Date()
-          }
-        });
-        const highlightRef = article.highlights[article.highlights.length - 1];
-        pendingHighlightRefs.push({ article, highlight: highlightRef });
-        dirtyArticles.add(article);
-        importedHighlights += 1;
-      }
-
-      await Promise.all(Array.from(dirtyArticles).map(article => article.save()));
-      await Promise.all(Array.from(dirtyArticles).map(article => emitWikiSourceEvent({
-        userId,
-        sourceType: 'article',
-        sourceObjectId: article._id,
-        provider: 'readwise',
-        eventType: 'imported',
-        title: article.title,
-        summary: article.content || '',
-        url: article.url,
-        sourceUpdatedAt: article.updatedAt || new Date(),
-        metadata: { source: 'readwise-csv', importSessionId }
-      })));
-      await Promise.all(pendingHighlightRefs.map(({ article, highlight }) => emitWikiSourceEvent({
-        userId,
-        sourceType: 'highlight',
-        sourceObjectId: highlight._id,
-        parentObjectId: article._id,
-        provider: 'readwise',
-        eventType: 'imported',
-        title: article.title,
-        summary: [highlight.text, highlight.note].filter(Boolean).join(' - '),
-        url: article.url,
-        sourceUpdatedAt: highlight.createdAt || article.updatedAt || new Date(),
-        metadata: { source: 'readwise-csv', importSessionId }
-      })));
-      await logConnectorAction({
-        userId,
-        connector: 'readwise',
-        action: 'import_csv',
-        targetType: 'import_session',
-        targetId: importSessionId || '',
-        summary: `Imported ${importedHighlights} Readwise highlights.`,
-        metadata: { importedArticles, importedHighlights, skippedRows }
-      });
+      const parsed = readable.map(parseExportFile);
+      const formats = [...new Set(parsed.map(result => result.format).filter(format => format !== 'unknown'))];
+      const sources = parsed.flatMap(result => result.sources.map(source => ({ ...source, provider: result.format })));
+      const notes = parsed.flatMap(result => result.notes || []);
+      const unreadable = parsed.reduce((sum, result) => sum + (result.skipped || 0), 0);
+      const unattachedNotes = parsed.reduce((sum, result) => sum + (result.unattachedNotes || 0), 0);
+      const unrecognised = parsed.filter(result => result.format === 'unknown').length;
+      const provider = formats.length === 1 ? formats[0] : 'files';
+      const label = formats.length === 1 ? FORMAT_LABELS[formats[0]] : 'Your exports';
 
       const indexing = buildIndexingSummary();
-      await Promise.all([
-        ...Array.from(dirtyArticles).map(article => queueIndexingAttempt(
-          indexing,
-          () => enqueueArticleEmbedding(article),
-          `Article indexing failed for ${article.title || article._id}`
-        )),
-        ...pendingHighlightRefs.map(({ article, highlight }) => queueIndexingAttempt(
-          indexing,
-          () => enqueueHighlightEmbedding({ highlight, article }),
-          `Highlight indexing failed for ${article.title || article._id}`
-        ))
-      ]);
+      const landed = await landExportSources({ userId, sources, sourceLabel, importSessionId, indexing });
+      const written = await landExportNotes({ userId, notes, importSessionId, indexing });
+      const s = landed.tally;
+      const n = written.tally;
 
-      const parseErrors = parsed.errors ? parsed.errors.length : 0;
       const warningEntries = indexing.warnings.map(message => buildWarning('indexing_failed', message));
-      if (parseErrors > 0) {
-        warningEntries.push(buildWarning('csv_parse_errors', `${parseErrors} CSV rows had parse errors.`));
-      }
+      if (unrecognised) warningEntries.push(buildWarning('unrecognised_files', `${pluralize(unrecognised, 'file')} did not look like an export we know.`));
       const warningSummary = summarizeWarnings(warningEntries);
-      const status = finalizeSessionStatus(indexing, parseErrors);
+      const status = finalizeSessionStatus(indexing, 0);
+      const articleIds = landed.articles.map(article => String(article._id));
+      const entryIds = written.entries.map(entry => String(entry._id));
       const resultPayload = {
-        importedArticles,
-        importedHighlights,
-        skippedRows,
-        duplicateSkips,
-        invalidSkips,
-        parseErrors,
+        format: provider,
+        importedArticles: s.newSources,
+        importedHighlights: s.newHighlights,
+        importedNotes: n.notesCreated + n.notesUpdated,
+        alreadyHere: s.alreadyHere + n.alreadyHere,
+        skippedRows: unreadable + unattachedNotes,
+        duplicateSkips: s.alreadyHere + n.alreadyHere,
+        invalidSkips: unreadable,
+        parseErrors: 0,
         indexingAttempts: indexing.indexingAttempts,
         indexingFailures: indexing.indexingFailures,
         indexingQueued: indexing.indexingQueued,
         warningCodes: warningSummary.warningCodes,
         warnings: warningSummary.warnings,
-        articleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
-        importedArticleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
+        articleIds,
+        importedArticleIds: articleIds,
+        entryId: entryIds[0] || '',
+        entryIds,
+        importedEntryIds: entryIds,
         indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
       };
+      resultPayload.summary = describeExportLanding({ formats, sources: s, notes: n, unreadable, unattachedNotes });
       resultPayload.receipt = buildNoeisImportReceipt({
-        id: `import-${importSessionId || 'readwise-csv'}-${Date.now()}`,
-        source: 'readwise',
-        sourceLabel: req.file.originalname || 'Readwise CSV',
+        id: `import-${importSessionId || provider}-${Date.now()}`,
+        source: provider,
+        sourceLabel: label,
         status,
+        summary: resultPayload.summary,
         result: resultPayload,
-        touched: Array.from(dirtyArticles).map(article => ({
-          type: 'article',
-          id: String(article._id || ''),
-          title: article.title || 'Imported source'
-        })),
-        nextAction: resultPayload.importedArticleIds.length > 0
-          ? { label: 'Review filing suggestions', intent: 'organize_import' }
-          : null
+        touched: [
+          ...landed.articles.map(article => ({ type: 'article', id: String(article._id), title: article.title })),
+          ...written.entries.map(entry => ({ type: 'note', id: String(entry._id), title: entry.title }))
+        ],
+        nextAction: articleIds.length || entryIds.length ? { label: 'Review filing suggestions', intent: 'organize_import' } : null
       });
 
       const completedSession = await patchImportSession({
@@ -1576,97 +1729,82 @@ const buildImportRouter = ({
         userId,
         mutate: (session) => {
           session.status = status;
-          session.preview = {
-            ...(session.preview || {}),
-            items: rows.length,
-            articles: importedArticles,
-            highlights: importedHighlights
-          };
+          session.preview = { ...(session.preview || {}), items: sources.length + notes.length, articles: s.newSources, highlights: s.newHighlights, notes: notes.length };
           session.progress = {
             ...(session.progress || {}),
             stage: 'import_complete',
-            itemsProcessed: rows.length,
-            itemsTotal: rows.length,
+            itemsProcessed: sources.length + notes.length,
+            itemsTotal: sources.length + notes.length,
             percent: 100,
             indexingState: resultPayload.indexingState
           };
           session.result = {
             ...(session.result || {}),
-            importedArticles,
-            importedHighlights,
-            importedNotes: 0,
-            skippedRows,
-            duplicateSkips,
-            invalidSkips,
-            parseErrors,
+            importedArticles: s.newSources,
+            importedHighlights: s.newHighlights,
+            importedNotes: resultPayload.importedNotes,
+            skippedRows: resultPayload.skippedRows,
+            duplicateSkips: resultPayload.duplicateSkips,
+            invalidSkips: unreadable,
             indexingAttempts: indexing.indexingAttempts,
             indexingFailures: indexing.indexingFailures,
             indexingQueued: indexing.indexingQueued,
             warningCodes: warningSummary.warningCodes,
             warnings: warningSummary.warnings,
-            lastImportedArticleId: resultPayload.articleIds[0] || '',
-            importedArticleIds: resultPayload.importedArticleIds
+            lastImportedArticleId: articleIds[0] || '',
+            lastImportedEntryId: entryIds[0] || '',
+            importedArticleIds: articleIds,
+            importedEntryIds: entryIds
           };
           session.receipt = resultPayload.receipt;
           session.lastError = '';
-          applyImportOrganizationOffer(session);
+          if (articleIds.length || entryIds.length) applyImportOrganizationOffer(session);
         }
       });
-      await stageImportOrganizationProposalForSession({
-        session: completedSession,
-        userId,
-        articleIds: resultPayload.importedArticleIds
-      });
+      if (articleIds.length || entryIds.length) {
+        await stageImportOrganizationProposalForSession({ session: completedSession, userId, articleIds, notebookEntryIds: entryIds });
+      }
       await persistImportReceipt({ userId, receipt: resultPayload.receipt });
-
+      await logConnectorAction({
+        userId,
+        connector: provider,
+        action: 'import_file',
+        targetType: 'import_session',
+        targetId: importSessionId || '',
+        summary: resultPayload.summary,
+        metadata: { formats, importedArticles: s.newSources, importedHighlights: s.newHighlights, importedNotes: resultPayload.importedNotes }
+      });
       trackEvent({
         event: EVENT_NAMES.CAPTURE_COMPLETED,
         userId,
         requestId: req.requestId,
-        properties: {
-          source: 'readwise-csv',
-          importedArticles,
-          importedHighlights,
-          skippedRows,
-          parseErrors
-        }
+        properties: { source: `export-${provider}`, importedArticles: s.newSources, importedHighlights: s.newHighlights, importedNotes: resultPayload.importedNotes }
       });
-
-      res.status(200).json(resultPayload);
-    } catch (err) {
-      console.error('Readwise CSV import failed:', err);
+      return res.status(200).json(resultPayload);
+    } catch (error) {
+      console.error('Export file import failed:', error);
+      const message = 'Those files did not finish coming in. Whatever arrived stays, and trying again will not double it.';
       const failedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
           session.status = 'failed';
           clearImportOrganizationOffer(session);
-          session.progress = {
-            ...(session.progress || {}),
-            stage: 'failed',
-            indexingState: session.progress?.indexingState || 'not_started'
-          };
-          session.lastError = 'Failed to import Readwise CSV.';
+          session.progress = { ...(session.progress || {}), stage: 'failed', indexingState: session.progress?.indexingState || 'not_started' };
+          session.lastError = message;
           session.receipt = buildNoeisImportReceipt({
-            id: `import-${importSessionId || 'readwise-csv'}-${Date.now()}`,
-            source: 'readwise',
-            sourceLabel: session.sourceLabel || 'Readwise CSV',
+            id: `import-${importSessionId || 'files'}-${Date.now()}`,
+            source: session.provider || 'files',
+            sourceLabel: session.sourceLabel || sourceLabel,
             status: 'failed',
-            error: {
-              stage: 'failed',
-              message: 'Failed to import Readwise CSV.',
-              retryable: true
-            }
+            error: { stage: 'failed', message, retryable: true }
           });
         }
       });
       await persistImportReceipt({ userId, receipt: failedSession?.receipt });
-      res.status(500).json({ error: 'Failed to import Readwise CSV.' });
+      return res.status(500).json({ error: message });
     }
-  };
-
-  router.post('/api/import/readwise-csv', authenticateToken, upload.single('file'), handleReadwiseImport);
-  router.post('/api/import/readwise', authenticateToken, upload.single('file'), handleReadwiseImport);
+  });
 
   router.get('/api/import/connections', authenticateToken, async (req, res) => {
     try {
@@ -3325,7 +3463,7 @@ const buildImportRouter = ({
       res.status(200).json(resultPayload);
     } catch (error) {
       console.error('Evernote ENEX import failed:', error);
-      await patchImportSession({
+      const failedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -3351,204 +3489,6 @@ const buildImportRouter = ({
       });
       await persistImportReceipt({ userId, receipt: failedSession?.receipt });
       res.status(500).json({ error: 'Failed to import Evernote ENEX.' });
-    }
-  });
-
-  router.post('/api/import/markdown', authenticateToken, upload.single('file'), async (req, res) => {
-    const importSessionId = readImportSessionId(req);
-    const userId = req.user.id;
-
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'Markdown file is required.' });
-      }
-
-      await patchImportSession({
-        sessionId: importSessionId,
-        userId,
-        mutate: (session) => {
-          session.status = 'importing';
-          session.sourceLabel = session.sourceLabel || req.file.originalname || 'Imported markdown note';
-          clearImportOrganizationOffer(session);
-          session.progress = {
-            ...(session.progress || {}),
-            stage: 'upload_received',
-            indexingState: 'not_started'
-          };
-        }
-      });
-
-      const originalName = req.file.originalname || 'imported-note.md';
-      const title = path.basename(originalName, path.extname(originalName)) || 'Imported note';
-      const markdown = req.file.buffer.toString('utf8');
-
-      const createBlockId = () => {
-        if (crypto.randomUUID) return crypto.randomUUID();
-        return `block-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      };
-      const escapeHtml = (value = '') =>
-        String(value)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-
-      const lines = markdown.split(/\r?\n/);
-      const blocks = [];
-      const htmlParts = [];
-      let listItems = [];
-
-      const flushList = () => {
-        if (listItems.length === 0) return;
-        htmlParts.push(`<ul>${listItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`);
-        listItems = [];
-      };
-
-      lines.forEach((line) => {
-        const trimmed = line.trim();
-        if (!trimmed) {
-          flushList();
-          return;
-        }
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          const text = trimmed.slice(2).trim();
-          listItems.push(text);
-          blocks.push({
-            id: createBlockId(),
-            type: 'bullet',
-            text,
-            indent: 0
-          });
-          return;
-        }
-        flushList();
-        htmlParts.push(`<p>${escapeHtml(trimmed)}</p>`);
-        blocks.push({
-          id: createBlockId(),
-          type: 'paragraph',
-          text: trimmed
-        });
-      });
-      flushList();
-
-      const content = htmlParts.join('') || `<p>${escapeHtml(markdown.trim())}</p>`;
-
-      const entry = new NotebookEntry({
-        title,
-        content,
-        blocks,
-        userId,
-        importMeta: {
-          provider: 'markdown',
-          sourceType: 'file_upload',
-          sourceLabel: originalName,
-          importSessionId: importSessionId || null,
-          importedAt: new Date()
-        }
-      });
-      await entry.save();
-      if (blocks.length > 0) {
-        await syncNotebookReferences(userId, entry._id, blocks);
-      }
-
-      const indexing = buildIndexingSummary();
-      await queueIndexingAttempt(
-        indexing,
-        () => enqueueNotebookEmbedding(entry),
-        `Notebook indexing failed for ${entry.title || entry._id}`
-      );
-
-      const status = finalizeSessionStatus(indexing, 0);
-      const resultPayload = {
-        importedNotes: 1,
-        entryId: entry._id,
-        entryIds: [String(entry._id)],
-        importedEntryIds: [String(entry._id)],
-        ...indexing,
-        indexingState: indexing.indexingFailures > 0 ? 'failed' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
-      };
-
-      const completedSession = await patchImportSession({
-        sessionId: importSessionId,
-        userId,
-        mutate: (session) => {
-          session.status = status;
-          session.preview = {
-            ...(session.preview || {}),
-            items: 1,
-            notes: 1
-          };
-          session.progress = {
-            ...(session.progress || {}),
-            stage: 'import_complete',
-            itemsProcessed: 1,
-            itemsTotal: 1,
-            percent: 100,
-            indexingState: resultPayload.indexingState
-          };
-          session.result = {
-            ...(session.result || {}),
-            importedArticles: 0,
-            importedHighlights: 0,
-            importedNotes: 1,
-            indexingAttempts: indexing.indexingAttempts,
-            indexingFailures: indexing.indexingFailures,
-            indexingQueued: indexing.indexingQueued,
-            warnings: indexing.warnings,
-            lastImportedEntryId: String(entry._id),
-            importedEntryIds: resultPayload.importedEntryIds
-          };
-          session.lastError = '';
-          applyImportOrganizationOffer(session);
-        }
-      });
-      await stageImportOrganizationProposalForSession({
-        session: completedSession,
-        userId,
-        notebookEntryIds: resultPayload.importedEntryIds
-      });
-
-      trackEvent({
-        event: EVENT_NAMES.WORKSPACE_CREATED,
-        userId,
-        requestId: req.requestId,
-        properties: {
-          workspaceType: 'notebook',
-          source: 'markdown',
-          entryId: String(entry._id),
-          blockCount: blocks.length
-        }
-      });
-      trackEvent({
-        event: EVENT_NAMES.CAPTURE_COMPLETED,
-        userId,
-        requestId: req.requestId,
-        properties: {
-          source: 'markdown',
-          entryId: String(entry._id),
-          importedNotes: 1,
-          blockCount: blocks.length
-        }
-      });
-
-      res.status(200).json(resultPayload);
-    } catch (err) {
-      console.error('Markdown import failed:', err);
-      await patchImportSession({
-        sessionId: importSessionId,
-        userId,
-        mutate: (session) => {
-          session.status = 'failed';
-          clearImportOrganizationOffer(session);
-          session.progress = {
-            ...(session.progress || {}),
-            stage: 'failed'
-          };
-          session.lastError = 'Failed to import markdown file.';
-        }
-      });
-      res.status(500).json({ error: 'Failed to import markdown file.' });
     }
   });
 

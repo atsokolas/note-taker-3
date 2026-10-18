@@ -67,6 +67,7 @@ describe('fetching one', () => {
     });
     expect(refused.ok).toBe(false);
     expect(refused.error).toMatch(/403/);
+    expect(refused.status).toBe(403);
     expect(refused.content).toBe('');
   });
 
@@ -90,6 +91,36 @@ describe('fetching one', () => {
     });
     expect(wrong.ok).toBe(false);
     expect(wrong.error).toMatch(/readable web page/);
+  });
+});
+
+describe('asking whether an original still answers', () => {
+  const { isGoneStatus, publicUrlStatus } = require('../lib/publicUrlFetch');
+
+  it('only Not Found and Gone mean gone', () => {
+    expect([404, 410].every(isGoneStatus)).toBe(true);
+    expect([0, 200, 403, 429, 500, 503].some(isGoneStatus)).toBe(false);
+  });
+
+  it('sends a HEAD, follows a safe redirect, and reports the final status', async () => {
+    const calls = [];
+    const status = await publicUrlStatus({
+      url: 'https://example.com/old',
+      lookup: publicLookup,
+      fetchImpl: async (url, init) => {
+        calls.push([url, init.method]);
+        return url.endsWith('/old')
+          ? { status: 301, headers: headers({ location: '/new' }) }
+          : { status: 410, headers: headers() };
+      }
+    });
+    expect(status).toBe(410);
+    expect(calls).toEqual([['https://example.com/old', 'HEAD'], ['https://example.com/new', 'HEAD']]);
+  });
+
+  it('says nothing (0) rather than guess when it cannot ask', async () => {
+    expect(await publicUrlStatus({ url: 'http://127.0.0.1/x', lookup: publicLookup, fetchImpl: async () => ({ status: 404 }) })).toBe(0);
+    expect(await publicUrlStatus({ url: 'https://example.com/x', lookup: publicLookup, fetchImpl: async () => { throw new Error('timeout'); } })).toBe(0);
   });
 });
 

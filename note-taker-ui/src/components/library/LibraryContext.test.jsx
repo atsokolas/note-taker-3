@@ -22,10 +22,6 @@ jest.mock('../references/ReferencePullIn', () => (props) => (
   />
 ));
 
-jest.mock('../retrieval/SemanticRelatedPanel', () => () => (
-  <div data-testid="semantic-related-panel" />
-));
-
 const baseProps = {
   selectedArticleId: 'article-1',
   articleLoading: false,

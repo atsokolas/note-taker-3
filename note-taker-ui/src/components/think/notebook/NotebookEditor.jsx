@@ -52,6 +52,7 @@ import NotebookArrangementRail from './NotebookArrangementRail';
 import NotebookWorkbenchPanel from './NotebookWorkbenchPanel';
 import NotebookAlternativesRail from './NotebookAlternativesRail';
 import useNotebookWorkbench from './useNotebookWorkbench';
+import useGhostQuote, { GhostQuote } from './useGhostQuote';
 import {
   NotebookWorkbenchDecorations,
   setNotebookWorkbenchDecorations,
@@ -453,6 +454,7 @@ const NotebookEditor = ({
   const [finishError, setFinishError] = useState('');
   const [docTick, setDocTick] = useState(0);
   const highlightedRef = useRef(null);
+  const ghostKeyRef = useRef(null);
 
   const editor = useEditor({
     editable: false,
@@ -478,6 +480,7 @@ const NotebookEditor = ({
       },
       handleKeyDown: (view, event) => (
         slashKeyDownRef.current?.(view, event)
+        || ghostKeyRef.current?.(event)
         || handleEditorStructureShortcut({ editor, event, allowTitle: true })
         || false
       ),
@@ -545,6 +548,9 @@ const NotebookEditor = ({
       editor.commands?.focus?.();
     });
   };
+
+  const ghostQuote = useGhostQuote(editor, { enabled: editingBody, createId });
+  ghostKeyRef.current = ghostQuote.handleKey;
 
   /* A picker open is still writing — see the hook. */
   useThinkWritingActivity(editor, { enabled: editingBody, reaching: Boolean(insertMode) });
@@ -1915,6 +1921,7 @@ const NotebookEditor = ({
         onRestore={handleRestoreAside}
         onDeletePiece={handleDeletePiece}
       />
+      <GhostQuote ghost={ghostQuote.ghost} onQuote={ghostQuote.quote} />
       </div>
       <AuthoredWorkOrigin importMeta={entry.importMeta} sourceBlocks={entry.blocks} />
       {alternativesPortal && alternativesVisible ? createPortal(

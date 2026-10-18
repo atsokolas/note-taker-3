@@ -1,4 +1,11 @@
 const express = require('express');
+const { isGoneStatus, publicUrlStatus } = require('../lib/publicUrlFetch');
+
+/* One look at an original a day is plenty; it answers a click, never a clock. */
+const SOURCE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const originalUrlOf = (article) => [article?.url, article?.importMeta?.sourceUrl]
+  .map((value) => String(value || '').trim())
+  .find((value) => /^https?:\/\//i.test(value)) || '';
 
 const validReadingPlace = ({ anchor, ratio } = {}) =>
   Boolean(
@@ -26,7 +33,8 @@ const buildArticleReadingStateRouter = ({
   auth,
   humanOnly,
   Article,
-  ArticleReadingState
+  ArticleReadingState,
+  checkStatus = publicUrlStatus
 }) => {
   const router = express.Router();
   const owned = async (req, res, next) => {
@@ -108,6 +116,51 @@ const buildArticleReadingStateRouter = ({
         .json({
           error: 'Reading place did not sync. Reading remains available.'
         });
+    }
+  });
+
+  /* Opening a passage again. The reader inks it a little deeper. */
+  router.post('/api/articles/:id/highlights/:highlightId/opened', auth, humanOnly, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    try {
+      const result = await Article.updateOne(
+        { _id: req.params.id, userId: req.user.id, 'highlights._id': req.params.highlightId },
+        { $inc: { 'highlights.$.opens': 1 } },
+        { timestamps: false }
+      );
+      res.sendStatus(result.matchedCount ? 204 : 404);
+    } catch (error) {
+      res.sendStatus(error.name === 'CastError' ? 404 : 503);
+    }
+  });
+
+  /* The reader pressed Open source. A HEAD, at most once a day per piece,
+     records whether the original still answers. Only 404 and 410 mean gone;
+     any success clears it; anything else leaves what we knew. */
+  router.post('/api/articles/:id/source-check', auth, humanOnly, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    try {
+      const since = new Date(Date.now() - SOURCE_CHECK_INTERVAL_MS);
+      const article = await Article.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user.id, $or: [{ sourceCheckedAt: null }, { sourceCheckedAt: { $lt: since } }] },
+        { $set: { sourceCheckedAt: new Date() } },
+        { timestamps: false, projection: 'url importMeta.sourceUrl sourceGoneAt' }
+      ).lean();
+      if (!article) {
+        const known = await Article.findOne({ _id: req.params.id, userId: req.user.id }, 'sourceGoneAt').lean();
+        return known ? res.json({ sourceGoneAt: known.sourceGoneAt || null }) : res.sendStatus(404);
+      }
+      const url = originalUrlOf(article);
+      const status = url ? await checkStatus({ url }) : 0;
+      let sourceGoneAt = article.sourceGoneAt || null;
+      if (isGoneStatus(status)) sourceGoneAt = sourceGoneAt || new Date();
+      else if (status >= 200 && status < 300) sourceGoneAt = null;
+      if (String(sourceGoneAt) !== String(article.sourceGoneAt || null)) {
+        await Article.updateOne({ _id: article._id }, { $set: { sourceGoneAt } }, { timestamps: false });
+      }
+      res.json({ sourceGoneAt });
+    } catch (error) {
+      res.sendStatus(error.name === 'CastError' ? 404 : 503);
     }
   });
   return router;

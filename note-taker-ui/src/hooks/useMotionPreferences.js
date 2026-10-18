@@ -18,7 +18,7 @@ const subscribeMedia = (mq, apply) => {
   return undefined;
 };
 
-const useMediaQuery = (query, fallback = false) => {
+export const useMediaQuery = (query, fallback = false) => {
   const [matches, setMatches] = useState(() => mediaQueryMatches(query, fallback));
 
   useEffect(() => {
