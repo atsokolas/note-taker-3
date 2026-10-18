@@ -2,6 +2,7 @@ const express = require('express');
 const { recordRevision, snapshotOf } = require('../services/entryHistory');
 const { ConceptRenameError, renameConcept } = require('../services/conceptRename');
 const { verifyReviewerConceptOwner } = require('../services/reviewerRehearsalBudget');
+const { settledPageFor } = require('../services/settlement');
 
 const buildConceptMetaRouter = ({
   authenticateToken,
@@ -10,6 +11,7 @@ const buildConceptMetaRouter = ({
   updateConceptMeta,
   getConceptRelated,
   TagMeta,
+  WikiPage = null,
   User = null,
   EntryRevision = null,
   conceptReferences = {},
@@ -226,7 +228,8 @@ const buildConceptMetaRouter = ({
   router.get('/api/concepts/:name', authenticateToken, async (req, res) => {
     try {
       const data = await getConceptMeta(req.user.id, req.params.name);
-      res.status(200).json(data);
+      const settled = WikiPage && data._id ? await settledPageFor({ WikiPage, userId: req.user.id, kind: 'concepts', id: data._id }).select('_id title') : null;
+      res.status(200).json({ ...data, settledIn: settled ? { _id: String(settled._id), title: settled.title } : null });
     } catch (error) {
       console.error('❌ Error fetching concept meta:', error);
       res.status(500).json({ error: 'Failed to fetch concept meta.' });

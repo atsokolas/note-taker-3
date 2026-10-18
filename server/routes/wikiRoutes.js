@@ -46,7 +46,7 @@ const {
 const { persistNoeisReceipt, serializeStoredReceipt } = require('../services/noeisReceiptService');
 const { buildJudgmentChangeProposalRouter } = require('./judgmentChangeProposalRoutes');
 const { buildOpenSentenceAcceptRouter } = require('./openSentenceAcceptRoutes');
-const { buildNoteSettleRouter } = require('./noteSettleRoutes');
+const { buildSettleRouter } = require('./settleRoutes');
 const {
   buildDossierJudgmentReviewReceipt,
   listDossierJudgmentReviews,
@@ -2788,9 +2788,11 @@ const buildWikiRouter = ({
     };
   };
 
-  router.use(buildNoteSettleRouter({
+  router.use(buildSettleRouter({
     authenticateToken: wikiAuth,
     NotebookEntry,
+    TagMeta,
+    Article,
     WikiPage,
     WikiRevision,
     buildUniqueSlug,

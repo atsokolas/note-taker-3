@@ -21,9 +21,7 @@ import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
 import { createNotebookClaimSlashItems } from './notebookClaimSlash';
 import UseDistinctionHere from '../../wiki/open-sentence/UseDistinctionHere';
 import SourceCorrectionReview from '../SourceCorrectionReview';
-import { settleNote } from './settleNote';
-import { useSystemStatusControls } from '../../../system/SystemStatusContext';
-import { wikiReadPath } from '../../../utils/wikiFeatureFlags';
+import { useSettleIntoWiki } from '../settleIntoWiki';
 import { editorNodesFromDistinctionUse, eligibleDistinctions } from '../../../utils/distinctionUse';
 import { exportNotebookMarkdown, getNotebookSummaries, disposeNotebookSourceCorrection, readNoteAgainstViews, requestNotebookWordingOptions, setOppositeAside } from '../../../api/notebook';
 import useHighlights from '../../../hooks/useHighlights';
@@ -304,10 +302,7 @@ const NotebookEditor = ({
   const [savedDistinctions, setSavedDistinctions] = useState([]);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [settledIn, setSettledIn] = useState(entry?.settledIn || null);
-  const [settleLine, setSettleLine] = useState('');
-  const [settling, setSettling] = useState(false);
-  const systemStatus = useSystemStatusControls();
+  const settlement = useSettleIntoWiki('notebook', entry?._id, entry?.settledIn);
   const restoredFromRef = useRef('');
   const [entryType, setEntryType] = useState(entry?.type || 'note');
   const [entryTags, setEntryTags] = useState(entry?.tags || []);
@@ -1581,25 +1576,9 @@ const NotebookEditor = ({
     return commitDraft();
   };
 
-  /* A save answers to the note, so a later save never clears the link: only
-     opening another note does. */
-  useEffect(() => {
-    setSettledIn(entry?.settledIn || null);
-    setSettleLine('');
-  }, [entry?._id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleSettle = async (event) => {
+  const handleSettle = (event) => {
     event.currentTarget.closest('details')?.removeAttribute('open');
-    setSettleLine('');
-    if (!(await commitDraft())) {
-      setSettleLine('This note did not save, so it did not settle. Try again.');
-      return;
-    }
-    setSettling(true);
-    const settled = await settleNote(entry._id, systemStatus);
-    setSettling(false);
-    if (settled.settledIn) setSettledIn(settled.settledIn);
-    else setSettleLine(settled.refusal);
+    settlement.settle(commitDraft);
   };
 
   const openHistory = async (event) => {
@@ -1635,7 +1614,7 @@ const NotebookEditor = ({
           <Button variant="quiet" data-context-trigger="material" onClick={() => openMaterial()}>Material</Button>
           <Button variant="quiet" onClick={handleExport}>Export draft</Button>
           <Button variant="quiet" onClick={handleRecoveryExport}>Private recovery file</Button>
-          <Button variant="quiet" onClick={handleSettle} disabled={settling}>{settledIn ? 'Settle again' : 'Settle into Wiki'}</Button>
+          <Button variant="quiet" onClick={handleSettle} disabled={settlement.settling}>{settlement.action}</Button>
           <Button variant="quiet" onClick={() => setOrganizeOpen(previous => !previous)}>Structure</Button>
           <Button variant="quiet" onClick={openHistory}>History</Button>
         </EntryBar>
@@ -1683,12 +1662,7 @@ const NotebookEditor = ({
             placeholder="Title"
           />
           <p className="think-notebook-title-meta" id={metaId}>{begunLine(entry.createdAt, wordCount)}</p>
-          {settledIn ? (
-            <p className="think-notebook-settled">Settled in Wiki → <Link to={wikiReadPath(settledIn._id)}>{settledIn.title}</Link>. Share it from there.</p>
-          ) : null}
-          {settling || settleLine ? (
-            <p className="think-notebook-settle-line" role="status">{settling ? 'Settling into Wiki…' : settleLine}</p>
-          ) : null}
+          {settlement.lines}
         </div>
         {historyOpen ? (
           <EntryHistory kind="note" entryId={String(entry._id)} onRestore={restoreRevision} onClose={() => setHistoryOpen(false)} />

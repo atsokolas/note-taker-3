@@ -1,9 +1,9 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import NotebookEditor from './NotebookEditor';
-import { listWikiPages } from '../../../api/wiki';
+import { listWikiPages, settleIntoWiki } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
-import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookSummaries, readNoteAgainstViews, setOppositeAside, settleNotebookEntry } from '../../../api/notebook';
+import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookSummaries, readNoteAgainstViews, setOppositeAside } from '../../../api/notebook';
 import { MemoryRouter } from 'react-router-dom';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 import useConcepts from '../../../hooks/useConcepts';
@@ -92,11 +92,11 @@ jest.mock('../../../api/notebook', () => ({
   exportNotebookMarkdown: jest.fn(),
   disposeNotebookSourceCorrection: jest.fn(),
   readNoteAgainstViews: jest.fn(async () => null),
-  setOppositeAside: jest.fn(async () => {}),
-  settleNotebookEntry: jest.fn()
+  setOppositeAside: jest.fn(async () => {})
 }));
 
 jest.mock('../../../api/wiki', () => ({
+  settleIntoWiki: jest.fn(),
   listWikiPages: jest.fn(async () => [])
 }));
 
@@ -259,16 +259,16 @@ describe('NotebookEditor', () => {
     });
 
     it('settles from the action row and marks the note settled', async () => {
-      settleNotebookEntry.mockResolvedValueOnce({ page: { _id: 'page-1', title: 'Why moats erode', sourceRefs: [] }, resettled: false });
+      settleIntoWiki.mockResolvedValueOnce({ page: { _id: 'page-1', title: 'Why moats erode', sourceRefs: [] }, resettled: false });
       renderNote();
       expect(screen.queryByText(/Settled in Wiki/)).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'Settle into Wiki' }));
       expect(await screen.findByRole('link', { name: 'Why moats erode' })).toHaveAttribute('href', '/wiki/read/page-1');
-      expect(settleNotebookEntry).toHaveBeenCalledWith('note-1');
+      expect(settleIntoWiki).toHaveBeenCalledWith('notebook', 'note-1');
     });
 
     it('says in one line what to fix when Wiki refuses the note', async () => {
-      settleNotebookEntry.mockRejectedValueOnce({ response: { data: { error: 'Give this note a title before it settles.' } } });
+      settleIntoWiki.mockRejectedValueOnce({ response: { data: { error: 'Give this note a title before it settles.' } } });
       renderNote({ title: '' });
       fireEvent.click(screen.getByRole('button', { name: 'Settle into Wiki' }));
       expect(await screen.findByText('Give this note a title before it settles.')).toBeInTheDocument();

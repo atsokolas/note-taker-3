@@ -1,14 +1,15 @@
 import React from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import NotebookBoard from './NotebookBoard';
-import { getNotebookBoard, moveNotebookEntry, settleNotebookEntry } from '../../../api/notebook';
+import { getNotebookBoard, moveNotebookEntry } from '../../../api/notebook';
+import { settleIntoWiki } from '../../../api/wiki';
 
 jest.mock('../../../api/notebook', () => ({
   clearNotebookCache: jest.fn(),
   getNotebookBoard: jest.fn(),
-  moveNotebookEntry: jest.fn(),
-  settleNotebookEntry: jest.fn()
+  moveNotebookEntry: jest.fn()
 }));
+jest.mock('../../../api/wiki', () => ({ settleIntoWiki: jest.fn() }));
 
 const day = 24 * 60 * 60 * 1000;
 const rows = () => [
@@ -58,20 +59,20 @@ test('moving a note to Done from the menu files it and gives a receipt that can 
 });
 
 test('Done offers to settle the note into Wiki, and only settles when asked', async () => {
-  settleNotebookEntry.mockResolvedValueOnce({ page: { _id: 'page-1', title: 'On moats', sourceRefs: [] }, resettled: false });
+  settleIntoWiki.mockResolvedValueOnce({ page: { _id: 'page-1', title: 'On moats', sourceRefs: [] }, resettled: false });
   await renderBoard();
   await act(async () => {
     fireEvent.change(screen.getByLabelText('Move “On moats”'), { target: { value: 'done' } });
   });
-  expect(settleNotebookEntry).not.toHaveBeenCalled();
+  expect(settleIntoWiki).not.toHaveBeenCalled();
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Settle into Wiki' })); });
-  expect(settleNotebookEntry).toHaveBeenCalledWith('a');
+  expect(settleIntoWiki).toHaveBeenCalledWith('notebook', 'a');
   expect(screen.getByRole('status')).toHaveTextContent('“On moats” settled in Wiki.');
   expect(screen.getByRole('link', { name: 'Open the page' })).toHaveAttribute('href', '/wiki/read/page-1');
 });
 
 test('a refused settle says what to fix on the board', async () => {
-  settleNotebookEntry.mockRejectedValueOnce({ response: { data: { error: 'Nothing is written here yet. Write the thought, then settle it.' } } });
+  settleIntoWiki.mockRejectedValueOnce({ response: { data: { error: 'Nothing is written here yet. Write the thought, then settle it.' } } });
   await renderBoard();
   await act(async () => {
     fireEvent.change(screen.getByLabelText('Move “On moats”'), { target: { value: 'done' } });

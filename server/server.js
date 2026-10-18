@@ -5343,6 +5343,7 @@ app.use(buildConceptMetaRouter({
   updateConceptMeta,
   getConceptRelated,
   TagMeta,
+  WikiPage,
   User,
   EntryRevision,
   conceptReferences: { Article, NotebookEntry, Question, ConceptNote, ReferenceEdge, SharedConcept, ConceptPath, Connection, ReturnQueueEntry },

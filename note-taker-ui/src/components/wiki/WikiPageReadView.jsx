@@ -2700,6 +2700,7 @@ const WikiPageReadView = ({
   const publicShareUrl = buildPublicWikiShareUrl(page);
   const weekendReadingsPage = isResearchEditionPage(page);
   const investmentDossierPage = Boolean(page?.investmentDossier?.version);
+  const settledFrom = /^settled-(note|concept):/.exec(page?.createdFrom?.label || '')?.[1] || '';
   const livingThesisPage = Boolean(page?.judgment?.kind) && !investmentDossierPage;
   const isSharedPublicly = String(page.visibility || 'private') === 'shared';
   const shareBlocked = isPageQualityBlocked(page);
@@ -3137,10 +3138,10 @@ const WikiPageReadView = ({
                   <Link to={wikiReadPath(fromWikiPageId)}>Return to {location.state?.fromWikiTitle || 'the previous page'}</Link>
                 </div>
               ) : null}
-              {page?.createdFrom?.type === 'notebook' && page.createdFrom.objectId ? (
+              {settledFrom && page.createdFrom.objectId ? (
                 <div className="wiki-read__return-thread">
-                  <span>Settled from your note in Think.</span>
-                  <Link to={buildSourceOpenPath({ type: 'notebook', objectId: page.createdFrom.objectId })}>Open the note</Link>
+                  <span>Settled from your {settledFrom} in Think.</span>
+                  <Link to={buildSourceOpenPath({ type: page.createdFrom.type, objectId: page.createdFrom.objectId })}>Open the {settledFrom}</Link>
                 </div>
               ) : null}
               {awaitingCandidate && !proposalDeferred && !investmentDossierPage && !staleCandidate ? (

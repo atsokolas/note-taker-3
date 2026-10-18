@@ -4,6 +4,7 @@ import ThinkEntryEditor from './ThinkEntryEditor';
 import api from '../../api';
 import { getConcept, getConceptIdeaWorkbench, renameConcept, updateConcept, updateConceptIdeaWorkbench } from '../../api/concepts';
 import { getConceptQuestions, getQuestion, updateQuestion } from '../../api/questions';
+import { settleIntoWiki } from '../../api/wiki';
 
 const mockHandlers = {};
 // Plain functions: the suite runs with resetMocks, which would empty jest.fn().
@@ -35,6 +36,7 @@ jest.mock('../../api/concepts', () => ({
 }));
 jest.mock('../../api', () => ({ __esModule: true, default: { get: jest.fn() } }));
 jest.mock('../../api/questions', () => ({ getConceptQuestions: jest.fn(), getQuestion: jest.fn(), updateQuestion: jest.fn() }));
+jest.mock('../../api/wiki', () => ({ settleIntoWiki: jest.fn() }));
 
 const typeInBody = () => act(() => { mockHandlers.update.forEach(handler => handler({ transaction: { docChanged: true } })); });
 
@@ -86,6 +88,32 @@ describe('ThinkEntryEditor', () => {
     expect(updateConcept).toHaveBeenCalledWith('Moats', {});
     expect(updateConceptIdeaWorkbench).toHaveBeenCalledWith('c1', { hypothesis: { html: '<p>Three plain words</p>' } }, { baseRevision: 0 });
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ kind: 'concept' }));
+  });
+
+  it('settles a concept into Wiki the way a note does, and keeps the link', async () => {
+    getConcept.mockResolvedValue({ _id: 'c1', name: 'Moats', pinnedHighlights: [] });
+    getConceptIdeaWorkbench.mockResolvedValue({ revision: 1, ideaWorkbench: { hypothesis: { html: '<p>Three plain words</p>' } } });
+    settleIntoWiki.mockResolvedValueOnce({ page: { _id: 'page-1', title: 'Moats', sourceRefs: [{}] }, resettled: false });
+    render(<ThinkEntryEditor target={{ kind: 'concept', id: 'Moats' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Settle into Wiki' }));
+    expect(await screen.findByRole('link', { name: 'Moats' })).toHaveAttribute('href', '/wiki/read/page-1');
+    expect(settleIntoWiki).toHaveBeenCalledWith('concepts', 'c1');
+    expect(screen.getByText(/Share it from there/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Settle again' })).toBeInTheDocument();
+  });
+
+  it('says in one line what to fix when Wiki refuses a concept, and a question has no settle', async () => {
+    getConcept.mockResolvedValue({ _id: 'c1', name: 'Moats', settledIn: null });
+    getConceptIdeaWorkbench.mockResolvedValue({ revision: 1, ideaWorkbench: null });
+    settleIntoWiki.mockRejectedValueOnce({ response: { data: { error: 'Nothing is written here yet. Write the thought, then settle it.' } } });
+    const { unmount } = render(<ThinkEntryEditor target={{ kind: 'concept', id: 'Moats' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Settle into Wiki' }));
+    expect(await screen.findByText('Nothing is written here yet. Write the thought, then settle it.')).toBeInTheDocument();
+    unmount();
+    getQuestion.mockResolvedValue({ _id: 'q1', text: 'Q', status: 'open', blocks: [] });
+    render(<ThinkEntryEditor target={{ kind: 'question', id: 'q1' }} />);
+    await screen.findByRole('button', { name: 'Mark settled' });
+    expect(screen.queryByRole('button', { name: 'Settle into Wiki' })).not.toBeInTheDocument();
   });
 
   it('hands a selection to the partner and opens passages when pulled from elsewhere', async () => {

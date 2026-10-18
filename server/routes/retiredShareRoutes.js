@@ -1,5 +1,5 @@
 const express = require('express');
-const { settledPageFor } = require('../services/noteSettlement');
+const { settledPageFor } = require('../services/settlement');
 
 /* Think no longer publishes; finished thinking settles into Wiki and is shared
    from there. A link saved from when Think did publish still answers: it opens
@@ -13,7 +13,7 @@ const buildRetiredShareRouter = ({ SharedNotebook, WikiPage }) => {
   const settledFrom = {
     notebooks: async (slug) => {
       const share = await SharedNotebook.findOne({ slug }).select('userId notebookId').lean();
-      return share && { userId: share.userId, entryId: share.notebookId };
+      return share && { userId: share.userId, kind: 'notebook', id: share.notebookId };
     },
     volumes: async () => null
   };
