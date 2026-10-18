@@ -2199,10 +2199,16 @@ const WikiPageReadView = ({
     });
   }, [candidatePayload, exitIsolatedPreview, openContextPanel, page, previewMode]);
 
+  // Reading the draft is the review, so it gets the page to itself (a side
+  // panel hides the article on narrower screens) and is scrolled into view.
   const handleReviewUpdate = useCallback(() => {
-    if (previewMode !== 'candidate') openCandidatePreview();
+    if (!candidatePayload?.candidate) return;
+    setPreviewMode('candidate');
+    setPreviewPage(candidatePayload.candidate);
+    setShowChangedOnly(false);
+    closeContextPanels();
     window.requestAnimationFrame(() => scrollToElementId('wiki-read-preview'));
-  }, [openCandidatePreview, previewMode]);
+  }, [candidatePayload, closeContextPanels]);
 
   const handleAcceptCandidate = useCallback(async () => {
     if (acceptBusy || !pageId) return;
@@ -2368,8 +2374,8 @@ const WikiPageReadView = ({
   }, [page, strippedBody, bodyTocItems]);
   // A first draft has nothing to differ from, so nothing in it is marked changed.
   const previewDiffIds = useMemo(() => (
-    previewMode === 'candidate' && countPageClaims(page) ? changedClaimIdsFromPages(page, previewPage) : []
-  ), [page, previewMode, previewPage]);
+    previewMode === 'candidate' && candidatePayload?.kind !== 'first_head' ? changedClaimIdsFromPages(page, previewPage) : []
+  ), [candidatePayload?.kind, page, previewMode, previewPage]);
   const markedClaimIds = useMemo(() => {
     if (showChangedOnly && diffClaimIds.length) return new Set(diffClaimIds);
     if (previewMode === 'candidate' && previewDiffIds.length) return new Set(previewDiffIds);
