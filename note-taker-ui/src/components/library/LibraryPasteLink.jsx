@@ -21,13 +21,21 @@ const savedOn = value => {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
 };
 
+/* Where a link goes, said as the sentence under the field; tapping the
+   phrase moves it to the other place. */
+const GOES = { later: 'on your nightstand', stream: 'in your Library, already read' };
+const PLACE = { later: 'on your nightstand', stream: 'in your Library', setAside: 'on your desk' };
+
 /**
- * The quickest way into the Library: paste what you are reading. The server
- * reads the page and files it; a link you already hold opens the copy you
- * have instead of making a second one.
+ * The nightstand: paste a link you mean to come back to, and it waits there;
+ * one you have already read goes straight into the Library. Either way it can
+ * be filed as it lands. Where it goes is one sentence under the field, set
+ * before the paste, so saving stays one step: paste, and it is put away.
  */
-export default function LibraryPasteLink({ onSaved, onOpen }) {
+export default function LibraryPasteLink({ folders = [], folderId = '', onSaved, onOpen, onShowNightstand }) {
   const [value, setValue] = useState('');
+  const [where, setWhere] = useState('later');
+  const [folder, setFolder] = useState(folderId);
   const [state, setState] = useState({ phase: 'idle' });
 
   const save = async (raw) => {
@@ -38,10 +46,10 @@ export default function LibraryPasteLink({ onSaved, onOpen }) {
     }
     setState({ phase: 'saving' });
     try {
-      const { article, existing } = await importPastedUrl({ url });
+      const { article, existing } = await importPastedUrl({ url, placement: where, folderId: folder });
       setValue('');
       setState({ phase: existing ? 'existing' : 'saved', article });
-      if (!existing) onSaved?.(article);
+      onSaved?.(article);
     } catch (error) {
       const status = error?.response?.status;
       setState({
@@ -60,6 +68,14 @@ export default function LibraryPasteLink({ onSaved, onOpen }) {
     </button>
   ) : null;
   const since = phase === 'existing' ? savedOn(article?.createdAt) : '';
+  const place = [PLACE[article?.placement] || '', article?.folder?.name ? `in ${article.folder.name}` : '']
+    .filter(Boolean).join(', ');
+  const nightstand = article?.placement === 'later' && onShowNightstand ? (
+    <> <button type="button" className="library-paste-link__more" onClick={onShowNightstand}>See the nightstand</button></>
+  ) : null;
+  const sorted = [...folders].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+  const filedIn = folders.find(item => String(item._id) === String(folder))?.name;
 
   return (
     <form
@@ -67,14 +83,14 @@ export default function LibraryPasteLink({ onSaved, onOpen }) {
       noValidate
       onSubmit={(event) => { event.preventDefault(); save(value); }}
     >
-      <label className="library-paste-link__field">
-        <span className="sr-only">Paste a link to what you are reading</span>
+      <div className="library-paste-link__line">
         <input
-          aria-label="Paste a link to what you are reading"
+          aria-label="Paste a link to save"
           type="url"
           inputMode="url"
+          enterKeyHint="go"
           value={value}
-          placeholder="Paste a link to what you are reading"
+          placeholder="Paste a link you found"
           disabled={phase === 'saving'}
           onChange={(event) => {
             setValue(event.target.value);
@@ -88,12 +104,36 @@ export default function LibraryPasteLink({ onSaved, onOpen }) {
             save(pasted);
           }}
         />
-        <kbd aria-hidden="true">↵</kbd>
-      </label>
+        {value.trim() && phase !== 'saving' ? <button type="submit" className="library-paste-link__save">Save</button> : null}
+      </div>
+      <p className="library-paste-link__route">
+        Goes{' '}
+        <button
+          type="button"
+          className="library-paste-link__choice"
+          aria-label={`Goes ${GOES[where]}. Change`}
+          onClick={() => setWhere(where === 'later' ? 'stream' : 'later')}
+        >
+          {GOES[where]}
+        </button>
+        {sorted.length ? (
+          <>
+            {', '}
+            <label className="library-paste-link__choice library-paste-link__folder">
+              <span aria-hidden="true">{filedIn ? `in ${filedIn}` : 'unfiled'}</span>
+              <select aria-label="Folder" value={folder} onChange={(event) => setFolder(event.target.value)}>
+                <option value="">Unfiled</option>
+                {sorted.map(item => <option key={item._id} value={item._id}>{item.name}</option>)}
+              </select>
+            </label>
+          </>
+        ) : null}
+        .
+      </p>
       <p className="library-paste-link__receipt" role="status" aria-live="polite">
         {phase === 'saving' ? 'Reading the page…' : null}
-        {phase === 'saved' ? <>Saved to your Library: {title}</> : null}
-        {phase === 'existing' ? <>Already yours{since ? ` since ${since}` : ''}: {title}</> : null}
+        {phase === 'saved' ? <>{place.replace(/^./, c => c.toUpperCase())}: {title}{nightstand}</> : null}
+        {phase === 'existing' ? <>Already yours{since ? ` since ${since}` : ''}{place ? `, ${place}` : ''}: {title}{nightstand}</> : null}
         {phase === 'problem' ? line : null}
       </p>
     </form>

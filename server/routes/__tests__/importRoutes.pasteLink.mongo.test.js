@@ -23,7 +23,7 @@ test('real Mongo: a pasted link saves once, and a link already saved opens the c
   let server;
   try {
     await mongoose.connect(memory.getUri());
-    const { Article } = require('../../models');
+    const { Article, Folder } = require('../../models');
     const userId = new mongoose.Types.ObjectId();
     let fetches = 0;
     const fetchImpl = async (url) => {
@@ -37,15 +37,16 @@ test('real Mongo: a pasted link saves once, and a link already saved opens the c
       authenticateToken: (req, _res, next) => { req.user = { id: String(userId) }; next(); },
       upload: { single: () => (_req, _res, next) => next() },
       Article,
+      Folder,
       fetchImpl,
       enqueueArticleEmbedding: () => null
     }));
     ({ server } = await listen(app));
-    const paste = async (url) => {
+    const paste = async (url, extra = {}) => {
       const response = await fetch(`http://127.0.0.1:${server.address().port}/api/import/url`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url, ...extra })
       });
       return { status: response.status, body: await response.json() };
     };
@@ -76,6 +77,34 @@ test('real Mongo: a pasted link saves once, and a link already saved opens the c
     assert.equal(String(moved.body.article._id), String(stored._id));
     assert.equal((await Article.findById(stored._id).lean()).content, '<p>Captured by the extension.</p>');
     assert.equal(await Article.countDocuments({ userId }), 1);
+    assert.equal((await Article.findById(stored._id).lean()).placement, 'stream', 'a plain paste does not move a piece');
+
+    // For the nightstand: a piece already held moves there; one on the desk stays put.
+    const toNightstand = await paste(ESSAY, { placement: 'later' });
+    assert.equal(toNightstand.body.article.placement, 'later');
+    assert.equal((await Article.findById(stored._id).lean()).placement, 'later');
+    await Article.updateOne({ _id: stored._id }, { placement: 'setAside' });
+    assert.equal((await paste(ESSAY, { placement: 'later' })).body.article.placement, 'setAside');
+    // And a new piece lands there directly.
+    const fresh = await paste('http://93.184.216.35/new', { placement: 'later' });
+    assert.equal(fresh.status, 201);
+    assert.equal((await Article.findById(fresh.body.article._id).lean()).placement, 'later');
+
+    // Already read: it goes into the Library, and off the nightstand if it was there.
+    const read = await paste('http://93.184.216.35/new', { placement: 'stream' });
+    assert.equal(read.body.article.placement, 'stream');
+    assert.equal((await Article.findById(fresh.body.article._id).lean()).placement, 'stream');
+
+    // A chosen folder files the piece; someone else's folder is refused before any fetch.
+    const essays = await Folder.create({ userId, name: 'Essays' });
+    const filed = await paste('http://93.184.216.35/new', { folderId: String(essays._id) });
+    assert.equal(filed.body.article.folder.name, 'Essays');
+    assert.equal(String((await Article.findById(fresh.body.article._id).lean()).folder), String(essays._id));
+    const theirs = await Folder.create({ userId: new mongoose.Types.ObjectId(), name: 'Theirs' });
+    const before = fetches;
+    const refused = await paste('http://93.184.216.35/other', { folderId: String(theirs._id) });
+    assert.equal(refused.status, 400);
+    assert.equal(fetches, before);
   } finally {
     server?.close();
     await mongoose.disconnect();

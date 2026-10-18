@@ -973,7 +973,7 @@ const buildEditionRouter = ({
         placed,
         fromSetAside: previous === 'setAside',
         edition: await present(edition, req.user.id, profiles),
-        error: placed ? '' : 'Saved to Library; could not move to Later — Retry'
+        error: placed ? '' : 'Saved to Library; could not put it on your nightstand — Retry'
       });
     } catch (error) {
       return refuse(res, error, 'Failed to save that source for later.');

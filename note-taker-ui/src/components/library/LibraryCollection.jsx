@@ -28,7 +28,7 @@ import { sourceTitle } from '../../utils/sourceDisplayText';
 const LABELS = {
   all: 'Library',
   unfiled: 'Unfiled',
-  later: 'Later',
+  later: 'Nightstand',
   'set-aside': 'On the desk',
   kept: 'Keepers'
 };
@@ -407,7 +407,7 @@ export default function LibraryCollection({
                       sourceLabel(row),
                       row.folder?.name,
                       row.placement === 'later'
-                        ? 'In Later'
+                        ? 'On the nightstand'
                         : row.placement === 'setAside'
                           ? 'On the desk'
                           : '',

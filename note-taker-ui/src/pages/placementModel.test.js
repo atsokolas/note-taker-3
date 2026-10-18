@@ -70,7 +70,7 @@ describe('placement', () => {
   it('names the weight of a pile without a zero', () => {
     expect(laterPileLine([
       { _id: 'a', placement: 'later', placementAt: '2026-08-20T00:00:00.000Z' }
-    ], NOW)).toBe('One thing saved for later.');
+    ], NOW)).toBe('One thing on your nightstand.');
     expect(setAsidePileLine([
       { _id: 'a', placement: 'setAside', placementAt: '2026-01-04T00:00:00.000Z' },
       { _id: 'b', placement: 'setAside', placementAt: '2026-08-20T00:00:00.000Z' }

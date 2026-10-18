@@ -841,7 +841,7 @@ describe('Later and Set aside', () => {
     );
 
     const group = screen.getByRole('group', { name: 'Where this sits' });
-    const later = within(group).getByRole('button', { name: 'Put it in later' });
+    const later = within(group).getByRole('button', { name: 'Put it on the nightstand' });
     const toggles = within(group).getAllByRole('button').filter(b => b.hasAttribute('aria-pressed'));
     expect(toggles).toHaveLength(2);
     expect(toggles.every(b => b.getAttribute('aria-pressed') === 'false')).toBe(true);

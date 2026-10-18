@@ -1099,7 +1099,11 @@ const Library = () => {
           <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>← Back to collection</button>
         </div> : null}
         <div className={`library-reader ${!isReadingView ? 'is-shelf' : ''}`} data-testid="library-main">
-          {collectionView && scope === 'all' && !isReadingView ? <LibraryPasteLink onOpen={handleSelectArticle} onSaved={handleLinkSaved} /> : null}
+          {collectionView && ['all', 'later', 'folder'].includes(scope) && !isReadingView ? <LibraryPasteLink
+            key={folderId || scope} folders={folders} folderId={scope === 'folder' ? folderId : ''}
+            onOpen={handleSelectArticle} onSaved={handleLinkSaved}
+            onShowNightstand={scope === 'later' ? null : () => handleSelectScope('later')}
+          /> : null}
           {collectionView && scope === 'all' && !isReadingView && !articleQuery ? <LibraryReadingRoom onOpen={handleSelectArticle} /> : null}
           {collectionView ? <LibraryCollection
             scope={scope} folderId={shelfFolderId} folderName={selectedFolderName} revision={collectionRevision}

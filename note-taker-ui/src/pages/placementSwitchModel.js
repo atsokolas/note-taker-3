@@ -44,8 +44,13 @@ export const homeName = ({ folderName = '', asFeed = false } = {}) => {
 export const PILES = Object.freeze([PLACEMENT_LATER, PLACEMENT_SET_ASIDE]);
 
 const PILE_LABEL = Object.freeze({
-  [PLACEMENT_LATER]: 'LATER',
+  [PLACEMENT_LATER]: 'NIGHTSTAND',
   [PLACEMENT_SET_ASIDE]: 'SET ASIDE'
+});
+
+const PUT_PHRASE = Object.freeze({
+  [PLACEMENT_LATER]: 'Put it on the nightstand',
+  [PLACEMENT_SET_ASIDE]: 'Put it in set aside'
 });
 
 /**
@@ -65,7 +70,7 @@ const PILE_LABEL = Object.freeze({
 export const pilePhrase = ({ position, active = false, folderName = '', asFeed = false } = {}) => {
   const label = PILE_LABEL[normalizePlacement(position)] || '';
   if (!label) return '';
-  if (!active) return `Put it in ${label.toLowerCase()}`;
+  if (!active) return PUT_PHRASE[normalizePlacement(position)];
   const home = homeName({ folderName, asFeed });
   return home ? `Take it back to ${home}` : 'Take it back home';
 };

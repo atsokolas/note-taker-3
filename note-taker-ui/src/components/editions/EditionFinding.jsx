@@ -87,7 +87,7 @@ export default function EditionFinding({ editionId, item, number, section = '', 
             Read the source
           </button>
           {item.readerStatus === 'later' ? (
-            <Link to="/library?scope=later">In Later</Link>
+            <Link to="/library?scope=later">On your nightstand</Link>
           ) : (
             <button disabled={Boolean(busy)} onClick={() => onAct(item.itemId, 'later')}>
               {busy === `${item.itemId}:later` ? 'Saving…' : 'Later'}

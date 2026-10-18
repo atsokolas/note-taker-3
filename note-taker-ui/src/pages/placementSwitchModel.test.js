@@ -18,7 +18,7 @@ describe('the switch', () => {
   it('offers the two piles a piece can be sent to', () => {
     expect(switchPositions({ placement: 'stream' }).map(p => p.position))
       .toEqual(['later', 'setAside']);
-    expect(switchPositions({}).map(p => p.label)).toEqual(['LATER', 'SET ASIDE']);
+    expect(switchPositions({}).map(p => p.label)).toEqual(['NIGHTSTAND', 'SET ASIDE']);
   });
 
   it('presses exactly the pile the piece is in, and none when it is home', () => {
@@ -32,7 +32,7 @@ describe('the switch', () => {
      spell it out. The button says it now. */
   it('says what pressing will do, including the way back', () => {
     const home = switchPositions({ placement: 'stream' });
-    expect(home.map(p => p.phrase)).toEqual(['Put it in later', 'Put it in set aside']);
+    expect(home.map(p => p.phrase)).toEqual(['Put it on the nightstand', 'Put it in set aside']);
 
     const parked = switchPositions({ placement: 'later' });
     expect(parked.find(p => p.active).phrase).toBe('Take it back home');

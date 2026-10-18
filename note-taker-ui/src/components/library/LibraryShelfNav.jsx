@@ -296,7 +296,7 @@ const LibraryShelfNav = ({
             {Number.isFinite(count) ? <RoomShelfMeta>{count}</RoomShelfMeta> : null}
           </RoomShelfButton>
         </li>
-        {[['set-aside', 'On the desk'], ['later', 'Later'], ['kept', 'Keepers']].map(([value, label]) => (
+        {[['set-aside', 'On the desk'], ['later', 'Nightstand'], ['kept', 'Keepers']].map(([value, label]) => (
           <li key={value}><RoomShelfButton active={scope === value} onClick={() => onSelectScope?.(value)}>{label}</RoomShelfButton></li>
         ))}
         {topics.map((topic) => (

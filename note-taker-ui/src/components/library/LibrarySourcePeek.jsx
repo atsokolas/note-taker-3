@@ -117,7 +117,7 @@ export default function LibrarySourcePeek({ row, onRead, onPlace, onMove }) {
               {state.anchor ? 'Read from here →' : 'Open source record →'}
             </button>
             <button disabled={busy} onClick={() => place('later')}>
-              Later
+              Nightstand
             </button>
             <button onClick={() => onMove(row)}>File on a shelf…</button>
           </div>
@@ -125,7 +125,7 @@ export default function LibrarySourcePeek({ row, onRead, onPlace, onMove }) {
             <p className="library-placement-receipt" role="status">
               {receipt.error ||
                 (receipt.next === 'later'
-                  ? 'In Later. Still in your collection.'
+                  ? 'On your nightstand. Still in your collection.'
                   : 'Back in your collection.')}
               {!receipt.error ? (
                 <button

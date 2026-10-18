@@ -32,8 +32,8 @@ export const importPastedText = async ({ text, title = '', url = '' } = {}) => {
   return response.data || {};
 };
 
-export const importPastedUrl = async ({ url, title = '' } = {}) => {
-  const response = await api.post('/api/import/url', { url, title }, getAuthHeaders());
+export const importPastedUrl = async ({ url, title = '', placement, folderId } = {}) => {
+  const response = await api.post('/api/import/url', { url, title, placement, folderId }, getAuthHeaders());
   return response.data || {};
 };
 
