@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   RoomShelf,
   RoomShelfButton,
@@ -324,6 +325,11 @@ const LibraryShelfNav = ({
           </RoomShelfButton>
         </li>
       </RoomShelfList>
+
+      {/* The same shelves seen from above: one quiet door, not a scope. */}
+      <p className="library-shelf__map">
+        <Link to="/library/map">See your reading as a map</Link>
+      </p>
 
       {narrow && !showCabinet && folders.length ? (
         <button

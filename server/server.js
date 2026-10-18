@@ -4989,7 +4989,9 @@ app.use(buildLibraryRelevanceRouter({
   WikiSourceEvent,
   NoeisReceipt,
   Connection,
-  ReferenceEdge
+  ReferenceEdge,
+  Question,
+  VectorItem
 }));
 
 app.use(buildReadingLoopRouter({

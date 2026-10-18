@@ -78,6 +78,7 @@ const Wiki = lazy(() => import('./pages/Wiki'));
    the whole way. A chunk you always need is not a chunk. */
 const WikiArticle = lazy(() => import('./components/wiki/WikiArticle'));
 const Contradictions = lazy(() => import('./pages/Contradictions'));
+const ReadingMap = lazy(() => import('./pages/ReadingMap'));
 /* Not code-split. /judgment is one of the four rooms and the one a citation
    trail ends in, so its chunk is asked for on a cold open — and splitting it
    means the browser only requests it after main.js has downloaded and parsed,
@@ -764,6 +765,7 @@ function App() {
             <Route path="/today" element={<Navigate to="/wiki" replace />} />
             <Route path="/library" element={<Library />} />
             <Route path="/library/trail" element={<LibraryTrail />} />
+            <Route path="/library/map" element={<ReadingMap />} />
             {/* Papers an agent maintains. Not a fifth room in the nav — the
                 four rooms are what you did, and an edition is something that
                 arrived. The Paper carries the door to it. */}

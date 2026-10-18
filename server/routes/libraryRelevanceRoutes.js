@@ -13,6 +13,7 @@ const {
   buildLibraryShelvesProjection
 } = require('../services/libraryRoomProjectionService');
 const { buildTrail } = require('../services/readingTrail');
+const { buildReadingMap } = require('../services/readingMapService');
 
 const parseLimit = value => {
   if (value === undefined || value === null || value === '') return 40;
@@ -89,6 +90,17 @@ const buildLibraryRelevanceRouter = ({
     } catch (error) {
       console.error('Error building Library room projection:', error);
       return res.status(500).json({ error: 'Failed to load Library.' });
+    }
+  });
+
+  /* Everything read, as one picture. Cached per reader until the library or
+     the writing that names its blind spots changes. */
+  router.get('/api/library/map', authenticateToken, async (req, res) => {
+    try {
+      return res.status(200).json(await buildReadingMap({ userId: req.user.id, models }));
+    } catch (error) {
+      console.error('Error building reading map:', error);
+      return res.status(500).json({ error: 'Failed to draw the reading map.' });
     }
   });
 
