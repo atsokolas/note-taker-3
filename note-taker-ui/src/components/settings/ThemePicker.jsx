@@ -145,7 +145,7 @@ const ThemePicker = ({ open, value = 'auto', onPreview, onConfirm, onCancel }) =
             <p className="theme-picker__eyebrow">Make yourself at home</p>
             <h2 id="theme-picker-title" className="theme-picker__title">A different light to read by.</h2>
             <p className="theme-picker__lede">
-              Noeis’s own, and ten community favorites by way of Strata. Pick one; every room changes with it.
+              Noeis’s own, ten community favorites by way of Strata, and Omarchy, which wears your desktop’s colours. Pick one; every room changes with it.
             </p>
           </div>
           <button type="button" className="theme-picker__close" aria-label="Close and put back the theme you had" onClick={cancel}>

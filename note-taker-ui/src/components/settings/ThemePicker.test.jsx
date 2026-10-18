@@ -9,11 +9,11 @@ const renderPicker = (props = {}) => {
 };
 
 describe('ThemePicker', () => {
-  it('lists Noeis themes and the ten community favorites, with the current one chosen', () => {
+  it('lists Noeis themes, the ten community favorites and Omarchy, with the current one chosen', () => {
     renderPicker();
-    expect(screen.getAllByRole('radio')).toHaveLength(14);
+    expect(screen.getAllByRole('radio')).toHaveLength(15);
     expect(screen.getByRole('radio', { name: 'Tokyo Midnight' })).toHaveAttribute('aria-checked', 'true');
-    ['Tokyo Night', 'Catppuccin', 'Dracula', 'Nord', 'Gruvbox Dark', 'Rosé Pine', 'Everforest', 'Monokai', 'Solarized Dark', 'Solarized Light']
+    ['Tokyo Night', 'Catppuccin', 'Dracula', 'Nord', 'Gruvbox Dark', 'Rosé Pine', 'Everforest', 'Monokai', 'Solarized Dark', 'Solarized Light', 'Omarchy']
       .forEach((name) => expect(screen.getByRole('radio', { name })).toBeInTheDocument());
   });
 

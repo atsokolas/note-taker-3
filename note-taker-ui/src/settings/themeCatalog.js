@@ -33,7 +33,12 @@ export const THEME_CATALOG = Object.freeze([
   theme('everforest', 'Everforest', 'dark', 'palette', 'community', ['#2d353b', '#a7c080', '#d3c6aa', '#e67e80', '#475258']),
   theme('monokai', 'Monokai', 'dark', 'palette', 'community', ['#272822', '#66d9ef', '#f8f8f2', '#f92672', '#49483e']),
   theme('solarized-dark', 'Solarized Dark', 'dark', 'palette', 'community', ['#002b36', '#268bd2', '#839496', '#dc322f', '#586e75']),
-  theme('solarized-light', 'Solarized Light', 'light', 'palette', 'community', ['#fdf6e3', '#268bd2', '#586e75', '#dc322f', '#93a1a1'])
+  theme('solarized-light', 'Solarized Light', 'light', 'palette', 'community', ['#fdf6e3', '#268bd2', '#586e75', '#dc322f', '#93a1a1']),
+  /* The desktop's own colours, so its swatch reads them too. */
+  theme('omarchy', 'Omarchy', 'dark', 'palette', 'omarchy', [
+    'var(--omarchy-background)', 'var(--omarchy-accent)', 'var(--omarchy-foreground)', 'var(--omarchy-color1)',
+    'color-mix(in srgb, var(--omarchy-foreground) 26%, var(--omarchy-background))'
+  ])
 ]);
 
 const BY_ID = new Map(THEME_CATALOG.map((entry) => [entry.id, entry]));

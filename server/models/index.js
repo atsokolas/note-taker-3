@@ -2190,7 +2190,8 @@ const uiSettingsSchema = new mongoose.Schema({
     enum: [
       'auto', 'light', 'dark', 'tokyo-midnight',
       'tokyo-night', 'catppuccin', 'dracula', 'nord', 'gruvbox-dark',
-      'rose-pine', 'everforest', 'monokai', 'solarized-dark', 'solarized-light'
+      'rose-pine', 'everforest', 'monokai', 'solarized-dark', 'solarized-light',
+      'omarchy'
     ],
     default: 'auto'
   },

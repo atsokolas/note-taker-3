@@ -6,6 +6,7 @@ import {
   THEME_OPTIONS,
   DEFAULT_UI_SETTINGS
 } from './uiPreferences';
+import { colorsFromHash, takeOmarchyColors } from './omarchyColors';
 
 describe('uiPreferences', () => {
   beforeEach(() => {
@@ -40,7 +41,8 @@ describe('uiPreferences', () => {
     expect(THEME_OPTIONS.map((option) => option.value)).toEqual([
       'auto', 'light', 'dark', 'tokyo-midnight',
       'tokyo-night', 'catppuccin', 'dracula', 'nord', 'gruvbox-dark',
-      'rose-pine', 'everforest', 'monokai', 'solarized-dark', 'solarized-light'
+      'rose-pine', 'everforest', 'monokai', 'solarized-dark', 'solarized-light',
+      'omarchy'
     ]);
     expect(THEME_OPTIONS.find((option) => option.value === 'tokyo-midnight').label).toBe('Tokyo Midnight');
   });
@@ -81,6 +83,24 @@ describe('uiPreferences', () => {
     expect(document.documentElement.getAttribute('data-ui-theme')).toBe('light');
     expect(document.documentElement.getAttribute('data-ui-theme-pref')).toBe('light');
     expect(document.documentElement.getAttribute('data-ui-scheme')).toBe('light');
+  });
+
+  it('wears the desktop colours Omarchy sent, light or dark, and only the ones it knows', () => {
+    window.matchMedia = jest.fn().mockReturnValue({ matches: false });
+    window.history.replaceState({}, '', '/library?scope=later#omarchy-colors&background=%23f2e9e1&foreground=575279&accent=286983&color1=nope&script=1');
+    takeOmarchyColors();
+    expect(window.location.hash).toBe('');
+    expect(window.location.search).toBe('?scope=later');
+    applyUiSettingsToRoot(document.documentElement, { ...DEFAULT_UI_SETTINGS, theme: 'omarchy' });
+    const root = document.documentElement;
+    expect(root.getAttribute('data-ui-theme')).toBe('omarchy');
+    expect(root.getAttribute('data-ui-scheme')).toBe('light');
+    expect(root.style.getPropertyValue('--omarchy-background')).toBe('#f2e9e1');
+    expect(root.style.getPropertyValue('--omarchy-accent')).toBe('#286983');
+    expect(root.style.getPropertyValue('--omarchy-color1')).toBe('');
+    expect(root.style.getPropertyValue('--omarchy-script')).toBe('');
+    expect(colorsFromHash('#sources')).toBeNull();
+    expect(colorsFromHash('#omarchy-colors&background=1a1b26')).toEqual({ background: '#1a1b26', scheme: 'dark' });
   });
 
   it('persists Tokyo Midnight and keeps stored light and dark preferences', () => {

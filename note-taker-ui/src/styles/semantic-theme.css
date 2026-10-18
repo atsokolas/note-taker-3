@@ -378,6 +378,40 @@ html[data-ui-theme='solarized-light'] {
   --noeis-shadow-float: 0 20px 48px rgba(88, 110, 117, 0.16);
 }
 
+/* Omarchy wears the desktop's colours, set on <html> by
+   settings/omarchyColors.js, and derives the rest of the palette from them.
+   Until a device receives any it wears Omarchy's default, Tokyo Night. */
+html {
+  --omarchy-background: #1a1b26;
+  --omarchy-foreground: #a9b1d6;
+  --omarchy-accent: #7aa2f7;
+  --omarchy-color1: #f7768e;
+  --omarchy-color2: #9ece6a;
+  --omarchy-color3: #e0af68;
+}
+
+html[data-ui-theme='omarchy'] {
+  color-scheme: dark;
+  --noeis-paper: var(--omarchy-background);
+  --noeis-ink: var(--omarchy-foreground);
+  --noeis-chrome: color-mix(in srgb, var(--noeis-paper) 92%, #000);
+  --noeis-ink-muted: color-mix(in srgb, var(--noeis-ink) 82%, var(--noeis-paper));
+  --noeis-ink-subtle: color-mix(in srgb, var(--noeis-ink) 58%, var(--noeis-paper));
+  --noeis-rule: color-mix(in srgb, var(--noeis-ink) 14%, var(--noeis-paper));
+  --noeis-rule-strong: color-mix(in srgb, var(--noeis-ink) 26%, var(--noeis-paper));
+  --noeis-action: var(--omarchy-accent);
+  --noeis-thread: var(--omarchy-color3);
+  --noeis-success: var(--omarchy-color2);
+  --noeis-warning: var(--omarchy-color3);
+  --noeis-danger: var(--omarchy-color1);
+}
+
+html[data-ui-theme='omarchy'][data-ui-scheme='light'] {
+  color-scheme: light;
+  --noeis-shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.08);
+  --noeis-shadow-float: 0 20px 48px rgba(0, 0, 0, 0.14);
+}
+
 html[data-ui-density='compact'] {
   --noeis-density-scale: 0.86;
   --ui-card-padding: 18px;
