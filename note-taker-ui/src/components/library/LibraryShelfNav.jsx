@@ -326,9 +326,10 @@ const LibraryShelfNav = ({
         </li>
       </RoomShelfList>
 
-      {/* The same shelves seen from above: one quiet door, not a scope. */}
+      {/* The same shelves seen from above, and bound: quiet doors, not scopes. */}
       <p className="library-shelf__map">
         <Link to="/library/map">See your reading as a map</Link>
+        <Link to="/library/book">Read your year as a book</Link>
       </p>
 
       {narrow && !showCabinet && folders.length ? (

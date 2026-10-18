@@ -80,6 +80,7 @@ const Wiki = lazy(() => import('./pages/Wiki'));
 const WikiArticle = lazy(() => import('./components/wiki/WikiArticle'));
 const Contradictions = lazy(() => import('./pages/Contradictions'));
 const ReadingMap = lazy(() => import('./pages/ReadingMap'));
+const CommonplaceBook = lazy(() => import('./pages/CommonplaceBook'));
 /* Not code-split. /judgment is one of the four rooms and the one a citation
    trail ends in, so its chunk is asked for on a cold open — and splitting it
    means the browser only requests it after main.js has downloaded and parsed,
@@ -760,6 +761,7 @@ function App() {
             <Route path="/library/trail" element={<LibraryTrail />} />
             <Route path="/library/save" element={<SaveLink />} />
             <Route path="/library/map" element={<ReadingMap />} />
+            <Route path="/library/book" element={<CommonplaceBook />} />
             {/* Papers an agent maintains. Not a fifth room in the nav — the
                 four rooms are what you did, and an edition is something that
                 arrived. The Paper carries the door to it. */}

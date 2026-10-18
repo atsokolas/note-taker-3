@@ -78,7 +78,7 @@ test('still reading lists the latest three partway pieces and is empty when noth
 });
 
 test('the pick rotates daily through the seven oldest unopened or half-read pieces you saved yourself', () => {
-  const shelf = Array.from({ length: 9 }, (_, index) => article({ createdAt: ago(100 - index) }));
+  const shelf = Array.from({ length: 9 }, (_, index) => article({ createdAt: ago(80 - index) }));
   const ids = new Set();
   for (let day = 0; day < 7; day += 1) {
     const pick = pickForToday(shelf, { now: new Date(NOW.getTime() + day * DAY) });
@@ -101,6 +101,13 @@ test('the pick passes over feeds, parked, finished, marked, stub and still-readi
   const halfRead = article({ readingState: { ratio: 0.5, visitedAt: ago(40) } });
   assert.equal(pickForToday([...ineligible, halfRead], { now: NOW }).articleId, halfRead._id);
   assert.equal(pickForToday([halfRead], { now: NOW, exclude: [halfRead._id] }), null);
+});
+
+test('the pick lets a piece left unopened for a season go, unless you marked it as keeping', () => {
+  const lastWinter = article({ title: 'NFL Week 17 odds', createdAt: ago(290) });
+  assert.equal(pickForToday([lastWinter], { now: NOW }), null);
+  const keeps = article({ title: 'Poor Charlie\'s Almanack', createdAt: ago(400), evergreen: true });
+  assert.equal(pickForToday([lastWinter, keeps], { now: NOW }).articleId, keeps._id);
 });
 
 test('new from your sources: unopened feed arrivals from the last week, newest first', () => {

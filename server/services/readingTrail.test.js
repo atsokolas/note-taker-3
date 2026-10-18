@@ -66,7 +66,8 @@ describe('a reading trail', () => {
     expect(trail.steps[0].why).toBe('The idea itself, before its costs.');
     expect(frontier).toMatchObject({ kind: 'mine', marked: true, highlightId: 'h-frontier', passage: 'Attention variants trade accuracy for speed.' });
     expect(trail.steps.find(step => step.articleId === 'foundation')).toMatchObject({ author: 'Field Notes', marked: false });
-    expect(trail.gap).toMatch(/translation/);
+    // Nothing from outside fills it, so the gap is not claimed.
+    expect(trail.gap).toBe('');
   });
 
   it('names outside works by title and author only, never with a link, and only to fill a named gap', async () => {

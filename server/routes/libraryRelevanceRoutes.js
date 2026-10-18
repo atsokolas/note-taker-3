@@ -14,6 +14,7 @@ const {
 } = require('../services/libraryRoomProjectionService');
 const { buildTrail } = require('../services/readingTrail');
 const { buildReadingMap } = require('../services/readingMapService');
+const { buildCommonplaceBook } = require('../services/commonplaceBook');
 
 const parseLimit = value => {
   if (value === undefined || value === null || value === '') return 40;
@@ -101,6 +102,20 @@ const buildLibraryRelevanceRouter = ({
     } catch (error) {
       console.error('Error building reading map:', error);
       return res.status(500).json({ error: 'Failed to draw the reading map.' });
+    }
+  });
+
+  // A year of passages as a book. With no year, the latest year you marked.
+  router.get('/api/library/book', authenticateToken, async (req, res) => {
+    const year = req.query.year === undefined ? undefined : Number(req.query.year);
+    if (year !== undefined && !(Number.isInteger(year) && year >= 1900 && year <= 9999)) {
+      return res.status(400).json({ error: 'year must be a four-digit year.' });
+    }
+    try {
+      return res.status(200).json(await buildCommonplaceBook({ userId: req.user.id, year, models }));
+    } catch (error) {
+      console.error('Error setting the commonplace book:', error);
+      return res.status(500).json({ error: 'Failed to set the book.' });
     }
   });
 

@@ -112,8 +112,9 @@ const readPath = ({ raw, mine }) => {
     return [{ kind: 'outside', title, author, why }];
   }).slice(0, PATH_LENGTH);
   if (mine.length && !used.size) return null;
-  // A gap is named against something: your pieces, or the works that fill it.
-  return { steps, gap: steps.length ? gap : '' };
+  // A gap is said only beside the works that fill it; alone, it is a claim
+  // about your library that retrieval may simply have missed.
+  return { steps, gap: outside ? gap : '' };
 };
 
 const buildTrail = async ({

@@ -180,9 +180,12 @@ const askForNames = async (clusters, sources, fallback, client) => {
 
 /* ── blind spots ──────────────────────────────────────────────────────── */
 
+/* "Opportunity cost" is mentioned by "opportunity costs" too: the last word
+   is matched with or without its plural ending. */
 const mentions = (haystack, subject) => {
-  const escaped = subject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`).test(haystack);
+  const stem = subject.replace(/([^s])e?s$/, '$1');
+  const escaped = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^a-z0-9])${escaped}(e?s)?($|[^a-z0-9])`).test(haystack);
 };
 
 /* A subject is a name the reader gave something: a concept, a notebook tag,
@@ -190,7 +193,11 @@ const mentions = (haystack, subject) => {
    their reading does not. */
 const findGaps = (sources, writing = {}) => {
   const concepts = (writing.concepts || []).map(c => ({ name: lower(c.name), text: lower(`${c.name} ${c.description || ''}`), tags: [] }));
-  const notes = (writing.notes || []).map(n => ({ text: lower(`${n.title} ${n.content}`), tags: (n.tags || []).map(lower) }));
+  // An importer's own tag ("notion-import") says where a note came from, not what it is about.
+  const notes = (writing.notes || []).map(n => ({
+    text: lower(`${n.title} ${n.content}`),
+    tags: (n.tags || []).map(lower).filter(tag => tag !== `${lower(n.importMeta?.provider)}-import`)
+  }));
   const pages = (writing.pages || []).map(p => ({ name: lower(p.title), text: lower(p.title), tags: [] }));
   const questions = (writing.questions || []).map(q => ({
     text: lower(q.text),
@@ -319,7 +326,7 @@ const buildReadingMap = async ({ userId, models = {}, client = textClient, now =
     : Promise.resolve([]));
   const [concepts, notes, pages, questions, vectorStamp] = await Promise.all([
     find(TagMeta, ACTIVE, 'name description'),
-    find(NotebookEntry, ACTIVE, 'title content tags'),
+    find(NotebookEntry, ACTIVE, 'title content tags importMeta.provider'),
     find(WikiPage, { status: { $ne: 'archived' } }, 'title'),
     find(Question, ACTIVE, 'text linkedTagName conceptName'),
     VectorItem?.find && ids.length
@@ -353,6 +360,7 @@ const buildReadingMap = async ({ userId, models = {}, client = textClient, now =
 };
 
 module.exports = {
+  ACTIVE,
   MIN_SOURCES,
   buildReadingMap,
   composeReadingMap,
