@@ -78,6 +78,137 @@
   opacity: 1;
 }
 
+/* Ask: a word under the note, quiet until the note is wanted. */
+.library-margin-note__ask {
+  margin: 4px 0 0 12px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+.library-margin-note__ask:hover,
+.library-margin-note__ask:focus-visible {
+  color: var(--wiki-warm-accent);
+}
+
+@media (pointer: fine) {
+  .library-margin-note.is-margin .library-margin-note__ask {
+    opacity: 0.55;
+  }
+
+  .library-margin-note.is-margin:hover .library-margin-note__ask,
+  .library-margin-note__ask:focus-visible {
+    opacity: 1;
+  }
+}
+
+.library-margin-note__card .library-margin-note__ask {
+  margin-left: 0;
+}
+
+/* The answer, set like the note it answers: a hairline, a small sans
+   question, the reply in the reading serif. */
+.margin-answer {
+  box-sizing: border-box;
+  padding: 2px 0 2px 12px;
+  border-left: 1px solid var(--wiki-warm-accent);
+  color: var(--vellum-subtle, var(--text-muted));
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.library-margin-note__card .margin-answer {
+  margin-top: 10px;
+  padding: 10px 0 0;
+  border-left: 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 80%, transparent);
+}
+
+.library-margin-answer .library-margin-note__card .margin-answer {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.margin-answer__question {
+  margin: 0;
+  font-style: italic;
+}
+
+.margin-answer__reply {
+  margin: 6px 0 0;
+  color: var(--ink-human, var(--vellum-ink));
+  font-family: var(--font-serif);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.margin-answer__reply a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--wiki-warm-accent) 60%, transparent);
+  text-underline-offset: 2px;
+}
+
+.margin-answer__status {
+  display: block;
+  margin: 6px 0 0;
+  font-size: 0.72rem;
+}
+
+.margin-answer__ask input {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 8px;
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 80%, transparent);
+  background: transparent;
+  color: var(--ink-human, var(--vellum-ink));
+  font: inherit;
+}
+
+.margin-answer__ask input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--wiki-warm-accent);
+}
+
+.margin-answer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.margin-answer__actions button {
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.margin-answer__actions button:hover,
+.margin-answer__actions button:focus-visible {
+  color: var(--wiki-warm-accent);
+}
+
+@media (pointer: coarse) {
+  .library-margin-note__ask,
+  .margin-answer__actions button {
+    min-height: 44px;
+  }
+}
+
 /* Too narrow for a margin: a small mark after the paragraph, opened by tap. */
 .library-margin-note.is-mark {
   display: flex;
@@ -134,7 +265,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .library-margin-note__body {
+  .library-margin-note__body,
+  .library-margin-note__ask {
     transition: none;
   }
 }

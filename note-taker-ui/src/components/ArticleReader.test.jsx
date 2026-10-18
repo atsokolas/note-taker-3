@@ -34,9 +34,9 @@ jest.mock('../api/judgmentResolution', () => ({
   getPushesAgainst: jest.fn(async () => null),
   fileReadingProposal: jest.fn(async () => ({}))
 }));
-jest.mock('./reader/SelectionMenu', () => ({ onAskLibrarian, onWorkWithPassage, onThought }) => (
+jest.mock('./reader/SelectionMenu', () => ({ onAsk, onWorkWithPassage, onThought }) => (
   <>
-    <button type="button" onClick={onAskLibrarian}>Ask about this</button>
+    {onAsk ? <button type="button" onClick={onAsk}>Ask</button> : null}
     <button type="button" onClick={onWorkWithPassage}>Work with this passage</button>
     {onThought ? <button type="button" onClick={onThought}>Leave a thought</button> : null}
   </>
@@ -684,13 +684,7 @@ describe('ArticleReader', () => {
 
   /* Asking about a sentence saves it first, so the answer has something to
      point at. Asking about one you already kept must not keep it twice. */
-  it('reuses an exact saved highlight before opening the agent', async () => {
-    const clearSelection = jest.fn();
-    const savedHighlight = {
-      _id: 'highlight-1',
-      text: 'Cash flow discipline matters.',
-      anchor: { text: 'Cash flow discipline matters.', startOffsetApprox: 0 }
-    };
+  it('offers no Ask on a selection where no model reads the piece', () => {
     useTextSelection.mockReturnValue({
       selectionState: {
         isOpen: true,
@@ -698,26 +692,13 @@ describe('ArticleReader', () => {
         rect: { top: 100, left: 100, width: 200 },
         anchor: { text: 'Cash flow discipline matters.', startOffsetApprox: 0 }
       },
-      clearSelection
+      clearSelection: jest.fn()
     });
-    const onAskLibrarian = jest.fn();
-
     render(
-      <ArticleReader
-        article={{
-          _id: 'article-1',
-          title: 'Investor letter',
-          content: '<p>Cash flow discipline matters.</p>'
-        }}
-        highlights={[savedHighlight]}
-        onAskLibrarian={onAskLibrarian}
-      />
+      <ArticleReader article={{ _id: 'article-1', title: 'Investor letter', content: '<p>Cash flow discipline matters.</p>' }} />
     );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Ask about this' }));
-    await waitFor(() => expect(onAskLibrarian).toHaveBeenCalledWith(savedHighlight));
-    expect(createHighlight).not.toHaveBeenCalled();
-    expect(clearSelection).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Work with this passage' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ask' })).toBeNull();
   });
 
   /* Every article opened onto a panel: the source record -- who wrote it, when

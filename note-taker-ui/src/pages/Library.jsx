@@ -846,25 +846,23 @@ const Library = () => {
     return saved;
   }, [libraryRoom, refreshArticles, searchParams, setSearchParams, shelfFolderId]);
 
-  const handleAskLibrarian = useCallback((highlight) => {
-    const prompt = buildLibrarianSelectionPrompt(highlight);
-    if (!prompt) return;
-    retainHighlightInLibraryHistory(highlight);
-    askRail?.(prompt, { origin: 'Asked of this passage' });
-  }, [askRail, retainHighlightInLibraryHistory]);
-
   /* A passage asked about from the browser extension arrives on its
-     highlight with ?ask=1, and the Partner opens already asking. Once. */
+     highlight with ?ask=1, and the Partner opens already asking. Once.
+     In the reader, asking happens in the margin instead. */
   const askedFromExtension = searchParams.get('ask') === '1';
   useEffect(() => {
     if (!askedFromExtension) return;
     const highlight = (articleHighlights || []).find(item => String(item?._id) === requestedHighlightId);
     if (!highlight) return;
-    handleAskLibrarian(highlight);
+    const prompt = buildLibrarianSelectionPrompt(highlight);
+    if (prompt) {
+      retainHighlightInLibraryHistory(highlight);
+      askRail?.(prompt, { origin: 'Asked of this passage' });
+    }
     const params = new URLSearchParams(searchParams);
     params.delete('ask');
     setSearchParams(params, { replace: true });
-  }, [askedFromExtension, articleHighlights, handleAskLibrarian, requestedHighlightId, searchParams, setSearchParams]);
+  }, [askedFromExtension, articleHighlights, askRail, requestedHighlightId, retainHighlightInLibraryHistory, searchParams, setSearchParams]);
 
   const selectedFolderName = useMemo(() => {
     if (scope !== 'folder' && scope !== 'feed') return '';
@@ -1005,7 +1003,6 @@ const Library = () => {
       onHighlightRemove={removeHighlight}
       onOpenConcept={handleOpenConceptModal}
       onOpenQuestion={handleOpenQuestionModal}
-      onAskLibrarian={handleAskLibrarian}
       onToggleEvergreen={handleToggleEvergreen}
       onTogglePlacement={handleTogglePlacement}
       onOpenedSentence={setOpenedSentenceText}

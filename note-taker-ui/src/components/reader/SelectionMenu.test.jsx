@@ -6,7 +6,7 @@ const baseProps = {
   rect: { top: 200, left: 400, width: 80, height: 18 },
   saving: false,
   onHighlight: () => {},
-  onAskLibrarian: () => {}
+  onAsk: () => {}
 };
 
 describe('SelectionMenu', () => {
@@ -72,8 +72,15 @@ describe('SelectionMenu', () => {
     expect(menu.style.top).toBe('170px');
     expect(menu.style.left).toBe('440px');
     expect(screen.getByRole('button', { name: 'Highlight' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Ask about this' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ask' })).toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/Tags/i)).toBeNull();
+  });
+
+  it('offers no Ask, and ignores A, where no model can read the piece', () => {
+    const { onAsk, ...withoutAsk } = baseProps;
+    render(<SelectionMenu {...withoutAsk} />);
+    expect(screen.queryByRole('button', { name: 'Ask' })).toBeNull();
+    expect(() => fireEvent.keyDown(window, { key: 'a' })).not.toThrow();
   });
 
   it('does not focus the menu on a pointer press, so closing it cannot jump the page', () => {
@@ -111,8 +118,8 @@ describe('SelectionMenu', () => {
   it('acts on H, T and A, and leaves typing and shortcuts alone', () => {
     const onHighlight = jest.fn();
     const onThought = jest.fn();
-    const onAskLibrarian = jest.fn();
-    render(<SelectionMenu {...baseProps} onHighlight={onHighlight} onThought={onThought} onAskLibrarian={onAskLibrarian} />);
+    const onAsk = jest.fn();
+    render(<SelectionMenu {...baseProps} onHighlight={onHighlight} onThought={onThought} onAsk={onAsk} />);
     fireEvent.keyDown(window, { key: 'h' });
     fireEvent.keyDown(window, { key: 'T' });
     fireEvent.keyDown(window, { key: 'a' });
@@ -124,7 +131,7 @@ describe('SelectionMenu', () => {
     expect(onHighlight).toHaveBeenCalledTimes(1);
     expect(onHighlight).toHaveBeenCalledWith();
     expect(onThought).toHaveBeenCalledTimes(1);
-    expect(onAskLibrarian).toHaveBeenCalledTimes(1);
+    expect(onAsk).toHaveBeenCalledTimes(1);
   });
 
   it('shows the keys the first three times on this device, then stops', () => {
@@ -183,12 +190,12 @@ describe('SelectionMenu', () => {
 
   it('invokes action callbacks on click', () => {
     const onHighlight = jest.fn();
-    const onAskLibrarian = jest.fn();
-    render(<SelectionMenu {...baseProps} onHighlight={onHighlight} onAskLibrarian={onAskLibrarian} />);
+    const onAsk = jest.fn();
+    render(<SelectionMenu {...baseProps} onHighlight={onHighlight} onAsk={onAsk} />);
     fireEvent.click(screen.getByRole('button', { name: 'Highlight' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Ask about this' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
     expect(onHighlight).toHaveBeenCalledTimes(1);
-    expect(onAskLibrarian).toHaveBeenCalledTimes(1);
+    expect(onAsk).toHaveBeenCalledTimes(1);
   });
 
   it('offers Leave a thought when the reader can annotate', () => {

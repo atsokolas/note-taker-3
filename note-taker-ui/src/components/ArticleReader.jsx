@@ -18,9 +18,10 @@ import FootnotePeek from './reader/FootnotePeek';
 import OpenSource from './reader/OpenSource';
 import usePassageOpens from './reader/usePassageOpens';
 import { sourceKind } from './reader/readerDress';
-import ExplainItBack from './reader/ExplainItBack';
+import ExplainItBack, { useModelReads } from './reader/ExplainItBack';
 import PassageDoor from './reader/PassageDoorView';
-import { ArticleMargins } from './margins/LibraryMargins';
+import { ArticleMargins, paragraphAt } from './margins/LibraryMargins';
+import { useMarginAsk } from './margins/MarginAnswer';
 import { heldHighlightIds, sourceWhereabouts } from './reader/sourceWhereabouts';
 import OpenedLibraryPassage, { LibraryOriginReturn } from './wiki/open-sentence/OpenedLibraryPassage';
 import { matchingReturnTicket } from './wiki/open-sentence/openSentenceJourney';
@@ -42,7 +43,6 @@ import {
 import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
 import { sourceLabel } from './library/libraryColumnModel';
 import { formatCalendarDate } from '../utils/dateDisplay';
-import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 import { sourceTitle } from '../utils/sourceDisplayText';
 
 const hasReadableContent = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
@@ -162,7 +162,6 @@ const ArticleReader = ({
   onHighlightOptimistic,
   onHighlightReplace,
   onHighlightRemove,
-  onAskLibrarian,
   onToggleEvergreen,
   onTogglePlacement,
   onOpenedSentence,
@@ -181,6 +180,8 @@ const ArticleReader = ({
   const thoughtRequest = useRef('');
   useEffect(() => { setThought(null); }, [article?._id]);
   const articleId = article?._id;
+  const modelReads = useModelReads(articleId);
+  const asking = useMarginAsk(articleId, modelReads);
   const reading = useReadFresh(readerRootRef, articleId, '.article-reader-content p, .article-reader-content blockquote, .article-reader-content h2');
   const articlePlacement = article?.placement;
   /* Kept lives here rather than being read straight off the prop, so pressing
@@ -486,12 +487,18 @@ const ArticleReader = ({
     await persistHighlight(undefined, ink);
   };
 
-  const handleSaveAndOpen = async (callback, fallbackError) => {
-    if (!callback) {
-      setSaveError(fallbackError);
-      return;
-    }
-    await persistHighlight(callback);
+  /* Asking about a selection keeps nothing: the answer opens in the margin
+     beside the paragraph the selection begins in. */
+  const askAboutSelection = () => {
+    const selection = window.getSelection?.();
+    const { rect } = selectionState;
+    const node = selection?.rangeCount
+      ? selection.getRangeAt(0).startContainer
+      : rect && document.elementFromPoint?.(rect.left + 1, rect.top + rect.height / 2);
+    const at = paragraphAt(contentRef.current, node);
+    if (!at) return;
+    asking.ask({ ...at, selection: selectionState.text });
+    clearSelection();
   };
 
   return (
@@ -524,7 +531,7 @@ const ArticleReader = ({
             params.set('thought', '1');
             navigate({ pathname: '/library', search: params.toString(), hash: '' });
           })}
-          onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, `${AGENT_DISPLAY_NAME} is not here right now.`)}
+          onAsk={asking.available && !isHighlightOnlyImport ? askAboutSelection : undefined}
         />
       )}
       <div className="article-reader-header">
@@ -643,6 +650,7 @@ const ArticleReader = ({
             contentKey={article.content}
             layoutKey={contentMarkup.__html}
             hidden={Boolean(reading.readFresh)}
+            asking={asking}
           />
           <div className="article-passage-threads" aria-label="Connections to held judgments">
             {highlights
@@ -667,7 +675,7 @@ const ArticleReader = ({
           <button type="button" aria-pressed={placement === 'setAside'} onClick={() => park(placement === 'setAside' ? 'stream' : 'setAside')}>Set aside</button>
         </p>
       ) : null}
-      <ExplainItBack articleId={articleId} />
+      <ExplainItBack articleId={articleId} available={modelReads} />
       {sourceTrace}
       {closingLine || whereabouts.length || against ? (
         <ul className="article-whereabouts" aria-label="Where this piece went">

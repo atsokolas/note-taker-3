@@ -63,6 +63,14 @@ const quotedIn = (span = '', texts = []) => {
 // about what a source said.
 const inventedQuotes = (reply = '', texts = []) => quotations(reply).filter(span => !quotedIn(span, texts));
 
+// Where each quotation lives: the first source that carries it word for word,
+// so the reader can open the words where they were written.
+const quotedFrom = (reply = '', items = []) => quotations(reply).flatMap((quote) => {
+  const source = (Array.isArray(items) ? items : [])
+    .find(item => item?.id && quotedIn(quote, [item.fullText || item.snippet || '']));
+  return source ? [{ quote, type: source.type, id: source.id, title: source.title }] : [];
+});
+
 // A number is grounded the same way: the source states it. Each figure keeps
 // the value it stands for and how precisely it was written, so "$81.6 billion"
 // matches a filing's "81,615" (in millions) but not "$80 billion". Years and
@@ -222,6 +230,6 @@ const unstatedFigures = (claim = '', texts = []) => {
 };
 
 module.exports = {
-  PASSAGE_WORDS, NOTE_LABEL, words, drawsOn, groundedIn, inventedQuotes, quotedIn,
+  PASSAGE_WORDS, NOTE_LABEL, words, drawsOn, groundedIn, inventedQuotes, quotedIn, quotedFrom,
   figuresIn, valuesIn, statedIn, unstatedFigures
 };
