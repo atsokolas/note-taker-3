@@ -118,12 +118,19 @@ const silhouette = (points, assignment, k) => {
   return scores.reduce((sum, value) => sum + value, 0) / (scores.length || 1);
 };
 
-/* Try two to eight subjects (never a cluster thinner than four on average)
-   and keep the clearest. Ties go to fewer. */
+/* A subject holds tens of sources, not hundreds. Left alone, silhouette
+   settles on two for a large library (one tight corner, then everything
+   else under one name), so the fewest subjects tried grows with the library:
+   one per SOURCES_PER_SUBJECT sources. */
+const SOURCES_PER_SUBJECT = 40;
+
+/* Try from that floor up to eight subjects (never a cluster thinner than
+   four on average) and keep the clearest. Ties go to fewer. */
 const clusterBySilhouette = (points, maxK = 8) => {
   const ceiling = Math.max(2, Math.min(maxK, Math.floor(points.length / 4)));
+  const floor = Math.min(ceiling, Math.max(2, Math.ceil(points.length / SOURCES_PER_SUBJECT)));
   let best = null;
-  for (let k = 2; k <= ceiling; k += 1) {
+  for (let k = floor; k <= ceiling; k += 1) {
     const run = kmeans(points, k);
     const score = silhouette(points, run.assignment, k);
     if (!best || score > best.score + 1e-9) best = { ...run, k, score };
