@@ -69,6 +69,7 @@ describe('retrievePassages', () => {
     const results = await retrievePassages({ userId: 'u1', query: 'What did I note about code review?', models: library() });
     expect(results.map(item => item.id)).toEqual(['checklists']);
     expect(results[0].fullText).toMatch(/Your note: Same with code review checklists/);
+    expect(results[0].highlightId).toBe('h1');
   });
 
   it('returns nothing when nothing in the library bears on the question', async () => {

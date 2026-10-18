@@ -17,3 +17,5 @@ export const getLibraryCollectionTraces = async (ids = []) => {
 };
 export const getLibraryPeek = async (id) =>
   (await api.get(`/articles/${encodeURIComponent(id)}`, getAuthHeaders())).data;
+export const getLibraryTrail = async (subject) =>
+  (await api.get(`/api/library/trail?subject=${encodeURIComponent(subject)}`, getAuthHeaders())).data;

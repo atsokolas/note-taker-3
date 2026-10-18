@@ -314,6 +314,8 @@ const retrievePassages = async ({
       title: unit.title,
       snippet: clip(unit.text),
       fullText: unit.text,
+      // The passage you marked, when the best answer in a source is one.
+      ...(unit.type === 'article' && unit.key.startsWith('h') ? { highlightId: unit.key.slice(1) } : {}),
       ...(unit.held ? { held: unit.held } : {}),
       // Whether it clears the bar a reader is served by without the model.
       ...(forModel ? { servable: unit.matched >= strictly || unit.semantic !== undefined } : {}),

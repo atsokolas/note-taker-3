@@ -108,6 +108,15 @@
   font: 11px/1.6 var(--noeis-ui-font, sans-serif);
   margin: 9px 0 0;
 }
+.library-search-trail {
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  transition: color 160ms ease;
+}
+.library-search-trail:hover {
+  color: var(--library-accent, var(--text-primary));
+}
 .library-personal-trace {
   display: flex;
   align-items: baseline;
@@ -379,6 +388,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .library-collection-row,
+  .library-search-trail,
   .article-done {
     transition: none;
   }
