@@ -5,7 +5,7 @@ import { importPastedUrl } from '../../api/imports';
 
 jest.mock('../../api/imports', () => ({ importPastedUrl: jest.fn() }));
 
-const field = () => screen.getByLabelText('Paste a link to read later');
+const field = () => screen.getByLabelText('Paste a link to save');
 const paste = text => fireEvent.paste(field(), { clipboardData: { getData: () => text } });
 
 beforeEach(() => jest.clearAllMocks());
@@ -28,7 +28,7 @@ test('pasting a link saves it at once and names what landed', async () => {
   render(<LibraryPasteLink onSaved={onSaved} onOpen={onOpen} onShowNightstand={onShowNightstand} />);
 
   paste('example.com/slow');
-  expect(importPastedUrl).toHaveBeenCalledWith({ url: 'https://example.com/slow', placement: 'later' });
+  expect(importPastedUrl).toHaveBeenCalledWith({ url: 'https://example.com/slow', placement: 'later', folderId: '' });
   fireEvent.click(await screen.findByRole('button', { name: 'On Slow Reading' }));
   expect(screen.getByRole('status')).toHaveTextContent('On your nightstand: On Slow Reading See the nightstand');
   expect(onSaved).toHaveBeenCalledWith(piece);
@@ -49,6 +49,25 @@ test('a link already saved names the copy you have, since when, and where it sit
   fireEvent.submit(field().closest('form'));
   await screen.findByRole('button', { name: 'On Slow Reading' });
   expect(screen.getByRole('status')).toHaveTextContent(/^Already yours since .*4.*, on your desk: On Slow Reading$/);
+});
+
+test('a link already read goes into the Library, filed in the folder chosen', async () => {
+  importPastedUrl.mockResolvedValue({
+    article: { _id: 'a2', title: 'Notes on Taste', placement: 'stream', folder: { _id: 'f2', name: 'Essays' } },
+    existing: false
+  });
+  const folders = [{ _id: 'f2', name: 'Essays' }, { _id: 'f1', name: 'Art' }];
+  render(<LibraryPasteLink folders={folders} folderId="f1" onShowNightstand={jest.fn()} />);
+
+  const select = screen.getByLabelText('File in');
+  expect(select).toHaveValue('f1');
+  expect([...select.options].map(option => option.text)).toEqual(['No folder', 'Art', 'Essays']);
+  fireEvent.change(select, { target: { value: 'f2' } });
+  fireEvent.click(screen.getByRole('radio', { name: 'Already read' }));
+  paste('https://example.com/taste');
+  expect(importPastedUrl).toHaveBeenCalledWith({ url: 'https://example.com/taste', placement: 'stream', folderId: 'f2' });
+  await screen.findByRole('button', { name: 'Notes on Taste' });
+  expect(screen.getByRole('status')).toHaveTextContent(/^In your Library, in Essays: Notes on Taste$/);
 });
 
 test('a page the server cannot read says so plainly', async () => {

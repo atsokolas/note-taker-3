@@ -1102,7 +1102,8 @@ const Library = () => {
           <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>← Back to collection</button>
         </div> : null}
         <div className={`library-reader ${!isReadingView ? 'is-shelf' : ''}`} data-testid="library-main">
-          {collectionView && ['all', 'later'].includes(scope) && !isReadingView ? <LibraryPasteLink
+          {collectionView && ['all', 'later', 'folder'].includes(scope) && !isReadingView ? <LibraryPasteLink
+            key={folderId || scope} folders={folders} folderId={scope === 'folder' ? folderId : ''}
             onOpen={handleSelectArticle} onSaved={handleLinkSaved}
             onShowNightstand={scope === 'later' ? null : () => handleSelectScope('later')}
           /> : null}

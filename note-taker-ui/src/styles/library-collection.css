@@ -442,8 +442,20 @@ body.noeis-editorial .library-collection-search input {
 }
 /* Paste what you are reading. The input is ruled by the house field style
    and inks while you write; the receipt names what landed. */
+/* The slip: a sheet of slightly darker paper at the top of the Library, the
+   one place on the page you write rather than read. */
 .library-paste-link {
-  margin: 0 0 32px;
+  margin: 0 0 40px;
+  padding: 22px 26px 18px;
+  border: 1px solid var(--noeis-rule, #ddd9d0);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--noeis-paper-sunken, #eee7d9) 55%, transparent);
+  transition: border-color var(--noeis-motion-base, 180ms) var(--noeis-ease-standard, ease-out),
+    background-color var(--noeis-motion-base, 180ms) var(--noeis-ease-standard, ease-out);
+}
+.library-paste-link:focus-within {
+  border-color: color-mix(in srgb, var(--library-accent) 40%, var(--noeis-rule, #ddd9d0));
+  background: color-mix(in srgb, var(--noeis-paper-sunken, #eee7d9) 80%, transparent);
 }
 .library-paste-link__field {
   display: flex;
@@ -453,8 +465,13 @@ body.noeis-editorial .library-collection-search input {
 .library-paste-link .library-paste-link__field input {
   width: 100%;
   min-width: 0;
-  padding: 8px 0;
-  font: 17px/1.5 var(--font-serif);
+  padding: 4px 0 10px;
+  font: 22px/1.35 var(--font-serif);
+  letter-spacing: -0.005em;
+}
+.library-paste-link .library-paste-link__field input::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
 }
 .library-paste-link .library-paste-link__field input:disabled {
   color: var(--text-muted);
@@ -463,8 +480,61 @@ body.noeis-editorial .library-collection-search input {
   font: 12px var(--noeis-ui-font, sans-serif);
   color: var(--text-muted);
 }
+.library-paste-link__choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-top: 14px;
+  font: 13px/1.4 var(--noeis-ui-font, sans-serif);
+}
+/* Two places a link can go, as one small track with the choice lifted out. */
+.library-paste-link__where {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--noeis-ink, #2b2620) 6%, transparent);
+}
+.library-paste-link__where label {
+  position: relative;
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 160ms var(--noeis-ease-standard, ease-out),
+    color 160ms var(--noeis-ease-standard, ease-out), box-shadow 160ms var(--noeis-ease-standard, ease-out);
+}
+.library-paste-link__where input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.library-paste-link__where label:has(input:checked) {
+  background: var(--noeis-paper, #fbf8f2);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--noeis-ink, #2b2620) 14%, transparent);
+}
+.library-paste-link__where label:has(input:focus-visible) {
+  outline: 2px solid var(--library-accent);
+  outline-offset: 1px;
+}
+.library-paste-link__folder {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text-muted);
+}
+.library-paste-link .library-paste-link__folder select {
+  max-width: 220px;
+  padding: 2px 18px 3px 0;
+  font: italic 15px/1.4 var(--font-serif);
+  cursor: pointer;
+}
 .library-paste-link__receipt {
-  margin: 10px 0 0;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--noeis-rule, #ddd9d0);
   font: 14px/1.6 var(--noeis-ui-font, sans-serif);
   color: var(--text-secondary);
   animation: library-paste-arrive 220ms var(--noeis-ease-standard, ease-out) both;
@@ -500,10 +570,15 @@ body.noeis-editorial .library-collection-search input {
 .library-paste-link .library-paste-link__title:focus-visible {
   color: var(--library-accent);
 }
+@media (max-width: 600px) {
+  .library-paste-link { padding: 18px 18px 14px; border-radius: 12px; }
+  .library-paste-link .library-paste-link__field input { font-size: 20px; }
+}
 @keyframes library-paste-arrive {
   from { opacity: 0; transform: translateY(-2px); }
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .library-paste-link__receipt { animation: none; }
+  .library-paste-link, .library-paste-link__where label { transition: none; }
 }

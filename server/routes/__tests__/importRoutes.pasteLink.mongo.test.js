@@ -23,7 +23,7 @@ test('real Mongo: a pasted link saves once, and a link already saved opens the c
   let server;
   try {
     await mongoose.connect(memory.getUri());
-    const { Article } = require('../../models');
+    const { Article, Folder } = require('../../models');
     const userId = new mongoose.Types.ObjectId();
     let fetches = 0;
     const fetchImpl = async (url) => {
@@ -37,6 +37,7 @@ test('real Mongo: a pasted link saves once, and a link already saved opens the c
       authenticateToken: (req, _res, next) => { req.user = { id: String(userId) }; next(); },
       upload: { single: () => (_req, _res, next) => next() },
       Article,
+      Folder,
       fetchImpl,
       enqueueArticleEmbedding: () => null
     }));
@@ -88,6 +89,22 @@ test('real Mongo: a pasted link saves once, and a link already saved opens the c
     const fresh = await paste('http://93.184.216.35/new', { placement: 'later' });
     assert.equal(fresh.status, 201);
     assert.equal((await Article.findById(fresh.body.article._id).lean()).placement, 'later');
+
+    // Already read: it goes into the Library, and off the nightstand if it was there.
+    const read = await paste('http://93.184.216.35/new', { placement: 'stream' });
+    assert.equal(read.body.article.placement, 'stream');
+    assert.equal((await Article.findById(fresh.body.article._id).lean()).placement, 'stream');
+
+    // A chosen folder files the piece; someone else's folder is refused before any fetch.
+    const essays = await Folder.create({ userId, name: 'Essays' });
+    const filed = await paste('http://93.184.216.35/new', { folderId: String(essays._id) });
+    assert.equal(filed.body.article.folder.name, 'Essays');
+    assert.equal(String((await Article.findById(fresh.body.article._id).lean()).folder), String(essays._id));
+    const theirs = await Folder.create({ userId: new mongoose.Types.ObjectId(), name: 'Theirs' });
+    const before = fetches;
+    const refused = await paste('http://93.184.216.35/other', { folderId: String(theirs._id) });
+    assert.equal(refused.status, 400);
+    assert.equal(fetches, before);
   } finally {
     server?.close();
     await mongoose.disconnect();
