@@ -1457,7 +1457,7 @@ const buildImportRouter = ({
   };
 
   /* One door for every export file: Kindle, Apple Books, Pocket, Instapaper,
-     Readwise CSV, and folders of Markdown from Notion or Obsidian. The files
+     Readwise CSV, folders of Markdown from Notion or Obsidian, and EPUB books. The files
      are read by services/import/exportFiles into sources and notes; this lands
      them. Safe to repeat: a source is found again by its address, a highlight
      by its words, a note by its path, and nothing is added twice. */
@@ -1468,7 +1468,8 @@ const buildImportRouter = ({
     pocket: 'article',
     instapaper: 'article',
     readwise: 'source',
-    markdown: 'note'
+    markdown: 'note',
+    epub: 'book'
   };
   const sameText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -1550,7 +1551,7 @@ const buildImportRouter = ({
             url: source.url
           }),
           author: source.author || '',
-          content: '',
+          content: source.content || '',
           userId,
           folder: folderName ? folderByName.get(sameText(folderName)) : null,
           importMeta
@@ -1558,6 +1559,11 @@ const buildImportRouter = ({
         if (source.savedAt) article.createdAt = source.savedAt;
         byUrl.set(source.url, article);
         madeNow.add(article);
+        dirty.add(article);
+        tally.newSources += 1;
+      } else if (source.content && !article.content) {
+        // A book first known by its highlights gets its pages when the book itself arrives.
+        article.content = source.content;
         dirty.add(article);
         tally.newSources += 1;
       } else if (!source.highlights.length && !madeNow.has(article)) {
@@ -1735,7 +1741,7 @@ const buildImportRouter = ({
     // Browsers send a folder's inner paths alongside the files, in order.
     const paths = [].concat(req.body?.paths || []);
     const readable = files
-      .map((file, index) => ({ name: file.originalname, path: toTrimmedString(paths[index]), text: file.buffer.toString('utf8') }))
+      .map((file, index) => ({ name: file.originalname, path: toTrimmedString(paths[index]), buffer: file.buffer, text: file.buffer.toString('utf8') }))
       .filter(file => !(file.path || file.name).split('/').some(segment => segment.startsWith('.')));
     const sourceLabel = files.length === 1 ? (files[0].originalname || 'Export file') : (toTrimmedString(paths[0]).split('/')[0] || 'Export files');
 

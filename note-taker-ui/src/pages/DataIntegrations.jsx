@@ -3220,6 +3220,7 @@ const DataIntegrations = () => {
               <div><dt>Instapaper</dt><dd>The CSV from Settings, Export. Folders you already have here are kept.</dd></div>
               <div><dt>Notion and Obsidian</dt><dd>A folder of Markdown: an unzipped Notion export or your vault. Notes land in Think, in the folders they came from.</dd></div>
               <div><dt>Readwise</dt><dd>The CSV export, if you would rather not connect.</dd></div>
+              <div><dt>Books</dt><dd>An EPUB without DRM. The whole book lands in your Library, beside any highlights you already brought in from it.</dd></div>
             </dl>
             <input
               ref={exportFilesInputRef}
@@ -3227,7 +3228,7 @@ const DataIntegrations = () => {
               type="file"
               multiple
               aria-label="Export files"
-              accept=".txt,.csv,.html,.htm,.eml,.md,.markdown"
+              accept=".txt,.csv,.html,.htm,.eml,.md,.markdown,.epub"
               onChange={handleExportImport}
               disabled={busy}
             />

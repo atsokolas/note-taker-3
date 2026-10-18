@@ -109,3 +109,20 @@ test('Apple Books notes saved as an email message read the same as the HTML', ()
   assert.equal(saved.format, 'apple-books');
   assert.deepEqual(saved.sources, mailed.sources);
 });
+
+
+test('an EPUB is the whole book, chapters in reading order, addressed so its highlights find it', () => {
+  const buffer = fs.readFileSync(path.join(FIXTURES, 'origin-of-species.epub'));
+  const result = parseExportFile({ name: 'origin-of-species.epub', buffer, text: buffer.toString('utf8') });
+  assert.equal(result.format, 'epub');
+  const [book] = result.sources;
+  assert.equal(book.title, 'The Origin of Species');
+  assert.equal(book.author, 'Darwin, Charles');
+  assert.equal(
+    book.content,
+    '<p>Introduction</p>\n<h1>Variation under Domestication</h1><p>There is grandeur in this <em>view</em> of life.</p>',
+    'spine order, only the tags a reader needs, no scripts, styles or images'
+  );
+  assert.ok(book.aliases.includes('import://readwise/the-origin-of-species-darwin-charles'), 'the address Kindle and Readwise give the book');
+  assert.deepEqual(parseExportFile({ name: 'broken.epub', buffer: Buffer.from('not a zip') }).sources, [], 'a file that is not a book is skipped');
+});
