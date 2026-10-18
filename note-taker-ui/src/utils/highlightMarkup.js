@@ -77,7 +77,16 @@ export const resolveHighlightOffsets = (root, highlight) => {
   return ranked[0];
 };
 
-const wrapTextNodeSegment = (node, start, end, highlightId, color) => {
+/* A passage you keep coming back to takes the ink a little deeper each
+   time: three quiet steps, never a number. */
+export const inkDepth = (opens) => {
+  const count = Number(opens) || 0;
+  if (count >= 6) return 3;
+  if (count >= 3) return 2;
+  return count >= 1 ? 1 : 0;
+};
+
+const wrapTextNodeSegment = (node, start, end, highlightId, color, depth = 0) => {
   if (!node || end <= start) return;
   let target = node;
   if (start > 0) target = target.splitText(start);
@@ -90,6 +99,7 @@ const wrapTextNodeSegment = (node, start, end, highlightId, color) => {
   mark.dataset.highlightId = `highlight-${highlightId}`;
   mark.style.setProperty('--highlight-color', normalizeHighlightColor(color));
   mark.style.backgroundColor = normalizeHighlightColor(color);
+  if (depth) mark.dataset.ink = String(depth);
   target.parentNode.replaceChild(mark, target);
   mark.appendChild(target);
 };
@@ -104,7 +114,7 @@ export const applyStoredHighlight = (root, highlight) => {
     .forEach(({ node, start: nodeStart }) => {
       const segmentStart = Math.max(0, start - nodeStart);
       const segmentEnd = Math.min(node.nodeValue.length, end - nodeStart);
-      wrapTextNodeSegment(node, segmentStart, segmentEnd, highlight?._id, highlight?.color);
+      wrapTextNodeSegment(node, segmentStart, segmentEnd, highlight?._id, highlight?.color, inkDepth(highlight?.opens));
     });
 };
 

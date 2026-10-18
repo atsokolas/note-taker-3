@@ -14,6 +14,7 @@ beforeEach(() => {
   root.innerHTML =
     '<p>First paragraph in the source.</p><p>Second paragraph holding the remembered place.</p><p>A third passage after meaningful reading.</p>';
   document.body.append(root);
+  root.getBoundingClientRect = () => ({ top: 0, bottom: 6000, height: 6000 });
   ref = { current: root };
   visible = 0;
   [...root.children].forEach((node, index) => {
@@ -65,6 +66,7 @@ test('opening resumes without writing and deduplicates unchanged settled positio
   expect(root.children[1].dataset.stopped).toBe('You stopped here.');
   expect(root.children[0].classList.contains('is-reading-before')).toBe(true);
   expect(saveArticleReadingState).not.toHaveBeenCalled();
+  expect(hook.result.current).toBe('shown');
   await move(2);
   expect(root.children[1].dataset.stopped).toBeUndefined();
   expect(root.children[0].classList.contains('is-reading-before')).toBe(false);
@@ -124,5 +126,50 @@ test('background failures remain quiet and retry on a later visibility flush', a
     window.dispatchEvent(new Event('pagehide'));
   });
   expect(saveArticleReadingState).toHaveBeenCalledTimes(2);
+  hook.unmount();
+});
+
+const placeAt = (index) => getArticleReadingState.mockResolvedValue({
+  anchor: anchorForReadingNode(root, root.children[index]),
+  ratio: 0.4,
+  visitedAt: null
+});
+test('the line fades after a moment while the marks stay until you read on', async () => {
+  placeAt(1);
+  const hook = await open();
+  expect(root.children[1].classList.contains('is-stopped-faded')).toBe(false);
+  await act(async () => { jest.advanceTimersByTime(5000); });
+  expect(root.children[1].classList.contains('is-stopped-faded')).toBe(true);
+  expect(root.children[1].classList.contains('is-reading-place')).toBe(true);
+  hook.unmount();
+  expect(root.children[1].classList.contains('is-stopped-faded')).toBe(false);
+});
+test('a finished piece opens unmarked: the last passage', async () => {
+  placeAt(2);
+  const hook = await open();
+  expect(root.children[2].scrollIntoView).not.toHaveBeenCalled();
+  expect(root.children[2].dataset.stopped).toBeUndefined();
+  expect(hook.result.current).toBe('none');
+  hook.unmount();
+});
+test('a finished piece opens unmarked: the last screen', async () => {
+  root.getBoundingClientRect = () => ({ top: 0, bottom: 1300, height: 1300 });
+  placeAt(1);
+  const hook = await open();
+  expect(root.children[1].dataset.stopped).toBeUndefined();
+  expect(hook.result.current).toBe('none');
+  hook.unmount();
+});
+test('no saved place, a failed read, and an explicit arrival each say so', async () => {
+  let hook = await open();
+  expect(hook.result.current).toBe('none');
+  hook.unmount();
+  getArticleReadingState.mockRejectedValue(new Error('offline'));
+  hook = await open();
+  expect(hook.result.current).toBe('none');
+  hook.unmount();
+  placeAt(1);
+  hook = await open({ explicitDestination: true });
+  expect(hook.result.current).toBe('explicit');
   hook.unmount();
 });

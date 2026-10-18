@@ -335,11 +335,11 @@ body.noeis-editorial .passage-door {
 }
 
 body.noeis-editorial .article-reader-content.reader {
-  max-width: 780px;
+  max-width: var(--reader-measure, 780px);
   margin: 0;
   font-family: var(--font-serif);
   font-size: 1.38rem;
-  line-height: 1.86;
+  line-height: var(--reader-leading, 1.86);
   color: var(--vellum-ink);
 }
 

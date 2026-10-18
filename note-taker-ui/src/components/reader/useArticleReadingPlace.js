@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   getArticleReadingState,
   saveArticleReadingState
@@ -12,6 +12,20 @@ import {
 } from './articleReadingPlace';
 
 const keyOf = (place) => (place ? JSON.stringify(place.anchor) : '');
+/* How long the line stays before it fades. The marks stay until you read on. */
+const LINE_MS = 5000;
+
+/* Where a place sits on the page decides whether it is worth returning to:
+   on the first screen the page already opens there; on the last screen you
+   finished the piece. Either way, no line. */
+export const placeWorthReturning = (root, node) => {
+  const top = node.getBoundingClientRect().top + window.scrollY;
+  const end = root.getBoundingClientRect().bottom + window.scrollY;
+  if (top < window.innerHeight) return false;
+  const candidates = readingCandidates(root);
+  if (candidates[candidates.length - 1] === node) return false;
+  return end - top > window.innerHeight;
+};
 
 export default function useArticleReadingPlace({
   articleId,
@@ -22,14 +36,22 @@ export default function useArticleReadingPlace({
 }) {
   const explicit = useRef(explicitDestination);
   explicit.current = explicitDestination;
+  /* What this open did with your place: 'pending' until it knows, 'shown'
+     when it returned you there, 'explicit' when a link chose the passage,
+     'none' otherwise. A return greeting waits for 'none'. */
+  const [arrival, setArrival] = useState({ articleId, value: 'pending' });
   useEffect(() => {
     if (!enabled || !articleId || !contentRef.current) return undefined;
     const root = contentRef.current;
+    const arrive = (value) => setArrival((current) => (
+      current.articleId === articleId && current.value !== 'pending' ? current : { articleId, value }
+    ));
 
     let active = true,
       armed = false,
       moved = false,
       timer,
+      fade,
       frame,
       marked = [],
       lastKey = '',
@@ -83,20 +105,22 @@ export default function useArticleReadingPlace({
     };
     /* The marks say where you were until you start reading again. */
     const unmark = () => {
+      window.clearTimeout(fade);
       marked.forEach((node) => {
-        node.classList.remove('is-reading-place', 'is-reading-before');
+        node.classList.remove('is-reading-place', 'is-reading-before', 'is-stopped-faded');
         delete node.dataset.stopped;
       });
       marked = [];
     };
     getArticleReadingState(articleId)
       .then((place) => {
-        if (!active || !place || moved || explicit.current) return;
+        if (!active) return;
+        if (explicit.current) return arrive('explicit');
+        if (!place || moved) return arrive('none');
         const found = resolveReadingPlace(root, place);
-        if (!found) return;
+        if (!found) return arrive('none');
         lastKey = keyOf(place);
-        /* A place on the first screen is already where the page opens. */
-        if (found.node.getBoundingClientRect().top + window.scrollY < window.innerHeight) return;
+        if (!placeWorthReturning(root, found.node)) return arrive('none');
         const candidates = readingCandidates(root);
         const before = candidates[candidates.indexOf(found.node) - 1];
         found.node.classList.add('is-reading-place');
@@ -105,8 +129,10 @@ export default function useArticleReadingPlace({
         marked = [found.node, before].filter(Boolean);
         found.node.scrollIntoView?.({ block: 'start', behavior: 'instant' });
         baselineKey = keyOf({ anchor: anchorForReadingNode(root, found.node) });
+        fade = window.setTimeout(() => found.node.classList.add('is-stopped-faded'), LINE_MS);
+        arrive('shown');
       })
-      .catch(() => {});
+      .catch(() => { if (active) arrive('none'); });
     const arm = (event) => {
       if (
         event.type === 'pointerdown' &&
@@ -176,4 +202,5 @@ export default function useArticleReadingPlace({
       document.removeEventListener('visibilitychange', resume);
     };
   }, [articleId, contentKey, contentRef, enabled]);
+  return arrival.articleId === articleId ? arrival.value : 'pending';
 }

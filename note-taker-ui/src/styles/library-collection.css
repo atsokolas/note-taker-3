@@ -195,15 +195,28 @@
   text-decoration: underline;
   text-underline-offset: 5px;
 }
+/* "You stopped here on Tuesday." The line sits in the gap above the
+   paragraph, so fading it moves nothing; reduced motion simply removes it. */
 .article-reader-content .is-reading-place {
+  position: relative;
   scroll-margin-top: 180px;
 }
 .article-reader-content .is-reading-place::before {
   content: attr(data-stopped);
-  display: block;
-  margin-bottom: 10px;
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 2px;
   color: var(--text-muted);
   font: 12px/1.5 var(--noeis-ui-font, sans-serif);
+  pointer-events: none;
+  transition: opacity 900ms ease;
+}
+.article-reader-content .is-reading-place.is-stopped-faded::before {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .article-reader-content .is-reading-place::before { transition: none; }
 }
 .article-reader-content .is-reading-before {
   box-shadow: -3px 0 color-mix(in srgb, var(--noeis-thread, #b1862e) 35%, transparent);

@@ -140,7 +140,7 @@ body.noeis-editorial .magnetic-reading-rail__hint {
    is the agent's half-step warmer. Capture itself is one yellow wash,
    never a crayon box and never the old cool blue. */
 body.noeis-editorial .article-reader-content mark.highlight {
-  background: color-mix(in srgb, var(--highlight-color, #f6e27a) 62%, transparent) !important;
+  background: color-mix(in srgb, var(--highlight-color, #f6e27a) calc(62% + var(--ink-deepen, 0%)), transparent) !important;
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--highlight-color, #f6e27a) 40%, transparent);
 }
 
@@ -154,8 +154,13 @@ body.noeis-editorial .article-highlight-edition__note {
 }
 
 html[data-ui-scheme='dark'] body.noeis-editorial .article-reader-content mark.highlight {
-  background: color-mix(in srgb, var(--highlight-color, #f6e27a) 46%, transparent) !important;
+  background: color-mix(in srgb, var(--highlight-color, #f6e27a) calc(46% + var(--ink-deepen, 0%)), transparent) !important;
 }
+
+/* Deeper ink: a passage you keep returning to, a step at a time. */
+.article-reader-content mark.highlight[data-ink='1'] { --ink-deepen: 8%; }
+.article-reader-content mark.highlight[data-ink='2'] { --ink-deepen: 16%; }
+.article-reader-content mark.highlight[data-ink='3'] { --ink-deepen: 24%; }
 
 /* A selection in the reader is the house bronze, lightly: the browser's blue
    read as somebody else's mark on the page. */
@@ -204,4 +209,81 @@ body.noeis-editorial .selection-menu__key {
   body.noeis-editorial .selection-menu__key {
     display: none;
   }
+}
+
+/* The reader dresses for the source (readerDress.js). Long essays get a
+   slightly wider measure and a slower line; filings set their figures in
+   columns; pasted text is left as written. Tokens only. */
+.article-reader[data-source-kind='essay'] {
+  --reader-measure: 820px;
+  --reader-leading: 1.94;
+}
+.article-reader[data-source-kind='filing'] .article-reader-content {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Your highlight greets you on return: the line in pull-quote type, which
+   then settles away. Reduced motion keeps it, still, for this visit. */
+.return-greeting {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin: 22px 0 6px;
+  transition: grid-template-rows 700ms ease, opacity 500ms ease, margin 700ms ease;
+}
+.return-greeting.is-settling {
+  grid-template-rows: 0fr;
+  margin: 0;
+  opacity: 0;
+}
+.return-greeting__inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.return-greeting figcaption {
+  color: var(--text-muted);
+  font: 12px/1.5 var(--noeis-ui-font, sans-serif);
+}
+.return-greeting blockquote {
+  margin: 6px 0 0;
+  padding: 0 0 0 18px;
+  border-left: 2px solid color-mix(in srgb, var(--noeis-thread) 55%, transparent);
+}
+.return-greeting blockquote button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-human, var(--text-primary));
+  font-family: var(--font-serif);
+  font-size: clamp(1.3rem, 2.2vw, 1.62rem);
+  font-style: italic;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .return-greeting { transition: none; }
+}
+
+/* Footnotes open in place: a small note on its own paper by the reference. */
+.footnote-peek {
+  position: absolute;
+  z-index: 40;
+  width: min(360px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--noeis-rule) 80%, transparent);
+  border-radius: 6px;
+  background: var(--noeis-canvas, var(--surface-card));
+  box-shadow: var(--shadow-subtle);
+  color: var(--text-primary);
+  font: 14px/1.55 var(--noeis-ui-font, sans-serif);
+}
+.footnote-peek:focus { outline: none; }
+.footnote-peek:focus-visible { outline: 2px solid color-mix(in srgb, var(--noeis-thread) 60%, transparent); }
+.article-reader-content a[aria-expanded='true'] {
+  text-decoration-thickness: 2px;
+}
+
+/* The original is gone. Your copy isn't. */
+.article-source-gone {
+  color: var(--text-muted);
 }

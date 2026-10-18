@@ -3,7 +3,7 @@ import ArticleReader from './ArticleReader';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import * as Router from 'react-router-dom';
 import { writeReturnTicket } from './wiki/open-sentence/openSentenceJourney';
-import { getArticleReadingState, saveArticleReadingState } from '../api/articleReadingState';
+import { checkOriginalSource, getArticleReadingState, markPassageOpened, saveArticleReadingState } from '../api/articleReadingState';
 import { createHighlight } from '../api/highlights';
 import { libraryExplorations } from '../api/authoredExplorations';
 jest.mock('../api/authoredExplorations', () => ({
@@ -20,7 +20,7 @@ import { buildArticlePassageHref } from '../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../utils/sourceDisplayText';
 import { passageFromSelection } from './wiki/open-sentence/LibraryPassagePicker';
 
-jest.mock('../api/articleReadingState', () => ({ getArticleReadingState: jest.fn(async () => null), saveArticleReadingState: jest.fn(async () => {}) }));
+jest.mock('../api/articleReadingState', () => ({ getArticleReadingState: jest.fn(async () => null), saveArticleReadingState: jest.fn(async () => {}), markPassageOpened: jest.fn(async () => {}), checkOriginalSource: jest.fn(async () => null) }));
 jest.mock('../api/highlights', () => ({
   createHighlight: jest.fn(),
   updateHighlight: jest.fn()
@@ -58,6 +58,8 @@ beforeEach(() => {
   getPushesAgainst.mockResolvedValue(null);
   getArticleReadingState.mockResolvedValue(null);
   saveArticleReadingState.mockResolvedValue();
+  markPassageOpened.mockResolvedValue();
+  checkOriginalSource.mockResolvedValue(null);
   libraryExplorations.load.mockResolvedValue({ userId: 'owner-1', explorations: [] });
 });
 
@@ -149,6 +151,22 @@ describe('ArticleReader', () => {
     expect(onOpenedSentence).toHaveBeenLastCalledWith('A source sentence.');
     expect(libraryExplorations.load).toHaveBeenCalledTimes(1);
     expect(libraryExplorations.save).not.toHaveBeenCalled();
+  });
+
+  it('opens a footnote in place, dresses a filing, and says when the original is gone', async () => {
+    const article = {
+      _id: 'article-1',
+      title: 'Costco 10-K 2025',
+      url: 'https://www.sec.gov/Archives/costco.htm',
+      sourceGoneAt: '2026-10-01T00:00:00Z',
+      content: '<p>Revenue rose 7%.<sup><a href="#fn1">1</a></sup></p><ol><li id="fn1">Net of membership fees.</li></ol>'
+    };
+    const { container } = render(<ArticleReader article={article} highlights={[]} />);
+    expect(container.querySelector('.article-reader')).toHaveAttribute('data-source-kind', 'filing');
+    expect(screen.getByText(/The original is gone\. Your copy isn/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: '1' }));
+    expect(screen.getByRole('note')).toHaveTextContent('Net of membership fees.');
+    expect(window.location.hash).toBe('');
   });
 
   it('finds authored work from the article itself without a requested highlight', async () => {

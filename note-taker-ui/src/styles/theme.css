@@ -3240,7 +3240,7 @@ button.connections-row {
 }
 
 .article-reader-content mark.highlight {
-  background: color-mix(in srgb, var(--highlight-color, #f6e27a) 62%, transparent) !important;
+  background: color-mix(in srgb, var(--highlight-color, #f6e27a) calc(62% + var(--ink-deepen, 0%)), transparent) !important;
   border-radius: 2px;
   padding: 0 2px;
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--highlight-color, #f6e27a) 40%, transparent);
