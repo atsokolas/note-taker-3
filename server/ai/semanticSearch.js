@@ -88,10 +88,12 @@ const similarToSource = async ({ userId, objectType, objectId, subId = '', limit
 /* Your library in the margins: for each paragraph worth asking about, the
    closest thing you marked somewhere else.
 
-   Eligibility: a paragraph of MARGIN_MIN_WORDS words or more, matched against
-   your own highlights only, from a source other than the one being read, at a
-   raw cosine of 0.72 or better — the floor Judgment and the editions hold
-   "you already hold this" to, so the word means the same in every room.
+   Eligibility: a paragraph of MARGIN_MIN_WORDS words or more, other than a
+   short line of dialogue, matched against your own highlights only, from a
+   work other than the one being read (another saved copy of it, under the
+   same title, is the same work), at a raw cosine of 0.62 or better. On a real
+   library every match at 0.62 and above was worth the margin, and keyword
+   coincidences began just under it; at 0.72 only second copies got through.
    Quality bar: no highlight shorter than MARGIN_MIN_QUOTE_CHARS, no near
    duplicate of the paragraph itself (the same passage saved from a second
    copy), no highlight twice, no paragraph twice, and at most `limit` in all —
@@ -100,14 +102,19 @@ const similarToSource = async ({ userId, objectType, objectId, subId = '', limit
    list, and an empty list renders nothing. */
 const MARGIN_MIN_WORDS = 12;
 const MARGIN_MIN_QUOTE_CHARS = 40;
-const MARGIN_FLOOR = rawCosineToAtlasScore(0.72);
+const MARGIN_FLOOR = rawCosineToAtlasScore(0.62);
 const MARGIN_SAME_PASSAGE = rawCosineToAtlasScore(0.97);
 const MARGIN_MAX_PARAGRAPHS = 60;
 const MARGIN_CANDIDATES = 6;
+const MARGIN_DIALOGUE_WORDS = 30;
 
 const plain = value => String(value || '').replace(/\s+/g, ' ').trim();
 const wordCount = value => (plain(value).match(/\S+/g) || []).length;
 const sameWords = value => plain(value).toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '');
+// A quoted line someone says matches on its topic, never on its thought.
+const isDialogue = value => /^["“]/.test(value) && wordCount(value) < MARGIN_DIALOGUE_WORDS;
+// "Going Founder Mode On Cancer (Full Article)" is "Going Founder Mode On Cancer".
+const workOf = title => sameWords(String(title || '').replace(/\([^)]*\)|\[[^\]]*\]/g, ''));
 
 const highlightsById = async ({ Article: articles, userId, ids }) => {
   const owner = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(String(userId)) : null;
@@ -141,7 +148,7 @@ const marginNotes = async ({
   const asked = (Array.isArray(paragraphs) ? paragraphs : [])
     .slice(0, MARGIN_MAX_PARAGRAPHS)
     .map((text, index) => ({ index, text: plain(text) }))
-    .filter(item => wordCount(item.text) >= MARGIN_MIN_WORDS);
+    .filter(item => wordCount(item.text) >= MARGIN_MIN_WORDS && !isDialogue(item.text));
   if (!asked.length) return [];
 
   const source = String(articleId || '');
@@ -163,11 +170,13 @@ const marginNotes = async ({
   if (!candidates.length) return [];
 
   // The index can lag a deletion or an edit; the words quoted are the words held now.
-  const held = await highlightsById({
-    Article: models.Article || Article,
-    userId,
-    ids: [...new Set(candidates.map(row => String(row.objectId)))]
-  });
+  const articles = models.Article || Article;
+  const [held, reading] = await Promise.all([
+    highlightsById({ Article: articles, userId, ids: [...new Set(candidates.map(row => String(row.objectId)))] }),
+    mongoose.Types.ObjectId.isValid(source) ? articles.findOne({ _id: source, userId }).select('title').lean() : null
+  ]);
+  const work = workOf(reading?.title);
+  const sameWork = highlight => String(highlight.articleId) === source || Boolean(work && workOf(highlight.articleTitle) === work);
   const usedParagraphs = new Set();
   const usedQuotes = new Set();
   const notes = [];
@@ -178,7 +187,7 @@ const marginNotes = async ({
     const text = plain(highlight?.text);
     const quote = sameWords(text);
     if (!highlight || text.length < MARGIN_MIN_QUOTE_CHARS) continue;
-    if (source && String(highlight.articleId) === source) continue;
+    if (sameWork(highlight)) continue;
     if (usedParagraphs.has(row.paragraph) || usedQuotes.has(quote)) continue;
     const paragraph = sameWords(row.paragraphText);
     if (paragraph.includes(quote) || quote.includes(paragraph)) continue;

@@ -67,7 +67,10 @@ describe('marginNotes', () => {
   };
   const models = (rowsFor) => ({
     VectorItem: { aggregate: jest.fn(async () => rowsFor()) },
-    Article: { aggregate: jest.fn(async ([match]) => match.$match['highlights._id'].$in.map(id => held[String(id)]).filter(Boolean)) }
+    Article: {
+      aggregate: jest.fn(async ([match]) => match.$match['highlights._id'].$in.map(id => held[String(id)]).filter(Boolean)),
+      findOne: () => ({ select: () => ({ lean: async () => ({ title: 'This one' }) }) })
+    }
   });
   const row = (n, cosine, articleId = there) => ({ objectType: 'highlight', objectId: hid(n), score: score(cosine), metadata: { articleId } });
 
@@ -94,6 +97,20 @@ describe('marginNotes', () => {
       models: models(() => [row(3, 0.9, here), row(3, 0.9, there)])
     });
     expect(notes).toEqual([]);
+  });
+
+  it('treats another saved copy of the same work as the work being read', async () => {
+    held[hid(6)] = { ...held[hid(4)], _id: hid(6), articleTitle: 'This One (Full Article)' };
+    const notes = await marginNotes({
+      userId, articleId: here, paragraphs: [paragraph], models: models(() => [row(6, 0.85), row(1, 0.65)])
+    });
+    expect(notes.map(note => note.highlight._id)).toEqual([hid(1)]);
+  });
+
+  it('does not ask about a short line of dialogue', async () => {
+    const said = '“You have to live with yourself and what you do,” she says. “Because there is a higher authority.”';
+    expect(await marginNotes({ userId, articleId: here, paragraphs: [said], models: models(() => [row(1, 0.9)]) })).toEqual([]);
+    expect(embedTexts).not.toHaveBeenCalled();
   });
 
   it('holds back weak matches, short highlights and the same passage saved twice', async () => {
