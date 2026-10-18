@@ -1,6 +1,7 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import plan from './reviewerFixturePlan.json';
+import { heldFixtureEvent } from './reviewerFixtureEvents';
 
 const idOf = row => String(row?._id || row?.id || '');
 const validId = value => /^[a-f0-9]{24}$/.test(String(value || ''));
@@ -128,14 +129,14 @@ export const createFixtureSession = ({ client, storage, locks }) => {
       || ['pending', 'processing', 'failed'].includes(event.status))) {
       throw pause('Source-event state is incomplete or unsettled; setup is paused.');
     }
-    const heldEvent = (type, objectId) => {
-      const related = events.filter(event => event.sourceType === type && String(event.sourceObjectId) === objectId);
-      if (!related.length || related.some(event => event.status !== 'held' || event.attemptCount !== 0
-        || event.metadata?.reviewerRehearsalHold?.inferenceAttemptedByHold !== false)) return null;
-      return related[0];
-    };
-    sources.forEach(source => { if (source && !heldEvent('article', idOf(source))) throw pause('Saved source hold is unverified; setup is paused.'); });
-    if (highlight && !heldEvent('highlight', idOf(highlight))) throw pause('Saved highlight hold is unverified; setup is paused.');
+    sources.forEach((source, index) => {
+      if (source && !heldFixtureEvent(events, { owner, type: 'article', objectId: idOf(source), source: plan.sources[index] })) {
+        throw pause('Saved source hold is unverified; setup is paused.');
+      }
+    });
+    if (highlight && !heldFixtureEvent(events, { owner, type: 'highlight', objectId: idOf(highlight) })) {
+      throw pause('Saved highlight hold is unverified; setup is paused.');
+    }
     return { identity: activeIdentity, sources, highlight, wiki, verifiedAt: new Date().toISOString(),
       complete: sources.every(Boolean) && Boolean(highlight) && Boolean(wiki) };
   };

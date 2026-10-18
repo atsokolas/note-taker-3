@@ -18,8 +18,11 @@ const rig = () => {
     if (busy) return callback(null);
     busy = true; try { return await callback({}); } finally { busy = false; }
   } };
-  const held = (type, objectId) => events.push({ userId: owner, sourceType: type, sourceObjectId: objectId,
-    status: 'held', attemptCount: 0, metadata: { reviewerRehearsalHold: { inferenceAttemptedByHold: false } } });
+  const held = (type, objectId, source) => events.push({ userId: owner, sourceType: source ? 'external' : type,
+    sourceObjectId: objectId, ...(source ? { provider: 'manual', eventType: 'imported', title: source.title, url: source.url } : {}),
+    status: 'held', attemptCount: 0, metadata: {
+      ...(source ? { connector: 'manual', source: 'text', importMode: 'text', sourceLabel: 'Pasted text', isNew: true } : {}),
+      reviewerRehearsalHold: { reason: 'reviewer_rehearsal', inferenceAttemptedByHold: false } } });
   const client = {
     identity: jest.fn(async () => identity()),
     article: jest.fn(async url => articles.get(url) || null),
@@ -29,7 +32,7 @@ const rig = () => {
       writes.push(source.fixtureKey);
       const article = { _id: id(articles.size + 1), userId: owner, title: source.title, url: source.url,
         author: source.author, content: source.text, highlights: [] };
-      articles.set(source.url, article); held('article', article._id);
+      articles.set(source.url, article); held('article', article._id, source);
       return { status: 'held', article: { _id: article._id } };
     }),
     highlight: jest.fn(async articleId => {
@@ -60,6 +63,72 @@ test('fixed four writes persist exact fixtures; reload and retry only read back,
   expect(receipt.connectorAcceptance).toBe('not_run'); expect(receipt.contentComparison).toBe('exact');
   await r.session().inspect(); await r.session().run(); expect(r.writes).toHaveLength(4);
   expect(r.pages[0].title).toBe('Untitled wiki page');
+});
+
+test('the paused first-source journal reconciles read-only and continuation never repeats that import', async () => {
+  const r = rig(); await r.client.importSource(plan.sources[0]);
+  const originalId = r.articles.get(plan.sources[0].url)._id;
+  const key = `noeis.reviewer.fixtures.v${plan.version}.${owner}`;
+  r.saved.set(key, JSON.stringify({ version: plan.version, owner, confirmed: {}, intent: 'source-1' }));
+  r.writes.length = 0; r.client.importSource.mockClear();
+  const partial = await r.session().inspect();
+  expect(partial.sources[0]._id).toBe(originalId); expect(partial.complete).toBe(false);
+  expect(JSON.parse(r.saved.get(key))).toEqual({ version: plan.version, owner,
+    confirmed: { 'source-1': originalId }, intent: null });
+  await r.session().inspect(); expect(r.writes).toEqual([]);
+  expect(r.client.importSource).not.toHaveBeenCalled();
+  await r.session().run();
+  expect(r.writes).toEqual(['source-2', 'highlight', 'wiki']);
+  expect(r.client.importSource).toHaveBeenCalledTimes(1);
+  expect(r.client.importSource).toHaveBeenCalledWith(plan.sources[1]);
+  expect(r.articles.get(plan.sources[0].url)._id).toBe(originalId);
+});
+
+test.each([
+  ['owner', event => { event.userId = id(90); }],
+  ['object', event => { event.sourceObjectId = id(90); }],
+  ['provider', event => { event.provider = 'other'; }],
+  ['connector', event => { event.metadata.connector = 'other'; }],
+  ['source', event => { event.metadata.source = 'url'; }],
+  ['import mode', event => { event.metadata.importMode = 'url'; }],
+  ['source label', event => { event.metadata.sourceLabel = 'Other source'; }],
+  ['URL', event => { event.url = 'https://example.com/different'; }],
+  ['title', event => { event.title = 'Different title'; }],
+  ['event type', event => { event.eventType = 'created'; }],
+  ['newness', event => { delete event.metadata.isNew; }],
+  ['hold reason', event => { event.metadata.reviewerRehearsalHold.reason = 'other'; }],
+  ['hold proof', event => { delete event.metadata.reviewerRehearsalHold.inferenceAttemptedByHold; }],
+  ['attempt count', event => { event.attemptCount = 1; }],
+  ['status', event => { event.status = 'processed'; }]
+])('external manual-text provenance mismatch (%s) preserves the partial journal and never writes', async (_name, change) => {
+  const r = rig(); await r.client.importSource(plan.sources[0]); r.writes.length = 0;
+  const key = `noeis.reviewer.fixtures.v${plan.version}.${owner}`;
+  const uncertain = JSON.stringify({ version: plan.version, owner, confirmed: {}, intent: 'source-1' });
+  r.saved.set(key, uncertain); change(r.events[0]);
+  await expect(r.session().inspect()).rejects.toThrow(/setup is paused/);
+  await expect(r.session().run()).rejects.toThrow(/setup is paused/);
+  expect(r.writes).toEqual([]); expect(r.saved.get(key)).toBe(uncertain);
+});
+
+test('every event for the source is checked and external events never stand in for highlight holds', async () => {
+  const r = rig(); await r.client.importSource(plan.sources[0]); r.writes.length = 0;
+  r.events.push({ ...r.events[0], sourceType: 'article', status: 'processed', attemptCount: 1 });
+  await expect(r.session().inspect()).rejects.toThrow(/source hold is unverified/);
+  expect(r.writes).toEqual([]);
+  const h = rig(); await h.session().run(); h.writes.length = 0;
+  h.events.find(event => event.sourceType === 'highlight').sourceType = 'external';
+  await expect(h.session().inspect()).rejects.toThrow(/highlight hold is unverified/);
+  expect(h.writes).toEqual([]);
+});
+
+test('valid owned article holds and the consistent manual-text update contract remain readable', async () => {
+  for (const update of [false, true]) {
+    const r = rig(); await r.client.importSource(plan.sources[0]); r.writes.length = 0;
+    if (update) { r.events[0].metadata.isNew = false; r.events[0].eventType = 'updated'; }
+    else r.events[0].sourceType = 'article';
+    expect((await r.session().inspect()).sources[0]._id).toBe(id(1));
+    expect(r.writes).toEqual([]);
+  }
 });
 
 test('lost import response is reconciled from exact persisted records without repeating the POST', async () => {
