@@ -28,22 +28,7 @@ private struct Shelves: View {
     @AppStorage(Shelves.key) private var shelf: Shelf = .notes
 
     var body: some View {
-        HStack(spacing: 22) {
-            ForEach(Shelf.allCases, id: \.self) { each in
-                Button { calmly(.easeOut(duration: 0.2)) { shelf = each } } label: {
-                    Text(each.rawValue.capitalized)
-                        .font(.system(.body, design: .serif))
-                        .foregroundStyle(each == shelf ? Ink.text : Ink.muted)
-                        .padding(.vertical, 8)
-                        .overlay(alignment: .bottom) {
-                            if each == shelf { Rectangle().fill(Ink.accent).frame(height: 1) }
-                        }
-                }
-                .buttonStyle(QuietPress())
-                .accessibilityAddTraits(each == shelf ? .isSelected : [])
-            }
-        }
-        .padding(.bottom, 4)
+        WordTabs(selection: $shelf, options: Shelf.allCases.map { ($0, $0.rawValue.capitalized) })
     }
 }
 

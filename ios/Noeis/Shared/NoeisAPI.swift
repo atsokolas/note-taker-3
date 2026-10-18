@@ -541,6 +541,11 @@ struct NoeisAPI {
         }
     }
 
+    /// Whether a source can be read here with no connection.
+    func isKept(articleId: String) -> Bool {
+        SavedCopies.has(SavedCopies.key(base.appendingPathComponent("/articles/\(articleId)")))
+    }
+
     /// Signs a request with the session, if there is one.
     private func authorize(_ request: inout URLRequest) -> Bool {
         var token = NoeisAuthStore.shared.token
@@ -598,6 +603,8 @@ enum SavedCopies {
         let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
         return (json, date)
     }
+
+    static func has(_ key: String) -> Bool { FileManager.default.fileExists(atPath: url(key).path) }
 
     static func write(_ key: String, _ data: Data) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

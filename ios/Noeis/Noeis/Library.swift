@@ -7,14 +7,25 @@ struct LibraryList: View {
     @State private var query = ""
     @State private var saving = false
     @State private var generation = 0
+    /// The web's nightstand: what you put by to read later.
+    @AppStorage("library.nightstand") private var nightstand = false
+    @State private var kept = 0
 
     var body: some View {
         Loaded(load: { try await NoeisAPI.shared.articles() }) { articles, reload in
-            let shown = query.isEmpty ? articles : articles.filter {
+            let later = articles.filter { $0["placement"].text == "later" }
+            let onNightstand = nightstand && !later.isEmpty
+            let shelf = onNightstand ? later : articles
+            let shown = query.isEmpty ? shelf : shelf.filter {
                 $0["title"].text.localizedCaseInsensitiveContains(query) || $0["siteName"].text.localizedCaseInsensitiveContains(query) || $0["firstGraph"].text.localizedCaseInsensitiveContains(query)
             }
+            // The nightstand and the newest dozen wait on the device, to read with no connection.
+            let keeping = NSOrderedSet(array: (later + articles.prefix(12)).map(\.id)).array as? [String] ?? []
             RoomIndex {
-                IndexHeading(shown.count == 1 ? "1 source" : "\(shown.count) sources")
+                if !later.isEmpty {
+                    WordTabs(selection: $nightstand, options: [(false, "All"), (true, "Nightstand")]).padding(.top, 12)
+                }
+                IndexHeading(onNightstand ? nightstandLine(later.count) : shown.count == 1 ? "1 source" : "\(shown.count) sources")
                 ForEach(shown, id: \.id) { article in
                     RouteRow(route: .article(article.id)) { ArticleRow(article: article) }
                 }
@@ -24,10 +35,12 @@ struct LibraryList: View {
             }
             .refreshable { await reload() }
             .onChange(of: generation) { Task { await reload() } }
-            // The newest dozen wait on the device, to read later with no connection.
-            .task(id: articles.first?.id) { await NoeisAPI.shared.keep(articleIds: articles.prefix(12).map(\.id)) }
+            .task(id: keeping) {
+                await NoeisAPI.shared.keep(articleIds: keeping)
+                kept = later.filter { NoeisAPI.shared.isKept(articleId: $0.id) }.count
+            }
         }
-        .searchable(text: $query, prompt: "Search your library")
+        .searchable(text: $query, prompt: nightstand ? "Search your nightstand" : "Search your library")
         .roomTitle("Library")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -37,6 +50,17 @@ struct LibraryList: View {
         }
         .sheet(isPresented: $saving, onDismiss: { generation += 1 }) { SaveLinkSheet() }
         .paper()
+    }
+
+    /// A receipt of what is ready for the plane: "3 on your nightstand · all kept on this iPhone".
+    private func nightstandLine(_ count: Int) -> String {
+        let pieces = count == 1 ? "1 on your nightstand" : "\(count) on your nightstand"
+        let device = UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone"
+        switch kept {
+        case count: return "\(pieces) · all kept on this \(device)"
+        case 0: return "\(pieces) · kept on this \(device) on Wi-Fi"
+        default: return "\(pieces) · \(kept) kept on this \(device), the rest on Wi-Fi"
+        }
     }
 }
 

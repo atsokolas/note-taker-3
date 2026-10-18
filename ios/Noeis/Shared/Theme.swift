@@ -239,6 +239,32 @@ struct IndexHeading: View {
     var body: some View { Kicker(text).padding(.top, 28).padding(.bottom, 6) }
 }
 
+/// A few words to choose between at the head of an index, the open one
+/// underlined, as the web's shelf tabs.
+struct WordTabs<Value: Hashable>: View {
+    @Binding var selection: Value
+    let options: [(Value, String)]
+
+    var body: some View {
+        HStack(spacing: 22) {
+            ForEach(options, id: \.0) { value, word in
+                Button { calmly(.easeOut(duration: 0.2)) { selection = value } } label: {
+                    Text(word)
+                        .font(.system(.body, design: .serif))
+                        .foregroundStyle(value == selection ? Ink.text : Ink.muted)
+                        .padding(.vertical, 8)
+                        .overlay(alignment: .bottom) {
+                            if value == selection { Rectangle().fill(Ink.accent).frame(height: 1) }
+                        }
+                }
+                .buttonStyle(QuietPress())
+                .accessibilityAddTraits(value == selection ? .isSelected : [])
+            }
+        }
+        .padding(.bottom, 4)
+    }
+}
+
 /// What an empty place says, in the reading voice; never a system icon.
 struct Quiet: View {
     let text: String
