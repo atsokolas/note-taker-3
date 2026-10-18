@@ -408,6 +408,8 @@ private struct NotebookPage: View {
                     }
                     if !draft.aside.isEmpty { SetAside(draft: draft).padding(.top, 36) }
                     if !status.isEmpty { Text(status).font(.caption).foregroundStyle(Ink.subtle).padding(.top, 24) }
+                    // Room under a short note, so the passage can rise above the wordings sheet.
+                    if draft.wording != nil && sizeClass != .regular { Color.clear.frame(height: 520) }
                 }
                 // A wider margin than a reader's: the handle lives in it.
                 .padding(.horizontal, sizeClass == .regular ? 40 : 30)
@@ -423,7 +425,8 @@ private struct NotebookPage: View {
             // The passage being reworded rises above the wordings, to be seen changing.
             .onChange(of: draft.wording?["blockId"]?.string) { _, block in
                 guard let block, let at = draft.index(block), let piece = draft.pieces.first(where: { $0.blocks.contains(at) }) else { return }
-                calmly { scroll.scrollTo(piece.id, anchor: .top) }
+                // Once the room under the note is laid out.
+                DispatchQueue.main.async { calmly { scroll.scrollTo(piece.id, anchor: .top) } }
             }
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
