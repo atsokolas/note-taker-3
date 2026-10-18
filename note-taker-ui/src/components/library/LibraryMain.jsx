@@ -78,6 +78,14 @@ const LibraryMain = ({
     [allArticles, pileArticles, selectedArticle]
   );
   const knownById = useMemo(() => articlesById(knownArticles), [knownArticles]);
+  /* N and P in the reader turn through the list the piece was opened from:
+     the nightstand, a folder, a search. A piece opened from elsewhere has no
+     neighbours, and the keys rest. */
+  const turn = (step) => {
+    const at = (articles || []).findIndex((article) => article._id === selectedArticleId);
+    const id = at < 0 ? '' : articles[at + step]?._id;
+    return id ? () => onSelectArticle(id) : undefined;
+  };
   const searching = Boolean(String(articleQuery || '').trim());
   const imboxSources = useMemo(() => {
     const sources = Array.isArray(relevance.sources) ? relevance.sources : [];
@@ -223,6 +231,8 @@ const LibraryMain = ({
             onToggleEvergreen={onToggleEvergreen}
             onTogglePlacement={onTogglePlacement}
             onOpenedSentence={onOpenedSentence}
+            onNext={turn(1)}
+            onPrevious={turn(-1)}
             sourceTrace={(
               <LibrarySourceTrace
                 source={sourceDetail}

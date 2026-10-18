@@ -167,6 +167,11 @@ html[data-ui-scheme='dark'] body.noeis-editorial .article-reader-content mark.hi
   background: color-mix(in srgb, var(--highlight-color, #f6e27a) calc(46% + var(--ink-deepen, 0%)), transparent) !important;
 }
 
+/* J and K: the paragraph you are on, a pencil line in the margin. */
+body.noeis-editorial .article-reader-content .is-reader-here {
+  box-shadow: -14px 0 0 -12px var(--noeis-action);
+}
+
 /* Deeper ink: a passage you keep returning to, a step at a time. */
 .article-reader-content mark.highlight[data-ink='1'] { --ink-deepen: 8%; }
 .article-reader-content mark.highlight[data-ink='2'] { --ink-deepen: 16%; }

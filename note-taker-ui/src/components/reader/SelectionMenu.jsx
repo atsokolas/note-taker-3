@@ -17,8 +17,9 @@ const keepReadingPlace = (event) => {
 };
 const MAX_DRIFT_PX = 14;
 
-/* H, T and A act on a selection (A only where the Partner can read). The menu says so the first three times it
-   opens on this device, and then trusts the reader to remember. */
+/* H, T and A act on a selection (A only where the Partner can read); the
+   reader's keyboard in ArticleReader handles them. The menu says so the first
+   three times it opens on this device, and then trusts the reader to remember. */
 const KEY_HINTS_KEY = 'noeis.reader.selectionKeyHints';
 const KEY_HINT_SHOWINGS = 3;
 const keyHintShowings = () => {
@@ -35,7 +36,6 @@ const countKeyHintShowing = () => {
     // A browser that cannot remember simply never shows the hints again.
   }
 };
-const typingInto = (target) => Boolean(target?.closest?.('input, textarea, select, [contenteditable="true"]'));
 const POINTER_INFLUENCE_RADIUS_PX = 280;
 
 const SelectionMenu = React.forwardRef(({
@@ -60,20 +60,6 @@ const SelectionMenu = React.forwardRef(({
   const [moreInks, setMoreInks] = useState(false);
   useEffect(() => { if (showKeys) countKeyHintShowing(); }, [showKeys]);
 
-  const keys = useRef({});
-  keys.current = { h: () => onHighlight?.(), t: onThought, a: onAsk };
-  useEffect(() => {
-    if (!rect) return undefined;
-    const press = (event) => {
-      if (saving || event.metaKey || event.ctrlKey || event.altKey || typingInto(event.target)) return;
-      const action = keys.current[String(event.key || '').toLowerCase()];
-      if (!action) return;
-      event.preventDefault();
-      action();
-    };
-    window.addEventListener('keydown', press);
-    return () => window.removeEventListener('keydown', press);
-  }, [rect, saving]);
   const hint = (key) => (showKeys ? <kbd className="selection-menu__key" aria-hidden="true">{key}</kbd> : null);
 
   const setRefs = useCallback((node) => {

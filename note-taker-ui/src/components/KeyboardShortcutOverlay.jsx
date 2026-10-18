@@ -30,8 +30,13 @@ const SECTIONS = [
     title: 'Reading & highlights',
     items: [
       { keys: ['Drag select'], label: 'Open the highlight menu' },
-      { keys: ['J'], label: 'Next highlight (in highlights view)' },
-      { keys: ['K'], label: 'Previous highlight (in highlights view)' },
+      { keys: ['H'], label: 'Highlight the selection' },
+      { keys: ['T'], label: 'Leave a thought on the selection' },
+      { keys: ['A'], label: 'Ask about the selection' },
+      { keys: ['J'], label: 'Next paragraph, or next highlight in the highlights view' },
+      { keys: ['K'], label: 'Previous paragraph, or previous highlight in the highlights view' },
+      { keys: ['N'], label: 'Next piece in the list you opened it from' },
+      { keys: ['P'], label: 'Previous piece in the list you opened it from' },
       { keys: ['Enter'], label: 'Open the focused highlight\'s article' },
       { keys: ['⌘', 'Enter'], label: 'Open the focused highlight in a notebook' }
     ]

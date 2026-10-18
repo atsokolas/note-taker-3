@@ -150,6 +150,51 @@ describe('ArticleReader', () => {
     expect(libraryExplorations.load).not.toHaveBeenCalled();
   });
 
+  it('walks paragraphs on J and K and turns pieces on N and P, leaving typing and shortcuts alone', () => {
+    const onNext = jest.fn();
+    render(<MemoryRouter>
+      <ArticleReader article={{ _id: 'article-1', title: 'A real source', content: '<p>One.</p><p>Two.</p><p>Three.</p>' }} highlights={[]} onNext={onNext} />
+    </MemoryRouter>);
+    const here = () => document.querySelector('.is-reader-here')?.textContent;
+    fireEvent.keyDown(window, { key: 'j' });
+    expect(here()).toBe('One.');
+    fireEvent.keyDown(window, { key: 'J' });
+    fireEvent.keyDown(window, { key: 'j' });
+    fireEvent.keyDown(window, { key: 'j' });
+    expect(here()).toBe('Three.');
+    fireEvent.keyDown(window, { key: 'k' });
+    expect(here()).toBe('Two.');
+    expect(document.querySelectorAll('.is-reader-here')).toHaveLength(1);
+    fireEvent.keyDown(window, { key: 'n', metaKey: true });
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    fireEvent.keyDown(input, { key: 'n' });
+    input.remove();
+    expect(onNext).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: 'n' });
+    expect(onNext).toHaveBeenCalledTimes(1);
+    expect(() => fireEvent.keyDown(window, { key: 'p' })).not.toThrow();
+  });
+
+  it('highlights on H only while a selection is open', async () => {
+    useTextSelection.mockReturnValue({ selectionState: { text: 'One.', anchor: null, isOpen: true }, clearSelection: jest.fn() });
+    createHighlight.mockResolvedValue({ _id: 'highlight-key' });
+    const { rerender } = render(<MemoryRouter>
+      <ArticleReader article={{ _id: 'article-1', title: 'A real source', content: '<p>One.</p>' }} highlights={[]} />
+    </MemoryRouter>);
+    fireEvent.keyDown(window, { key: 'h', ctrlKey: true });
+    expect(createHighlight).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: 'h' });
+    await waitFor(() => expect(createHighlight).toHaveBeenCalledWith(expect.objectContaining({ text: 'One.' })));
+    useTextSelection.mockReturnValue({ selectionState: { text: '', anchor: null, isOpen: false, rect: null }, clearSelection: jest.fn() });
+    rerender(<MemoryRouter>
+      <ArticleReader article={{ _id: 'article-1', title: 'A real source', content: '<p>One.</p>' }} highlights={[]} />
+    </MemoryRouter>);
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Work with this passage' })).toBeNull());
+    fireEvent.keyDown(window, { key: 'h' });
+    expect(createHighlight).toHaveBeenCalledTimes(1);
+  });
+
   it('reads fresh without remounting writing, changing footnotes or saving on Escape', async () => {
     window.history.replaceState({}, '', '/library?articleId=article-1&highlightId=highlight-1&exploration=1');
     libraryExplorations.load.mockResolvedValue({ userId: 'owner-1', explorations: [{ highlightId: 'highlight-1', revision: 2, draft: { writing: 'Words worth keeping.', originalText: 'A source sentence.' } }] });
