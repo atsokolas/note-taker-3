@@ -90,41 +90,6 @@ const buildExportPublicRouter = ({
     }
   });
 
-  router.get('/public/concepts/:slug', async (req, res) => {
-    try {
-      const { slug } = req.params;
-      const concept = await TagMeta.findOne({ slug, isPublic: true }).lean();
-      if (!concept) {
-        return res.status(404).json({ error: 'Public concept not found.' });
-      }
-      const userId = concept.userId;
-      const related = await getConceptRelated(userId, concept.name, { limit: 50, offset: 0 });
-      const questions = await Question.find({
-        userId,
-        $or: [
-          { conceptName: new RegExp(`^${concept.name}$`, 'i') },
-          { linkedTagName: new RegExp(`^${concept.name}$`, 'i') }
-        ]
-      }).select('_id').lean();
-      res.status(200).json({
-        concept: {
-          name: concept.name,
-          description: concept.description || '',
-          slug: concept.slug
-        },
-        relatedCounts: {
-          highlights: Array.isArray(related.highlights) ? related.highlights.length : 0,
-          articles: Array.isArray(related.articles) ? related.articles.length : 0,
-          questions: Array.isArray(questions) ? questions.length : 0
-        },
-        questions: []
-      });
-    } catch (error) {
-      console.error('❌ Error loading public concept:', error);
-      res.status(500).json({ error: 'Failed to load public concept.' });
-    }
-  });
-
   /* Portable C8 records: successor handoff and/or named mandate. Same
      attachment pattern as notebook markdown. Unpublished or empty stay
      silent. The structured fence is the round-trip; remaining asks,
@@ -133,11 +98,11 @@ const buildExportPublicRouter = ({
     try {
       const slug = String(req.params.slug || '').trim();
       if (!slug || !SharedQuestion?.findOne) {
-        return res.status(404).json({ error: NOT_PUBLISHED.question });
+        return res.status(404).json({ error: NOT_PUBLISHED });
       }
       const share = asRow(await readLean(SharedQuestion.findOne({ slug })));
       if (!share?.snapshot) {
-        return res.status(404).json({ error: NOT_PUBLISHED.question });
+        return res.status(404).json({ error: NOT_PUBLISHED });
       }
       const bundle = exportShareRecords(share);
       if (bundle.error) {

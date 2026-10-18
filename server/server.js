@@ -138,8 +138,6 @@ const {
   MorningPaperRecord,
   SharedEdition,
   SharedNotebook,
-  SharedNotebookVolume,
-  NotebookCorrespondence,
   ReadingLoopEdition,
   VectorItem,
   SharedConcept,
@@ -576,7 +574,7 @@ const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
 const { buildNotebookRouter } = require('./routes/notebookRoutes');
 const { buildEntryHistoryRouter } = require('./routes/entryHistoryRoutes');
-const { buildNotebookVolumeRouter } = require('./routes/notebookVolumeRoutes');
+const { buildRetiredShareRouter } = require('./routes/retiredShareRoutes');
 const { buildAuthoredExplorationRouter } = require('./routes/authoredExplorationRoutes');
 const { buildWikiRouter } = require('./routes/wikiRoutes');
 const { buildUiTourRouter } = require('./routes/uiTourRoutes');
@@ -593,7 +591,6 @@ const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
 const { buildWikiClaimDispositionRouter } = require('./routes/wikiClaimDispositionRoutes');
-const { buildSharedConceptRouter } = require('./routes/sharedConceptRoutes');
 const { buildSharedQuestionRouter } = require('./routes/sharedQuestionRoutes');
 const { buildConceptMaterialRouter } = require('./routes/conceptMaterialRoutes');
 const { buildAgentNotionFetchRouter } = require('./routes/agentNotionFetchRoutes');
@@ -4856,17 +4853,9 @@ app.use(buildNotebookRouter({
   Article,
   TagMeta,
   Question,
-  NoeisReceipt,
-  SharedNotebook,
-  NotebookCorrespondence,
-  User
+  NoeisReceipt
 }));
-app.use(buildNotebookVolumeRouter({
-  authenticateToken,
-  SharedNotebook,
-  SharedNotebookVolume,
-  User
-}));
+app.use(buildRetiredShareRouter({ SharedNotebook, SharedConcept, TagMeta, WikiPage }));
 
 app.use(buildAuthoredExplorationRouter({
   authenticateToken,
@@ -5353,6 +5342,7 @@ app.use(buildConceptMetaRouter({
   updateConceptMeta,
   getConceptRelated,
   TagMeta,
+  WikiPage,
   User,
   EntryRevision,
   conceptReferences: { Article, NotebookEntry, Question, ConceptNote, ReferenceEdge, SharedConcept, ConceptPath, Connection, ReturnQueueEntry },
@@ -5374,16 +5364,6 @@ app.use(buildWikiClaimDispositionRouter({
   NotebookEntry,
   Question,
   WikiSourceEvent
-}));
-
-app.use(buildSharedConceptRouter({
-  authenticateToken,
-  SharedConcept,
-  TagMeta,
-  ConceptNote,
-  User,
-  escapeRegExp,
-  getConceptRelated
 }));
 
 app.use(buildSharedQuestionRouter({

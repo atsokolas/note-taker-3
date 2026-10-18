@@ -106,91 +106,10 @@ export const disposeNotebookSourceCorrection = async (id, { eventId, action }) =
   return res.data;
 };
 
-export const getNotebookShare = async (id) => {
-  const res = await api.get(`/api/notebook/${encodeURIComponent(id)}/share`, getAuthHeaders());
-  return res.data || { shared: false };
-};
-
-export const publishNotebookShare = async (id, body = {}) => {
-  const res = await api.post(
-    `/api/notebook/${encodeURIComponent(id)}/share`,
-    body,
-    getAuthHeaders()
-  );
-  return res.data || { shared: false };
-};
-
-export const updateNotebookShare = async (id, body = {}) => {
-  const res = await api.put(
-    `/api/notebook/${encodeURIComponent(id)}/share`,
-    body,
-    getAuthHeaders()
-  );
-  return res.data || { shared: false };
-};
-
-export const revokeNotebookShare = async (id) => {
-  const res = await api.delete(`/api/notebook/${encodeURIComponent(id)}/share`, getAuthHeaders());
-  return res.data || { revoked: true };
-};
-
-export const getPublicNotebook = async (slug) => {
-  const res = await api.get(`/api/public/notebooks/${encodeURIComponent(slug)}`);
-  return res.data || null;
-};
-
-export const sendNotebookCorrespondence = async (slug, body = {}) => {
-  const res = await api.post(
-    `/api/public/notebooks/${encodeURIComponent(slug)}/correspondence`,
-    body
-  );
-  return res.data || { sent: true };
-};
-
-export const getNotebookVolume = async () => {
-  const res = await api.get('/api/volumes', getAuthHeaders());
-  return res.data || { shared: false };
-};
-
-export const previewNotebookVolume = async (draft = {}) => {
-  const res = await api.post('/api/volumes/preview', {
-    notebookIds: Array.isArray(draft.notebookIds) ? draft.notebookIds : [],
-    title: draft.title,
-    introduction: draft.introduction
-  }, getAuthHeaders());
-  return res.data || { shared: false };
-};
-
-export const publishNotebookVolume = async (body = {}) => {
-  const res = await api.post('/api/volumes', body, getAuthHeaders());
-  return res.data || { shared: false };
-};
-
-export const updateNotebookVolume = async (body = {}) => {
-  const res = await api.put('/api/volumes', body, getAuthHeaders());
-  return res.data || { shared: false };
-};
-
-export const revokeNotebookVolume = async () => {
-  const res = await api.delete('/api/volumes', getAuthHeaders());
-  return res.data || { revoked: true };
-};
-
-export const getPublicVolume = async (slug) => {
-  const res = await api.get(`/api/public/volumes/${encodeURIComponent(slug)}`);
-  return res.data || null;
-};
-
 /* Every note, compact, with where it stands; the board is never stale cache. */
 export const getNotebookBoard = async () => {
   const res = await api.get('/api/notebook?summary=1&compact=1', getAuthHeaders());
   return Array.isArray(res.data) ? res.data : [];
-};
-
-/* Finished thinking settles into Wiki: a page the first time, a revision after. */
-export const settleNotebookEntry = async (id) => {
-  const res = await api.post(`/api/notebook/${encodeURIComponent(id)}/settle`, {}, getAuthHeaders());
-  return res.data;
 };
 
 export const moveNotebookEntry = async (id, board) => {

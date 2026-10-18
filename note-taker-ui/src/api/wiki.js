@@ -1086,3 +1086,10 @@ export const holdClaimFromHighlight = async ({ claim, highlightId, resolutionCri
   }, getAuthHeaders());
   return res.data || null;
 };
+
+/* Finished thinking settles into Wiki: a page the first time, a revision after.
+   kind is where it lives in Think: 'notebook' or 'concepts'. */
+export const settleIntoWiki = async (kind, id) => {
+  const res = await api.post(`/api/${kind}/${encodeURIComponent(id)}/settle`, {}, getAuthHeaders());
+  return res.data;
+};

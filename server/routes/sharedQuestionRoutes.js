@@ -87,7 +87,6 @@ const buildSharedQuestionRouter = ({
       : [];
     return thinkShareState(share, {
       ...extras,
-      kind: 'question',
       contributions,
       here
     });
@@ -161,7 +160,7 @@ const buildSharedQuestionRouter = ({
       }
       const previewHash = String(req.body?.previewHash || '').trim();
       if (previewHash && previewHash !== currentHash) {
-        return res.status(409).json({ error: PREVIEW_STALE.question, field: 'previewHash' });
+        return res.status(409).json({ error: PREVIEW_STALE, field: 'previewHash' });
       }
 
       const existing = asRow(await readLean(SharedQuestion.findOne({
@@ -265,7 +264,7 @@ const buildSharedQuestionRouter = ({
       }
       const previewHash = String(req.body?.previewHash || '').trim();
       if (!previewHash || previewHash !== currentHash) {
-        return res.status(409).json({ error: PREVIEW_STALE.question, field: 'previewHash' });
+        return res.status(409).json({ error: PREVIEW_STALE, field: 'previewHash' });
       }
       const existing = asRow(await readLean(SharedQuestion.findOne({
         userId: req.user.id,
@@ -690,7 +689,7 @@ const buildSharedQuestionRouter = ({
       }
       let share = asRow(await readLean(SharedQuestion.findOne({ slug })));
       if (!share) {
-        return res.status(404).json({ error: NOT_PUBLISHED.question });
+        return res.status(404).json({ error: NOT_PUBLISHED });
       }
       if (missingSnapshot(share)) {
         const question = await readLean(Question.findOne({
@@ -698,13 +697,13 @@ const buildSharedQuestionRouter = ({
           userId: share.userId
         }));
         if (!question) {
-          return res.status(404).json({ error: NOT_PUBLISHED.question });
+          return res.status(404).json({ error: NOT_PUBLISHED });
         }
         const preview = projectPublicQuestion(question, share.ownerDisplayName || '');
         share = await freezeLegacy(share, preview, hashPublicQuestion(preview));
       }
       if (!share?.snapshot) {
-        return res.status(404).json({ error: NOT_PUBLISHED.question });
+        return res.status(404).json({ error: NOT_PUBLISHED });
       }
       const contributions = await readingsFor(share.slug);
       const presenceRows = await loadQuestionPresence(QuestionPresence, share.slug);
@@ -730,7 +729,7 @@ const buildSharedQuestionRouter = ({
       }
       const share = asRow(await readLean(SharedQuestion.findOne({ slug })));
       if (!share?.snapshot) {
-        return res.status(404).json({ error: NOT_PUBLISHED.question });
+        return res.status(404).json({ error: NOT_PUBLISHED });
       }
       const viewer = String(req.user?.id || '').trim();
       const contributions = await readingsFor(share.slug);
@@ -765,7 +764,7 @@ const buildSharedQuestionRouter = ({
       }
       const share = asRow(await readLean(SharedQuestion.findOne({ slug })));
       if (!share?.snapshot) {
-        return res.status(404).json({ error: NOT_PUBLISHED.question });
+        return res.status(404).json({ error: NOT_PUBLISHED });
       }
       const here = projectPresence(
         await loadQuestionPresence(QuestionPresence, share.slug),
@@ -784,14 +783,14 @@ const buildSharedQuestionRouter = ({
   router.post('/api/public/questions/:slug/contributions', optionalAuthenticateToken, async (req, res) => {
     noStore(res);
     if (!QuestionContribution) {
-      return res.status(404).json({ error: NOT_PUBLISHED.question });
+      return res.status(404).json({ error: NOT_PUBLISHED });
     }
     try {
       const share = asRow(await readLean(SharedQuestion.findOne({
         slug: String(req.params.slug || '').trim()
       })));
       if (!share?.snapshot) {
-        return res.status(404).json({ error: NOT_PUBLISHED.question });
+        return res.status(404).json({ error: NOT_PUBLISHED });
       }
 
       const by = contributionBy(req.body?.by);
@@ -807,7 +806,7 @@ const buildSharedQuestionRouter = ({
       const claimed = await claimContributionSlot(SharedQuestion, share.slug);
       if (!claimed) {
         const still = asRow(await readLean(SharedQuestion.findOne({ slug: share.slug })));
-        if (!still?.snapshot) return res.status(404).json({ error: NOT_PUBLISHED.question });
+        if (!still?.snapshot) return res.status(404).json({ error: NOT_PUBLISHED });
         return res.status(409).json({
           error: 'This question cannot take another reading just now.',
           field: 'contributions',
@@ -853,18 +852,18 @@ const buildSharedQuestionRouter = ({
     async (req, res) => {
       noStore(res);
       if (!QuestionContribution) {
-        return res.status(404).json({ error: NOT_PUBLISHED.question });
+        return res.status(404).json({ error: NOT_PUBLISHED });
       }
       try {
         const slug = String(req.params.slug || '').trim();
         const contributionId = String(req.params.contributionId || '').trim();
         const contributorUserId = String(req.user?.id || '').trim();
         if (!slug || !contributionId) {
-          return res.status(404).json({ error: NOT_PUBLISHED.question });
+          return res.status(404).json({ error: NOT_PUBLISHED });
         }
         const share = asRow(await readLean(SharedQuestion.findOne({ slug })));
         if (!share?.snapshot) {
-          return res.status(404).json({ error: NOT_PUBLISHED.question });
+          return res.status(404).json({ error: NOT_PUBLISHED });
         }
         if (!contributorUserId) {
           return res.status(404).json({ error: 'That reading is not on this share.' });

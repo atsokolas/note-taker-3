@@ -307,10 +307,22 @@ describe('WikiPageReadView', () => {
   });
 
   it('links a page settled from Think back to the note it came from', async () => {
-    getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'notebook', objectId: 'note-1', label: 'Enterprise AI Memory' } });
+    getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'notebook', objectId: 'note-1', label: 'settled-note:note-1' } });
     renderReadView();
     expect(await screen.findByText('Settled from your note in Think.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open the note' })).toHaveAttribute('href', '/think?tab=notebook&entryId=note-1');
+  });
+
+  it('links a settled concept back to the concept, and says nothing for a page only made from one', async () => {
+    getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'concept', objectId: 'concept-1', label: 'settled-concept:concept-1' } });
+    const { unmount } = renderReadView();
+    expect(await screen.findByText('Settled from your concept in Think.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the concept' })).toHaveAttribute('href', '/think?tab=concepts&concept=concept-1');
+    unmount();
+    getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'concept', objectId: 'concept-1', label: 'Enterprise AI Memory' } });
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    expect(screen.queryByText(/Settled from your/)).not.toBeInTheDocument();
   });
 
   it('declares the loaded page as an exact ordinary Wiki surface', async () => {

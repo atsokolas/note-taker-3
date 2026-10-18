@@ -9,8 +9,8 @@ import useSlashCommands from './editor/useSlashCommands';
 import { passageSlashItems } from './editor/slashCommands';
 import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from './editor/writingParts';
 import InsertHighlightModal from './notebook/InsertHighlightModal';
-import ConceptShareModal from './concepts/ConceptShareModal';
 import QuestionShareModal from './questions/QuestionShareModal';
+import { useSettleIntoWiki } from './settleIntoWiki';
 import { Button } from '../ui';
 import useHighlights from '../../hooks/useHighlights';
 import { getConcept, getConceptIdeaWorkbench, renameConcept, updateConcept, updateConceptIdeaWorkbench } from '../../api/concepts';
@@ -130,6 +130,8 @@ const ThinkEntryEditor = ({
   const lookupRef = useRef(() => null);
   const slashKeyRef = useRef(() => false);
   lookupRef.current = (id) => highlightMap.get(String(id));
+  const concept = entry?.kind === 'concept' ? entry.record : null;
+  const settlement = useSettleIntoWiki('concepts', concept?._id, concept?.settledIn);
 
   const editor = useEditor({
     extensions: [
@@ -303,6 +305,11 @@ const ThinkEntryEditor = ({
     }
   };
 
+  const settleConcept = (event) => {
+    event.currentTarget.closest('details')?.removeAttribute('open');
+    settlement.settle(save);
+  };
+
   const settle = async (status) => {
     const record = await updateQuestion(entry.record._id, { status });
     setEntry(previous => ({ ...previous, record: { ...previous.record, ...record } }));
@@ -324,7 +331,8 @@ const ThinkEntryEditor = ({
           onRetry={save}
         >
           <Button variant="quiet" onClick={() => setPicking(true)}>Pull a passage in</Button>
-          <Button variant="quiet" onClick={() => setSharing(true)}>Share</Button>
+          {isQuestion ? <Button variant="quiet" onClick={() => setSharing(true)}>Share</Button> : null}
+          {concept?._id ? <Button variant="quiet" onClick={settleConcept} disabled={settlement.settling}>{settlement.action}</Button> : null}
           {entry.record?._id ? <Button variant="quiet" onClick={openHistory}>History</Button> : null}
         </EntryBar>
         <div className="think-notebook-title-block">
@@ -363,6 +371,7 @@ const ThinkEntryEditor = ({
             <p className={`think-entry-rename-note${renameNote.failed ? ' is-refused' : ''}`} id={renameNote.failed ? 'think-entry-rename-error' : undefined} role={renameNote.failed ? 'alert' : 'status'}>{renameNote.text}</p>
           ) : null}
           <p className="think-notebook-title-meta" id="think-note-title">{begunLine(entry.record?.createdAt, words)}</p>
+          {concept ? settlement.lines : null}
         </div>
         {historyOpen ? (
           <EntryHistory kind={entry.kind} entryId={String(entry.record._id)} onRestore={restore} onClose={() => setHistoryOpen(false)} />
@@ -392,9 +401,7 @@ const ThinkEntryEditor = ({
       />
       {isQuestion ? (
         <QuestionShareModal open={sharing} questionId={entry.record._id} questionText={entry.record.text} onClose={() => setSharing(false)} />
-      ) : (
-        <ConceptShareModal open={sharing} conceptName={entry.record?.name || entry.title} onClose={() => setSharing(false)} />
-      )}
+      ) : null}
     </div>
   );
 };

@@ -3,7 +3,7 @@ import { clearNotebookCache, getNotebookBoard, moveNotebookEntry } from '../../.
 import { Button, PageHeader } from '../../ui';
 import { useSystemStatusControls } from '../../../system/SystemStatusContext';
 import { wikiReadPath } from '../../../utils/wikiFeatureFlags';
-import { settleNote } from './settleNote';
+import { settleIntoWiki } from '../settleIntoWiki';
 import {
   ARCHIVE_GROUPS,
   STAGES,
@@ -102,7 +102,7 @@ const NotebookBoard = ({ view = 'board', onView, onOpen, onClose }) => {
   /* Done is where finished thinking can settle into Wiki: offered, never assumed. */
   const settle = async (card) => {
     setReceipt({ message: `Settling “${card.title}” into Wiki…` });
-    const { settledIn, resettled, refusal } = await settleNote(card.id, systemStatus);
+    const { settledIn, resettled, refusal } = await settleIntoWiki('notebook', card.id, systemStatus);
     setReceipt(settledIn
       ? { message: `“${settledIn.title}” ${resettled ? 'revised' : 'settled'} in Wiki.`, href: wikiReadPath(settledIn._id) }
       : { message: refusal });

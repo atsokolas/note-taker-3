@@ -3253,22 +3253,13 @@ readingLoopEditionSchema.index({ userId: 1, 'history.key': 1 });
 
 const ReadingLoopEdition = mongoose.model('ReadingLoopEdition', readingLoopEditionSchema);
 
-/**
- * SharedConcept — a frozen public snapshot of a concept.
- *
- * Same URL contract as a shared notebook: the slug is the URL, the snapshot
- * is the version. Private workbench edits do not move the public copy. An
- * explicit owner update replaces the snapshot under the same URL. Revoking
- * deletes the row. ConceptNote and private source trails never enter.
- */
+/* A concept Think once shared at a link. Think no longer publishes; the rows
+   stay (and follow a rename) so an old link can still find the wiki page the
+   concept settled into (routes/retiredShareRoutes.js). */
 const sharedConceptSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   conceptName: { type: String, required: true, trim: true },
-  slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' },
-  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
-  contentHash: { type: String, default: '' },
-  publishedAt: { type: Date, default: null }
+  slug: { type: String, required: true, unique: true, index: true }
 }, { timestamps: true });
 
 sharedConceptSchema.index({ userId: 1, conceptName: 1 }, { unique: true });
@@ -3278,7 +3269,7 @@ const SharedConcept = mongoose.model('SharedConcept', sharedConceptSchema);
 /**
  * SharedQuestion — a frozen public snapshot of a question thread.
  *
- * Same URL contract as a shared notebook. Public reads expose only authored
+ * The slug is the URL, the snapshot is the version. Public reads expose only authored
  * paragraph blocks; highlight refs and library material stay private.
  * A later reading sits beside the snapshot, counted on this door.
  * A brief may close the page; it is not inside the snapshot.
@@ -3389,64 +3380,27 @@ sharedEditionSchema.index({ userId: 1, editionId: 1 }, { unique: true });
 
 const SharedEdition = mongoose.model('SharedEdition', sharedEditionSchema);
 
-/* A notebook essay, shared at a link.
-
-   Same contract as a shared edition: the slug is the URL, the snapshot is the
-   version. Private edits do not move the public copy. An explicit owner update
-   replaces the snapshot under the same URL. Revoking deletes the row, so a
-   later publish mints a new address and the old one stays unanswered. */
+/* A notebook essay Think once shared at a link. Think no longer publishes;
+   the rows stay so an old link can still find the wiki page its note settled
+   into (routes/retiredShareRoutes.js). */
 const sharedNotebookSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   notebookId: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookEntry', required: true },
-  slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' },
-  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
-  contentHash: { type: String, default: '' },
-  publishedAt: { type: Date, default: null },
-  correspondenceCount: { type: Number, default: 0 }
+  slug: { type: String, required: true, unique: true, index: true }
 }, { timestamps: true });
 
 sharedNotebookSchema.index({ userId: 1, notebookId: 1 }, { unique: true });
 
 const SharedNotebook = mongoose.model('SharedNotebook', sharedNotebookSchema);
 
-/* A question a reader left on one published passage.
-
-   It belongs to the author, not to the public page. Revoking the share
-   closes the door; the letter stays so the sentence it answered still
-   has its reply. Inclusion in a later edition is a later, explicit act. */
-const notebookCorrespondenceSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  notebookId: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookEntry', required: true, index: true },
-  slug: { type: String, default: '', index: true },
-  blockId: { type: String, default: '' },
-  excerpt: { type: String, default: '' },
-  text: { type: String, required: true }
-}, { timestamps: true });
-
-notebookCorrespondenceSchema.index({ userId: 1, notebookId: 1, createdAt: 1 });
-
-const NotebookCorrespondence = mongoose.model('NotebookCorrespondence', notebookCorrespondenceSchema);
-
-/* Selected published notebook essays, frozen as one volume.
-
-   Same contract as a shared notebook: the slug is the URL, the snapshot is
-   the version. The catalog is finished public copies, not workshop drafts.
-   Private edits do not move the public collection. An explicit owner update
-   replaces the snapshot under the same URL. Revoking deletes the row. */
-const sharedNotebookVolumeSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' },
-  notebookIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
-  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
-  contentHash: { type: String, default: '' },
-  publishedAt: { type: Date, default: null }
-}, { timestamps: true });
-
-sharedNotebookVolumeSchema.index({ userId: 1 }, { unique: true });
-
-const SharedNotebookVolume = mongoose.model('SharedNotebookVolume', sharedNotebookVolumeSchema);
+/* Volumes and the reader letters left on shared notes, from when Think
+   published. Nothing reads or writes them now; the models stay so account
+   erasure still finds every row that belongs to a reader. */
+const retiredShareRows = (name) => mongoose.model(name, new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true }));
+const SharedNotebookVolume = retiredShareRows('SharedNotebookVolume');
+const NotebookCorrespondence = retiredShareRows('NotebookCorrespondence');
 
 /**
  * CasebookLineage — follow, fork, and adopt with frozen origin provenance.
