@@ -46,6 +46,7 @@ const {
 const { persistNoeisReceipt, serializeStoredReceipt } = require('../services/noeisReceiptService');
 const { buildJudgmentChangeProposalRouter } = require('./judgmentChangeProposalRoutes');
 const { buildOpenSentenceAcceptRouter } = require('./openSentenceAcceptRoutes');
+const { buildNoteSettleRouter } = require('./noteSettleRoutes');
 const {
   buildDossierJudgmentReviewReceipt,
   listDossierJudgmentReviews,
@@ -2786,6 +2787,17 @@ const buildWikiRouter = ({
       })
     };
   };
+
+  router.use(buildNoteSettleRouter({
+    authenticateToken: wikiAuth,
+    NotebookEntry,
+    WikiPage,
+    WikiRevision,
+    buildUniqueSlug,
+    refreshPageClaims,
+    serializePage: serializeWikiPage,
+    onPageChanged: onOwnedPageChanged
+  }));
 
   const restorePageSnapshot = (page, snapshot = {}) => {
     if (!page || !snapshot) return;

@@ -78,6 +78,7 @@ const classifyWikiPageQuality = (page = {}) => {
     severity: blockingReasons.length ? 'blocked' : (reasons.length ? 'review' : 'ok'),
     surfaceEligible,
     reasons,
+    blockingReasons,
     checkedAt: null
   };
 };

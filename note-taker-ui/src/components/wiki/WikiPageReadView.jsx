@@ -27,7 +27,7 @@ import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import { trackWikiReadModePageView } from '../../utils/wikiAnalytics';
 import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
-import { libraryIdentity, resolveSourceDoors } from '../../utils/sourceRoutes';
+import { buildSourceOpenPath, libraryIdentity, resolveSourceDoors } from '../../utils/sourceRoutes';
 import { cleanSourceTextForDisplay, sourceTitle } from '../../utils/sourceDisplayText';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
@@ -3135,6 +3135,12 @@ const WikiPageReadView = ({
                 <div className="wiki-read__return-thread">
                   <span>You arrived from another page.</span>
                   <Link to={wikiReadPath(fromWikiPageId)}>Return to {location.state?.fromWikiTitle || 'the previous page'}</Link>
+                </div>
+              ) : null}
+              {page?.createdFrom?.type === 'notebook' && page.createdFrom.objectId ? (
+                <div className="wiki-read__return-thread">
+                  <span>Settled from your note in Think.</span>
+                  <Link to={buildSourceOpenPath({ type: 'notebook', objectId: page.createdFrom.objectId })}>Open the note</Link>
                 </div>
               ) : null}
               {awaitingCandidate && !proposalDeferred && !investmentDossierPage && !staleCandidate ? (

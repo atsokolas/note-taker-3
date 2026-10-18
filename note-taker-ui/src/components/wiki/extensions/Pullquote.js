@@ -7,6 +7,16 @@ const Pullquote = Node.create({
   content: 'block+',
   defining: true,
 
+  /* Who said it. A passage settled from Think keeps its source's title, and an
+     edit in Wiki must not drop it. */
+  addAttributes: () => ({
+    attribution: {
+      default: null,
+      parseHTML: element => element.getAttribute('data-attribution'),
+      renderHTML: ({ attribution }) => (attribution ? { 'data-attribution': attribution } : {})
+    }
+  }),
+
   parseHTML: () => [
     { tag: 'blockquote[data-node-type="pullquote"]' },
     { tag: 'blockquote.wiki-read-pullquote' }

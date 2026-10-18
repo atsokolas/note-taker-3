@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import NotebookEditor from './NotebookEditor';
 import { listWikiPages } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
-import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries, getNotebookVolume, previewNotebookVolume, readNoteAgainstViews, setOppositeAside } from '../../../api/notebook';
+import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries, getNotebookVolume, previewNotebookVolume, readNoteAgainstViews, setOppositeAside, settleNotebookEntry } from '../../../api/notebook';
 import { MemoryRouter } from 'react-router-dom';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 import useConcepts from '../../../hooks/useConcepts';
@@ -95,7 +95,8 @@ jest.mock('../../../api/notebook', () => ({
   getNotebookVolume: jest.fn(async () => ({ shared: false, catalog: [] })),
   previewNotebookVolume: jest.fn(async () => ({ shared: false, catalog: [] })),
   readNoteAgainstViews: jest.fn(async () => null),
-  setOppositeAside: jest.fn(async () => {})
+  setOppositeAside: jest.fn(async () => {}),
+  settleNotebookEntry: jest.fn()
 }));
 
 jest.mock('../../../api/wiki', () => ({
@@ -243,6 +244,43 @@ describe('NotebookEditor', () => {
     expect(exportDraft).toBeVisible();
     expect(title.compareDocumentPosition(exportDraft) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(0);
     expect(exportDraft.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  describe('settling into Wiki', () => {
+    const renderNote = (entry = {}) => render(
+      <MemoryRouter>
+        <NotebookEditor
+          entry={{ _id: 'note-1', title: 'Why moats erode', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [], ...entry }}
+          saving={false}
+          error=""
+          onSave={jest.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    it('keeps a quiet link to the page a note settled into', () => {
+      renderNote({ settledIn: { _id: 'page-1', title: 'Why moats erode' } });
+      expect(screen.getByText(/Settled in Wiki →/)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Why moats erode' })).toHaveAttribute('href', '/wiki/read/page-1');
+      expect(screen.getByRole('button', { name: 'Settle again' })).toBeInTheDocument();
+    });
+
+    it('settles from the action row and marks the note settled', async () => {
+      settleNotebookEntry.mockResolvedValueOnce({ page: { _id: 'page-1', title: 'Why moats erode', sourceRefs: [] }, resettled: false });
+      renderNote();
+      expect(screen.queryByText(/Settled in Wiki/)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Settle into Wiki' }));
+      expect(await screen.findByRole('link', { name: 'Why moats erode' })).toHaveAttribute('href', '/wiki/read/page-1');
+      expect(settleNotebookEntry).toHaveBeenCalledWith('note-1');
+    });
+
+    it('says in one line what to fix when Wiki refuses the note', async () => {
+      settleNotebookEntry.mockRejectedValueOnce({ response: { data: { error: 'Give this note a title before it settles.' } } });
+      renderNote({ title: '' });
+      fireEvent.click(screen.getByRole('button', { name: 'Settle into Wiki' }));
+      expect(await screen.findByText('Give this note a title before it settles.')).toBeInTheDocument();
+      expect(screen.queryByText(/Settled in Wiki →/)).not.toBeInTheDocument();
+    });
   });
 
   it('keeps unused quote button coverage', () => {

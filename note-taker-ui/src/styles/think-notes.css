@@ -896,10 +896,11 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
 .notebook-board__header .ui-page-header__actions { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .notebook-board__receipt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-height: 1.6em; margin: 0 0 18px; color: var(--text-secondary); font-size: .8rem; }
 .notebook-board__receipt button,
+.notebook-board__receipt a,
 .notebook-board__stale button,
 .notebook-board__restore {
   padding: 0; border: 0; border-bottom: 1px solid currentColor; background: transparent;
-  color: var(--noeis-pointer, #6f87ff); font: inherit; cursor: pointer;
+  color: var(--noeis-pointer, #6f87ff); font: inherit; cursor: pointer; text-decoration: none;
 }
 .notebook-board__columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 2.2vw, 32px); align-items: start; }
 .notebook-board__column {

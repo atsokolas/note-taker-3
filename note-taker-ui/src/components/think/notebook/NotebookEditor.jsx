@@ -23,6 +23,9 @@ import UseDistinctionHere from '../../wiki/open-sentence/UseDistinctionHere';
 import SourceCorrectionReview from '../SourceCorrectionReview';
 import NotebookShare from './NotebookShare';
 import NotebookVolume from './NotebookVolume';
+import { settleNote } from './settleNote';
+import { useSystemStatusControls } from '../../../system/SystemStatusContext';
+import { wikiReadPath } from '../../../utils/wikiFeatureFlags';
 import { editorNodesFromDistinctionUse, eligibleDistinctions } from '../../../utils/distinctionUse';
 import { exportNotebookMarkdown, getNotebookSummaries, disposeNotebookSourceCorrection, readNoteAgainstViews, requestNotebookWordingOptions, setOppositeAside } from '../../../api/notebook';
 import useHighlights from '../../../hooks/useHighlights';
@@ -304,6 +307,10 @@ const NotebookEditor = ({
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [settledIn, setSettledIn] = useState(entry?.settledIn || null);
+  const [settleLine, setSettleLine] = useState('');
+  const [settling, setSettling] = useState(false);
+  const systemStatus = useSystemStatusControls();
   const restoredFromRef = useRef('');
   const shareOpenRef = useRef(false);
   shareOpenRef.current = shareOpen;
@@ -1599,6 +1606,27 @@ const NotebookEditor = ({
     return commitDraft();
   };
 
+  /* A save answers to the note, so a later save never clears the link: only
+     opening another note does. */
+  useEffect(() => {
+    setSettledIn(entry?.settledIn || null);
+    setSettleLine('');
+  }, [entry?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSettle = async (event) => {
+    event.currentTarget.closest('details')?.removeAttribute('open');
+    setSettleLine('');
+    if (!(await commitDraft())) {
+      setSettleLine('This note did not save, so it did not settle. Try again.');
+      return;
+    }
+    setSettling(true);
+    const settled = await settleNote(entry._id, systemStatus);
+    setSettling(false);
+    if (settled.settledIn) setSettledIn(settled.settledIn);
+    else setSettleLine(settled.refusal);
+  };
+
   const openHistory = async (event) => {
     event.currentTarget.closest('details')?.removeAttribute('open');
     await commitDraft();
@@ -1632,6 +1660,7 @@ const NotebookEditor = ({
           <Button variant="quiet" data-context-trigger="material" onClick={() => openMaterial()}>Material</Button>
           <Button variant="quiet" onClick={handleExport}>Export draft</Button>
           <Button variant="quiet" onClick={handleRecoveryExport}>Private recovery file</Button>
+          <Button variant="quiet" onClick={handleSettle} disabled={settling}>{settledIn ? 'Settle again' : 'Settle into Wiki'}</Button>
           <Button variant="quiet" onClick={handleShare}>{shareOpen ? 'Close share' : 'Share snapshot'}</Button>
           <Button variant="quiet" onClick={() => setOrganizeOpen(previous => !previous)}>Structure</Button>
           <Button variant="quiet" onClick={openHistory}>History</Button>
@@ -1680,6 +1709,12 @@ const NotebookEditor = ({
             placeholder="Title"
           />
           <p className="think-notebook-title-meta" id={metaId}>{begunLine(entry.createdAt, wordCount)}</p>
+          {settledIn ? (
+            <p className="think-notebook-settled">Settled in Wiki → <Link to={wikiReadPath(settledIn._id)}>{settledIn.title}</Link></p>
+          ) : null}
+          {settling || settleLine ? (
+            <p className="think-notebook-settle-line" role="status">{settling ? 'Settling into Wiki…' : settleLine}</p>
+          ) : null}
         </div>
         {historyOpen ? (
           <EntryHistory kind="note" entryId={String(entry._id)} onRestore={restoreRevision} onClose={() => setHistoryOpen(false)} />

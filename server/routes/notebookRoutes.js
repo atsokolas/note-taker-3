@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { opposeFromNote, setOppositeAside } = require('../services/readingTalksBack');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
+const { settledPageFor } = require('../services/noteSettlement');
 const {
   asObjectIdOrNull,
   attachPersistedIdentity,
@@ -399,7 +400,8 @@ const buildNotebookRouter = ({
         objectType: 'notebook',
         object: entry
       });
-      res.status(200).json(payload);
+      const settled = WikiPage ? await settledPageFor({ WikiPage, userId, entryId: entry._id }).select('_id title') : null;
+      res.status(200).json({ ...payload, settledIn: settled ? { _id: String(settled._id), title: settled.title } : null });
     } catch (error) {
       console.error("❌ Error fetching notebook entry:", error);
       res.status(500).json({ error: "Failed to fetch notebook entry." });

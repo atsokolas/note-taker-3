@@ -306,6 +306,13 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByText(/Memory never leaks between teams/)).not.toBeInTheDocument();
   });
 
+  it('links a page settled from Think back to the note it came from', async () => {
+    getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'notebook', objectId: 'note-1', label: 'Enterprise AI Memory' } });
+    renderReadView();
+    expect(await screen.findByText('Settled from your note in Think.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the note' })).toHaveAttribute('href', '/think?tab=notebook&entryId=note-1');
+  });
+
   it('declares the loaded page as an exact ordinary Wiki surface', async () => {
     renderReadView();
 
