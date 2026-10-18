@@ -1,5 +1,4 @@
 import { APP, request } from './api.js';
-import { mountSaveCardSwitch } from './save-card-switch.js';
 
 /* The save card.
  *
@@ -65,6 +64,12 @@ const fillFolders = (folders, selected = '') => {
   select.value = selected;
 };
 
+/* Where a save goes, in the Library's own words: the nightstand to come back
+   to, or the Library when it is already read. */
+const GOES = { later: 'on your nightstand', stream: 'in your Library, already read' };
+const PLACED = { later: 'On your nightstand', stream: 'In your Library' };
+const other = where => (where === 'later' ? 'stream' : 'later');
+
 const tell = (tab, message) => chrome.tabs.sendMessage(tab.id, message);
 
 const signIn = () => {
@@ -125,7 +130,17 @@ const open = async () => {
     return;
   }
 
-  const placement = mountSaveCardSwitch($('placement'));
+  let where = 'later';
+  let shifted = false;
+  const goes = () => (shifted ? other(where) : where);
+  const showWhere = () => { $('where').textContent = GOES[goes()]; };
+  $('where').addEventListener('click', () => { where = other(where); showWhere(); });
+  ['keydown', 'keyup'].forEach(type => document.addEventListener(type, (event) => {
+    if (event.key !== 'Shift' || shifted === (type === 'keydown')) return;
+    shifted = type === 'keydown';
+    showWhere();
+  }));
+  showWhere();
   const habit = habitFor(tab.url);
   request('/api/folders').then((folders) => {
     fillFolders(folders || [], habit?.folderId || '');
@@ -160,6 +175,7 @@ const open = async () => {
   $('saveForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const folderId = $('folder').value === 'new' ? '' : $('folder').value;
+    const placement = goes();
     $('save').disabled = true;
     say('Saving…');
     try {
@@ -167,14 +183,14 @@ const open = async () => {
       if (!page?.content) throw new Error('This page has no article Noeis can read. Try the article’s own page.');
       const article = await request('/save-article', {
         method: 'POST',
-        body: { ...page, url: tab.url, folderId, placement: placement.placement }
+        body: { ...page, url: tab.url, folderId, placement }
       });
       remember(tab.url, folderId);
       $('saveForm').hidden = true;
       $('libraryLink').href = `${APP}/library?articleId=${encodeURIComponent(article._id)}`;
       $('libraryLink').textContent = 'Open in Noeis';
       const folder = folderId ? $('folder').selectedOptions[0].text : '';
-      say(`Saved${folder ? ` to ${folder}` : ' to your Library'}. Select a passage on the page to mark it.`);
+      say(`${PLACED[placement]}${folder ? `, in ${folder}` : ''}. Select a passage on the page to mark it.`);
       tell(tab, { type: 'open', article: { id: article._id, title: article.title }, marks: [], palette: colors, fresh: true });
     } catch (error) {
       $('save').disabled = false;

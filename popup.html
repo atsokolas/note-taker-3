@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <title>Noeis</title>
   <link rel="stylesheet" href="popup.css">
-  <link rel="stylesheet" href="note-taker-ui/src/styles/placement-switch.css">
 </head>
 <body data-view="">
   <header class="masthead">
@@ -38,11 +37,8 @@
         <input id="newFolder" autocomplete="off" placeholder="Name the folder and press Return">
       </label>
       <p class="habit" id="habit" hidden></p>
-      <div class="row">
-        <span class="label">Put in</span>
-        <div id="placement"></div>
-      </div>
-      <button type="submit" class="primary" id="save">Save to Library</button>
+      <p class="route">Goes <button type="button" class="choice" id="where"></button>.</p>
+      <button type="submit" class="primary" id="save">Save</button>
     </form>
 
     <p class="receipt" id="receipt" role="status" aria-live="polite"></p>
