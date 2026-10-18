@@ -78,6 +78,16 @@ assert.match(Model.problem(422, { error: 'Could not extract readable text from t
 assert.strictEqual(Model.problem(500, { error: 'Failed to perform search.' }, 'search'), 'Failed to perform search.');
 assert.strictEqual(Model.problem(503, null, 'search'), 'That did not work just now. Try it again.');
 
+// The nightstand opens each piece where it waits, and says where it came from.
+assert.deepStrictEqual(plain(Model.nightstandRows({ items: [
+  { _id: 'a1', title: 'The slow web', siteName: 'Stratechery' },
+  { _id: 'a2', title: '', author: 'Robin Sloan' }
+] })), [
+  { kind: 'Nightstand', title: 'The slow web', detail: 'Stratechery', path: '/library?articleId=a1' },
+  { kind: 'Nightstand', title: 'Untitled', detail: 'Robin Sloan', path: '/library?articleId=a2' }
+]);
+assert.deepStrictEqual(plain(Model.nightstandRows(null)), [], 'an empty nightstand is no rows');
+
 // What the shell loads is what the manifest names.
 const manifest = JSON.parse(fs.readFileSync(path.join(plugin, 'manifest.json'), 'utf8'));
 for (const entry of Object.values(manifest.entryPoints)) assert.ok(fs.existsSync(path.join(plugin, entry)), `${entry} exists`);

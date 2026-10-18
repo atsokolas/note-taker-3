@@ -3,8 +3,8 @@ import qs.Commons
 import qs.Ui
 
 // The Noeis mark in the bar, and the host for the panel under it. A click
-// opens the panel; `omarchy-shell shell toggle io.noeis` (or a Hyprland
-// binding with { panel = "io.noeis" }) does the same from the keyboard.
+// opens the panel; `omarchy-shell shell toggle io.noeis` does the same from
+// the keyboard. The tooltip says how much waits on the nightstand.
 BarWidget {
   id: root
   moduleName: "io.noeis"
@@ -20,6 +20,7 @@ BarWidget {
   // Shape contract for shell.summon/hide/toggle routing: the bar finds a
   // widget's panel through open/close/opened on the widget root.
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
+  readonly property int waiting: panelLoader.item ? panelLoader.item.nightstandTotal : 0
   readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
 
   function open() { if (panelLoader.item) panelLoader.item.open() }
@@ -46,7 +47,7 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    tooltipText: root.opened ? "" : "Noeis"
+    tooltipText: root.opened ? "" : root.waiting ? "Noeis · " + root.waiting + " on your nightstand" : "Noeis"
     iconComponent: Component {
       Item {
         NoeisMark {

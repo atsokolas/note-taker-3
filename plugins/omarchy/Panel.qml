@@ -12,7 +12,11 @@ import "Model.js" as Model
 // says where the server actually put it. Type words and your Library
 // answers as you type: sources, passages and notes, each opening at its own
 // place on noeis.io. Opened with a link on the clipboard, the panel offers
-// that link already, selected, so typing replaces it.
+// that link already, selected, so typing replaces it. With the field empty
+// it lists your nightstand, so Enter opens the next thing to read.
+//
+// `omarchy-shell noeis saveClipboard` saves the clipboard's link without
+// opening anything, and says where it landed in a notification.
 //
 // Signing in is the same as the iPhone app: username and password for a
 // session token, kept in ~/.config/noeis/omarchy.json (the directory the
@@ -44,6 +48,10 @@ Panel {
   property string lastSaved: ""
 
   property var results: []
+  property var nightstand: []
+  property int nightstandTotal: 0
+  // What the list shows: what a search found, or with nothing typed, the nightstand.
+  readonly property var rows: link ? [] : words ? results : nightstand
   property string searched: ""
   property int cursor: 0
   property int searchSeq: 0
@@ -59,6 +67,7 @@ Panel {
   function open() {
     controller.show()
     readClipboard()
+    loadNightstand()
   }
 
   function close() { controller.hide() }
@@ -68,6 +77,12 @@ Panel {
     line = text
     lineIsProblem = !!isProblem
     lineUrl = url || ""
+  }
+
+  // A line for when the panel is closed, whose click opens what it names.
+  function notify(text, path, isProblem) {
+    Quickshell.execDetached(["omarchy-notification-send", "--app-name", "Noeis", "-u", isProblem ? "normal" : "low", "Noeis", text]
+      .concat(path ? ["--exec", "xdg-open", appUrl + path] : []))
   }
 
   function visit(path) {
@@ -144,22 +159,40 @@ Panel {
     })
   }
 
-  // ---- Saving a link.
-  function save() {
-    var url = link
+  // ---- Saving a link: in the panel, or quietly, answered by a notification.
+  function save(url, quiet) {
     if (busy || !url) return
     busy = true
-    say("Reading the page…")
+    if (!quiet) say("Reading the page…")
     request("POST", "/api/import/url", { url: url, placement: "later" }, function(status, reply) {
       busy = false
-      if ((status === 200 || status === 201) && reply && reply.article) {
+      var saved = (status === 200 || status === 201) && reply && reply.article
+      var text = saved ? Model.saveReceipt(reply) : Model.problem(status, reply, "save")
+      var path = saved ? "/library?articleId=" + encodeURIComponent(reply.article._id) : ""
+      if (saved) {
         root.lastSaved = url
-        field.text = ""
-        say(Model.saveReceipt(reply), false, "/library?articleId=" + encodeURIComponent(reply.article._id))
-      } else if (status !== 401) {
-        say(Model.problem(status, reply, "save"), true)
+        root.loadNightstand()
       }
+      if (quiet) return root.notify(text, path, !saved)
+      if (saved) field.text = ""
+      if (saved || status !== 401) say(text, !saved, path)
     })
+  }
+
+  // ---- The nightstand, newest first; its count rides on the bar's tooltip.
+  function loadNightstand() {
+    if (!signedIn) return
+    request("GET", "/api/library/collection?scope=later&limit=6", null, function(status, reply) {
+      if (status !== 200) return
+      root.nightstand = Model.nightstandRows(reply, 6)
+      root.nightstandTotal = Number(reply.total || 0)
+    })
+  }
+
+  onSignedInChanged: {
+    nightstand = []
+    nightstandTotal = 0
+    loadNightstand()
   }
 
   // ---- Searching, as you type. Only the newest answer is shown.
@@ -195,7 +228,6 @@ Panel {
       if (failed && !rows.length) return say(Model.problem(failed.status, failed.reply, "search"), true)
       root.results = rows
       root.searched = q
-      root.cursor = 0
     }
     var words = encodeURIComponent(q)
     request("GET", "/api/search?q=" + words, null, function(status, reply) { settle("library", status, reply) })
@@ -203,16 +235,29 @@ Panel {
   }
 
   function moveCursor(step) {
-    if (results.length) cursor = (cursor + step + results.length) % results.length
+    if (rows.length) cursor = (cursor + step + rows.length) % rows.length
   }
+
+  onRowsChanged: cursor = 0
 
   function accept() {
-    if (link) save()
-    else if (results.length) visit(results[cursor].path)
+    if (link) save(link, false)
+    else if (rows.length) visit(rows[cursor].path)
   }
 
-  // ---- The clipboard, read once per opening. A link just saved is not
-  //      offered again.
+  // ---- The clipboard, read once per opening, or for a quiet save. A link
+  //      just saved is not offered again.
+  property bool quietSave: false
+
+  IpcHandler {
+    target: "noeis"
+    function saveClipboard(): void {
+      if (!root.signedIn) return root.notify(Model.problem(401), "/", true)
+      root.quietSave = true
+      clipboardProc.running = true
+    }
+  }
+
   Process {
     id: clipboardProc
     command: ["wl-paste", "--no-newline", "--type", "text"]
@@ -220,6 +265,10 @@ Panel {
       waitForEnd: true
       onStreamFinished: {
         var offered = Model.linkFrom(String(text || "").slice(0, 2048))
+        if (root.quietSave) {
+          root.quietSave = false
+          return offered ? root.save(offered, true) : root.notify("There is no link on your clipboard to save.", "", true)
+        }
         if (!offered || offered === root.lastSaved || field.text !== "") return
         field.text = offered
         field.selectAll()
@@ -302,13 +351,14 @@ Panel {
           text: root.line !== "" ? root.line
             : root.link ? (root.fromClipboard ? "From your clipboard. Enter saves it to Noeis." : "Enter saves it to Noeis.")
             : root.searched !== "" && root.searched === root.words && root.results.length === 0 ? "Nothing you keep matches that."
+            : root.query === "" && root.nightstandTotal ? "On your nightstand: " + root.nightstandTotal + ". Enter opens the newest."
             : ""
           problem: root.line !== "" && root.lineIsProblem
           url: root.line !== "" ? root.lineUrl : ""
         }
 
         Repeater {
-          model: root.link ? [] : root.results
+          model: root.rows
 
           Rectangle {
             id: row

@@ -103,6 +103,15 @@ function searchResults(library, wiki, limit) {
   return [].concat.apply([], groups.map(function(group, i) { return group.slice(0, taken[i]) }))
 }
 
+// The nightstand as rows: what you set aside to read later, newest first,
+// each opening where it waits in the Library.
+function nightstandRows(reply, limit) {
+  return ((reply && reply.items) || []).slice(0, limit || 6).map(function(a) {
+    return { kind: "Nightstand", title: a.title || "Untitled", detail: a.siteName || a.author || "",
+      path: "/library?articleId=" + encodeURIComponent(a._id) }
+  })
+}
+
 function dayOf(value) {
   var date = new Date(value)
   return isNaN(date.getTime()) ? "" : MONTHS[date.getMonth()] + " " + date.getDate()
