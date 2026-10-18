@@ -3389,64 +3389,18 @@ sharedEditionSchema.index({ userId: 1, editionId: 1 }, { unique: true });
 
 const SharedEdition = mongoose.model('SharedEdition', sharedEditionSchema);
 
-/* A notebook essay, shared at a link.
-
-   Same contract as a shared edition: the slug is the URL, the snapshot is the
-   version. Private edits do not move the public copy. An explicit owner update
-   replaces the snapshot under the same URL. Revoking deletes the row, so a
-   later publish mints a new address and the old one stays unanswered. */
+/* A notebook essay Think once shared at a link. Think no longer publishes;
+   the rows stay so an old link can still find the wiki page its note settled
+   into (routes/retiredShareRoutes.js). */
 const sharedNotebookSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   notebookId: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookEntry', required: true },
-  slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' },
-  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
-  contentHash: { type: String, default: '' },
-  publishedAt: { type: Date, default: null },
-  correspondenceCount: { type: Number, default: 0 }
+  slug: { type: String, required: true, unique: true, index: true }
 }, { timestamps: true });
 
 sharedNotebookSchema.index({ userId: 1, notebookId: 1 }, { unique: true });
 
 const SharedNotebook = mongoose.model('SharedNotebook', sharedNotebookSchema);
-
-/* A question a reader left on one published passage.
-
-   It belongs to the author, not to the public page. Revoking the share
-   closes the door; the letter stays so the sentence it answered still
-   has its reply. Inclusion in a later edition is a later, explicit act. */
-const notebookCorrespondenceSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  notebookId: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookEntry', required: true, index: true },
-  slug: { type: String, default: '', index: true },
-  blockId: { type: String, default: '' },
-  excerpt: { type: String, default: '' },
-  text: { type: String, required: true }
-}, { timestamps: true });
-
-notebookCorrespondenceSchema.index({ userId: 1, notebookId: 1, createdAt: 1 });
-
-const NotebookCorrespondence = mongoose.model('NotebookCorrespondence', notebookCorrespondenceSchema);
-
-/* Selected published notebook essays, frozen as one volume.
-
-   Same contract as a shared notebook: the slug is the URL, the snapshot is
-   the version. The catalog is finished public copies, not workshop drafts.
-   Private edits do not move the public collection. An explicit owner update
-   replaces the snapshot under the same URL. Revoking deletes the row. */
-const sharedNotebookVolumeSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' },
-  notebookIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
-  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
-  contentHash: { type: String, default: '' },
-  publishedAt: { type: Date, default: null }
-}, { timestamps: true });
-
-sharedNotebookVolumeSchema.index({ userId: 1 }, { unique: true });
-
-const SharedNotebookVolume = mongoose.model('SharedNotebookVolume', sharedNotebookVolumeSchema);
 
 /**
  * CasebookLineage — follow, fork, and adopt with frozen origin provenance.
@@ -3534,8 +3488,6 @@ module.exports = {
   MorningPaperRecord,
   SharedEdition,
   SharedNotebook,
-  SharedNotebookVolume,
-  NotebookCorrespondence,
   Question,
   Board,
   BoardItem,

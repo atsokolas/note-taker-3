@@ -138,8 +138,6 @@ const {
   MorningPaperRecord,
   SharedEdition,
   SharedNotebook,
-  SharedNotebookVolume,
-  NotebookCorrespondence,
   ReadingLoopEdition,
   VectorItem,
   SharedConcept,
@@ -576,7 +574,7 @@ const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
 const { buildNotebookRouter } = require('./routes/notebookRoutes');
 const { buildEntryHistoryRouter } = require('./routes/entryHistoryRoutes');
-const { buildNotebookVolumeRouter } = require('./routes/notebookVolumeRoutes');
+const { buildRetiredShareRouter } = require('./routes/retiredShareRoutes');
 const { buildAuthoredExplorationRouter } = require('./routes/authoredExplorationRoutes');
 const { buildWikiRouter } = require('./routes/wikiRoutes');
 const { buildUiTourRouter } = require('./routes/uiTourRoutes');
@@ -4856,17 +4854,9 @@ app.use(buildNotebookRouter({
   Article,
   TagMeta,
   Question,
-  NoeisReceipt,
-  SharedNotebook,
-  NotebookCorrespondence,
-  User
+  NoeisReceipt
 }));
-app.use(buildNotebookVolumeRouter({
-  authenticateToken,
-  SharedNotebook,
-  SharedNotebookVolume,
-  User
-}));
+app.use(buildRetiredShareRouter({ SharedNotebook, WikiPage }));
 
 app.use(buildAuthoredExplorationRouter({
   authenticateToken,

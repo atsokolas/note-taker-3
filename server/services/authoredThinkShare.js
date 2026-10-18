@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const { isDuplicateKey, shareSlug } = require('./authoredNotebookShare');
 const {
   AGENT_MANDATE_PAUSE,
   evaluateAgentMandate,
@@ -40,6 +39,14 @@ const PREVIEW_STALE = {
   question: 'The question changed since you previewed it. Refresh the preview before sharing.',
   concept: 'The concept changed since you previewed it. Refresh the preview before sharing.'
 };
+
+const shareSlug = () => crypto.randomBytes(9)
+  .toString('base64')
+  .replace(/\+/g, '-')
+  .replace(/\//g, '_')
+  .replace(/=+$/g, '');
+
+const isDuplicateKey = (error) => Number(error?.code) === 11000;
 
 const CONTRIBUTION_TAKEN_BACK = 'They took this back.';
 const CONTRIBUTION_TAKE_CHANGED = 'This take was already changed.';

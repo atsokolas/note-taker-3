@@ -21,8 +21,6 @@ import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
 import { createNotebookClaimSlashItems } from './notebookClaimSlash';
 import UseDistinctionHere from '../../wiki/open-sentence/UseDistinctionHere';
 import SourceCorrectionReview from '../SourceCorrectionReview';
-import NotebookShare from './NotebookShare';
-import NotebookVolume from './NotebookVolume';
 import { settleNote } from './settleNote';
 import { useSystemStatusControls } from '../../../system/SystemStatusContext';
 import { wikiReadPath } from '../../../utils/wikiFeatureFlags';
@@ -305,16 +303,12 @@ const NotebookEditor = ({
   const [wikiPagesLoading, setWikiPagesLoading] = useState(false);
   const [savedDistinctions, setSavedDistinctions] = useState([]);
   const [organizeOpen, setOrganizeOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [settledIn, setSettledIn] = useState(entry?.settledIn || null);
   const [settleLine, setSettleLine] = useState('');
   const [settling, setSettling] = useState(false);
   const systemStatus = useSystemStatusControls();
   const restoredFromRef = useRef('');
-  const shareOpenRef = useRef(false);
-  shareOpenRef.current = shareOpen;
-  const [shareRevision, setShareRevision] = useState(0);
   const [entryType, setEntryType] = useState(entry?.type || 'note');
   const [entryTags, setEntryTags] = useState(entry?.tags || []);
   const [tagInput, setTagInput] = useState('');
@@ -759,7 +753,6 @@ const NotebookEditor = ({
         if (sequence === saveSequenceRef.current) {
           setSaveState(dirtyRef.current ? 'dirty' : 'saved');
           if (!dirtyRef.current) setSavedAt(new Date().toISOString());
-          if (shareOpenRef.current) setShareRevision((value) => value + 1);
         }
         return true;
       } catch (_saveError) {
@@ -1576,24 +1569,6 @@ const NotebookEditor = ({
     }
   };
 
-  const handleShare = async () => {
-    setOrganizeOpen(false);
-    if (shareOpen) {
-      setShareOpen(false);
-      setFinishError('');
-      return;
-    }
-    if (!entry?._id) return;
-    setFinishError('');
-    dirtyRef.current = true;
-    const saved = await commitDraft();
-    if (!saved) {
-      setFinishError('Could not save this draft, so sharing did not open.');
-      return;
-    }
-    setShareOpen(true);
-  };
-
   /* An earlier version comes back through the ordinary save, marked as a
      restore so the history can say so. */
   const restoreRevision = async ({ id, snapshot }) => {
@@ -1661,7 +1636,6 @@ const NotebookEditor = ({
           <Button variant="quiet" onClick={handleExport}>Export draft</Button>
           <Button variant="quiet" onClick={handleRecoveryExport}>Private recovery file</Button>
           <Button variant="quiet" onClick={handleSettle} disabled={settling}>{settledIn ? 'Settle again' : 'Settle into Wiki'}</Button>
-          <Button variant="quiet" onClick={handleShare}>{shareOpen ? 'Close share' : 'Share snapshot'}</Button>
           <Button variant="quiet" onClick={() => setOrganizeOpen(previous => !previous)}>Structure</Button>
           <Button variant="quiet" onClick={openHistory}>History</Button>
         </EntryBar>
@@ -1710,7 +1684,7 @@ const NotebookEditor = ({
           />
           <p className="think-notebook-title-meta" id={metaId}>{begunLine(entry.createdAt, wordCount)}</p>
           {settledIn ? (
-            <p className="think-notebook-settled">Settled in Wiki → <Link to={wikiReadPath(settledIn._id)}>{settledIn.title}</Link></p>
+            <p className="think-notebook-settled">Settled in Wiki → <Link to={wikiReadPath(settledIn._id)}>{settledIn.title}</Link>. Share it from there.</p>
           ) : null}
           {settling || settleLine ? (
             <p className="think-notebook-settle-line" role="status">{settling ? 'Settling into Wiki…' : settleLine}</p>
@@ -1780,12 +1754,6 @@ const NotebookEditor = ({
           {workbenchReceipt.text}
           {['insert', 'thought', 'trial', 'next-line'].includes(workbenchReceipt.type) ? <Button variant="quiet" onClick={undoWorkbenchReceipt}>Undo</Button> : null}
         </p>
-      ) : null}
-      {shareOpen && entry?._id ? (
-        <>
-          <NotebookShare notebookId={entry._id} revision={shareRevision} />
-          <NotebookVolume notebookId={entry._id} revision={shareRevision} />
-        </>
       ) : null}
       {organizeOpen && (
         <div className="notebook-organize-panel">

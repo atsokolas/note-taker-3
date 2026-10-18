@@ -104,10 +104,7 @@ const OpenSentenceStoryboard = lazy(() => import('./pages/OpenSentenceStoryboard
 const SharedConcept = lazy(() => import('./pages/SharedConcept'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
 const SharedEdition = lazy(() => import('./pages/SharedEdition'));
-const SharedNotebook = lazy(() => import('./pages/SharedNotebook'));
-const SharedNotebookVolume = lazy(() => import('./pages/SharedNotebookVolume'));
-const NotebookSharePreview = lazy(() => import('./pages/NotebookSharePreview'));
-const NotebookVolumePreview = lazy(() => import('./pages/NotebookVolumePreview'));
+const RetiredShare = lazy(() => import('./pages/RetiredShare'));
 const QuestionSharePreview = lazy(() => import('./pages/QuestionSharePreview'));
 const ConceptSharePreview = lazy(() => import('./pages/ConceptSharePreview'));
 const SharedWikiPage = lazy(() => import('./pages/SharedWikiPage'));
@@ -292,15 +289,13 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/support" element={<Support />} />
           <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
-          <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
-          <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
           <Route path="/design-preview/question-share" element={<QuestionSharePreview />} />
           <Route path="/design-preview/concept-share" element={<ConceptSharePreview />} />
           <Route path="/share/concepts/:slug" element={<SharedConcept />} />
           <Route path="/share/questions/:slug" element={<SharedQuestion />} />
           <Route path="/share/editions/:slug" element={<SharedEdition />} />
-          <Route path="/share/notebooks/:slug" element={<SharedNotebook />} />
-          <Route path="/share/volumes/:slug" element={<SharedNotebookVolume />} />
+          <Route path="/share/notebooks/:slug" element={<RetiredShare kind="notebooks" />} />
+          <Route path="/share/volumes/:slug" element={<RetiredShare kind="volumes" />} />
           <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
           <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
           <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
