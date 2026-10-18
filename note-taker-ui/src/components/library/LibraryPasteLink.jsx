@@ -22,11 +22,11 @@ const savedOn = value => {
 };
 
 /**
- * The quickest way into the Library: paste what you are reading. The server
- * reads the page and files it; a link you already hold opens the copy you
- * have instead of making a second one.
+ * The nightstand: paste a link you mean to come back to, and it waits there.
+ * The server reads the page and files it; a link you already hold goes on the
+ * nightstand as the copy you have instead of becoming a second one.
  */
-export default function LibraryPasteLink({ onSaved, onOpen }) {
+export default function LibraryPasteLink({ onSaved, onOpen, onShowNightstand }) {
   const [value, setValue] = useState('');
   const [state, setState] = useState({ phase: 'idle' });
 
@@ -38,10 +38,10 @@ export default function LibraryPasteLink({ onSaved, onOpen }) {
     }
     setState({ phase: 'saving' });
     try {
-      const { article, existing } = await importPastedUrl({ url });
+      const { article, existing } = await importPastedUrl({ url, placement: 'later' });
       setValue('');
       setState({ phase: existing ? 'existing' : 'saved', article });
-      if (!existing) onSaved?.(article);
+      onSaved?.(article);
     } catch (error) {
       const status = error?.response?.status;
       setState({
@@ -60,6 +60,10 @@ export default function LibraryPasteLink({ onSaved, onOpen }) {
     </button>
   ) : null;
   const since = phase === 'existing' ? savedOn(article?.createdAt) : '';
+  const where = { later: 'on your nightstand', setAside: 'on your desk' }[article?.placement] || '';
+  const nightstand = article?.placement === 'later' && onShowNightstand ? (
+    <> <button type="button" className="library-paste-link__more" onClick={onShowNightstand}>See the nightstand</button></>
+  ) : null;
 
   return (
     <form
@@ -68,13 +72,13 @@ export default function LibraryPasteLink({ onSaved, onOpen }) {
       onSubmit={(event) => { event.preventDefault(); save(value); }}
     >
       <label className="library-paste-link__field">
-        <span className="sr-only">Paste a link to what you are reading</span>
+        <span className="sr-only">Paste a link to read later</span>
         <input
-          aria-label="Paste a link to what you are reading"
+          aria-label="Paste a link to read later"
           type="url"
           inputMode="url"
           value={value}
-          placeholder="Paste a link to what you are reading"
+          placeholder="Paste a link to read later"
           disabled={phase === 'saving'}
           onChange={(event) => {
             setValue(event.target.value);
@@ -92,8 +96,8 @@ export default function LibraryPasteLink({ onSaved, onOpen }) {
       </label>
       <p className="library-paste-link__receipt" role="status" aria-live="polite">
         {phase === 'saving' ? 'Reading the page…' : null}
-        {phase === 'saved' ? <>Saved to your Library: {title}</> : null}
-        {phase === 'existing' ? <>Already yours{since ? ` since ${since}` : ''}: {title}</> : null}
+        {phase === 'saved' ? <>On your nightstand: {title}{nightstand}</> : null}
+        {phase === 'existing' ? <>Already yours{since ? ` since ${since}` : ''}{where ? `, ${where}` : ''}: {title}{nightstand}</> : null}
         {phase === 'problem' ? line : null}
       </p>
     </form>

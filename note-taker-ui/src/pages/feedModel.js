@@ -76,7 +76,7 @@ export const rankFeedTopics = (folders = [], articles = []) => {
 
 export const feedEmptyLine = (folderName = '') => {
   const name = normalizeSpaces(folderName) || 'this shelf';
-  return `Nothing open in ${name} yet. Parked pieces live in Later or Set aside.`;
+  return `Nothing open in ${name} yet. Parked pieces wait on your nightstand or in Set aside.`;
 };
 
 export const screenWordLabel = (asFeed) => (asFeed ? 'Keep in Library' : 'Read as feed');

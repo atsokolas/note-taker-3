@@ -111,7 +111,7 @@ const renderAskedBackSection = ({ askedBack = [], appBaseUrl }) => {
   if (!items.length) return { html: '', text: '' };
   const cards = items.map((row) => {
     const href = absoluteHref(row.href || '/library', appBaseUrl);
-    const detail = [row.fromPlacement === 'later' ? 'later' : row.fromPlacement === 'setAside' ? 'set aside' : '', row.reason].filter(Boolean).join(' · ');
+    const detail = [row.fromPlacement === 'later' ? 'from your nightstand' : row.fromPlacement === 'setAside' ? 'set aside' : '', row.reason].filter(Boolean).join(' · ');
     return `<div style="margin-top:16px"><p style="font-size:17px;line-height:1.45;margin:6px 0 2px"><a href="${escapeHtml(href)}" style="color:#171714;text-decoration:none">${escapeHtml(row.title)}</a></p>${detail ? `<p style="font-size:14px;line-height:1.5;color:#5f5a50;margin:0">${escapeHtml(detail)}</p>` : ''}</div>`;
   }).join('');
   return {

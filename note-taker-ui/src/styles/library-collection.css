@@ -485,6 +485,17 @@ body.noeis-editorial .library-collection-search input {
   text-decoration-color: var(--noeis-rule, #ddd9d0);
   text-underline-offset: 3px;
 }
+.library-paste-link .library-paste-link__more {
+  margin: 0 0 0 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.library-paste-link .library-paste-link__more:hover,
+.library-paste-link .library-paste-link__more:focus-visible,
 .library-paste-link .library-paste-link__title:hover,
 .library-paste-link .library-paste-link__title:focus-visible {
   color: var(--library-accent);

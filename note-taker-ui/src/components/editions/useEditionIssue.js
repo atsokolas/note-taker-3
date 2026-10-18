@@ -125,7 +125,7 @@ export default function useEditionIssue(id) {
           }
         }));
         if (result?.placed === false) {
-          setError(result.error || 'Saved in Library; Later did not complete. Please retry Later.');
+          setError(result.error || 'Saved in Library; could not put it on your nightstand — Retry');
           return false;
         }
         return true;

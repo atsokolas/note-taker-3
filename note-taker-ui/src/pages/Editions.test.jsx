@@ -347,7 +347,7 @@ it('Later calls the real API and a partial failure remains actionable', async ()
   api.saveEditionItemLater.mockResolvedValue({ placed: false, edition: { ...edition, items: [{ ...item, savedArticleId: 'article' }] } });
   render(<Editions />); await screen.findByText(item.finding);
   fireEvent.click(within(document.getElementById('edition-item-one')).getByRole('button', { name: 'Later' }));
-  expect(await screen.findByText(/Later did not complete/)).toBeVisible();
+  expect(await screen.findByText(/could not put it on your nightstand/)).toBeVisible();
   expect(api.saveEditionItemLater).toHaveBeenCalledWith('e1', 'one');
   expect(screen.getByText(item.finding)).toBeVisible();
 });

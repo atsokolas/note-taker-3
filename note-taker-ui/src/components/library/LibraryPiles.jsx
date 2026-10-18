@@ -16,7 +16,7 @@ import { rowKeyAction } from '../../pages/placementSwitchModel';
 /*
  * Hey keeps both piles at the foot of the Imbox. We steal that.
  *
- * Later is work: oldest owed on top. Set aside is a folio stack you fan.
+ * The nightstand is work: oldest owed on top. Set aside is a folio stack you fan.
  * Empty means absent — never a zero, never a skeleton. A parked title flies
  * here from the reader; the fan opens so it has somewhere to land.
  */
@@ -176,13 +176,13 @@ const LaterPile = ({ articles, ledger = [], onSelect, onDone, onPlace, hinting }
   return (
     <section
       className={`library-pile library-pile--later${drop.over ? ' is-drop-target' : ''}${arrived ? ' is-warm' : ''}`}
-      aria-label="Later"
+      aria-label="Nightstand"
       onDragOver={drop.handleDragOver}
       onDragLeave={drop.handleDragLeave}
       onDrop={drop.handleDrop}
     >
       {drop.intent ? <span role="status" className="sr-only">{drop.intent}</span> : null}
-      <p className="library-pile__eyebrow">Later</p>
+      <p className="library-pile__eyebrow">Nightstand</p>
       {line ? <p className="library-pile__line">{line}</p> : null}
       <ul ref={listRef} className="library-pile__list">
         {articles.map((article) => (

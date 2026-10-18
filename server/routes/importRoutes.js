@@ -292,21 +292,33 @@ const buildImportRouter = ({
   router.post('/api/import/url', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
-      const receipt = (article, existing = false) => ({
-        article: {
-          _id: article._id,
-          title: article.title,
-          url: article.url,
-          createdAt: article.createdAt,
-          contentLength: String(article.content || '').length
-        },
-        existing
-      });
+      /* Asked for the nightstand, a piece goes there, new or already held.
+         A piece already on the desk stays on the desk: it is nearer to hand. */
+      const nightstand = req.body?.placement === 'later';
+      const land = async (article, existing, extra = {}) => {
+        let placement = article.placement || 'stream';
+        if (nightstand && placement === 'stream') {
+          placement = 'later';
+          await Article.updateOne({ _id: article._id, userId }, { placement, placementAt: new Date() });
+        }
+        res.status(existing ? 200 : 201).json({
+          article: {
+            _id: article._id,
+            title: article.title,
+            url: article.url,
+            createdAt: article.createdAt,
+            placement,
+            contentLength: String(article.content || '').length
+          },
+          existing,
+          ...extra
+        });
+      };
       /* A link you already saved opens the copy you have. Fetching it again
          would overwrite the page the extension captured with a plainer read,
          and lose nothing but time to tell you it is already here. Checked
          before the fetch and again after redirects. */
-      const saved = url => (url ? Article.findOne({ userId, url }, '_id title url content createdAt') : null);
+      const saved = url => (url ? Article.findOne({ userId, url }, '_id title url content createdAt placement') : null);
       /* Stored URLs carry no fragment (the fetch drops it), so a link to a
          section of a saved piece still finds the piece without the origin. */
       const pasted = (() => {
@@ -320,10 +332,10 @@ const buildImportRouter = ({
         }
       })();
       const before = await saved(pasted);
-      if (before) return res.status(200).json(receipt(before, true));
+      if (before) return land(before, true);
       const fetched = await fetchUrlForIngest({ url: pasted, fetchImpl });
       const after = fetched.url !== pasted && await saved(fetched.url);
-      if (after) return res.status(200).json(receipt(after, true));
+      if (after) return land(after, true);
       if (!fetched.text) return res.status(422).json({ error: 'Could not extract readable text from that URL.' });
       const result = await ingestArticleSource({
         userId,
@@ -336,8 +348,7 @@ const buildImportRouter = ({
         sourceLabel: 'Pasted URL',
         externalId: fetched.url
       });
-      res.status(result.isNew ? 201 : 200).json({
-        ...receipt(result.article, !result.isNew),
+      return land(result.article, !result.isNew, {
         sourceEventId: result.sourceEvent?._id || null,
         status: result.sourceEvent ? 'queued' : 'imported'
       });

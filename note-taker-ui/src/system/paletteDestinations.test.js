@@ -29,7 +29,7 @@ describe('the palette index', () => {
 
   it('reaches the three places on the desk and the shelf', () => {
     const rows = buildPaletteDestinations();
-    expect(pathOf(rows, 'Later')).toBe('/library?scope=later');
+    expect(pathOf(rows, 'Nightstand')).toBe('/library?scope=later');
     expect(pathOf(rows, 'Set aside')).toBe('/library?scope=set-aside');
     expect(pathOf(rows, 'Kept')).toBe('/library?scope=kept');
   });
@@ -89,8 +89,8 @@ describe('positions as commands', () => {
 
   it('reads as a sentence, not as a verb list', () => {
     const [later] = placementCommands({ subject });
-    expect(later.label).toBe('Later: the Costco 10-K');
-    expect(later.hint).toBe('parks it, oldest-owed first');
+    expect(later.label).toBe('Nightstand: the Costco 10-K');
+    expect(later.hint).toBe('puts it on the nightstand, oldest first');
   });
 
   it('offers all three positions on the object in hand', () => {

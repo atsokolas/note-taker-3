@@ -66,7 +66,7 @@ export default function useEditionArrivals({ limit = 40, paper = '', by = '' } =
   const later = row => act(row, 'later', async () => {
     const result = await saveEditionItemLater(row.editionId, row.itemId);
     if (result?.placed === false) {
-      throw new Error(result.error || 'Saved to Library; could not move to Later — Retry');
+      throw new Error(result.error || 'Saved to Library; could not put it on your nightstand — Retry');
     }
     setUndo(null);
     setReceipt({ action: 'later', row, fromSetAside: Boolean(result?.fromSetAside) });

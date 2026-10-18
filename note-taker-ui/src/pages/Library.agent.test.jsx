@@ -235,7 +235,7 @@ describe('Library agent rail', () => {
   it('offers Later, desk, and Keepers once in the quiet left navigation', () => {
     renderLibrary();
     const shelves = screen.getByRole('navigation', { name: 'Shelves' });
-    for (const name of ['Later', 'On the desk', 'Keepers']) expect(within(shelves).getByRole('button', { name })).toBeInTheDocument();
+    for (const name of ['Nightstand', 'On the desk', 'Keepers']) expect(within(shelves).getByRole('button', { name })).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Library places' })).not.toBeInTheDocument();
   });
 

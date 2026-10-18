@@ -81,9 +81,9 @@ describe('LibraryPiles', () => {
 
   it('never prints a zero for an empty pile', () => {
     render(<LibraryPiles articles={[later('only', '2026-08-20T00:00:00.000Z')]} />);
-    expect(screen.getByLabelText('Later')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nightstand')).toBeInTheDocument();
     expect(screen.queryByLabelText('Set aside')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Later \(0\)/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nightstand \(0\)/)).not.toBeInTheDocument();
   });
 });
 
@@ -201,7 +201,7 @@ describe('the Set aside stack', () => {
         onPlace={onPlace}
       />
     );
-    const laterPile = screen.getByLabelText('Later');
+    const laterPile = screen.getByLabelText('Nightstand');
     fireEvent.dragOver(laterPile, piece('a1'));
     expect(laterPile.classList.contains('is-drop-target')).toBe(true);
     expect(screen.getByRole('status')).toHaveTextContent('park it here');
@@ -228,7 +228,7 @@ describe('the Set aside stack', () => {
 
   it('a display-only pile invites no drop', () => {
     render(<LibraryPiles articles={[later('old-later', '2026-06-01T00:00:00.000Z')]} />);
-    const laterPile = screen.getByLabelText('Later');
+    const laterPile = screen.getByLabelText('Nightstand');
     fireEvent.dragOver(laterPile, piece('a1'));
     expect(laterPile.classList.contains('is-drop-target')).toBe(false);
     fireEvent.drop(laterPile, piece('a1'));
@@ -286,7 +286,7 @@ describe('the Set aside stack', () => {
         onPlace={onPlace}
       />
     );
-    expect(screen.getByLabelText('Later')).not.toHaveClass('is-warm');
+    expect(screen.getByLabelText('Nightstand')).not.toHaveClass('is-warm');
 
     rerender(
       <LibraryPiles
@@ -298,6 +298,6 @@ describe('the Set aside stack', () => {
       />
     );
     await screen.findByText('new-later');
-    await waitFor(() => expect(screen.getByLabelText('Later')).toHaveClass('is-warm'));
+    await waitFor(() => expect(screen.getByLabelText('Nightstand')).toHaveClass('is-warm'));
   });
 });
