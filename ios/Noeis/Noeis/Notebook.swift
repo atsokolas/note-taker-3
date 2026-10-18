@@ -426,7 +426,7 @@ private struct NotebookPage: View {
             .onChange(of: draft.wording?["blockId"]?.string) { _, block in
                 guard let block, let at = draft.index(block), let piece = draft.pieces.first(where: { $0.blocks.contains(at) }) else { return }
                 // Once the room under the note is laid out.
-                DispatchQueue.main.async { calmly { scroll.scrollTo(piece.id, anchor: .top) } }
+                DispatchQueue.main.async { calmly { scroll.scrollTo(piece.id, anchor: UnitPoint(x: 0.5, y: 0.04)) } }
             }
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
