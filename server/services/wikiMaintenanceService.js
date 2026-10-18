@@ -1553,6 +1553,7 @@ const DOSSIER_EDITOR_BRIEF = `Above are the sources and the brief the writer was
 - a paragraph that repeats another;
 - a sentence cut off mid-word: finish it from the sources or remove it;
 - a figure computed without its inputs beside it: write them in ("98% ($297.25bn / $303.15bn)");
+- a figure worked out from a percentage when the filing states it (operating income, gross profit): use the stated figure; and a span of periods that does not match its figures ("the last four quarters" naming a fifth);
 - a figure more precise than its source ("$15,606 million" where the filing says "$15.6 billion"), or rounded to a different value (74.9% given as 75.0%): write it as the source does;
 - a figure cited to a source that does not state it: cite the one that does, and cite every filing a sentence draws on (an earlier quarter's figure cites that quarter's filing);
 - a claim or question with no citation: cite the source it rests on;

@@ -2785,6 +2785,32 @@ describe('WikiPageReadView', () => {
       .not.toHaveTextContent('UNIQUE_CANDIDATE_SENTENCE about an experiment.');
   });
 
+  it('opens an empty page on the draft waiting for the owner', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      claims: [],
+      plainText: '',
+      body: { type: 'doc', content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Competitive map' }] }] },
+      aiState: { candidateStatus: 'awaiting_first_head_acceptance' }
+    });
+    getWikiFirstHeadCandidate.mockResolvedValue({
+      kind: 'first_head',
+      revisionId: 'rev-first',
+      candidate: {
+        title: 'Enterprise AI Memory',
+        plainText: 'UNIQUE_FIRST_DRAFT_SENTENCE.',
+        body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'UNIQUE_FIRST_DRAFT_SENTENCE.' }] }] },
+        claims: [{ claimId: 'claim-9', text: 'UNIQUE_FIRST_DRAFT_SENTENCE.' }]
+      }
+    });
+
+    renderReadView();
+    await flushDeferredWikiReadWork();
+
+    expect(await screen.findByText('You are reading the proposed change. The page itself is unchanged.')).toBeInTheDocument();
+    expect(document.querySelector('.wiki-read__body')).toHaveTextContent('UNIQUE_FIRST_DRAFT_SENTENCE.');
+  });
+
   it('keeps accept conflict-safe when the candidate is stale', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,

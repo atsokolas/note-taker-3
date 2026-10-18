@@ -2319,7 +2319,8 @@ const WikiPageReadView = ({
 
   useEffect(() => {
     const params = new URLSearchParams(traceSearch || '');
-    const review = params.get('review') === '1';
+    // A page with nothing on it yet opens on the draft waiting for the owner.
+    const review = params.get('review') === '1' || Boolean(candidatePayload?.candidate && !countPageClaims(page));
     const revisionId = params.get('rev') || '';
     const intent = `${review ? 'review' : ''}|${revisionId}`;
     if (!review && !revisionId) return;
@@ -2348,7 +2349,7 @@ const WikiPageReadView = ({
       urlIntentRef.current = intent;
       handleOpenHistoryRevision(match);
     }
-  }, [candidatePayload, handleOpenHistoryRevision, page?.body, page?.plainText, revisions, traceSearch]);
+  }, [candidatePayload, handleOpenHistoryRevision, page, revisions, traceSearch]);
 
   const readingPage = previewPage || page;
   const strippedBody = useMemo(
@@ -2971,6 +2972,7 @@ const WikiPageReadView = ({
                 judgmentTrackBusy={judgmentTrackBusy}
                 judgmentTrackStatus={judgmentTrackStatus}
                 onMaintain={handleMaintain}
+                onReview={() => openCandidatePreview()}
                 onTrackInJudgment={handleTrackInJudgment}
               />
             ) : null}

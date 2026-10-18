@@ -158,13 +158,13 @@
 }
 
 .wiki-read__preview-strip {
-  border-color: #d6c9af;
-  color: #866a38;
+  border-color: var(--border-subtle);
+  color: var(--accent);
 }
 
 .wiki-read__body.is-preview .wiki-read__article,
 .wiki-read--preview .wiki-read__article {
-  background: #f2efe3;
+  background: var(--surface-muted);
 }
 
 .wiki-read__changed-passage {

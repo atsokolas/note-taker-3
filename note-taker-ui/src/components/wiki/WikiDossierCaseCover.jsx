@@ -12,6 +12,7 @@ const WikiDossierCaseCover = ({
   judgmentTrackBusy = false,
   judgmentTrackStatus = '',
   onMaintain,
+  onReview,
   onTrackInJudgment
 }) => {
   const cover = useMemo(
@@ -30,7 +31,7 @@ const WikiDossierCaseCover = ({
         </div>
         <div className="wiki-dossier-cover__actions">
           {reviewPending ? (
-            <a className="wiki-dossier-cover__primary" href="#wiki-dossier-review">Review research update</a>
+            <button className="wiki-dossier-cover__primary" type="button" onClick={onReview}>Review research update</button>
           ) : (
             <Button type="button" onClick={onMaintain} disabled={maintenanceActive}>
               {maintenanceActive ? 'Checking research…' : 'Check for research updates'}
