@@ -21,7 +21,7 @@ test('real Mongo: the reading room reads only the owner\'s visible shelf, with f
     const body = `<p>${'A readable paragraph about moats and margins. '.repeat(40)}</p>`;
     const feed = await Folder.create({ userId, name: 'Stratechery', asFeed: true });
     const oldest = await Article.create({ userId, url: 'https://e.com/1', title: 'The oldest unread', content: body });
-    await Article.collection.updateOne({ _id: oldest._id }, { $set: { createdAt: new Date(Date.now() - 90 * 86400000) } });
+    await Article.collection.updateOne({ _id: oldest._id }, { $set: { createdAt: new Date(Date.now() - 60 * 86400000) } });
     const partway = await Article.create({ userId, url: 'https://e.com/2', title: 'Halfway through', content: body });
     await ArticleReadingState.create({ userId, articleId: partway._id, anchor: { text: 'moats', startOffsetApprox: 10 }, ratio: 0.5, visitedAt: new Date() });
     const arrival = await Article.create({ userId, url: 'https://e.com/3', title: 'Fresh from the feed', content: body, folder: feed._id });
