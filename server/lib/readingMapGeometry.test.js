@@ -49,10 +49,10 @@ test('a large library is never drawn as two subjects', () => {
     else row[i % 6] += 0.5;
     return normalize(row);
   });
-  const { k, assignment } = clusterBySilhouette(pca(rows, 8));
-  assert.ok(k >= 7, `k = ${k}`);
-  const largest = Math.max(...Array.from({ length: k }, (_, c) => assignment.filter(a => a === c).length));
-  assert.ok(largest < 125, `largest subject holds ${largest}`);
+  const { assignment } = clusterBySilhouette(pca(rows, 8));
+  const sizes = [...new Set(assignment)].map(c => assignment.filter(a => a === c).length);
+  assert.ok(sizes.length >= 7, `${sizes.length} subjects drawn`);
+  assert.ok(Math.max(...sizes) < 125, `largest subject holds ${Math.max(...sizes)}`);
 });
 
 test('layout fits the unit square and keeps dots apart', () => {
