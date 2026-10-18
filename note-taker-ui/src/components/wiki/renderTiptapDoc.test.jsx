@@ -45,6 +45,27 @@ describe('renderTiptapDoc', () => {
     expect(screen.queryByText('[2]')).not.toBeInTheDocument();
   });
 
+  it('cites a claim split across text nodes once, at its end', () => {
+    const claim = { type: 'claim', attrs: { claimId: 'claim-1', support: 'partial', citationIndexes: [1] } };
+    render(
+      <div>
+        {renderTiptapDoc({
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: 'Quarter ended July 26, ', marks: [claim] },
+              { type: 'text', text: '2026', marks: [claim, { type: 'bold' }] },
+              { type: 'text', text: '.', marks: [claim] }
+            ]
+          }]
+        })}
+      </div>
+    );
+
+    expect(screen.getAllByRole('button', { name: 'Backlink to source 1' })).toHaveLength(1);
+  });
+
   it('renders a fallback citation button for contradiction-only claims', () => {
     render(
       <div>
