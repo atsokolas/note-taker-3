@@ -697,17 +697,17 @@ const run = async () => {
     ...createFakeLibraryModel(articleRecords),
     records: articleRecords,
     findOneAndUpdate: async (query = {}, updates = {}, options = {}) => {
+      if (updates.$set) {
+        // A fetched body is written only into an article that has none.
+        const bare = articleRecords.find(record => matches({ ...record, content: record.content || '' }, { ...query, content: '' }));
+        return bare ? clone(Object.assign(bare, updates.$set)) : null;
+      }
       let found = articleRecords.find(record => matches(record, query));
       if (!found && options.upsert) {
         found = { _id: new mongoose.Types.ObjectId().toString(), highlights: [], ...updates.$setOnInsert };
         articleRecords.push(found);
       }
       return found ? clone(found) : null;
-    },
-    updateOne: async (query = {}, updates = {}) => {
-      const found = articleRecords.find(record => matches({ ...record, content: record.content || '' }, { ...query, content: '' }));
-      if (found) Object.assign(found, updates.$set || {});
-      return { modifiedCount: found ? 1 : 0 };
     }
   };
   const fetchedSourceBodies = [];

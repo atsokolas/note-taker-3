@@ -1,4 +1,4 @@
-const { bodyFrom, fetchReadableArticle, paragraphsToHtml, stripTags, titleFrom } = require('./readableArticle');
+const { bodyFrom, fetchReadableArticle, fillArticleBodies, paragraphsToHtml, stripTags, titleFrom } = require('./readableArticle');
 
 const headers = (values = {}) => ({ get: key => values[String(key).toLowerCase()] || null });
 const publicLookup = async () => [{ address: '93.184.216.34', family: 4 }];
@@ -144,5 +144,77 @@ describe('paragraphsToHtml', () => {
   it('treats page text as text, not as markup', () => {
     expect(paragraphsToHtml('<script>alert("x")</script>'))
       .toBe('<p>&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;</p>');
+  });
+});
+
+describe('filling in links that arrived bare', () => {
+  const library = (records) => ({
+    records,
+    findOneAndUpdate: async ({ userId, url }, { $set }) => {
+      const bare = records.find(record => record.userId === userId && record.url === url && !record.content);
+      return bare ? Object.assign(bare, $set) : null;
+    }
+  });
+
+  /* An export of a thousand links must not open a thousand sockets. */
+  it('reads a few at a time', async () => {
+    const urls = Array.from({ length: 7 }, (_v, index) => `https://example.com/${index}`);
+    const Article = library(urls.map(url => ({ userId: 'u1', url, content: '' })));
+    let open = 0;
+    let most = 0;
+    await fillArticleBodies({
+      Article,
+      userId: 'u1',
+      urls,
+      concurrency: 2,
+      fetchBody: async (url) => {
+        open += 1;
+        most = Math.max(most, open);
+        await new Promise(resolve => setTimeout(resolve, 5));
+        open -= 1;
+        return `<p>${url}</p>`;
+      }
+    });
+    expect(most).toBe(2);
+    expect(Article.records.every(record => record.content === `<p>${record.url}</p>`)).toBe(true);
+  });
+
+  /* A page that never answers, one that throws and one that read as a stub all
+     leave the link as it was, and the rest still arrive. */
+  it('leaves a link that will not read as a link, silently', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const Article = library([
+      { userId: 'u1', url: 'https://slow.example', content: '' },
+      { userId: 'u1', url: 'https://broken.example', content: '' },
+      { userId: 'u1', url: 'https://stub.example', content: '' },
+      { userId: 'u1', url: 'https://fine.example', content: '' }
+    ]);
+    const filled = [];
+    await fillArticleBodies({
+      Article,
+      userId: 'u1',
+      urls: Article.records.map(record => record.url),
+      concurrency: 1,
+      timeoutMs: 20,
+      onFilled: article => filled.push(article.url),
+      fetchBody: async (url) => {
+        if (url.includes('slow')) return new Promise(() => {});
+        if (url.includes('broken')) throw new Error('HTTP 403');
+        if (url.includes('stub')) return '';
+        return '<p>The piece.</p>';
+      }
+    });
+    expect(Article.records.map(record => record.content)).toEqual(['', '', '', '<p>The piece.</p>']);
+    expect(filled).toEqual(['https://fine.example']);
+    warn.mockRestore();
+  });
+
+  /* A body the reader already has is theirs; the filler only writes into empty. */
+  it('never overwrites a body that is already there', async () => {
+    const Article = library([{ userId: 'u1', url: 'https://example.com/kept', content: '<p>Mine.</p>' }]);
+    const onFilled = jest.fn();
+    await fillArticleBodies({ Article, userId: 'u1', urls: ['https://example.com/kept'], onFilled, fetchBody: async () => '<p>Theirs.</p>' });
+    expect(Article.records[0].content).toBe('<p>Mine.</p>');
+    expect(onFilled).not.toHaveBeenCalled();
   });
 });
