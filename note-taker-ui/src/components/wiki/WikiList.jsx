@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button } from '../ui';
-import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
-import { buildWikiCreatePayload, openWikiDraft } from '../../utils/wikiCreate';
+import { Button, buttonClass } from '../ui';
+import { deleteWikiPage, listWikiPages } from '../../api/wiki';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import WikiEmergingProposals from './WikiEmergingProposals';
 import WikiInbox from './WikiInbox';
@@ -230,9 +229,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
   const [pageType, setPageType] = useState('all');
   const [visibility, setVisibility] = useState('all');
   const [status, setStatus] = useState('all');
-  const [seed, setSeed] = useState('');
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState('');
   const [error, setError] = useState('');
   const needsReviewFilter = searchParams.get('quality') === 'needs_review';
@@ -335,24 +332,6 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     navigate(wikiPagePath(pageId));
   };
 
-  const handleCreate = async (event) => {
-    event?.preventDefault();
-    setCreating(true);
-    setError('');
-    try {
-      const page = await createWikiPage(buildWikiCreatePayload({
-        type: seed.trim() ? 'idea' : 'wiki_index',
-        text: seed,
-        title: seed
-      }));
-      if (onOpenPage && page?._id) onOpenPage(page._id);
-      else openWikiDraft({ navigate, pageId: page._id });
-    } catch (_error) {
-      setError('That did not save.');
-      setCreating(false);
-    }
-  };
-
   const handleDelete = async (page) => {
     if (!page?._id) return;
     const title = displayWikiPageTitle(page);
@@ -436,8 +415,8 @@ const WikiList = ({ compact = false, onOpenPage }) => {
           ) : (
             <>
               <h2>No Wiki pages yet</h2>
-              <p>Create the first page from any idea or source you want to develop.</p>
-              <Button type="button" onClick={handleCreate} disabled={creating}>Create a draft</Button>
+              <p>Write in Think. When a note is finished, settle it here.</p>
+              <Link className={buttonClass('quiet')} to="/think?tab=notebook">Write in Think</Link>
             </>
           )}
         </section>
@@ -501,20 +480,8 @@ const WikiList = ({ compact = false, onOpenPage }) => {
             <div className="wiki-index__title-block">
               <p className="wiki-index__eyebrow">Wiki list</p>
               <h1>Editable knowledge pages</h1>
-              <p>Draft source-backed pages from any idea, question, note, highlight, or article.</p>
+              <p>Finished thinking, settled from Think, kept beside its sources.</p>
             </div>
-            <form className="wiki-index__composer" onSubmit={handleCreate}>
-              <label htmlFor="wiki-create-input">New page</label>
-              <div className="wiki-index__composer-row">
-                <input
-                  id="wiki-create-input"
-                  value={seed}
-                  onChange={(event) => setSeed(event.target.value)}
-                  placeholder="Start from an idea, question, source, or rough note"
-                />
-                <Button type="submit" disabled={creating}>{creating ? 'Creating...' : 'Create'}</Button>
-              </div>
-            </form>
           </section>
         </>
       ) : null}

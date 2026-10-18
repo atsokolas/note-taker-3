@@ -6,14 +6,8 @@ import WikiList from './WikiList';
 import { listWikiPages } from '../../api/wiki';
 
 jest.mock('../../api/wiki', () => ({
-  createWikiPage: jest.fn(),
   deleteWikiPage: jest.fn(),
   listWikiPages: jest.fn()
-}));
-
-jest.mock('../../utils/wikiCreate', () => ({
-  buildWikiCreatePayload: jest.fn(payload => payload),
-  openWikiDraft: jest.fn()
 }));
 
 jest.mock('./WikiEmergingProposals', () => function MockWikiEmergingProposals() {
@@ -205,6 +199,14 @@ describe('WikiList', () => {
     await waitFor(() => {
       expect(screen.getByTestId('wiki-facet-all-pages')).toHaveTextContent('1');
     });
+  });
+
+  it('sends an empty Wiki to Think to write, instead of drafting a blank page here', async () => {
+    listWikiPages.mockResolvedValue([]);
+    renderWikiList();
+    expect(await screen.findByText('Write in Think. When a note is finished, settle it here.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Write in Think' })).toHaveAttribute('href', '/think?tab=notebook');
+    expect(screen.queryByRole('button', { name: 'Create a draft' })).not.toBeInTheDocument();
   });
 
   it('renders wiki rows as real page links instead of button-only cards', async () => {
