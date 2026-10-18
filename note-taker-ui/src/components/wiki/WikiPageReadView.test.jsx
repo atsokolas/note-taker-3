@@ -2799,8 +2799,12 @@ describe('WikiPageReadView', () => {
       candidate: {
         title: 'Enterprise AI Memory',
         plainText: 'UNIQUE_FIRST_DRAFT_SENTENCE.',
-        body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'UNIQUE_FIRST_DRAFT_SENTENCE.' }] }] },
-        claims: [{ claimId: 'claim-9', text: 'UNIQUE_FIRST_DRAFT_SENTENCE.' }]
+        body: { type: 'doc', content: [{ type: 'paragraph', content: [{
+          type: 'text',
+          text: 'UNIQUE_FIRST_DRAFT_SENTENCE.',
+          marks: [{ type: 'claim', attrs: { claimId: 'claim-9', support: 'supported', citationIndexes: [1] } }]
+        }] }] },
+        claims: [{ claimId: 'claim-9', text: 'UNIQUE_FIRST_DRAFT_SENTENCE.', support: 'supported' }]
       }
     });
 
@@ -2809,6 +2813,8 @@ describe('WikiPageReadView', () => {
 
     expect(await screen.findByText('You are reading the proposed change. The page itself is unchanged.')).toBeInTheDocument();
     expect(document.querySelector('.wiki-read__body')).toHaveTextContent('UNIQUE_FIRST_DRAFT_SENTENCE.');
+    // Nothing to compare a first draft against, so no sentence is marked changed.
+    expect(document.querySelector('.wiki-read__changed-passage')).not.toBeInTheDocument();
   });
 
   it('keeps accept conflict-safe when the candidate is stale', async () => {
