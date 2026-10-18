@@ -26,7 +26,7 @@ test('disabled account cannot sign in even when its credential would otherwise m
 test('actual personal-agent and bridge middleware distinguish healthy, inactive and unavailable accounts', async () => {
   const source = fs.readFileSync(path.resolve(__dirname, '../../server.js'), 'utf8');
   const personalSource = source.slice(source.indexOf('async function authenticatePersonalAgentKey'), source.indexOf('async function authenticateAgentBridgeToken'));
-  const bridgeSource = source.slice(source.indexOf('async function authenticateAgentBridgeToken'), source.indexOf('const findRowValue ='));
+  const bridgeSource = source.slice(source.indexOf('async function authenticateAgentBridgeToken'), source.indexOf('const slugify ='));
   let saved = false; let availability = 'inactive'; let logged = false;
   const context = { isAccountActive: async () => { if (availability === 'unavailable') throw new Error('PRIVATE synthetic database diagnostic'); return availability === 'healthy'; }, mongoose: { Types: { ObjectId: { isValid: () => true } } }, hashPersonalAgentApiKey: () => 'unusable-synthetic-hash', PersonalAgent: { findOne: () => ({ select: async () => ({ _id: id, userId: id, save: async () => { saved = true; } }) }) }, console: { error: () => { logged = true; } },
     normalizePersonalAgentCapabilities: value => value, normalizePersonalAgentWorkerRoles: value => value, normalizeAgentActorType: value => value,

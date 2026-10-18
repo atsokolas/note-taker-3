@@ -25,7 +25,7 @@ Optional environment:
   WEB_APP_URL                 Alternate base URL fallback
   READWISE_CONNECTION_ID      Run Readwise check/preview smoke
   NOTION_CONNECTION_ID        Run Notion check/preview smoke
-  CLEANUP_IMPORTED_NOTE=0     Keep the Evernote smoke note after import
+  CLEANUP_IMPORTED_NOTE=0     Keep the Evernote note and Kindle books after import
   CLEANUP_IMPORT_SESSIONS=0   Keep import sessions after the run
   START_SERVER=1              Start server/server.js before running
 `);
@@ -265,6 +265,32 @@ const runEvernoteSmoke = async () => {
   };
 };
 
+/* Export files: the Kindle fixture lands, and landing it twice adds nothing. */
+const runExportFileSmoke = async () => {
+  const fixturePath = path.join(rootDir, 'server/fixtures/imports/kindle-my-clippings.txt');
+  const post = async () => {
+    const form = new FormData();
+    form.append('files', new Blob([fs.readFileSync(fixturePath)], { type: 'text/plain' }), 'My Clippings.txt');
+    const result = await requestJson(`${baseUrl}/api/import/files`, { method: 'POST', headers, body: form });
+    assert.strictEqual(result.response.status, 200, `export file import failed status=${result.response.status} body=${result.text}`);
+    return result.body;
+  };
+  const first = await post();
+  assert.strictEqual(first.format, 'kindle', 'expected the clippings to be read as Kindle');
+  const second = await post();
+  assert.strictEqual(second.importedHighlights, 0, 'expected a repeated Kindle import to add no highlights');
+  assert.strictEqual(second.importedArticles, 0, 'expected a repeated Kindle import to add no books');
+  if (cleanupImportedNote) {
+    // Only the books this run made; a book that was already in the library keeps its new passages.
+    for (const articleId of first.importedArticleIds || []) {
+      const article = await requestJson(`${baseUrl}/articles/${encodeURIComponent(articleId)}`, { headers });
+      if (!String(article.body?.url || '').startsWith('import://kindle/')) continue;
+      await requestJson(`${baseUrl}/articles/${encodeURIComponent(articleId)}`, { method: 'DELETE', headers });
+    }
+  }
+  return { first: first.summary, second: second.summary };
+};
+
 const runProviderCheck = async ({ provider, connectionId }) => {
   if (!connectionId) {
     return { skipped: true, reason: `No ${provider} connection id supplied.` };
@@ -328,6 +354,7 @@ const run = async () => {
 
     summary.evernote = await runEvernoteSmoke();
     if (summary.evernote?.sessionId) createdSessionIds.push(summary.evernote.sessionId);
+    summary.exportFiles = await runExportFileSmoke();
     summary.readwise = await runProviderCheck({ provider: 'readwise', connectionId: readwiseConnectionId });
     if (summary.readwise?.sessionId) createdSessionIds.push(summary.readwise.sessionId);
     summary.notion = notionConnectionId

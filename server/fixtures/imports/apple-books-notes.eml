@@ -1,0 +1,38 @@
+From: Reader <reader@example.com>
+To: reader@example.com
+Subject: Notes from "Walden"
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="Apple-Mail=_B00K5"
+
+--Apple-Mail=_B00K5
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+
+Notes from Walden
+
+--Apple-Mail=_B00K5
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/html; charset=utf-8
+
+<html><head><meta charset=3D"utf-8"><style>.booktitle{font-size:18px}</styl=
+e></head><body>
+<h1 class=3D"booktitle">Walden</h1>
+<h2 class=3D"bookauthor">By Henry David Thoreau</h2>
+<p class=3D"citation">Thoreau, Henry David. Walden. Apple Books.</p>
+<div class=3D"annotation">
+<p class=3D"annotationdate">October 3, 2021</p>
+<p class=3D"annotationchapter">Where I Lived, and What I Lived For</p>
+<p class=3D"annotationrepresentativetext">=E2=80=9CI went to the woods beca=
+use I wished to live deliberately.=E2=80=9D</p>
+<p class=3D"annotationnote">The sentence everyone quotes &amp; still true.<=
+/p>
+</div>
+<div class=3D"annotation">
+<p class=3D"annotationdate">October 4, 2021</p>
+<p class=3D"annotationchapter">Solitude</p>
+<p class=3D"annotationrepresentativetext">=E2=80=9CI never found the compan=
+ion that was so companionable as solitude.=E2=80=9D</p>
+</div>
+</body></html>
+
+--Apple-Mail=_B00K5--

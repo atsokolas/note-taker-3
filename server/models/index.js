@@ -158,6 +158,8 @@ const importMetaSchema = new mongoose.Schema({
   draftTemplateLabel: { type: String, default: '', trim: true },
   externalId: { type: String, default: '', trim: true },
   parentExternalId: { type: String, default: '', trim: true },
+  // Tags the source carried where it came from (Pocket, Instapaper), kept as written.
+  tags: { type: [String], default: undefined },
   importSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'ImportSession', default: null },
   importedAt: { type: Date, default: null },
   searchableAt: { type: Date, default: null },

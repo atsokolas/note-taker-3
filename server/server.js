@@ -8,8 +8,6 @@ const jwt = require('jsonwebtoken');
 const PDFDocument = require('pdfkit');
 const archiver = require('archiver');
 const multer = require('multer');
-const Papa = require('papaparse');
-const path = require('path');
 const crypto = require('crypto');
 const { ensureWorkspace } = require('./utils/workspaceUtils');
 const {
@@ -4541,23 +4539,6 @@ async function authenticateAgentBridgeToken(req, res, next) {
   }
 }
 
-const findRowValue = (row, keys) => {
-  if (!row) return '';
-  for (const key of keys) {
-    if (row[key] !== undefined && row[key] !== null) return row[key];
-    const match = Object.keys(row).find(k => k.toLowerCase() === String(key).toLowerCase());
-    if (match && row[match] !== undefined && row[match] !== null) return row[match];
-  }
-  return '';
-};
-
-const parseTagList = (value) => (
-  String(value || '')
-    .split(',')
-    .map(tag => tag.trim())
-    .filter(Boolean)
-);
-
 const slugify = (value) => (
   String(value || '')
     .toLowerCase()
@@ -5853,14 +5834,11 @@ const importRouter = buildImportRouter({
   authenticateToken,
   isAccountActive,
   upload,
-  Papa,
-  findRowValue,
   slugify,
-  parseTagList,
   Article,
+  Folder,
   trackEvent,
   EVENT_NAMES,
-  path,
   crypto,
   TagMeta,
   NotebookEntry,

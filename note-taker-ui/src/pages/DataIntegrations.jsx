@@ -157,6 +157,7 @@ const buildHtmlFromText = (text = '') => {
 const detectPasteMode = (text = '') => {
   const value = String(text || '').trim();
   if (!value) return 'plain';
+  if (/^Excerpt From\b/m.test(value) || /^==========\s*$/m.test(value)) return 'export';
 
   const nonEmptyLines = value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const markdownSignals = [
@@ -180,15 +181,23 @@ const detectPasteMode = (text = '') => {
   return 'plain';
 };
 
-const detectUploadMode = (file) => {
-  const name = String(file?.name || '').trim().toLowerCase();
-  const type = String(file?.type || '').trim().toLowerCase();
-  if (name.endsWith('.csv') || type.includes('csv')) return 'csv';
-  if (name.endsWith('.md') || name.endsWith('.markdown') || type.includes('markdown')) return 'markdown';
-  return '';
+/* What /api/import/files reads. A picked folder brings everything in it, so
+   attachments, images and hidden folders (.obsidian, .trash) stay behind. */
+const EXPORT_FILE_PATTERN = /\.(txt|csv|html?|eml|md|markdown)$/i;
+const EXPORT_LIMITS = { files: 2000, bytes: 60 * 1024 * 1024 };
+const isExportFile = (file) => (
+  EXPORT_FILE_PATTERN.test(file?.name || '')
+  && !String(file?.webkitRelativePath || '').split('/').some(segment => segment.startsWith('.'))
+);
+
+// Pasted text that reads as an export goes through the same door as a file.
+const PASTE_FILE_TYPES = {
+  csv: { extension: 'csv', type: 'text/csv' },
+  markdown: { extension: 'md', type: 'text/markdown' },
+  export: { extension: 'txt', type: 'text/plain' }
 };
 
-const makeSummaryFromCsvResponse = (responseData = {}) => ({
+const makeSummaryFromImportResponse = (responseData = {}) => ({
   importedArticles: responseData.importedArticles || 0,
   importedHighlights: responseData.importedHighlights || 0,
   importedNotes: responseData.importedNotes || 0,
@@ -196,7 +205,7 @@ const makeSummaryFromCsvResponse = (responseData = {}) => ({
   duplicateSkips: responseData.duplicateSkips || 0,
   invalidSkips: responseData.invalidSkips || 0,
   parseErrors: responseData.parseErrors || 0,
-  entryId: '',
+  entryId: String(responseData.entryId || ''),
   articleIds: Array.isArray(responseData.articleIds) ? responseData.articleIds : [],
   indexingQueued: responseData.indexingQueued || 0,
   indexingAttempts: responseData.indexingAttempts || 0,
@@ -637,7 +646,7 @@ const DataIntegrations = () => {
   const [indexRetryingId, setIndexRetryingId] = useState('');
   const [indexRetryStatus, setIndexRetryStatus] = useState('');
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
-  const [importing, setImporting] = useState({ csv: false, md: false, enex: false, manual: false, paste: false });
+  const [importing, setImporting] = useState({ csv: false, exports: false, enex: false, manual: false, paste: false });
   const [previewing, setPreviewing] = useState({ readwise: false, notion: false, evernote: false });
   const [previewPassageOpen, setPreviewPassageOpen] = useState(false);
   const [readwiseToken, setReadwiseToken] = useState('');
@@ -676,7 +685,8 @@ const DataIntegrations = () => {
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleError, setScheduleError] = useState('');
   const csvInputRef = useRef(null);
-  const mdInputRef = useRef(null);
+  const exportFilesInputRef = useRef(null);
+  const exportFolderInputRef = useRef(null);
   const enexInputRef = useRef(null);
   const setStatus = useCallback((message, tone = 'info') => {
     setImportStatus({ message, tone });
@@ -863,7 +873,7 @@ const DataIntegrations = () => {
         })
         : await syncNotionConnection({ connectionId: connection.id, importSessionId: session?.id });
       const summary = provider === 'readwise'
-        ? makeSummaryFromCsvResponse(data)
+        ? makeSummaryFromImportResponse(data)
         : makeSummaryFromNoteResponse(data);
       setImportStats(summary);
       setLastImportSourceLabel(label);
@@ -1201,19 +1211,15 @@ const DataIntegrations = () => {
     return null;
   };
 
-  const importCsvFile = async (file, importSessionId = '') => {
+  // Every export goes through one door; the server reads which app it came from.
+  const importFiles = async (files, importSessionId = '') => {
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((file) => {
+      formData.append('files', file);
+      formData.append('paths', file.webkitRelativePath || file.name);
+    });
     if (importSessionId) formData.append('importSessionId', importSessionId);
-    const response = await api.post('/api/import/readwise-csv', formData, getAuthConfig());
-    return response.data;
-  };
-
-  const importMarkdownFile = async (file, importSessionId = '') => {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (importSessionId) formData.append('importSessionId', importSessionId);
-    const response = await api.post('/api/import/markdown', formData, getAuthConfig());
+    const response = await api.post('/api/import/files', formData, getAuthConfig());
     return response.data;
   };
 
@@ -1248,8 +1254,8 @@ const DataIntegrations = () => {
         sourceLabel: file.name || 'Readwise CSV',
         sourceType: 'csv'
       });
-      const data = await importCsvFile(file, session?.id);
-      const summary = makeSummaryFromCsvResponse(data);
+      const data = await importFiles([file], session?.id);
+      const summary = makeSummaryFromImportResponse(data);
       setImportStats(summary);
       setLastImportSourceLabel(file.name || 'Readwise CSV');
       setCurrentSession((previous) => (
@@ -1271,7 +1277,7 @@ const DataIntegrations = () => {
       setStatus(summary.indexingFailures > 0 ? 'Readwise import complete with indexing warnings.' : 'Readwise import complete.', summary.indexingFailures > 0 ? 'warning' : 'success');
       publishSystemReceipt(data?.receipt, {
         title: 'Readwise CSV imported',
-        summary: `${summary.importedHighlights || 0} highlight${summary.importedHighlights === 1 ? '' : 's'} imported.`,
+        summary: data?.summary || `${summary.importedHighlights || 0} highlight${summary.importedHighlights === 1 ? '' : 's'} imported.`,
         status: summary.indexingFailures > 0 ? 'completed_with_warnings' : 'completed'
       });
       if (session?.id) {
@@ -1452,7 +1458,7 @@ const DataIntegrations = () => {
         connectionId: readwiseSyncConnection.id,
         importSessionId: session?.id
       });
-      const summary = makeSummaryFromCsvResponse(data);
+      const summary = makeSummaryFromImportResponse(data);
       setImportStats(summary);
       setLastImportSourceLabel(readwiseSyncConnection.accountLabel || 'Readwise');
       if (data?.connection) {
@@ -1777,62 +1783,68 @@ const DataIntegrations = () => {
     }
   };
 
-  const handleFileImport = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const uploadMode = detectUploadMode(file);
-    if (!uploadMode) {
-      setStatus('Upload a markdown or CSV file.', 'error');
-      event.target.value = '';
+  const handleExportImport = async (event) => {
+    const picked = Array.from(event.target.files || []).filter(isExportFile);
+    event.target.value = '';
+    if (!picked.length) {
+      setStatus('Choose an export file, or a folder with Markdown notes in it.', 'error');
       return;
     }
-    setImporting((previous) => ({ ...previous, md: true }));
-    setStatus(uploadMode === 'csv' ? 'Importing CSV file...' : 'Importing markdown note...');
+    if (picked.length > EXPORT_LIMITS.files || picked.reduce((sum, file) => sum + file.size, 0) > EXPORT_LIMITS.bytes) {
+      setStatus('That is more than 60 MB at once. Bring it in a few smaller batches.', 'error');
+      return;
+    }
+    const sourceLabel = picked.length === 1
+      ? picked[0].name
+      : (String(picked[0].webkitRelativePath || '').split('/')[0] || `${picked.length} files`);
+    setImporting((previous) => ({ ...previous, exports: true }));
+    setStatus(`Reading ${sourceLabel}…`);
     setImportStats(null);
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: `Bringing in ${sourceLabel}`, stage: 'Reading the export' });
     try {
       const session = await createSessionForImport({
-        provider: uploadMode === 'csv' ? 'readwise' : 'files',
+        provider: 'files',
         mode: 'file_upload',
-        sourceLabel: file.name || (uploadMode === 'csv' ? 'Readwise CSV' : 'Markdown note'),
-        sourceType: uploadMode
+        sourceLabel,
+        sourceType: 'export'
       });
-      if (uploadMode === 'csv') {
-        const data = await importCsvFile(file, session?.id);
-        const summary = makeSummaryFromCsvResponse(data);
-        setImportStats(summary);
+      const data = await importFiles(picked, session?.id);
+      const summary = makeSummaryFromImportResponse(data);
+      const landed = summary.articleIds.length > 0 || Boolean(summary.entryId);
+      setImportStats(summary);
+      setLastImportSourceLabel(sourceLabel);
+      setStatus(data?.summary || 'Import finished.', summary.indexingFailures > 0 ? 'warning' : 'success');
+      publishSystemReceipt(data?.receipt, {
+        title: `${sourceLabel} imported`,
+        summary: data?.summary || '',
+        status: summary.indexingFailures > 0 ? 'completed_with_warnings' : 'completed'
+      });
+      if (landed) {
         rememberFirstInsight({
-          sourceType: 'readwise-csv',
-          title: file.name || 'Imported CSV',
+          sourceType: `export-${data?.format || 'files'}`,
+          title: sourceLabel,
           articleId: summary.articleIds[0] || '',
-          counts: summary
-        });
-        setStatus(summary.indexingFailures > 0 ? 'CSV import complete with indexing warnings.' : 'CSV import complete.', summary.indexingFailures > 0 ? 'warning' : 'success');
-      } else {
-        const data = await importMarkdownFile(file, session?.id);
-        const summary = makeSummaryFromNoteResponse(data);
-        setImportStats(summary);
-        rememberFirstInsight({
-          sourceType: 'markdown',
-          title: file.name || 'Imported markdown note',
           notebookEntryId: summary.entryId,
           counts: summary
         });
-        setStatus(summary.indexingFailures > 0 ? 'Markdown import complete with indexing warnings.' : 'Markdown import complete.', summary.indexingFailures > 0 ? 'warning' : 'success');
-      }
-      if (session?.id) {
-        await patchSession(session.id, {
-          activation: {
-            status: 'captured',
-            primaryAction: 'create_concept'
-          }
-        });
+        if (session?.id) {
+          await patchSession(session.id, {
+            activation: {
+              status: 'captured',
+              primaryAction: 'create_concept'
+            }
+          });
+        }
       }
     } catch (error) {
-      console.error('File import failed:', error);
-      setStatus(error.response?.data?.error || 'That did not save.', 'error');
+      console.error('Export import failed:', error);
+      const message = error.response?.data?.error || 'Those files did not come in.';
+      setStatus(message, 'error');
+      systemStatus.setRecoverableFailure({ stage: 'Import', message, retryable: false });
     } finally {
-      setImporting((previous) => ({ ...previous, md: false }));
-      event.target.value = '';
+      setImporting((previous) => ({ ...previous, exports: false }));
+      systemStatus.setBackgroundWork(null);
     }
   };
 
@@ -2112,32 +2124,22 @@ const DataIntegrations = () => {
         sourceType: resolvedMode
       });
 
-      if (resolvedMode === 'csv') {
-        const csvName = `${String(pasteTitle || 'pasted-readwise').trim().replace(/\s+/g, '-').toLowerCase() || 'pasted-readwise'}.csv`;
-        const csvFile = new File([text], csvName, { type: 'text/csv' });
-        const data = await importCsvFile(csvFile, session?.id);
-        const summary = makeSummaryFromCsvResponse(data);
+      if (PASTE_FILE_TYPES[resolvedMode]) {
+        const { extension, type } = PASTE_FILE_TYPES[resolvedMode];
+        const fileName = `${String(pasteTitle || 'pasted').trim().replace(/\s+/g, '-').toLowerCase() || 'pasted'}.${extension}`;
+        const data = await importFiles([new File([text], fileName, { type })], session?.id);
+        const summary = makeSummaryFromImportResponse(data);
         setImportStats(summary);
-        rememberFirstInsight({
-          sourceType: 'readwise-csv',
-          title: csvName,
-          articleId: summary.articleIds[0] || '',
-          counts: summary
-        });
-        setStatus(summary.indexingFailures > 0 ? 'Pasted CSV imported with indexing warnings.' : 'Pasted CSV imported successfully.', summary.indexingFailures > 0 ? 'warning' : 'success');
-      } else if (resolvedMode === 'markdown') {
-        const markdownName = `${String(pasteTitle || 'pasted-note').trim().replace(/\s+/g, '-').toLowerCase() || 'pasted-note'}.md`;
-        const markdownFile = new File([text], markdownName, { type: 'text/markdown' });
-        const data = await importMarkdownFile(markdownFile, session?.id);
-        const summary = makeSummaryFromNoteResponse(data);
-        setImportStats(summary);
-        rememberFirstInsight({
-          sourceType: 'markdown',
-          title: pasteTitle || 'Pasted markdown note',
-          notebookEntryId: summary.entryId,
-          counts: summary
-        });
-        setStatus(summary.indexingFailures > 0 ? 'Pasted markdown imported with indexing warnings.' : 'Pasted markdown imported successfully.', summary.indexingFailures > 0 ? 'warning' : 'success');
+        if (summary.articleIds.length || summary.entryId) {
+          rememberFirstInsight({
+            sourceType: `paste-${data?.format || resolvedMode}`,
+            title: pasteTitle || fileName,
+            articleId: summary.articleIds[0] || '',
+            notebookEntryId: summary.entryId,
+            counts: summary
+          });
+        }
+        setStatus(data?.summary || 'Pasted import finished.', summary.indexingFailures > 0 ? 'warning' : 'success');
       } else {
         await patchSession(session?.id, {
           status: 'importing',
@@ -2399,7 +2401,7 @@ const DataIntegrations = () => {
   const busy = importing.manual
     || importing.paste
     || importing.csv
-    || importing.md
+    || importing.exports
     || importing.enex
     || previewing.readwise
     || previewing.notion
@@ -3205,6 +3207,50 @@ const DataIntegrations = () => {
 
       {selectedSource === 'files' && (
         <>
+          <Card className="settings-card import-exports" id="exports">
+            <h2>Bring everything in</h2>
+            <p className="muted">
+              Years of highlights, saved articles and notes, from the apps you kept them in. Choose the export and Noeis
+              reads which app it came from. Bringing the same file in twice never doubles anything.
+            </p>
+            <dl className="import-exports__formats">
+              <div><dt>Kindle</dt><dd><code>My Clippings.txt</code>, in the documents folder when your Kindle is plugged in.</dd></div>
+              <div><dt>Apple Books</dt><dd>Mail a book's notes to yourself and save the message (.eml or .html), or paste copied passages below.</dd></div>
+              <div><dt>Pocket</dt><dd>The export Pocket sent before it closed: <code>ril_export.html</code> or <code>part_000000.csv</code>.</dd></div>
+              <div><dt>Instapaper</dt><dd>The CSV from Settings, Export. Folders you already have here are kept.</dd></div>
+              <div><dt>Notion and Obsidian</dt><dd>A folder of Markdown: an unzipped Notion export or your vault. Notes land in Think, in the folders they came from.</dd></div>
+              <div><dt>Readwise</dt><dd>The CSV export, if you would rather not connect.</dd></div>
+            </dl>
+            <input
+              ref={exportFilesInputRef}
+              className="import-exports__input"
+              type="file"
+              multiple
+              aria-label="Export files"
+              accept=".txt,.csv,.html,.htm,.eml,.md,.markdown"
+              onChange={handleExportImport}
+              disabled={busy}
+            />
+            <input
+              ref={exportFolderInputRef}
+              className="import-exports__input"
+              type="file"
+              aria-label="Folder of notes"
+              webkitdirectory=""
+              directory=""
+              onChange={handleExportImport}
+              disabled={busy}
+            />
+            <div className="capture-actions">
+              <Button type="button" variant="primary" onClick={() => exportFilesInputRef.current?.click()} disabled={busy}>
+                {importing.exports ? 'Bringing it in…' : 'Choose export files'}
+              </Button>
+              <Button type="button" onClick={() => exportFolderInputRef.current?.click()} disabled={busy}>
+                Choose a folder
+              </Button>
+            </div>
+          </Card>
+
           <Card className="settings-card">
             <h2>Manual note entry</h2>
             <p className="muted">Create notebook entries directly in the web UI while still recording import/session metadata for activation.</p>
@@ -3273,6 +3319,7 @@ const DataIntegrations = () => {
                 <option value="plain">Plain text → notebook note</option>
                 <option value="markdown">Markdown file import</option>
                 <option value="csv">Readwise CSV import</option>
+                <option value="export">Kindle clippings or Apple Books passages</option>
               </select>
               <label className="capture-label" htmlFor="paste-import-content">Pasted content</label>
               <textarea
@@ -3299,30 +3346,6 @@ const DataIntegrations = () => {
             </form>
           </Card>
 
-          <Card className="settings-card">
-            <h2>Markdown or CSV upload</h2>
-            <p className="muted">Upload exported markdown notes or Readwise CSV files into the same import session system.</p>
-            <div className="settings-import-row">
-              <div>
-                <p className="muted-label">Markdown or CSV files</p>
-                <input
-                  ref={mdInputRef}
-                  type="file"
-                  aria-label="Markdown or CSV upload"
-                  accept=".md,.markdown,text/markdown,.csv,text/csv"
-                  onChange={handleFileImport}
-                  disabled={busy}
-                />
-              </div>
-              <Button
-                type="button"
-                onClick={() => mdInputRef.current?.click()}
-                disabled={busy}
-              >
-                {importing.md ? 'Importing…' : 'Upload file'}
-              </Button>
-            </div>
-          </Card>
         </>
       )}
 
