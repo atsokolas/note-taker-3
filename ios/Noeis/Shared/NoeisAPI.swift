@@ -446,14 +446,7 @@ struct NoeisAPI {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONEncoder().encode(body)
         }
-        if signedIn {
-            var token = NoeisAuthStore.shared.token
-            #if DEBUG
-            if Self.standIn != nil { token = "sample" }
-            #endif
-            guard let token else { throw signOut() }
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        if signedIn, !authorize(&request) { throw signOut() }
 
         // Every signed-in read is kept on the device, so a page can open from
         // it at once and still opens with no connection or a sleeping server.
@@ -504,17 +497,27 @@ struct NoeisAPI {
     /// read later with no connection. Skipped on cellular and in Low Data Mode.
     func keep(articleIds: [String]) async {
         for path in articleIds.flatMap({ ["/articles/\($0)", "/api/articles/\($0)/highlights"] }) {
-            let url = base.appendingPathComponent(path)
-            guard let token = NoeisAuthStore.shared.token, SavedCopies.read(SavedCopies.key(url)) == nil else { continue }
-            var request = URLRequest(url: url)
+            var request = URLRequest(url: base.appendingPathComponent(path))
+            let key = SavedCopies.key(request.url!)
+            guard SavedCopies.read(key) == nil else { continue }
+            guard authorize(&request) else { return }
             request.setValue("application/json", forHTTPHeaderField: "Accept")
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.allowsExpensiveNetworkAccess = false
             request.allowsConstrainedNetworkAccess = false
-            guard let (data, response) = try? await session.data(for: request),
-                  (response as? HTTPURLResponse)?.statusCode == 200 else { return }
-            SavedCopies.write(SavedCopies.key(url), data)
+            guard let (data, status) = try? await perform(request), status == 200 else { return }
+            SavedCopies.write(key, data)
         }
+    }
+
+    /// Signs a request with the session, if there is one.
+    private func authorize(_ request: inout URLRequest) -> Bool {
+        var token = NoeisAuthStore.shared.token
+        #if DEBUG
+        if Self.standIn != nil { token = "sample" }
+        #endif
+        guard let token else { return false }
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return true
     }
 
     private func signOut() -> NoeisAPIError {
