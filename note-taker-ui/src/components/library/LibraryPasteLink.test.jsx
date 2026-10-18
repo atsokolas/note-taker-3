@@ -28,7 +28,7 @@ test('pasting a link saves it at once and names what landed', async () => {
   paste('example.com/slow');
   expect(importPastedUrl).toHaveBeenCalledWith({ url: 'https://example.com/slow' });
   fireEvent.click(await screen.findByRole('button', { name: 'On Slow Reading' }));
-  expect(screen.getByRole('status')).toHaveTextContent('Saved. On Slow Reading is at the top of your Library.');
+  expect(screen.getByRole('status')).toHaveTextContent('Saved to your Library: On Slow Reading');
   expect(onSaved).toHaveBeenCalledWith({ _id: 'a1', title: 'On Slow Reading' });
   expect(onOpen).toHaveBeenCalledWith('a1');
   expect(field()).toHaveValue('');

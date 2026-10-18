@@ -65,6 +65,11 @@ test('real Mongo: a pasted link saves once, and a link already saved opens the c
     assert.equal(String(again.body.article._id), String(stored._id));
     assert.equal(fetches, 1, 'a link already saved is not fetched again');
 
+    // A link to a section of a saved piece opens the piece without asking the origin.
+    const section = await paste(`${ESSAY}#second`);
+    assert.equal(section.body.existing, true);
+    assert.equal(fetches, 1);
+
     // A link that redirects to one already saved lands on that copy too.
     const moved = await paste('http://93.184.216.34/old');
     assert.equal(moved.body.existing, true);

@@ -92,7 +92,7 @@ export default function LibraryPasteLink({ onSaved, onOpen }) {
       </label>
       <p className="library-paste-link__receipt" role="status" aria-live="polite">
         {phase === 'saving' ? 'Reading the page…' : null}
-        {phase === 'saved' ? <>Saved. {title} is at the top of your Library.</> : null}
+        {phase === 'saved' ? <>Saved to your Library: {title}</> : null}
         {phase === 'existing' ? <>Already yours{since ? ` since ${since}` : ''}: {title}</> : null}
         {phase === 'problem' ? line : null}
       </p>

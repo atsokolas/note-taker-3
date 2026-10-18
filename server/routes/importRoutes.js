@@ -307,7 +307,18 @@ const buildImportRouter = ({
          and lose nothing but time to tell you it is already here. Checked
          before the fetch and again after redirects. */
       const saved = url => (url ? Article.findOne({ userId, url }, '_id title url content createdAt') : null);
-      const pasted = toTrimmedString(req.body?.url);
+      /* Stored URLs carry no fragment (the fetch drops it), so a link to a
+         section of a saved piece still finds the piece without the origin. */
+      const pasted = (() => {
+        const raw = toTrimmedString(req.body?.url);
+        try {
+          const url = new URL(raw);
+          url.hash = '';
+          return url.toString();
+        } catch (_) {
+          return raw;
+        }
+      })();
       const before = await saved(pasted);
       if (before) return res.status(200).json(receipt(before, true));
       const fetched = await fetchUrlForIngest({ url: pasted, fetchImpl });
