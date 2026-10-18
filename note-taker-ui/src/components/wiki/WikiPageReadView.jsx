@@ -2972,6 +2972,7 @@ const WikiPageReadView = ({
                 judgmentTrackBusy={judgmentTrackBusy}
                 judgmentTrackStatus={judgmentTrackStatus}
                 onMaintain={handleMaintain}
+                onReview={() => openCandidatePreview()}
                 onTrackInJudgment={handleTrackInJudgment}
               />
             ) : null}
