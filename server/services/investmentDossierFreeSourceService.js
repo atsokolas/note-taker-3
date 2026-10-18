@@ -139,13 +139,21 @@ const formatUsd = (value) => {
 const formatValue = (value, unit) => (unit === 'USD/shares' ? `$${Number(value).toFixed(2)}` : formatUsd(value));
 
 // The newest share count on a filing's cover page, with its date: what a
-// dated price is multiplied by to give a market value.
+// dated price is multiplied by to give a market value. A cover lists each
+// class of common stock on its own row, so the classes are added together.
 const latestSharesOutstanding = (companyFacts = {}) => {
-  const rows = companyFacts?.facts?.dei?.EntityCommonStockSharesOutstanding?.units?.shares || [];
-  const latest = rows
+  const rows = (companyFacts?.facts?.dei?.EntityCommonStockSharesOutstanding?.units?.shares || [])
     .filter(row => Number(row?.val) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(String(row?.end || '')))
-    .sort((a, b) => String(b.end).localeCompare(String(a.end)) || String(b.filed || '').localeCompare(String(a.filed || '')))[0];
-  return latest ? { value: Number(latest.val), asOf: latest.end, form: latest.form || '', filed: latest.filed || '' } : null;
+    .sort((a, b) => String(b.end).localeCompare(String(a.end)) || String(b.filed || '').localeCompare(String(a.filed || '')));
+  const latest = rows[0];
+  if (!latest) return null;
+  const cover = rows.filter(row => row.end === latest.end && (row.accn || '') === (latest.accn || ''));
+  return {
+    value: cover.reduce((sum, row) => sum + Number(row.val), 0),
+    asOf: latest.end,
+    form: latest.form || '',
+    filed: latest.filed || ''
+  };
 };
 
 const buildCompanyFactsOperatingBenchmark = ({
