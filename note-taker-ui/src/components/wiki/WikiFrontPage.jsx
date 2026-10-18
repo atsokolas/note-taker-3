@@ -264,7 +264,11 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   const [availabilityNotice, setAvailabilityNotice] = useState('');
   const [wikiSearch, setWikiSearch] = useState('');
   const [searchPages, setSearchPages] = useState(null);
-  const [composerOpen, setComposerOpen] = useState(false);
+  const searchParams = new URLSearchParams(location.search);
+  // "Track a company" (?new=dossier) opens the composer on an investment dossier.
+  const requestedMode = searchParams.get('new') === 'dossier' ? 'dossier' : 'wiki';
+  const [composerMode, setComposerMode] = useState(requestedMode);
+  const [composerOpen, setComposerOpen] = useState(requestedMode === 'dossier');
   const composerRef = useRef(null);
 
   // "+ New page" opens the composer where it was asked for, ready to type in.
@@ -272,7 +276,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     if (composerOpen) composerRef.current?.querySelector('textarea, input:not([type="hidden"])')?.focus();
   }, [composerOpen]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const searchParams = new URLSearchParams(location.search);
   const requestedKind = searchParams.get('kind') || initialKind;
   const requestedView = searchParams.get('view');
   const kind = WIKI_KINDS.includes(requestedKind) ? requestedKind : '';
@@ -420,6 +423,17 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     />
   );
 
+  // "+ New page" and "Track a company" open the one composer on their own kind
+  // of page; asking again for the kind already open closes it.
+  const openComposer = (mode, emptyComposer) => {
+    setComposerMode(mode);
+    if (emptyComposer) {
+      composerRef.current?.querySelector('textarea, input:not([type="hidden"])')?.focus();
+      return;
+    }
+    setComposerOpen(open => !(open && composerMode === mode));
+  };
+
   const renderCollection = (emptyComposer = false) => (
     <div className="wiki-collection__shell">
       <nav
@@ -442,12 +456,17 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               ) : null}
               <Button
                 className="wiki-collection__newpage"
-                aria-expanded={emptyComposer || composerOpen}
-                onClick={() => (emptyComposer
-                  ? composerRef.current?.querySelector('textarea, input:not([type="hidden"])')?.focus()
-                  : setComposerOpen(open => !open))}
+                aria-expanded={emptyComposer || (composerOpen && composerMode === 'wiki')}
+                onClick={() => openComposer('wiki', emptyComposer)}
               >
                 + New page
+              </Button>
+              <Button
+                className="wiki-collection__track"
+                aria-expanded={composerOpen && composerMode === 'dossier'}
+                onClick={() => openComposer('dossier', emptyComposer)}
+              >
+                Track a company
               </Button>
               <Button onClick={openExistingAgent}>Ask</Button>
               <button
@@ -465,7 +484,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
 
         {composerOpen && !emptyComposer ? (
           <section ref={composerRef} className="wiki-collection__composer" aria-label="Build a wiki page">
-            <WikiCreationComposer />
+            <WikiCreationComposer key={composerMode} initialMode={composerMode} />
           </section>
         ) : null}
 
@@ -576,7 +595,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
 
         {emptyComposer ? (
           <section ref={composerRef} className="wiki-collection__composer" aria-label="Build a wiki page">
-            <WikiCreationComposer />
+            <WikiCreationComposer key={composerMode} initialMode={composerMode} />
           </section>
         ) : null}
       </section>
