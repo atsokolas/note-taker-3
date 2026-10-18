@@ -292,7 +292,38 @@ const buildImportRouter = ({
   router.post('/api/import/url', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
-      const fetched = await fetchUrlForIngest({ url: req.body?.url });
+      const receipt = (article, existing = false) => ({
+        article: {
+          _id: article._id,
+          title: article.title,
+          url: article.url,
+          createdAt: article.createdAt,
+          contentLength: String(article.content || '').length
+        },
+        existing
+      });
+      /* A link you already saved opens the copy you have. Fetching it again
+         would overwrite the page the extension captured with a plainer read,
+         and lose nothing but time to tell you it is already here. Checked
+         before the fetch and again after redirects. */
+      const saved = url => (url ? Article.findOne({ userId, url }, '_id title url content createdAt') : null);
+      /* Stored URLs carry no fragment (the fetch drops it), so a link to a
+         section of a saved piece still finds the piece without the origin. */
+      const pasted = (() => {
+        const raw = toTrimmedString(req.body?.url);
+        try {
+          const url = new URL(raw);
+          url.hash = '';
+          return url.toString();
+        } catch (_) {
+          return raw;
+        }
+      })();
+      const before = await saved(pasted);
+      if (before) return res.status(200).json(receipt(before, true));
+      const fetched = await fetchUrlForIngest({ url: pasted, fetchImpl });
+      const after = fetched.url !== pasted && await saved(fetched.url);
+      if (after) return res.status(200).json(receipt(after, true));
       if (!fetched.text) return res.status(422).json({ error: 'Could not extract readable text from that URL.' });
       const result = await ingestArticleSource({
         userId,
@@ -306,12 +337,7 @@ const buildImportRouter = ({
         externalId: fetched.url
       });
       res.status(result.isNew ? 201 : 200).json({
-        article: {
-          _id: result.article._id,
-          title: result.article.title,
-          url: result.article.url,
-          contentLength: String(result.article.content || '').length
-        },
+        ...receipt(result.article, !result.isNew),
         sourceEventId: result.sourceEvent?._id || null,
         status: result.sourceEvent ? 'queued' : 'imported'
       });

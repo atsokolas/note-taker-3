@@ -38,6 +38,7 @@ import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import LibraryCollection from '../components/library/LibraryCollection';
 import LibraryReadingRoom from '../components/library/LibraryReadingRoom';
+import LibraryPasteLink from '../components/library/LibraryPasteLink';
 import { buildArticlePassageHref } from '../utils/sourceRoutes';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
 import LibraryActions from '../components/library/LibraryActions';
@@ -818,6 +819,11 @@ const Library = () => {
     }
   }, [legacyFolders, libraryRoom, refreshArticles]);
 
+  const handleLinkSaved = useCallback(() => {
+    setCollectionRevision(revision => revision + 1);
+    libraryRoom.refresh?.();
+  }, [libraryRoom]);
+
   const handleScreenFolder = useCallback(async (asFeed) => {
     const id = String(shelfFolderId || '').trim();
     if (!id) return;
@@ -1096,6 +1102,7 @@ const Library = () => {
           <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>← Back to collection</button>
         </div> : null}
         <div className={`library-reader ${!isReadingView ? 'is-shelf' : ''}`} data-testid="library-main">
+          {collectionView && scope === 'all' && !isReadingView ? <LibraryPasteLink onOpen={handleSelectArticle} onSaved={handleLinkSaved} /> : null}
           {collectionView && scope === 'all' && !isReadingView && !articleQuery ? <LibraryReadingRoom onOpen={handleSelectArticle} /> : null}
           {collectionView ? <LibraryCollection
             scope={scope} folderId={shelfFolderId} folderName={selectedFolderName} revision={collectionRevision}
