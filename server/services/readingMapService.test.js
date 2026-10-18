@@ -113,6 +113,22 @@ test('a blind spot needs writing that returns to it and reading that does not', 
   assert.deepEqual(findGaps(sources, { notes: writing.notes.slice(0, 1) }), []);
 });
 
+test('a blind spot hears its plural, and an importer\'s tag is never one', () => {
+  const sources = eligibleSources(library());
+  const imported = { title: 'Clipping', content: 'A page from elsewhere.', tags: ['notion-import'], importMeta: { provider: 'notion' } };
+  assert.deepEqual(findGaps(sources, { notes: [imported, imported, imported] }), []);
+  const writing = {
+    concepts: [{ name: 'Opportunity cost', description: '' }],
+    notes: [
+      { title: 'Choices', content: 'Every yes has opportunity costs.', tags: [] },
+      { title: 'Time', content: 'The opportunity cost of a meeting.', tags: [] }
+    ]
+  };
+  assert.deepEqual(findGaps(sources, writing), [{ name: 'opportunity cost', writing: 3, reading: 0 }]);
+  const read = [...sources, { ...sources[0], id: 'oc', text: 'On opportunity costs and sunk ones', tags: [] }, { ...sources[0], id: 'oc2', text: 'The opportunity cost of capital', tags: [] }];
+  assert.deepEqual(findGaps(read, writing), []);
+});
+
 test('the route loader caches until the library changes', async () => {
   cache.clear();
   let articles = library();
