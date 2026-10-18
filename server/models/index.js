@@ -3402,6 +3402,15 @@ sharedNotebookSchema.index({ userId: 1, notebookId: 1 }, { unique: true });
 
 const SharedNotebook = mongoose.model('SharedNotebook', sharedNotebookSchema);
 
+/* Volumes and the reader letters left on shared notes, from when Think
+   published. Nothing reads or writes them now; the models stay so account
+   erasure still finds every row that belongs to a reader. */
+const retiredShareRows = (name) => mongoose.model(name, new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true }));
+const SharedNotebookVolume = retiredShareRows('SharedNotebookVolume');
+const NotebookCorrespondence = retiredShareRows('NotebookCorrespondence');
+
 /**
  * CasebookLineage — follow, fork, and adopt with frozen origin provenance.
  * Revoking a share never rewrites originHash, originTitle, or originSlug.
@@ -3488,6 +3497,8 @@ module.exports = {
   MorningPaperRecord,
   SharedEdition,
   SharedNotebook,
+  SharedNotebookVolume,
+  NotebookCorrespondence,
   Question,
   Board,
   BoardItem,
