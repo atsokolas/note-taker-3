@@ -353,6 +353,7 @@ const buildReadingMap = async ({ userId, models = {}, client = textClient, now =
 };
 
 module.exports = {
+  ACTIVE,
   MIN_SOURCES,
   buildReadingMap,
   composeReadingMap,

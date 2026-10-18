@@ -1,12 +1,11 @@
-const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
-const { buildReadingMap } = require('./readingMapService');
+const { ACTIVE, buildReadingMap } = require('./readingMapService');
 
 /* A year of reading as a commonplace book: every passage you marked that
    year, with the note you wrote beside it, gathered into the subjects the
    reading map already found and set to be printed.
 
-   Eligibility: highlights made in the year (UTC), on sources in the
-   default Library.
+   Eligibility: highlights made in the year (UTC), on the sources the
+   reading map draws from (the default Library, nothing hidden).
    Quality bar: a passage of at least MIN_PASSAGE characters; nothing else
    is judged, because it is your own commonplace book.
    Chapters: the reading map's subjects. A source the map did not place, or
@@ -82,7 +81,7 @@ const composeBook = ({ year, articles = [], map = null }) => {
 };
 
 const buildCommonplaceBook = async ({ userId, year, models, readingMap = buildReadingMap }) => {
-  const articles = await models.Article.find(applyDefaultArticleVisibility({ userId, 'highlights.0': { $exists: true } }))
+  const articles = await models.Article.find({ userId, ...ACTIVE, 'highlights.0': { $exists: true } })
     .select('title author siteName highlights._id highlights.text highlights.note highlights.createdAt highlights.opens')
     .lean();
   // The chapters are a courtesy; a map that cannot be drawn leaves one chapter.

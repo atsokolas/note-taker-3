@@ -67,13 +67,16 @@ describe('commonplace book', () => {
 
   test('a map that fails still sets the book', async () => {
     const query = { select: () => query, lean: async () => articles };
+    const find = jest.fn(() => query);
     const book = await buildCommonplaceBook({
       userId: 'u1',
       year: 2026,
-      models: { Article: { find: () => query } },
+      models: { Article: { find } },
       readingMap: async () => { throw new Error('no map'); }
     });
     expect(book.chapters.map(chapter => chapter.name)).toEqual([null]);
     expect(book.passages).toBe(4);
+    // The same sources the map and the Library show: nothing hidden, archived or debug-only.
+    expect(find.mock.calls[0][0]).toMatchObject({ hiddenFromHome: { $ne: true }, archived: { $ne: true }, debugOnly: { $ne: true } });
   });
 });

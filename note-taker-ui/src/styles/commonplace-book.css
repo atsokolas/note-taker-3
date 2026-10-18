@@ -219,12 +219,27 @@
     display: none !important;
   }
 
+  /* Paper is white whatever the palette on screen: the book sets its own
+     ink and rules, and the shell around it loses its canvas. */
+  :root:has(.commonplace-book) { color-scheme: light; }
+
+  :root:has(.commonplace-book),
+  :root:has(.commonplace-book) :is(body, .app-shell-new, .app-shell-new__main, .app-shell-new__body, .app-shell-new__column, .page-area) {
+    background: #fff !important;
+  }
+
   @page { margin: 22mm 20mm; }
 
+  /* Every ink the book is painted with, its own and the editorial shell's. */
   .commonplace-book {
+    --text-primary: #111;
+    --text-muted: #555;
+    --vellum-ink: #111;
+    --vellum-accent: #111;
+    --vellum-muted: #555;
+    --noeis-rule: #bbb;
     width: auto;
     padding: 0;
-    color: #000;
     font-size: 11pt;
   }
 
