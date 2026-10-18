@@ -3,8 +3,11 @@
 [data-noeis-surface='library'] .app-shell-new__column {
   border-right: 0;
 }
-.library-page-shell {
+.library-page-shell,
+.save-link {
   --library-accent: #526947;
+}
+.library-page-shell {
   max-width: 1160px;
   margin-inline: auto;
   grid-template-columns: 180px minmax(0, 800px);
@@ -131,6 +134,62 @@
   font: 10px/1.6 var(--noeis-ui-font, sans-serif);
   color: var(--text-muted);
 }
+/* The nightstand: why a piece was saved, in the reader's own words; the
+   one line that says what fits tonight; and a month's wait, asked about. */
+.library-source-why {
+  margin: 6px 0 0;
+  font: italic 14px/1.5 var(--font-serif);
+  color: var(--text-secondary);
+}
+.library-tonight {
+  margin: 18px 0 28px;
+  font: 17px/1.55 var(--font-serif);
+  color: var(--text-secondary);
+}
+.library-tonight .library-tonight__title {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: italic 17px/1.55 var(--font-serif);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: color 140ms var(--noeis-ease-standard, ease-out);
+}
+.library-tonight .library-tonight__title:hover,
+.library-tonight .library-tonight__title:focus-visible {
+  color: var(--library-accent);
+}
+.library-waited-long {
+  margin: 36px 0 4px;
+  list-style: none;
+  font: 11px/1.6 var(--noeis-ui-font, sans-serif);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.library-still {
+  margin: 8px 0 0;
+  font: 13px/1.6 var(--noeis-ui-font, sans-serif);
+  color: var(--text-muted);
+}
+.library-still button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.library-still button:hover,
+.library-still button:focus-visible {
+  color: var(--library-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .library-tonight .library-tonight__title { transition: none; }
+}
 .library-peek-trigger,
 .library-peek-actions button,
 .library-load-more,
@@ -252,6 +311,24 @@
 }
 .article-done.is-settled {
   opacity: 0.45;
+}
+/* Why it waited, in the reader's words, under the headline; and the one
+   step back after a finished piece leaves the nightstand. */
+.article-reader-why {
+  margin: 10px 0 0;
+  font: italic 16px/1.5 var(--font-serif);
+  color: var(--text-secondary);
+}
+.article-whereabouts .article-put-back {
+  margin: 0 0 0 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 /* Explain it back sits under the done line, as quiet as it. */
 .explain-back {
@@ -440,8 +517,6 @@ body.noeis-editorial .library-collection-search input {
     box-sizing: border-box;
   }
 }
-/* Paste what you are reading. The input is ruled by the house field style
-   and inks while you write; the receipt names what landed. */
 /* Saving a link: one ruled line to write on, and under it the sentence that
    says where the link will go. The words in that sentence are the controls,
    so nothing on the page looks like a form until it is touched. */
@@ -544,6 +619,7 @@ body.noeis-editorial .library-collection-search input {
 }
 .library-paste-link .library-paste-link__more {
   margin: 0 0 0 6px;
+  text-decoration: none;
   padding: 0;
   border: 0;
   background: transparent;
@@ -557,6 +633,24 @@ body.noeis-editorial .library-collection-search input {
 .library-paste-link .library-paste-link__title:focus-visible {
   color: var(--library-accent);
 }
+.library-paste-link__why {
+  margin-left: 4px;
+  font: italic 14px/1.5 var(--font-serif);
+  color: var(--text-secondary);
+}
+.library-paste-link__why-line {
+  margin: 8px 0 0;
+  animation: library-paste-arrive 160ms var(--noeis-ease-standard, ease-out) both;
+}
+.library-paste-link .library-paste-link__why-line input {
+  width: 100%;
+  max-width: 420px;
+  padding: 2px 0 6px;
+  font: italic 15px/1.4 var(--font-serif);
+}
+.library-paste-link .library-paste-link__why-line input::placeholder {
+  color: var(--text-muted);
+}
 @media (max-width: 600px) {
   .library-paste-link .library-paste-link__line input { font-size: 21px; }
 }
@@ -567,5 +661,49 @@ body.noeis-editorial .library-collection-search input {
 @media (prefers-reduced-motion: reduce) {
   .library-paste-link__receipt { animation: none; }
   .library-paste-link__save { animation: none; }
+  .library-paste-link__why-line { animation: none; }
   .library-paste-link .library-paste-link__choice { transition: none; }
+}
+/* Save from anywhere: the page a share sheet or a bookmarklet opens. The
+   field is the Library's own; the ways to set it up read as a short note. */
+.save-link {
+  width: min(100%, 680px);
+  margin: 0 auto;
+  padding: 34px 0 96px;
+}
+.save-link .library-paste-link {
+  margin: 28px 0 56px;
+}
+.save-link__ways {
+  font: 16px/1.6 var(--font-serif);
+  color: var(--text-secondary);
+}
+.save-link__ways h2 {
+  margin: 32px 0 8px;
+  font: 11px/1.6 var(--noeis-ui-font, sans-serif);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.save-link__ways ol {
+  margin: 0 0 10px;
+  padding-left: 1.3em;
+}
+.save-link__ways p {
+  margin: 0 0 10px;
+}
+.save-link__ways code {
+  font: 13px/1.5 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+}
+.save-link__bookmarklet {
+  display: inline-block;
+  padding: 2px 12px;
+  border: 1px solid var(--library-accent);
+  border-radius: 999px;
+  font: 14px/1.6 var(--noeis-ui-font, sans-serif);
+  color: var(--library-accent);
+  text-decoration: none;
+  cursor: grab;
 }

@@ -63,6 +63,7 @@ import './styles/semantic-theme.css';
 
 const Library = lazy(() => import('./pages/Library'));
 const LibraryTrail = lazy(() => import('./pages/LibraryTrail'));
+const SaveLink = lazy(() => import('./pages/SaveLink'));
 const Editions = lazy(() => import('./pages/Editions'));
 const EditionRead = lazy(() => import('./pages/EditionRead'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
@@ -765,6 +766,7 @@ function App() {
             <Route path="/today" element={<Navigate to="/wiki" replace />} />
             <Route path="/library" element={<Library />} />
             <Route path="/library/trail" element={<LibraryTrail />} />
+            <Route path="/library/save" element={<SaveLink />} />
             <Route path="/library/map" element={<ReadingMap />} />
             {/* Papers an agent maintains. Not a fifth room in the nav — the
                 four rooms are what you did, and an edition is something that

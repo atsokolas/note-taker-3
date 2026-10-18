@@ -1,9 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
-import LibraryPasteLink, { linkFrom } from './LibraryPasteLink';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import LibraryPasteLink, { linkFrom, linksFrom } from './LibraryPasteLink';
 import { importPastedUrl } from '../../api/imports';
+import { setArticlePlacement } from '../../api/articles';
 
 jest.mock('../../api/imports', () => ({ importPastedUrl: jest.fn() }));
+jest.mock('../../api/articles', () => ({ setArticlePlacement: jest.fn() }));
 
 const field = () => screen.getByLabelText('Paste a link to save');
 const paste = text => fireEvent.paste(field(), { clipboardData: { getData: () => text } });
@@ -30,7 +32,7 @@ test('pasting a link saves it at once and names what landed', async () => {
   paste('example.com/slow');
   expect(importPastedUrl).toHaveBeenCalledWith({ url: 'https://example.com/slow', placement: 'later', folderId: '' });
   fireEvent.click(await screen.findByRole('button', { name: 'On Slow Reading' }));
-  expect(screen.getByRole('status')).toHaveTextContent('On your nightstand: On Slow Reading See the nightstand');
+  expect(screen.getByRole('status')).toHaveTextContent('On your nightstand: On Slow Reading Add why See the nightstand');
   expect(onSaved).toHaveBeenCalledWith(piece);
   expect(onOpen).toHaveBeenCalledWith('a1');
   fireEvent.click(screen.getByRole('button', { name: 'See the nightstand' }));
@@ -95,4 +97,45 @@ test('words that are not a link are not sent anywhere', () => {
   fireEvent.submit(field().closest('form'));
   expect(importPastedUrl).not.toHaveBeenCalled();
   expect(screen.getByRole('status')).toHaveTextContent('That does not look like a link.');
+});
+
+test('several links pasted at once all save, titles arriving in order', async () => {
+  expect(linksFrom('from the group chat:\nhttps://a.example/one and https://b.example/two\nhttps://a.example/one')).toEqual(['https://a.example/one', 'https://b.example/two']);
+  expect(linksFrom('example.com/a')).toEqual(['https://example.com/a']);
+  importPastedUrl
+    .mockResolvedValueOnce({ article: { _id: 'a1', title: 'One', placement: 'later' } })
+    .mockRejectedValueOnce({ response: { status: 422 } })
+    .mockResolvedValueOnce({ article: { _id: 'a3', title: 'Three', placement: 'later' } });
+  const onSaved = jest.fn();
+  render(<LibraryPasteLink onSaved={onSaved} />);
+
+  paste('https://a.example/1\nhttps://a.example/2\nhttps://a.example/3');
+  await screen.findByRole('button', { name: 'Three' });
+  expect(importPastedUrl.mock.calls.map(([call]) => call.url)).toEqual(['https://a.example/1', 'https://a.example/2', 'https://a.example/3']);
+  expect(screen.getByRole('status')).toHaveTextContent('2 on your nightstand: One · Three. 1 could not be read.');
+  expect(onSaved).toHaveBeenCalledTimes(2);
+});
+
+test('why it waits can be added after the save, in a line', async () => {
+  importPastedUrl.mockResolvedValue({ article: { _id: 'a1', title: 'On Slow Reading', placement: 'later' }, existing: false });
+  setArticlePlacement.mockResolvedValue({ placement: 'later', placementReason: 'Sam sent this' });
+  render(<LibraryPasteLink />);
+
+  paste('https://example.com/slow');
+  fireEvent.click(await screen.findByRole('button', { name: 'Add why' }));
+  const line = screen.getByLabelText('Why you saved it');
+  fireEvent.change(line, { target: { value: 'Sam sent this ' } });
+  fireEvent.keyDown(line, { key: 'Enter' });
+  expect(setArticlePlacement).toHaveBeenCalledWith('a1', 'later', 'Sam sent this');
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('On your nightstand: On Slow Reading Sam sent this'));
+  expect(screen.queryByRole('button', { name: 'Add why' })).toBeNull();
+  expect(importPastedUrl).toHaveBeenCalledTimes(1);
+});
+
+test('a link handed in from a share sheet saves as soon as the field shows', async () => {
+  importPastedUrl.mockResolvedValue({ article: { _id: 'a1', title: 'Shared', placement: 'later' }, existing: false });
+  render(<LibraryPasteLink link="https://example.com/shared" />);
+  await screen.findByRole('button', { name: 'Shared' });
+  expect(importPastedUrl).toHaveBeenCalledTimes(1);
+  expect(importPastedUrl).toHaveBeenCalledWith({ url: 'https://example.com/shared', placement: 'later', folderId: '' });
 });

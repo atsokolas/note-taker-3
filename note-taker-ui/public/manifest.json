@@ -21,5 +21,14 @@
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#fffcf7",
-  "background_color": "#fffcf7"
+  "background_color": "#fffcf7",
+  "share_target": {
+    "action": "/library/save",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }

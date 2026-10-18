@@ -42,6 +42,12 @@ assert.strictEqual(briefingIsEmpty(briefing), false);
 assert.strictEqual(briefingIsEmpty({
   askedBack: [{ title: 'The Costco 10-K', href: '/library?articleId=a1' }]
 }), false);
+// A short piece waiting is the paper's last line, with why it was saved.
+const tonight = renderMorningPaperEmail({ briefing, nightstand: { articleId: 'n1', title: 'The Shape of Attention', minutes: 8, reason: 'Sam sent this' }, unsubscribeUrl: 'u' });
+assert.match(tonight.html, /On your nightstand: <a href="https:\/\/www\.noeis\.io\/library\?articleId=n1"[^>]*>The Shape of Attention<\/a>, 8 min\./);
+assert.match(tonight.text, /On your nightstand: The Shape of Attention, 8 min\. Sam sent this/);
+assert.doesNotMatch(rendered.text, /nightstand:/, 'nothing short waiting is silence');
+
 const askedBackMail = renderMorningPaperEmail({
   briefing: {
     askedBack: [{

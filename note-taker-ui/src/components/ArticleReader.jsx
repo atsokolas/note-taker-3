@@ -172,6 +172,7 @@ const ArticleReader = ({
   const location = useLocation() || { search: '', hash: '' };
   const titleRef = useRef(null);
   const readerRootRef = useRef(null);
+  const doneRef = useRef(null);
   const menuRef = useRef(null);
   const reducedMotion = usePrefersReducedMotion();
   const [saveError, setSaveError] = useState('');
@@ -326,6 +327,28 @@ const ArticleReader = ({
     setClosedOn(new Date());
   };
 
+  /* Reading to the end of a piece from the nightstand is what it waited
+     for, so it moves into the Library. The end must come into view after the
+     piece opened, not be there already, or opening one at its last screen
+     would count. One step puts it back. */
+  const [finished, setFinished] = useState(false);
+  useEffect(() => { setFinished(false); }, [articleId]);
+  const waiting = placement === 'later';
+  useEffect(() => {
+    const node = doneRef.current;
+    if (!waiting || !node || typeof IntersectionObserver === 'undefined') return undefined;
+    let seenBefore = null;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (seenBefore === null) seenBefore = entry.isIntersecting;
+      else if (entry.isIntersecting && !seenBefore) {
+        observer.disconnect();
+        park('stream').then(() => setFinished(true));
+      }
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [articleId, waiting]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const passageDoorFor = (highlight, index) => {
     const highlightId = highlight?._id || highlight?.id || '';
     if (!highlightId) return null;
@@ -411,7 +434,9 @@ const ArticleReader = ({
 
   const published = formatCalendarDate(article.publicationDate);
   const closedDate = (at) => formatCalendarDate(closedOn || at);
-  const closingLine = kept
+  const closingLine = finished && placement === 'stream'
+    ? <>Finished. Moved to your Library. <button type="button" className="article-put-back" onClick={() => park('later').then(() => setFinished(false))}>Put it back</button></>
+    : kept
     ? `Kept for good${closedDate(article.evergreenAt) ? ` on ${closedDate(article.evergreenAt)}` : ''}.`
     : placement === 'setAside'
       ? `Set aside${closedDate(article.placementAt) ? ` on ${closedDate(article.placementAt)}` : ''}.`
@@ -548,6 +573,7 @@ const ArticleReader = ({
             {published ? <span>{published}</span> : null}
             <OpenSource key={article._id} article={article} />
           </div>
+          {placement !== 'stream' && article.placementReason ? <p className="article-reader-why">{article.placementReason}</p> : null}
           {folioLine ? <ArticleFolioLine line={folioLine} articleId={article._id} /> : null}
         </div>
         {/* Keeping a source for life is something you do to it, so it sits
@@ -669,7 +695,7 @@ const ArticleReader = ({
       {focusedHighlight?.note && !thought ? <button className="article-thought-reopen" onClick={() => setThought(focusedHighlight)}>Your thought: {focusedHighlight.note}</button> : null}
       {onToggleEvergreen && onTogglePlacement ? (
         /* Done reading: what this piece is now, in one line. No modal. */
-        <p className={`article-done${kept || placement === 'setAside' ? ' is-settled' : ''}`} data-reader-control>
+        <p ref={doneRef} className={`article-done${kept || placement === 'setAside' ? ' is-settled' : ''}`} data-reader-control>
           <button type="button" aria-pressed={kept} onClick={() => keep(!kept)}>Keep for good</button>
           <span aria-hidden="true"> · </span>
           <button type="button" aria-pressed={placement === 'setAside'} onClick={() => park(placement === 'setAside' ? 'stream' : 'setAside')}>Set aside</button>

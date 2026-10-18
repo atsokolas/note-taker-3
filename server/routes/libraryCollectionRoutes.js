@@ -2,6 +2,7 @@ const express = require('express');
 const { stripTags } = require('../services/readableArticle');
 const plainTextFrom = (value) => stripTags(value).replace(/\s+/g, ' ').trim();
 const { projectReadingPlace } = require('./articleReadingStateRoutes');
+const { readingMinutes, lengthProjection } = require('../services/nightstand');
 const excerpt = (text, query = '') => {
   const value = plainTextFrom(text || '');
   const found = query ? value.toLowerCase().indexOf(query.toLowerCase()) : 0;
@@ -185,9 +186,9 @@ const buildLibraryCollectionRouter = ({
               createdAt: sort === 'oldest' ? 1 : -1,
               _id: sort === 'oldest' ? 1 : -1
             };
-      const metadataSelection =
-        'title url author siteName createdAt folder evergreen placement';
-      const searchSelection = `${metadataSelection} content highlights`;
+      const metadata = ['title', 'url', 'author', 'siteName', 'createdAt', 'folder', 'evergreen', 'placement', 'placementAt', 'placementReason'];
+      const metadataSelection = { ...Object.fromEntries(metadata.map((field) => [field, 1])), length: lengthProjection };
+      const searchSelection = { ...metadataSelection, content: 1, highlights: 1 };
       let total, rows;
       if (needle) {
         // Search the owned corpus, not the loaded page. Streaming keeps the
@@ -248,6 +249,9 @@ const buildLibraryCollectionRouter = ({
           folder: row.folder,
           evergreen: Boolean(row.evergreen),
           placement: row.placement || 'stream',
+          placementAt: row.placementAt || null,
+          placementReason: row.placementReason || '',
+          minutes: readingMinutes(row.length),
           readingState,
           trace: personalTrace(withPlace),
           match: searchMatch(row, needle)

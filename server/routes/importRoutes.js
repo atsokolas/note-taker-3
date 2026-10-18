@@ -55,6 +55,7 @@ const { wordBoundaryTrim } = require('../lib/editorialText');
 const { fillArticleBodies } = require('../services/readableArticle');
 const {
   inboundMailConfig,
+  linkFromMail,
   newsletterFromMail,
   readerForMail,
   receivedMail,
@@ -300,79 +301,97 @@ const buildImportRouter = ({
     }
   });
 
+  /* Saving a link, from the paste field or from mail. Where it goes is the
+     reader's to say: the nightstand to read later, or straight into the
+     Library when it is already read. Only those two trade places; a piece on
+     the desk stays on the desk, nearer to hand. A folder files it, new or
+     already held, and a reason says why it waits. */
+  const saveLink = async ({ userId, url: raw, placement: destination = '', folder = null, reason = '', title = '', author = '' }) => {
+    const land = async (article, existing, extra = {}) => {
+      const current = article.placement || 'stream';
+      const placement = destination && current !== 'setAside' ? destination : current;
+      const why = placement === 'later' && reason ? reason : '';
+      const change = {
+        ...(placement !== current ? { placement, placementAt: new Date() } : {}),
+        ...(why ? { placementReason: why } : {}),
+        ...(folder ? { folder: folder._id } : {})
+      };
+      if (Object.keys(change).length) await Article.updateOne({ _id: article._id, userId }, change);
+      return {
+        article: {
+          _id: article._id,
+          title: article.title,
+          url: article.url,
+          createdAt: article.createdAt,
+          placement,
+          placementReason: why || article.placementReason || '',
+          folder: folder || null,
+          contentLength: String(article.content || '').length
+        },
+        existing,
+        ...extra
+      };
+    };
+    /* A link you already saved opens the copy you have. Fetching it again
+       would overwrite the page the extension captured with a plainer read,
+       and lose nothing but time to tell you it is already here. Checked
+       before the fetch and again after redirects. */
+    const saved = url => (url ? Article.findOne({ userId, url }, '_id title url content createdAt placement placementReason') : null);
+    /* Stored URLs carry no fragment (the fetch drops it), so a link to a
+       section of a saved piece still finds the piece without the origin. */
+    const pasted = (() => {
+      try {
+        const url = new URL(raw);
+        url.hash = '';
+        return url.toString();
+      } catch (_) {
+        return raw;
+      }
+    })();
+    const before = await saved(pasted);
+    if (before) return land(before, true);
+    const fetched = await fetchUrlForIngest({ url: pasted, fetchImpl });
+    const after = fetched.url !== pasted && await saved(fetched.url);
+    if (after) return land(after, true);
+    if (!fetched.text) {
+      const error = new Error('Could not extract readable text from that URL.');
+      error.statusCode = 422;
+      throw error;
+    }
+    const result = await ingestArticleSource({
+      userId,
+      title: title || fetched.title,
+      content: fetched.text,
+      url: fetched.url,
+      author,
+      provider: 'url',
+      sourceType: 'url',
+      sourceLabel: 'Pasted URL',
+      externalId: fetched.url
+    });
+    return land(result.article, !result.isNew, {
+      sourceEventId: result.sourceEvent?._id || null,
+      status: result.sourceEvent ? 'queued' : 'imported'
+    });
+  };
+
   router.post('/api/import/url', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
-      /* Where a pasted piece goes is the reader's to say: the nightstand to
-         read later, or straight into the Library when it is already read.
-         Only those two trade places; a piece on the desk stays on the desk,
-         nearer to hand. A folder, when chosen, files it, new or already held. */
-      const destination = ['later', 'stream'].includes(req.body?.placement) ? req.body.placement : '';
       const folderId = toTrimmedString(req.body?.folderId);
       const folder = folderId && Folder
         ? await Folder.findOne({ _id: folderId, userId }, '_id name').lean().catch(() => null)
         : null;
       if (folderId && !folder) return res.status(400).json({ error: 'That folder is not one of yours.' });
-      const land = async (article, existing, extra = {}) => {
-        const current = article.placement || 'stream';
-        const placement = destination && current !== 'setAside' ? destination : current;
-        const change = {
-          ...(placement !== current ? { placement, placementAt: new Date() } : {}),
-          ...(folder ? { folder: folder._id } : {})
-        };
-        if (Object.keys(change).length) await Article.updateOne({ _id: article._id, userId }, change);
-        res.status(existing ? 200 : 201).json({
-          article: {
-            _id: article._id,
-            title: article.title,
-            url: article.url,
-            createdAt: article.createdAt,
-            placement,
-            folder: folder || null,
-            contentLength: String(article.content || '').length
-          },
-          existing,
-          ...extra
-        });
-      };
-      /* A link you already saved opens the copy you have. Fetching it again
-         would overwrite the page the extension captured with a plainer read,
-         and lose nothing but time to tell you it is already here. Checked
-         before the fetch and again after redirects. */
-      const saved = url => (url ? Article.findOne({ userId, url }, '_id title url content createdAt placement') : null);
-      /* Stored URLs carry no fragment (the fetch drops it), so a link to a
-         section of a saved piece still finds the piece without the origin. */
-      const pasted = (() => {
-        const raw = toTrimmedString(req.body?.url);
-        try {
-          const url = new URL(raw);
-          url.hash = '';
-          return url.toString();
-        } catch (_) {
-          return raw;
-        }
-      })();
-      const before = await saved(pasted);
-      if (before) return land(before, true);
-      const fetched = await fetchUrlForIngest({ url: pasted, fetchImpl });
-      const after = fetched.url !== pasted && await saved(fetched.url);
-      if (after) return land(after, true);
-      if (!fetched.text) return res.status(422).json({ error: 'Could not extract readable text from that URL.' });
-      const result = await ingestArticleSource({
+      const saved = await saveLink({
         userId,
-        title: req.body?.title || fetched.title,
-        content: fetched.text,
-        url: fetched.url,
-        author: req.body?.author,
-        provider: 'url',
-        sourceType: 'url',
-        sourceLabel: 'Pasted URL',
-        externalId: fetched.url
+        url: toTrimmedString(req.body?.url),
+        placement: ['later', 'stream'].includes(req.body?.placement) ? req.body.placement : '',
+        folder,
+        title: req.body?.title,
+        author: req.body?.author
       });
-      return land(result.article, !result.isNew, {
-        sourceEventId: result.sourceEvent?._id || null,
-        status: result.sourceEvent ? 'queued' : 'imported'
-      });
+      return res.status(saved.existing ? 200 : 201).json(saved);
     } catch (error) {
       console.error('Error importing URL:', error);
       res.status(error.statusCode || 500).json({ error: error.message || 'Failed to import URL.' });
@@ -394,6 +413,15 @@ const buildImportRouter = ({
       if (!reader) {
         console.log('[email-in] dropped: no account confirmed that address');
         return res.status(200).json({ status: 'dropped' });
+      }
+      /* A mail that is only a link, and maybe a line about it, is a link to
+         read later: it goes on the nightstand with that line as its why. */
+      const link = linkFromMail(mail);
+      if (link) {
+        const saved = await saveLink({ userId: reader._id, url: link.url, placement: 'later', reason: link.note.slice(0, 280) })
+          .catch(error => (error.statusCode === 422 ? null : Promise.reject(error)));
+        if (!saved) return res.status(200).json({ status: 'dropped' });
+        return res.status(200).json({ status: saved.existing ? 'duplicate' : 'saved', articleId: saved.article._id });
       }
       const url = `email://${mail.messageId}`;
       if (await Article.exists({ userId: reader._id, url })) return res.status(200).json({ status: 'duplicate' });

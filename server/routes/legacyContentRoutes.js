@@ -876,18 +876,16 @@ const buildLegacyContentRouter = ({
       if (!article) {
         return res.status(404).json({ error: 'Article not found or you do not have permission to modify it.' });
       }
-      const previous = normalizeArticlePlacement(article.placement) || 'stream';
       article.placement = placement;
       if (placement === 'stream') {
         article.placementAt = null;
         article.placementReason = '';
-      } else if (previous !== placement) {
+      } else {
+        /* Putting a piece where it already is says "still": its wait starts over. */
         article.placementAt = new Date();
         if (req.body?.reason !== undefined) {
           article.placementReason = String(req.body.reason || '').trim().slice(0, 280);
         }
-      } else if (req.body?.reason !== undefined) {
-        article.placementReason = String(req.body.reason || '').trim().slice(0, 280);
       }
       await article.save();
       return res.status(200).json({

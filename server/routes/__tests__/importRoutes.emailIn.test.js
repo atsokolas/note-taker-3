@@ -68,6 +68,8 @@ const run = async () => {
     User,
     WikiSourceEvent,
     env: routerEnv,
+    // A public address literal, so the public-URL guard needs no DNS.
+    fetchImpl: async () => new Response('<html><head><title>On Slow Reading</title></head><body><article><p>Reading slowly is a way of keeping company with an argument.</p></article></body></html>', { status: 200, headers: { 'content-type': 'text/html' } }),
     enqueueArticleEmbedding: () => null
   });
   app.use('/on', routerWith(env));
@@ -115,20 +117,31 @@ const run = async () => {
     const habit = await Article.findById(filtered.body.articleId).lean();
     assert.deepEqual([habit.author, habit.siteName, habit.publicationDate], ['Jane Doe', 'Quiet Habits', '2025-10-08']);
 
+    // A link sent with a line about it goes on the nightstand, the line its why.
+    const link = await signedPost(`${url}/on`, forward({
+      subject: 'read this',
+      message_id: '<link-1@mail.example>',
+      text: 'Sam sent this\nhttp://93.184.216.34/essay\n\nSent from my iPhone'
+    }));
+    assert.equal(link.body.status, 'saved');
+    const waiting = await Article.findById(link.body.articleId).lean();
+    assert.deepEqual([waiting.title, waiting.url, waiting.placement, waiting.placementReason],
+      ['On Slow Reading', 'http://93.184.216.34/essay', 'later', 'Sam sent this']);
+
     // Unknown and unconfirmed senders are dropped quietly, with a 200 so the
     // provider does not retry.
     for (const from of ['nobody@example.com', 'stranger@example.com']) {
       const dropped = await signedPost(`${url}/on`, forward({ from, to: ['read@noeis.io'], message_id: `<${from}>` }));
       assert.deepEqual([dropped.status, dropped.body.status], [200, 'dropped']);
     }
-    assert.equal(await Article.countDocuments({}), 2);
+    assert.equal(await Article.countDocuments({}), 3);
 
     // Other webhook events are acknowledged and ignored.
     assert.equal((await signedPost(`${url}/on`, { type: 'email.sent', data: {} })).body.status, 'ignored');
     await User.updateOne({ _id: reader._id }, { $set: { accountDisabledAt: new Date() } });
     const blocked = await signedPost(`${url}/on`, forward({ message_id: '<after-closure@mail.example>' }));
     assert.deepEqual([blocked.status, blocked.body.status], [200, 'dropped']);
-    assert.equal(await Article.countDocuments({}), 2, 'mail cannot recreate content for a disabled account');
+    assert.equal(await Article.countDocuments({}), 3, 'mail cannot recreate content for a disabled account');
   } finally {
     server.close();
     await mongoose.disconnect();
