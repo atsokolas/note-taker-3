@@ -113,7 +113,7 @@ import { swallowSkippedViewTransition } from '../../utils/viewTransitionNavigati
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { buildWikiSurfaceDescriptor, wikiAllowsOpenSentence } from './wikiSurfaceModel';
 import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
-import { wordBoundaryTrim } from '../../utils/editorialText';
+import { docText, wordBoundaryTrim } from '../../utils/editorialText';
 import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const WikiChangesSinceLastVisit = lazy(() => import('./WikiChangesSinceLastVisit'));
@@ -296,14 +296,6 @@ const collectFootnoteCitations = (node, fallbackPrefix = 'body') => {
   return matches;
 };
 
-const collectText = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return node;
-  if (Array.isArray(node)) return node.map(collectText).join(' ');
-  if (typeof node !== 'object') return '';
-  return [node.text || '', collectText(node.content)].filter(Boolean).join(' ');
-};
-
 const normalizeHeadingText = (value = '') => String(value || '')
   .toLowerCase()
   .replace(/[\s\p{Punctuation}]+/gu, ' ')
@@ -314,7 +306,7 @@ const stripLeadingDuplicateTitleHeading = (body = emptyDoc, title = '') => {
   if (!body || !Array.isArray(body.content) || !normalizedTitle) return body || emptyDoc;
   const first = body.content[0];
   if (first?.type !== 'heading') return body;
-  const headingText = normalizeHeadingText(collectText(first));
+  const headingText = normalizeHeadingText(docText(first));
   if (headingText !== normalizedTitle) return body;
   return { ...body, content: body.content.slice(1) };
 };

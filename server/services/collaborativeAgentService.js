@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { resolveExplorationContext } = require('./authoredExplorationService');
+const { docText } = require('../lib/editorialText');
 const {
   loadQuestionContributions,
   publicQuestionPage,
@@ -75,14 +76,6 @@ const truncateRawAtSentenceBoundary = (value, limit = 8000) => {
     return visible.slice(0, lastSentenceEnd + 1).trim();
   }
   return truncate(text, limit);
-};
-
-const toPlainText = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return node;
-  if (Array.isArray(node)) return node.map(toPlainText).filter(Boolean).join(' ');
-  if (typeof node !== 'object') return '';
-  return [node.text || '', toPlainText(node.content)].filter(Boolean).join(' ').trim();
 };
 
 const stripRawObjectIds = (value = '', fallback = 'this wiki page') => (
@@ -1776,7 +1769,7 @@ const resolveContextItem = async ({
           };
         })
         .filter(entry => entry.claim);
-      const bodyText = truncateRaw(page.plainText || toPlainText(page.body), 10000);
+      const bodyText = truncateRaw(page.plainText || docText(page.body), 10000);
       const judgment = page.judgment && typeof page.judgment === 'object' ? page.judgment : null;
       const judgmentText = judgment?.kind ? [
         `Governing question: ${truncate(judgment.governingQuestion || 'Not recorded', 500)}`,
