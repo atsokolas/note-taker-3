@@ -161,6 +161,33 @@ test('real Mongo: export files land as books, saved articles and notes, and a se
     });
     assert.equal(tooLarge.status, 413);
     assert.match(tooLarge.body.error, /smaller batches/);
+
+    // A chunked upload sends no length, so the limit is counted in the stream.
+    const chunked = await new Promise((resolve, reject) => {
+      const request = http.request(`${url}/api/import/files`, {
+        method: 'POST',
+        headers: { 'content-type': 'multipart/form-data; boundary=x' }
+      }, (response) => {
+        let text = '';
+        response.on('data', chunk => { text += chunk; });
+        response.on('end', () => resolve({ status: response.statusCode, body: JSON.parse(text) }));
+      });
+      request.on('error', () => {});
+      const filler = Buffer.alloc(1024 * 1024, 'a');
+      let file = 0;
+      const writeFile = () => {
+        if (file === 5) return request.end('\r\n--x--\r\n');
+        request.write(`--x\r\nContent-Disposition: form-data; name="files"; filename="part-${file}.txt"\r\n\r\n`);
+        for (let megabyte = 0; megabyte < 14; megabyte += 1) request.write(filler);
+        request.write('\r\n');
+        file += 1;
+        return setImmediate(writeFile);
+      };
+      writeFile();
+      setTimeout(() => reject(new Error('no answer to an oversized chunked upload')), 30000).unref();
+    });
+    assert.equal(chunked.status, 413);
+    assert.match(chunked.body.error, /smaller batches/);
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
     await mongoose.disconnect();

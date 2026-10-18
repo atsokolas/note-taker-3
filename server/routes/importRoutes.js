@@ -1387,10 +1387,23 @@ const buildImportRouter = ({
   const sameText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
   const receiveExportFiles = (req, res, next) => {
-    if (Number(req.headers['content-length'] || 0) > EXPORT_LIMITS.bytes) {
-      return res.status(413).json({ error: 'That is more than 60 MB at once. Bring it in a few smaller batches.' });
-    }
+    const tooLarge = () => res.status(413).json({ error: 'That is more than 60 MB at once. Bring it in a few smaller batches.' });
+    if (Number(req.headers['content-length'] || 0) > EXPORT_LIMITS.bytes) return tooLarge();
+    // The header is optional (chunked uploads omit it), so count the bytes as they arrive.
+    let received = 0;
+    const meter = (chunk) => {
+      received += chunk.length;
+      if (received <= EXPORT_LIMITS.bytes) return;
+      req.off('data', meter);
+      req.unpipe();
+      res.set('Connection', 'close');
+      tooLarge();
+      req.resume();
+    };
+    req.on('data', meter);
     return upload.array('files', EXPORT_LIMITS.files)(req, res, (error) => {
+      req.off('data', meter);
+      if (res.headersSent) return undefined;
       if (!error) return next();
       const message = error.code === 'LIMIT_FILE_SIZE'
         ? 'One of those files is larger than 15 MB.'
