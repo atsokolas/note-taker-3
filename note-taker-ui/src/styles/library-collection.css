@@ -440,3 +440,59 @@ body.noeis-editorial .library-collection-search input {
     box-sizing: border-box;
   }
 }
+/* Paste what you are reading. The input is ruled by the house field style
+   and inks while you write; the receipt names what landed. */
+.library-paste-link {
+  margin: 0 0 32px;
+}
+.library-paste-link__field {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.library-paste-link .library-paste-link__field input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 0;
+  font: 17px/1.5 var(--font-serif);
+}
+.library-paste-link .library-paste-link__field input:disabled {
+  color: var(--text-muted);
+}
+.library-paste-link__field kbd {
+  font: 12px var(--noeis-ui-font, sans-serif);
+  color: var(--text-muted);
+}
+.library-paste-link__receipt {
+  margin: 10px 0 0;
+  font: 14px/1.6 var(--noeis-ui-font, sans-serif);
+  color: var(--text-secondary);
+  animation: library-paste-arrive 220ms var(--noeis-ease-standard, ease-out) both;
+}
+.library-paste-link__receipt:empty {
+  display: none;
+}
+.library-paste-link .library-paste-link__title {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: italic 15px/1.5 var(--font-serif);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--noeis-rule, #ddd9d0);
+  text-underline-offset: 3px;
+}
+.library-paste-link .library-paste-link__title:hover,
+.library-paste-link .library-paste-link__title:focus-visible {
+  color: var(--library-accent);
+}
+@keyframes library-paste-arrive {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .library-paste-link__receipt { animation: none; }
+}
