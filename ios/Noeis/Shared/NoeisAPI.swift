@@ -5,12 +5,15 @@ enum NoeisAPIError: LocalizedError {
     case signedOut
     case offline
     case server(String)
+    /// Someone else wrote first; carries what the server holds now.
+    case conflict(JSON)
 
     var errorDescription: String? {
         switch self {
         case .signedOut: return "Your sign-in has ended. Sign in again to pick up where you were."
         case .offline: return "Noeis could not be reached. Check your connection and try again."
         case .server(let message): return message
+        case .conflict(let current): return current["error"]?.string ?? "This changed elsewhere."
         }
     }
 }
@@ -284,13 +287,26 @@ struct NoeisAPI {
     }
 
     func createNote(title: String, text: String) async throws -> JSON {
-        try await send("POST", "/api/notebook", body: ["title": .string(title), "content": .string(Self.html(text)), "blocks": .array(Self.paragraphBlocks(text))])
+        let blocks = Self.paragraphBlocks(text)
+        return try await send("POST", "/api/notebook", body: ["title": .string(title), "content": .string(Self.html(blocks)), "blocks": .array(blocks)])
     }
 
-    /// Saves a note whose blocks are all paragraphs. The blocks travel with
-    /// the HTML so the server never flattens anything it did not have to.
-    func updateNote(_ id: String, title: String, text: String) async throws -> JSON {
-        try await send("PUT", "/api/notebook/\(id)", body: ["title": .string(title), "content": .string(Self.html(text)), "blocks": .array(Self.paragraphBlocks(text))])
+    /// Saves a note as the web does: its blocks, whole, in order, with the
+    /// passages set aside. The HTML is only a reading copy of the blocks.
+    func saveNote(_ id: String, title: String, blocks: [JSON], aside: [JSON]) async throws {
+        _ = try await send("PUT", "/api/notebook/\(id)", body: ["title": .string(title), "content": .string(Self.html(blocks)), "blocks": .array(blocks), "asidePieces": .array(aside)])
+    }
+
+    /// The note's private side state (wordings tried, where you were). It is
+    /// revisioned: a stale write comes back as `.conflict` with the newer state.
+    func saveWorkbench(_ id: String, _ state: JSON) async throws -> JSON {
+        let body: JSON = ["workingState": state, "expectedRevision": .number(state["revision"]?.double ?? 0)]
+        return try await send("PUT", "/api/notebook/\(id)/workbench", body: body)["workingState"] ?? state
+    }
+
+    /// Two or three other ways to say a passage, each with what it changed.
+    func wordingOptions(_ id: String, target: JSON) async throws -> [JSON] {
+        try await send("POST", "/api/notebook/\(id)/workbench/wording-options", body: ["target": target, "requestId": .string(UUID().uuidString)])["options"].array
     }
 
     func moveNote(_ id: String, stage: String? = nil, archived: Bool? = nil) async throws {
@@ -314,15 +330,30 @@ struct NoeisAPI {
         text.components(separatedBy: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-            .map { ["id": .string("ios-\(UUID().uuidString.prefix(8).lowercased())"), "type": "paragraph", "text": .string($0)] }
+            .map { ["id": .string(UUID().uuidString.lowercased()), "type": "paragraph", "text": .string($0)] }
     }
 
-    private static func html(_ text: String) -> String {
-        text.components(separatedBy: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-            .map { "<p>\($0.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;"))</p>" }
-            .joined()
+    private static func html(_ blocks: [JSON]) -> String {
+        func escaped(_ block: JSON) -> String {
+            block["text"]?.raw.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;") ?? ""
+        }
+        var html = "", list = false
+        for block in blocks {
+            let type = block["type"].text
+            if list && type != "bullet" { html += "</ul>"; list = false }
+            switch type {
+            case "bullet":
+                if !list { html += "<ul>"; list = true }
+                html += "<li>\(escaped(block))</li>"
+            case "heading":
+                let level = min(max(block["level"]?.int ?? 2, 1), 3)
+                html += "<h\(level)>\(escaped(block))</h\(level)>"
+            case "quote", "highlight_embed": html += "<blockquote><p>\(escaped(block))</p></blockquote>"
+            case "divider": html += "<hr>"
+            default: if !escaped(block).isEmpty { html += "<p>\(escaped(block))</p>" }
+            }
+        }
+        return list ? html + "</ul>" : html
     }
 
     // MARK: Concepts and questions
@@ -465,6 +496,7 @@ struct NoeisAPI {
         }
         let json = (try? JSONDecoder().decode(JSON.self, from: data)) ?? .null
         if status == 401, signedIn { throw signOut() }
+        if status == 409 { throw NoeisAPIError.conflict(json) }
         if status >= 500, let key, let copy = SavedCopies.read(key) {
             reading?.used(copy.date)
             return copy.json

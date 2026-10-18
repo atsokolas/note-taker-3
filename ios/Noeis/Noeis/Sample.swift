@@ -62,6 +62,12 @@ enum Sample {
             if let ids = at("api/editions/*/items/*/\(action)") { return ["edition": act(ids[0], ids[1], action)] }
         }
         if let id = at("api/notebook/*/opposite")?.first { return ["line": opposite[id] ?? .null] }
+        if at("api/notebook/*/workbench/wording-options") != nil {
+            return ["status": "ready", "options": [
+                ["wording": "But SK hynix guides as if the pricing power were already its own.", "explanation": "More direct: the hedge moves into the verb."],
+                ["wording": "SK hynix, though, is guiding as if it holds the pricing power, and it may be right.", "explanation": "Grants the other side before the turn."]
+            ]]
+        }
         if at("api/agent/chat") != nil { return partner }
         if at("api/wiki/pages/*/judgment-change-proposals") != nil { return ["proposal": ["id": "rcpt-sample"]] }
         if at("api/wiki/pages") != nil { return wiki.array.first ?? .null }
@@ -475,7 +481,12 @@ enum Sample {
          {"id": "b4", "type": "paragraph", "text": "But SK hynix is guiding as if it holds the pricing power. Both can be right if the binding constraint alternates by quarter."},
          {"id": "b5", "type": "heading", "text": "To read"},
          {"id": "b6", "type": "article_ref", "articleId": "art-hbm4", "title": "SK hynix says HBM4 is sold out through 2027"}
-       ]},
+       ],
+       "workingState": {"revision": 1,
+         "trials": [{"id": "trial-1", "origin": "human", "updatedAt": "2026-10-15T21:10:00.000Z",
+           "target": {"blockId": "b4", "offset": 0, "baseText": "But SK hynix is guiding as if it holds the pricing power. Both can be right if the binding constraint alternates by quarter."},
+           "alternative": "Yet SK hynix guides as though it sets the price. Both hold if the binding constraint alternates by quarter."}],
+         "nextTimeLine": {"text": "Check whether the alternating constraint survives the Q3 numbers.", "target": {"blockId": "b4", "offset": 0, "baseText": ""}}}},
       {"_id": "note-rapa-dosing", "title": "Rapamycin dosing, what we actually know", "updatedAt": "2026-10-09T08:30:00.000Z", "board": {"stage": "in_progress"},
        "snippet": "Intermittent dosing in mice gets most of the benefit with fewer side effects. The marmoset study used daily oral dosing.",
        "blocks": [
