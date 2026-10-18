@@ -59,6 +59,13 @@ test('a concept draft reads as blocks, its quoted passages keeping their source'
   assert.deepEqual(blocksFromHtml(''), []);
 });
 
+test('a numbered list stays numbered, and a bulleted one after it starts its own list', () => {
+  const blocks = blocksFromHtml('<ol><li><p>First</p></li><li><p>Second</p></li></ol><ul><li><p>Aside</p></li></ul>');
+  assert.deepEqual(blocks.map(block => block.type), ['numbered', 'numbered', 'bullet']);
+  const lists = settleDraftFrom({ title: 'Steps', blocks }).body.content;
+  assert.deepEqual(lists.map(node => [node.type, node.content.length]), [['orderedList', 2], ['bulletList', 1]]);
+});
+
 test('a note that would fail the wiki bar says what to fix', () => {
   assert.equal(settleRefusal(settleDraftFrom({ title: 'Ideas', blocks: [] }), 'note'), 'Nothing is written here yet. Write the thought, then settle it.');
   const body = [{ id: 'p', type: 'paragraph', text: 'Something worth keeping.' }];

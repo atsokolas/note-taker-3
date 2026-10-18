@@ -9,6 +9,7 @@ const { plainNotebookText } = require('./authoredWorkDiscovery');
    ways (and what keeps maintenance from rewriting it). */
 
 const QUOTE_TYPES = new Set(['highlight_embed', 'highlight-ref', 'highlight_ref', 'quote']);
+const LIST_TYPES = { bullet: 'bulletList', numbered: 'orderedList' };
 const PLACEHOLDER_CODES = new Set(['placeholder_title', 'generated_qa_title', 'known_qa_junk_title']);
 
 const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
@@ -19,14 +20,18 @@ const idOf = (value) => (value ? String(value) : '');
 const ELEMENT = /<(h[1-6]|p|li|blockquote)\b((?:"[^"]*"|[^>"])*)>([\s\S]*?)<\/\1>/gi;
 const attr = (attrs, name) => plainNotebookText((attrs.match(new RegExp(`${name}="([^"]*)"`)) || [])[1]);
 
-const blocksFromHtml = (html) => [...String(html || '').matchAll(ELEMENT)].map(([, tag, attrs, inner], index) => {
+// A list item is numbered when the list that holds it opened as <ol>.
+const numbered = (html, at) => html.lastIndexOf('<ol', at) > html.lastIndexOf('<ul', at);
+
+const blocksFromHtml = (source) => [...String(source || '').matchAll(ELEMENT)].map(({ 1: tag, 2: attrs, 3: inner, index: at, input: html }, index) => {
   const highlightId = attr(attrs, 'data-highlight-id');
   const id = attr(attrs, 'data-block-id') || highlightId || `block-${index}`;
   if (highlightId) {
     return { id, type: 'highlight_embed', highlightId, articleId: attr(attrs, 'data-article-id'), articleTitle: attr(attrs, 'data-article-title'), text: attr(attrs, 'data-highlight-text') };
   }
   const name = tag.toLowerCase();
-  const type = name[0] === 'h' ? 'heading' : { li: 'bullet', blockquote: 'quote' }[name] || 'paragraph';
+  const item = numbered(html, at) ? 'numbered' : 'bullet';
+  const type = name[0] === 'h' ? 'heading' : { li: item, blockquote: 'quote' }[name] || 'paragraph';
   return { id, type, level: Number(name[1]) || undefined, text: plainNotebookText(inner) };
 });
 
@@ -99,10 +104,11 @@ const settleDraftFrom = ({ title, blocks }) => {
   blocks.forEach((block) => {
     const type = block?.type || 'paragraph';
     const text = clean(block?.text);
-    if (type !== 'bullet') list = null;
+    const listType = LIST_TYPES[type];
+    if (list?.type !== listType) list = null;
     if (!text) return;
-    if (type === 'bullet') {
-      if (!list) content.push(list = { type: 'bulletList', content: [] });
+    if (listType) {
+      if (!list) content.push(list = { type: listType, content: [] });
       list.content.push({ type: 'listItem', content: [paragraph(text)] });
     } else if (type === 'heading') {
       content.push({ type: 'heading', attrs: { level: Math.min(4, (Number(block.level) || 1) + 1) }, content: [{ type: 'text', text }] });
