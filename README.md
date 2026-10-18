@@ -44,6 +44,7 @@ Endpoints:
 
 - `GET /api/semantic/related?sourceType=highlight&sourceId=...` → `{ results: [...] }`
 - `GET /api/highlights/:id/related` → `{ results: [...] }`
+- `POST /api/semantic/margins` `{ paragraphs, articleId?, excludeHighlightIds? }` → `{ notes: [{ paragraph, relation: 'close', highlight }] }` — the closest highlight from another source per paragraph (at most five); empty when nothing is close or no embedding provider is configured
 
 ## Product analytics (backend-only, privacy-safe)
 

@@ -11,6 +11,7 @@ jest.mock('../api/authoredExplorations', () => ({
   libraryExplorations: { load: jest.fn(), save: jest.fn(), keep: jest.fn(), discard: jest.fn() }
 }));
 import { listWikiPages } from '../api/wiki';
+import { fetchMarginNotes } from '../api/retrieval';
 import { fileReadingProposal, getPushesAgainst } from '../api/judgmentResolution';
 import useTextSelection from './reader/useTextSelection';
 import { handOffSentence, resetFirstPaint } from '../motion/columnMotion';
@@ -28,6 +29,7 @@ jest.mock('../api/highlights', () => ({
 jest.mock('../api/wiki', () => ({
   listWikiPages: jest.fn(async () => [])
 }));
+jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn(async () => []) }));
 jest.mock('../api/judgmentResolution', () => ({
   getPushesAgainst: jest.fn(async () => null),
   fileReadingProposal: jest.fn(async () => ({}))
@@ -73,6 +75,7 @@ describe('ArticleReader', () => {
     jest.spyOn(Router, 'useLocation').mockImplementation(() => ({ pathname: window.location.pathname, search: window.location.search, hash: window.location.hash }));
     resetFirstPaint();
     listWikiPages.mockResolvedValue([]);
+    fetchMarginNotes.mockResolvedValue([]);
     usePrefersReducedMotion.mockReturnValue(false);
     useFinePointer.mockReturnValue(true);
     useTextSelection.mockReturnValue({
@@ -121,6 +124,23 @@ describe('ArticleReader', () => {
       HTMLElement.prototype.getBoundingClientRect = originalRect;
       Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalHeight });
     }
+  });
+
+  it('sets a passage you marked elsewhere beside the paragraph it is close to', async () => {
+    const paragraph = 'Surgeons resisted written checklists for years, insisting that judgment and memory were enough in the theatre.';
+    fetchMarginNotes.mockResolvedValue([{
+      paragraph: 0,
+      relation: 'close',
+      highlight: { _id: 'h-elsewhere', text: 'A checklist is a net for the expert who forgets the obvious step, not a crutch.', articleId: 'article-2', articleTitle: 'The Checklist Manifesto' }
+    }]);
+    render(
+      <MemoryRouter>
+        <ArticleReader article={{ _id: 'article-1', title: 'Theatre', content: `<p>Short opener.</p><p>${paragraph}</p>` }} highlights={[]} />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('link', { name: /You marked something close in The Checklist Manifesto/ })).toHaveAttribute('href', expect.stringContaining('article-2'));
+    expect(fetchMarginNotes).toHaveBeenCalledWith({ articleId: 'article-1', paragraphs: [paragraph] });
+    expect(document.querySelector('.library-margin-note')).toHaveAttribute('data-beside', '1');
   });
 
   it('stays readable while no article is selected', () => {

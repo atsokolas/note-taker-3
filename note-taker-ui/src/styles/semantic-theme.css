@@ -637,9 +637,7 @@ html:is([data-ui-family='palette'], [data-ui-scheme='dark']) :is(
   .library-highlight-group-header,
   .library-reference-item .muted,
   .library-related-item .muted,
-  .library-highlight-item .muted,
-  .semantic-related-item .muted,
-  .semantic-related-explain :is(p, div)
+  .library-highlight-item .muted
 ) {
   color: var(--noeis-ink-muted);
 }

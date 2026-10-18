@@ -19,6 +19,7 @@ import OpenSource from './reader/OpenSource';
 import usePassageOpens from './reader/usePassageOpens';
 import { sourceKind } from './reader/readerDress';
 import PassageDoor from './reader/PassageDoorView';
+import { ArticleMargins } from './margins/LibraryMargins';
 import { heldHighlightIds, sourceWhereabouts } from './reader/sourceWhereabouts';
 import OpenedLibraryPassage, { LibraryOriginReturn } from './wiki/open-sentence/OpenedLibraryPassage';
 import { matchingReturnTicket } from './wiki/open-sentence/openSentenceJourney';
@@ -633,6 +634,14 @@ const ArticleReader = ({
         <>
           <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
           <FootnotePeek contentRef={contentRef} />
+          <ArticleMargins
+            articleId={articleId}
+            contentRef={contentRef}
+            frameRef={readerRootRef}
+            contentKey={article.content}
+            layoutKey={contentMarkup.__html}
+            hidden={Boolean(reading.readFresh)}
+          />
           <div className="article-passage-threads" aria-label="Connections to held judgments">
             {highlights
               .filter((highlight) => !heldPassages.has(String(highlight?._id || highlight?.id || '')))

@@ -1,7 +1,6 @@
 import React, { Profiler, useEffect, useMemo, useState } from 'react';
 import { Button } from '../ui';
 import PassageDoor from '../reader/PassageDoorView';
-import SemanticRelatedPanel from '../retrieval/SemanticRelatedPanel';
 import ReferencePullIn from '../references/ReferencePullIn';
 import { createProfilerLogger } from '../../utils/perf';
 import { normalizeSpaces } from '../../utils/editorialText';
@@ -35,7 +34,6 @@ const LibraryContext = ({
   const [feedFilter, setFeedFilter] = useState('recent');
   const [feedQuery, setFeedQuery] = useState('');
 
-  const semanticHighlightId = activeHighlightId || articleHighlights[0]?._id || '';
   const notebookBlocks = Array.isArray(references?.notebookBlocks) ? references.notebookBlocks : [];
   // A thought written beside a highlight is marginalia too.
   const marginThoughts = articleHighlights.filter(highlight => normalizeSpaces(highlight?.note));
@@ -257,14 +255,6 @@ const LibraryContext = ({
                 </div>
               )}
             </div>
-            <SemanticRelatedPanel
-              sourceType="highlight"
-              sourceId={semanticHighlightId}
-              title="Related highlights"
-              limit={6}
-              resultTypes={['highlight']}
-              enabled={Boolean(selectedArticleId && semanticHighlightId)}
-            />
           </div>
         )}
       </div>

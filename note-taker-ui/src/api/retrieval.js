@@ -44,26 +44,23 @@ export const fetchRelatedItems = async ({ itemType, itemId, limit = 8 }) => {
   return response.data;
 };
 
-export const fetchSemanticRelated = async ({ sourceType, sourceId, limit = 6, resultTypes = ['highlight'] }) => {
-  const params = new URLSearchParams();
-  params.set('sourceType', String(sourceType || '').trim());
-  params.set('sourceId', String(sourceId || '').trim());
-  params.set('limit', String(limit));
-  const typeList = Array.isArray(resultTypes)
-    ? resultTypes.map(item => String(item || '').trim()).filter(Boolean)
-    : String(resultTypes || '').split(',').map(item => item.trim()).filter(Boolean);
-  if (typeList.length > 0) {
-    params.set('resultTypes', typeList.join(','));
-  }
-  const response = await api.get(`/api/semantic/related?${params.toString()}`, getAuthHeaders());
-  return response.data;
+/* The closest passages you marked elsewhere, one per paragraph at most.
+   An empty list is the whole answer when nothing is close or the index is
+   unreachable; the margin then stays empty. */
+export const fetchMarginNotes = async ({ paragraphs = [], articleId = '', excludeHighlightIds = [] } = {}) => {
+  const response = await api.post(
+    '/api/semantic/margins',
+    { paragraphs, articleId, excludeHighlightIds },
+    getAuthHeaders()
+  );
+  return Array.isArray(response.data?.notes) ? response.data.notes : [];
 };
 
 const retrievalApi = {
   searchKeyword,
   recordItemView,
   fetchRelatedItems,
-  fetchSemanticRelated
+  fetchMarginNotes
 };
 
 export default retrievalApi;

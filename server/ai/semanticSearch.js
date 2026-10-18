@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
-const { embedText } = require('./embed');
-const { searchVectorItems, similarToVectorItem } = require('./vectorStore');
-const { VectorItem, TagMeta } = require('../models');
+const { embedText, embedTexts, isEmbeddingConfigured } = require('./embed');
+const { searchVectorItems, similarToVectorItem, rawCosineToAtlasScore } = require('./vectorStore');
+const { VectorItem, TagMeta, Article } = require('../models');
 
 /**
  * Semantic search over the Atlas vector index.
@@ -85,8 +85,125 @@ const similarToSource = async ({ userId, objectType, objectId, subId = '', limit
   });
 };
 
+/* Your library in the margins: for each paragraph worth asking about, the
+   closest thing you marked somewhere else.
+
+   Eligibility: a paragraph of MARGIN_MIN_WORDS words or more, matched against
+   your own highlights only, from a source other than the one being read, at a
+   raw cosine of 0.72 or better — the floor Judgment and the editions hold
+   "you already hold this" to, so the word means the same in every room.
+   Quality bar: no highlight shorter than MARGIN_MIN_QUOTE_CHARS, no near
+   duplicate of the paragraph itself (the same passage saved from a second
+   copy), no highlight twice, no paragraph twice, and at most `limit` in all —
+   the strongest matches win.
+   Silence: no provider, a failed call or nothing over the floor is an empty
+   list, and an empty list renders nothing. */
+const MARGIN_MIN_WORDS = 12;
+const MARGIN_MIN_QUOTE_CHARS = 40;
+const MARGIN_FLOOR = rawCosineToAtlasScore(0.72);
+const MARGIN_SAME_PASSAGE = rawCosineToAtlasScore(0.97);
+const MARGIN_MAX_PARAGRAPHS = 60;
+const MARGIN_CANDIDATES = 6;
+
+const plain = value => String(value || '').replace(/\s+/g, ' ').trim();
+const wordCount = value => (plain(value).match(/\S+/g) || []).length;
+const sameWords = value => plain(value).toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '');
+
+const highlightsById = async ({ Article: articles, userId, ids }) => {
+  const owner = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(String(userId)) : null;
+  const wanted = ids.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+  if (!owner || !wanted.length) return new Map();
+  const rows = await articles.aggregate([
+    { $match: { userId: owner, 'highlights._id': { $in: wanted } } },
+    { $unwind: '$highlights' },
+    { $match: { 'highlights._id': { $in: wanted } } },
+    { $project: {
+      _id: '$highlights._id',
+      text: '$highlights.text',
+      tags: '$highlights.tags',
+      createdAt: '$highlights.createdAt',
+      articleId: '$_id',
+      articleTitle: '$title'
+    } }
+  ]);
+  return new Map(rows.map(row => [String(row._id), row]));
+};
+
+const marginNotes = async ({
+  userId,
+  paragraphs = [],
+  articleId = '',
+  excludeHighlightIds = [],
+  limit = 5,
+  models = {}
+} = {}) => {
+  if (!userId || !isEmbeddingConfigured()) return [];
+  const asked = (Array.isArray(paragraphs) ? paragraphs : [])
+    .slice(0, MARGIN_MAX_PARAGRAPHS)
+    .map((text, index) => ({ index, text: plain(text) }))
+    .filter(item => wordCount(item.text) >= MARGIN_MIN_WORDS);
+  if (!asked.length) return [];
+
+  const source = String(articleId || '');
+  const excluded = new Set((excludeHighlightIds || []).map(String));
+  const vectors = await embedTexts(asked.map(item => item.text));
+  const found = await Promise.all(asked.map((item, at) => searchVectorItems({
+    VectorItem: models.VectorItem || VectorItem,
+    userId,
+    vector: vectors[at],
+    limit: MARGIN_CANDIDATES,
+    objectTypes: ['highlight']
+  }).then(rows => rows.map(row => ({ ...row, paragraph: item.index, paragraphText: item.text })))));
+  const candidates = found.flat().filter(row => (
+    Number(row.score) >= MARGIN_FLOOR
+    && Number(row.score) < MARGIN_SAME_PASSAGE
+    && !excluded.has(String(row.objectId))
+    && (!source || String(row.metadata?.articleId || '') !== source)
+  ));
+  if (!candidates.length) return [];
+
+  // The index can lag a deletion or an edit; the words quoted are the words held now.
+  const held = await highlightsById({
+    Article: models.Article || Article,
+    userId,
+    ids: [...new Set(candidates.map(row => String(row.objectId)))]
+  });
+  const usedParagraphs = new Set();
+  const usedQuotes = new Set();
+  const notes = [];
+  candidates.sort((a, b) => Number(b.score) - Number(a.score));
+  for (const row of candidates) {
+    if (notes.length >= limit) break;
+    const highlight = held.get(String(row.objectId));
+    const text = plain(highlight?.text);
+    const quote = sameWords(text);
+    if (!highlight || text.length < MARGIN_MIN_QUOTE_CHARS) continue;
+    if (source && String(highlight.articleId) === source) continue;
+    if (usedParagraphs.has(row.paragraph) || usedQuotes.has(quote)) continue;
+    const paragraph = sameWords(row.paragraphText);
+    if (paragraph.includes(quote) || quote.includes(paragraph)) continue;
+    usedParagraphs.add(row.paragraph);
+    usedQuotes.add(quote);
+    notes.push({
+      paragraph: row.paragraph,
+      relation: 'close',
+      highlight: {
+        _id: String(highlight._id),
+        text,
+        tags: highlight.tags || [],
+        createdAt: highlight.createdAt || null,
+        articleId: String(highlight.articleId),
+        articleTitle: highlight.articleTitle || ''
+      }
+    });
+  }
+  return notes.sort((a, b) => a.paragraph - b.paragraph);
+};
+
 module.exports = {
   semanticSearch,
+  marginNotes,
+  MARGIN_MIN_WORDS,
   relatedHighlights,
   similarToSource,
   DEFAULT_TYPES
