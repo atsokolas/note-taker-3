@@ -41,7 +41,8 @@ cannot read it. From a checkout, `cp -r plugins/omarchy
 `noeis-setup` makes Noeis the reader on the machine, and is safe to run again:
 
 - **Noeis in the launcher**, in its own window wearing your Omarchy theme
-  (`noeis-open` reads the theme's colours each time it opens).
+  (`noeis-open` reads the theme's colours each time it opens, once you
+  choose Omarchy in noeis.io's theme settings).
 - **Open with Noeis** for EPUB and Markdown files, which land in your
   Library, and `web+noeis://save?url=…` links, which save to the nightstand.
 - **The browser extension** loaded into Omarchy's Chromium, so Alt+Shift+N
