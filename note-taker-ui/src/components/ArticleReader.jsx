@@ -18,6 +18,7 @@ import FootnotePeek from './reader/FootnotePeek';
 import OpenSource from './reader/OpenSource';
 import usePassageOpens from './reader/usePassageOpens';
 import { sourceKind } from './reader/readerDress';
+import ExplainItBack from './reader/ExplainItBack';
 import PassageDoor from './reader/PassageDoorView';
 import { ArticleMargins } from './margins/LibraryMargins';
 import { heldHighlightIds, sourceWhereabouts } from './reader/sourceWhereabouts';
@@ -665,6 +666,7 @@ const ArticleReader = ({
           <button type="button" aria-pressed={placement === 'setAside'} onClick={() => park(placement === 'setAside' ? 'stream' : 'setAside')}>Set aside</button>
         </p>
       ) : null}
+      <ExplainItBack articleId={articleId} />
       {sourceTrace}
       {closingLine || whereabouts.length || against ? (
         <ul className="article-whereabouts" aria-label="Where this piece went">

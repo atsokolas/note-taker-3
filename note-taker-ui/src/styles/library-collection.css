@@ -244,6 +244,67 @@
 .article-done.is-settled {
   opacity: 0.45;
 }
+/* Explain it back sits under the done line, as quiet as it. */
+.explain-back {
+  margin: 12px 0 0;
+  font: 14px/1.5 var(--noeis-ui-font, sans-serif);
+  color: var(--text-muted);
+}
+.explain-back button {
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--noeis-thread, #b1862e) 55%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.explain-back button:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+.explain-back.is-open {
+  display: grid;
+  gap: 10px;
+  max-width: 640px;
+}
+.explain-back textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--noeis-rule);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font: 16px/1.55 var(--font-serif);
+  resize: vertical;
+}
+.explain-back__actions {
+  display: flex;
+  gap: 18px;
+}
+.explain-back__note {
+  margin: 4px 0 0;
+}
+.explain-back__missed ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.explain-back__missed li p {
+  margin: 0 0 4px;
+  color: var(--text-primary);
+}
+.explain-back__missed blockquote {
+  margin: 0;
+  padding-left: 14px;
+  border-left: 2px solid var(--noeis-rule);
+  font: italic 16px/1.55 var(--font-serif);
+  color: var(--text-secondary);
+}
 .article-passage-thought {
   padding: 16px 20px;
   margin: 24px 0;

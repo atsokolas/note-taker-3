@@ -3,7 +3,6 @@ import ArticleReader from '../ArticleReader';
 import LibraryArticleList from './LibraryArticleList';
 import LibraryHighlights from './LibraryHighlights';
 import LibraryPiles from './LibraryPiles';
-import LibraryReadingRoomLead from './LibraryReadingRoomLead';
 import LibrarySourceList from './LibrarySourceList';
 import LibrarySourceTrace from './LibrarySourceTrace';
 import { articlesById, isImboxSource, mergeArticles } from '../../pages/placementModel';
@@ -46,11 +45,6 @@ const LibraryMain = ({
   onArticleQueryChange,
   onQueryChange,
   allArticles = [],
-  unfiledCount,
-  onReviewFiling,
-  filingLaunching = false,
-  filingReceipt = null,
-  onToggleSuppressed,
   corpusTotal,
   rawCorpusTotal,
   suppressedCount = 0,
@@ -79,7 +73,6 @@ const LibraryMain = ({
     filteredOutCount: 0,
     loadMore: null
   };
-  const showReadingRoomLead = scope === 'unfiled';
   const isMixedBrowse = scope === 'all';
   const knownArticles = useMemo(
     () => mergeArticles(allArticles, pileArticles, selectedArticle ? [selectedArticle] : []),
@@ -321,19 +314,6 @@ const LibraryMain = ({
 
   return (
     <div className="library-main-browse">
-      {showReadingRoomLead && Number.isFinite(unfiledCount) ? (
-        <LibraryReadingRoomLead
-          articles={articles}
-          allArticles={allArticles}
-          unfiledCount={unfiledCount}
-          suppressedVisible={suppressedVisible}
-          onSelectArticle={onSelectArticle}
-          onReviewFiling={onReviewFiling}
-          filingLaunching={filingLaunching}
-          filingReceipt={filingReceipt}
-          onToggleSuppressed={onToggleSuppressed}
-        />
-      ) : null}
       <LibraryArticleList
         articles={articles}
         loading={articlesLoading}

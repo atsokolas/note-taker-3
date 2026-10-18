@@ -644,6 +644,7 @@ const { buildAgentProposedChangeRouter } = require('./routes/agentProposedChange
 const { buildAgentStructureProposalRouter } = require('./routes/agentStructureProposalRoutes');
 const { buildArticleReadingStateRouter } = require('./routes/articleReadingStateRoutes');
 const { buildLibraryCollectionRouter } = require('./routes/libraryCollectionRoutes');
+const { buildReadingRoomRouter } = require('./routes/readingRoomRoutes');
 const { buildAgentChatRouter } = require('./routes/agentChatRoutes');
 const {
   createAgentTokenSecret,
@@ -5470,6 +5471,7 @@ app.use(buildPersonalAgentRouter({
 app.use(buildEditionThoughtRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Edition, Note }));
 app.use(buildArticleReadingStateRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Article, ArticleReadingState }));
 app.use(buildLibraryCollectionRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, mongoose, Article, ArticleReadingState }));
+app.use(buildReadingRoomRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, mongoose, Article, ArticleReadingState }));
 
 app.use(buildEditionRouter({
   auth: authenticateUserOrAgentToken,

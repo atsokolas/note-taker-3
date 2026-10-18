@@ -28,6 +28,15 @@ const rendered = renderMorningPaperEmail({ briefing, unsubscribeUrl: 'https://ww
 assert.match(rendered.html, /NVDA filed a 10-Q/);
 assert.match(rendered.html, /Unsubscribe instantly/i);
 assert.match(rendered.text, /CLAIM CHECK-IN/);
+assert.doesNotMatch(rendered.html, /WORTH SAYING/);
+
+/* Friday's three lines: quoted passages with their sources, all three or none. */
+const worthSaying = [1, 2, 3].map((n) => ({ articleId: `a${n}`, highlightId: `h${n}`, title: `Piece ${n}`, quote: `Passage ${n} worth repeating.` }));
+const friday = renderMorningPaperEmail({ briefing, worthSaying, unsubscribeUrl: 'https://www.noeis.io/u' });
+assert.match(friday.html, /THREE THINGS WORTH SAYING THIS WEEK/);
+assert.match(friday.html, /“Passage 2 worth repeating\.”/);
+assert.match(friday.text, /library\?articleId=a3&highlightId=h3/);
+assert.doesNotMatch(renderMorningPaperEmail({ briefing, worthSaying: worthSaying.slice(0, 2), unsubscribeUrl: 'u' }).html, /WORTH SAYING/);
 assert.strictEqual(briefingIsEmpty({ counts: {} }), true);
 assert.strictEqual(briefingIsEmpty(briefing), false);
 assert.strictEqual(briefingIsEmpty({

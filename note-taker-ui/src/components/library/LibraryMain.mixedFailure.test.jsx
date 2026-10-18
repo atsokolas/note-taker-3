@@ -12,7 +12,6 @@ jest.mock('./LibrarySourceList', () => function MockLibrarySourceList(props) {
 jest.mock('./LibraryArticleList', () => function MockLibraryArticleList({ title }) {
   return <div data-testid="article-list">{title}</div>;
 });
-jest.mock('./LibraryReadingRoomLead', () => () => null);
 jest.mock('./LibraryHighlights', () => () => null);
 jest.mock('./LibrarySourceTrace', () => () => <div data-testid="source-trace">Source trace</div>);
 jest.mock('../ArticleReader', () => () => null);

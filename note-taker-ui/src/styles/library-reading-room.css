@@ -1,0 +1,101 @@
+/* The Library's front door: a calm room above the shelf. Replaces the
+   reading-room lead rules that lived in reading-layout.css. */
+.reading-room {
+  display: grid;
+  gap: 28px;
+  margin: 0 0 40px;
+  padding: 0 0 32px;
+  border-bottom: 1px solid var(--noeis-rule);
+  animation: reading-room-arrive 320ms var(--noeis-ease-standard, ease-out) both;
+}
+.reading-room .reading-room__eyebrow {
+  display: block;
+  margin: 0 0 8px;
+  font: 400 11px/1.6 var(--noeis-ui-font, sans-serif);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.reading-room__weather {
+  margin: 0;
+  font: italic 17px/1.5 var(--font-serif);
+  color: var(--text-secondary);
+}
+.reading-room .reading-room__title {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: 17px/1.45 var(--font-serif);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: color 160ms var(--noeis-ease-standard, ease-out);
+}
+.reading-room .reading-room__title:hover,
+.reading-room .reading-room__title:focus-visible {
+  color: var(--library-accent);
+}
+.reading-room .reading-room__pick .reading-room__title {
+  font: 400 clamp(24px, 2.6vw, 32px) / 1.2 var(--font-serif);
+}
+.reading-room__detail {
+  margin: 10px 0 0;
+  font: 14px/1.5 var(--noeis-ui-font, sans-serif);
+  color: var(--text-secondary);
+}
+.reading-room__rule {
+  margin: 4px 0 0;
+  font: 12px/1.5 var(--noeis-ui-font, sans-serif);
+  color: var(--text-muted);
+}
+.reading-room__shelf ul,
+.reading-room__saying ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.reading-room__shelf li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font: 17px/1.45 var(--font-serif);
+}
+.reading-room__shelf li > span {
+  font: 12px/1.5 var(--noeis-ui-font, sans-serif);
+  color: var(--text-muted);
+}
+.reading-room__saying ol {
+  gap: 22px;
+}
+.reading-room__said {
+  margin: 0 0 8px;
+  font: 18px/1.5 var(--font-serif);
+  color: var(--text-primary);
+}
+.reading-room__saying blockquote {
+  margin: 0 0 6px;
+  padding-left: 14px;
+  border-left: 2px solid var(--noeis-rule);
+  font: italic 16px/1.55 var(--font-serif);
+  color: var(--text-secondary);
+}
+.reading-room .reading-room__saying .reading-room__title {
+  font: 13px/1.5 var(--noeis-ui-font, sans-serif);
+  color: var(--text-muted);
+}
+@keyframes reading-room-arrive {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reading-room { animation: none; }
+  .reading-room .reading-room__title { transition: none; }
+}
+@media (max-width: 600px) {
+  .reading-room { gap: 24px; margin-bottom: 32px; }
+  .reading-room .reading-room__shelf .reading-room__title { font-size: 16px; }
+}
