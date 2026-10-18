@@ -639,7 +639,7 @@ const run = async () => {
       ...input,
       startingJudgment: ''
     });
-    assert.equal(capped.response.status, 403);
+    assert.equal(capped.response.status, 409);
     assert.equal(capped.body.code, 'DOSSIER_WEEKLY_LIMIT');
     assert.match(capped.body.error, /built 3 dossiers this week/);
     assert.equal(cappedPages.records.length, 0);

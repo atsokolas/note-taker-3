@@ -4113,7 +4113,7 @@ const buildWikiRouter = ({
 
       const allowance = await dossierBuildAllowance({ WikiMaintenanceRun, userId: req.user.id });
       if (!allowance.allowed) {
-        return res.status(403).json({ error: allowance.error, code: 'DOSSIER_WEEKLY_LIMIT', opensAt: allowance.opensAt });
+        return res.status(409).json({ error: allowance.error, code: 'DOSSIER_WEEKLY_LIMIT', opensAt: allowance.opensAt });
       }
       const title = normalizeTitle(`${company.companyName || company.ticker} investment dossier`);
       const body = buildCompanyDossierBody({ ...input, ...company });
@@ -7622,7 +7622,7 @@ const buildWikiRouter = ({
       if (isCompanyDossier(page)) {
         const allowance = await dossierBuildAllowance({ WikiMaintenanceRun, userId: req.user.id, pageId: page._id });
         if (!allowance.allowed) {
-          return res.status(403).json({ error: allowance.error, code: 'DOSSIER_WEEKLY_LIMIT', opensAt: allowance.opensAt });
+          return res.status(409).json({ error: allowance.error, code: 'DOSSIER_WEEKLY_LIMIT', opensAt: allowance.opensAt });
         }
       }
       activeStreamKey = `${serializeId(req.user.id)}:${serializeId(page._id)}`;
