@@ -69,7 +69,8 @@ const serializeHighlightWithArticle = (article, highlight, options = {}) => {
     color: normalizeHighlightColor(highlight.color),
     type: normalizeItemType(highlight.type, 'note'),
     claimId: highlight.claimId || null,
-    createdAt: highlight.createdAt
+    createdAt: highlight.createdAt,
+    opens: highlight.opens || 0
   };
   if (includeAnchor) {
     payload.anchor = normalizeHighlightAnchor(highlight.anchor, highlight.text);

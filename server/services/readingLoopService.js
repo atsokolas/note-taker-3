@@ -245,9 +245,6 @@ const notebookText = (entry = {}) => {
  * stamps hundreds of articles with one timestamp, collapsing years of reading
  * into a single day. Highlight dates survive the import and are the honest
  * signal: a highlight is someone stopping to mark something.
- *
- * `lastOpenedAt` exists on the schema but nothing in the product writes it, so
- * it is deliberately not consulted here.
  */
 const lastEngagementAt = (article = {}) => {
   const marked = (article.highlights || [])

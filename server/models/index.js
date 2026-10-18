@@ -198,6 +198,9 @@ const articleSchema = new mongoose.Schema({
       startOffsetApprox: Number
     },
     createdAt: { type: Date, default: Date.now },
+    /* How many times its passage has been opened. The reader deepens the ink
+       a step or two; the number itself is never shown. */
+    opens: { type: Number, default: 0, min: 0 },
     importMeta: { type: importMetaSchema, default: () => ({}) }
   }],
   pdfs: { type: [pdfAttachmentSchema], default: [] },
@@ -221,7 +224,13 @@ const articleSchema = new mongoose.Schema({
   placementReason: { type: String, default: '', trim: true },
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
-  archived: { type: Boolean, default: false }
+  archived: { type: Boolean, default: false },
+  /* Stamped by GET /articles/:id. Read by the reading loop and the reader. */
+  lastOpenedAt: { type: Date, default: null },
+  /* Set only when we already learned it: a fetch, or the reader's own Open
+     source check, answered 404 or 410. Never crawled for. */
+  sourceGoneAt: { type: Date, default: null },
+  sourceCheckedAt: { type: Date, default: null }
 }, { timestamps: true });
 
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });

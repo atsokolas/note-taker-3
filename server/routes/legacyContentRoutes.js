@@ -9,6 +9,7 @@ const {
   fetchArticleBody: readArticleBody,
   fetchReadableArticle: defaultFetchReadableArticle
 } = require('../services/readableArticle');
+const { isGoneStatus } = require('../lib/publicUrlFetch');
 const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
 
 const ARTICLE_PLACEMENTS = new Set(['stream', 'later', 'setAside']);
@@ -56,7 +57,20 @@ const buildLegacyContentRouter = ({
      private address, every redirect re-checked. A plainer fetcher here would
      have let a caller point the server at its own metadata service and read the
      answer back out of their Library. */
-  const fetchArticleBody = (url) => readArticleBody({ url, fetchReadable: fetchReadableArticle });
+  const fetchArticleBody = async (url) => {
+    let status = 0;
+    const content = await readArticleBody({
+      url,
+      fetchReadable: async (args) => {
+        const readable = await fetchReadableArticle(args);
+        status = readable.status || 0;
+        return readable;
+      }
+    });
+    /* A fetch that answered Not Found or Gone has told us the original is
+       dead. That is worth keeping; we never go looking for it otherwise. */
+    return { content, gone: isGoneStatus(status) };
+  };
 
   const emitWikiSourceEvent = async (payload = {}) => {
     try {
@@ -216,8 +230,11 @@ const buildLegacyContentRouter = ({
          still their body. The fetch is a backstop for the empty case alone. */
       let resolvedContent = typeof content === 'string' ? content.trim() : '';
       let contentSource = resolvedContent ? 'request' : '';
+      let sourceGone = false;
       if (!resolvedContent && !hasText(existing?.content)) {
-        resolvedContent = await fetchArticleBody(url);
+        const fetched = await fetchArticleBody(url);
+        resolvedContent = fetched.content;
+        sourceGone = fetched.gone;
         contentSource = resolvedContent ? 'fetched' : 'missing';
       }
 
@@ -229,6 +246,7 @@ const buildLegacyContentRouter = ({
         ...(author ? { author } : {}),
         ...(publicationDate ? { publicationDate } : {}),
         ...(siteName ? { siteName } : {}),
+        ...(sourceGone ? { sourceGoneAt: new Date() } : {}),
         ...(pdfs !== undefined ? { pdfs: normalizePdfs(pdfs) } : {}),
         /* A placement chosen on the save card. Three decisions, one card:
            the piece arrives already filed and already placed, so it never
@@ -623,6 +641,10 @@ const buildLegacyContentRouter = ({
           'placement',
           'placementAt',
           'placementReason',
+          /* When you were last here, read before this open is stamped:
+             the reader greets a return, not a refresh. */
+          'lastOpenedAt',
+          'sourceGoneAt',
           'createdAt',
           'updatedAt'
         ].join(' '))
