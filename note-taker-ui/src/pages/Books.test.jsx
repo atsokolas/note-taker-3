@@ -60,7 +60,7 @@ test('a book has a page of its own: its name, and the desk', () => {
 test('a book closed a year ago this week comes back at the top of the shelf with its sentence', async () => {
   listBooks.mockResolvedValue([
     { _id: 'b1', title: 'Persuasion', marks: [] },
-    { _id: 'b2', title: 'Middlemarch', finishedAt: '2025-10-19T21:00:00Z', closingLine: 'Nobody is only what they do.', returning: { years: 1, days: 0 }, marks: [] }
+    { _id: 'b2', title: 'Middlemarch', finishedOn: '2025-10-19', closingLine: 'Nobody is only what they do.', returning: { years: 1, days: 0 }, marks: [] }
   ]);
   at();
   const back = await screen.findByRole('link', { name: /A year ago today/ });
@@ -70,7 +70,7 @@ test('a book closed a year ago this week comes back at the top of the shelf with
 });
 
 test('nothing comes back when no book is having its anniversary', async () => {
-  listBooks.mockResolvedValue([{ _id: 'b2', title: 'Middlemarch', finishedAt: '2026-10-01T21:00:00Z', closingLine: 'x', returning: null, marks: [] }]);
+  listBooks.mockResolvedValue([{ _id: 'b2', title: 'Middlemarch', finishedOn: '2026-10-01', closingLine: 'x', returning: null, marks: [] }]);
   at();
   await screen.findByRole('link', { name: /Middlemarch/ });
   expect(screen.queryByText(/ago/)).not.toBeInTheDocument();
@@ -85,8 +85,8 @@ test('closing a book asks one sentence, says when it comes back, and can be undo
     ],
     error: ''
   });
-  closeBook.mockResolvedValue({ finishedAt: '2026-10-19T20:00:00Z', closingLine: 'Nobody is only what they do.' });
-  reopenBook.mockResolvedValue({ finishedAt: null, closingLine: '' });
+  closeBook.mockResolvedValue({ finishedOn: '2026-10-19', closingLine: 'Nobody is only what they do.' });
+  reopenBook.mockResolvedValue({ finishedOn: '', closingLine: '' });
   at('b2');
   fireEvent.click(screen.getByRole('button', { name: 'I’ve finished it' }));
   fireEvent.change(screen.getByLabelText('In one sentence, what will you remember?'), { target: { value: 'Nobody is only what they do.' } });
@@ -104,8 +104,8 @@ test('closing a book asks one sentence, says when it comes back, and can be undo
 });
 
 test('a book closed without a sentence keeps asking for one', async () => {
-  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch', finishedAt: '2026-10-19T20:00:00Z', closingLine: '' }, highlights: [], error: '' });
-  closeBook.mockResolvedValue({ finishedAt: '2026-10-19T20:00:00Z', closingLine: 'Late, but true.' });
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch', finishedOn: '2026-10-19', closingLine: '' }, highlights: [], error: '' });
+  closeBook.mockResolvedValue({ finishedOn: '2026-10-19', closingLine: 'Late, but true.' });
   at('b2');
   fireEvent.change(screen.getByLabelText('In one sentence, what will you remember?'), { target: { value: 'Late, but true.' } });
   fireEvent.click(screen.getByRole('button', { name: 'Keep' }));

@@ -348,12 +348,12 @@ const sendMorningPaperForUser = async ({ user, models = {}, env = process.env, f
   } catch (_error) {
     movements = [];
   }
-  const offset = offsetMinutesFor(now, settings.timezone || 'UTC');
   /* A book coming back is news on a morning when nothing else is. */
-  const closedBook = await closedBookToday({ Article: models.Article, userId: user._id, now, offsetMinutes: offset }).catch(() => null);
+  const closedBook = await closedBookToday({ Article: models.Article, userId: user._id, today: localDate }).catch(() => null);
   if ((!briefing || briefingIsEmpty(briefing)) && movements.length === 0 && !closedBook) return skip('quiet day');
   const token = signUnsubscribeToken({ userId: user._id, version: settings.unsubscribeTokenVersion || 1, secret: config.unsubscribeSecret });
   const unsubscribeUrl = `${config.apiBaseUrl}/api/morning-paper/unsubscribe?token=${encodeURIComponent(token)}`;
+  const offset = offsetMinutesFor(now, settings.timezone || 'UTC');
   let worthSaying = [];
   if (new Date(now.getTime() - offset * 60000).getUTCDay() === 5 && models.Article) {
     worthSaying = await loadWorthSaying({ models, userId: user._id, now, offset }).catch(() => null) || [];

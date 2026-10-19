@@ -11,13 +11,13 @@ import '../styles/books.css';
 /* The books you are reading, paper or Kindle, each with a page of its own:
    the desk you type at while the book is open beside you. */
 
-const longDate = date => new Date(date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
-const monthOf = date => new Date(date).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-const aYearOn = (date) => {
-  const on = new Date(date);
-  on.setFullYear(on.getFullYear() + 1);
-  return on;
+// A book is finished on a calendar day ("2026-10-19"), read here as that day.
+const dayOf = (day, years = 0) => {
+  const [year, month, date] = day.split('-').map(Number);
+  return new Date(year + years, month - 1, date);
 };
+const longDate = date => date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+const monthOf = date => date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
 /* A book you closed a year ago this week, handed back with its sentence.
    The server says which book and how long ago; nothing comes back unless a
@@ -96,7 +96,7 @@ const Shelf = () => {
                   <span className="books__title">{book.title || 'Untitled book'}</span>
                   {book.author ? <span className="books__author">{book.author}</span> : null}
                   <span className="books__tally">
-                    {[book.finishedAt ? `Finished ${monthOf(book.finishedAt)}` : '', tallyLine(book.marks) || (book.finishedAt ? '' : 'Nothing written yet')].filter(Boolean).join(' · ')}
+                    {[book.finishedOn ? `Finished ${monthOf(dayOf(book.finishedOn))}` : '', tallyLine(book.marks) || (book.finishedOn ? '' : 'Nothing written yet')].filter(Boolean).join(' · ')}
                   </span>
                   {last ? <q className={last.own ? 'books__last is-own' : 'books__last'}>{last.words}</q> : null}
                 </Link>
@@ -146,7 +146,7 @@ const Closing = ({ book, marks, onChange }) => {
       onChange(closed);
       setAsking(false);
       setSaid(closed.closingLine
-        ? `It comes back to you on ${longDate(aYearOn(closed.finishedAt))}.`
+        ? `It comes back to you on ${longDate(dayOf(closed.finishedOn, 1))}.`
         : 'Closed without a sentence, so nothing comes back. You can still write one.');
       return true;
     } catch (_) {
@@ -163,7 +163,7 @@ const Closing = ({ book, marks, onChange }) => {
     }
   };
 
-  if (!book.finishedAt) {
+  if (!book.finishedOn) {
     return (
       <section className="books__closing" aria-label="Closing the book">
         {asking ? <Remember label="Close the book" onKeep={keep} />
@@ -174,13 +174,13 @@ const Closing = ({ book, marks, onChange }) => {
   }
   const sittings = sittingsOf(marks);
   const colophon = [
-    sittings.length && longDate(sittings[0][0].createdAt) !== longDate(book.finishedAt) ? `Read from ${longDate(sittings[0][0].createdAt)}` : '',
+    sittings.length && longDate(new Date(sittings[0][0].createdAt)) !== longDate(dayOf(book.finishedOn)) ? `Read from ${longDate(new Date(sittings[0][0].createdAt))}` : '',
     sittings.length > 1 ? `${sittings.length} sittings` : '',
     tallyLine(marks)
   ].filter(Boolean).join(' · ');
   return (
     <section className="books__colophon" aria-label="Colophon">
-      <p className="books__author">Finished {longDate(book.finishedAt)}</p>
+      <p className="books__author">Finished {longDate(dayOf(book.finishedOn))}</p>
       {book.closingLine ? <blockquote>{book.closingLine}</blockquote> : <Remember label="Keep" onKeep={keep} />}
       {colophon ? <p className="books__tally">{colophon}</p> : null}
       {said ? <p className="books__quiet" role="status">{said}</p> : null}

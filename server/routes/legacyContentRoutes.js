@@ -640,7 +640,7 @@ const buildLegacyContentRouter = ({
           'importMeta',
           'evergreen',
           'evergreenAt',
-          'finishedAt',
+          'finishedOn',
           'closingLine',
           'placement',
           'placementAt',

@@ -43,17 +43,23 @@ export const startBook = async ({ title, author = '' } = {}) => {
   return response.data || {};
 };
 
+/* Today as this reader's calendar has it ("2026-10-19"). A book is closed
+   on a day, not at a moment, so its anniversary is that day wherever you are. */
+const today = (now = new Date()) => new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
 /* Closing a book with the one sentence you will remember, or none; and
    opening it again when you are still reading it after all. */
 export const closeBook = async (id, line = '') => (
-  (await api.put(`/api/books/${encodeURIComponent(id)}/closed`, { line }, getAuthHeaders())).data
+  (await api.put(`/api/books/${encodeURIComponent(id)}/closed`, { line, on: today() }, getAuthHeaders())).data
 );
 export const reopenBook = async (id) => (
   (await api.delete(`/api/books/${encodeURIComponent(id)}/closed`, getAuthHeaders())).data
 );
 
 /* Every book on the shelf, with its marks. */
-export const listBooks = async () => (await api.get('/api/books', getAuthHeaders())).data?.books || [];
+export const listBooks = async () => (
+  (await api.get(`/api/books?today=${today()}`, getAuthHeaders())).data?.books || []
+);
 
 export const listImportConnections = async ({ provider = '' } = {}) => {
   const params = new URLSearchParams();
