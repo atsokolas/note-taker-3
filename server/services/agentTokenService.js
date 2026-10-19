@@ -3,7 +3,8 @@ const { CHATGPT_ACCESS_PROFILE, isChatgptRequestAllowed } = require('./chatgptAc
 
 const AGENT_TOKEN_PREFIX = 'ntk_at_';
 /* What each scope lets a token do. `capture` is a person's own desktop: it
-   brings links and files in and sees the nightstand, and writes nothing else. */
+   brings links, files and text in and sees the nightstand, and writes
+   nothing else. */
 const SCOPE_GRANTS = {
   read: ['read'],
   capture: ['capture'],
@@ -177,6 +178,7 @@ module.exports = {
   AGENT_TOKEN_PREFIX,
   AGENT_TOKEN_SCOPES,
   AGENT_TOKEN_SCOPE_SET,
+  getBearerToken,
   createAgentTokenSecret,
   hashAgentTokenSecret,
   normalizeAgentTokenScopes,

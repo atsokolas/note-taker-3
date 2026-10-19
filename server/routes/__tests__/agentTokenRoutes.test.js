@@ -35,6 +35,8 @@ class Query {
   }
 }
 
+const matches = (row, query) => Object.entries(query).every(([key, value]) => String(row[key]) === String(value));
+
 const createAgentTokenModel = () => {
   const rows = [];
   return {
@@ -43,11 +45,7 @@ const createAgentTokenModel = () => {
       return new Query(rows.filter(row => String(row.userId) === String(query.userId)));
     },
     findOne(query = {}) {
-      const row = rows.find(item => (
-        String(item._id) === String(query._id) &&
-        String(item.userId) === String(query.userId)
-      ));
-      return new Query(row || null);
+      return new Query(rows.find(item => matches(item, query)) || null);
     },
     async create(payload = {}) {
       const row = {
@@ -60,10 +58,7 @@ const createAgentTokenModel = () => {
       return row;
     },
     async findOneAndUpdate(query = {}, updates = {}) {
-      const row = rows.find(item => (
-        String(item._id) === String(query._id) &&
-        String(item.userId) === String(query.userId)
-      ));
+      const row = rows.find(item => matches(item, query));
       if (!row) return null;
       Object.assign(row, updates, { updatedAt: new Date() });
       return row;
@@ -213,6 +208,23 @@ const run = async () => {
     });
     assert.strictEqual(del.response.status, 200);
     assert.strictEqual(del.body.token.status, 'revoked');
+
+    // A desktop signing out ends its own connection with nothing but its secret.
+    const desktop = await fetchJson(`${baseUrl}/api/agent-tokens`, {
+      method: 'POST',
+      body: JSON.stringify({ label: 'Omarchy desktop', scopes: ['capture'] })
+    });
+    const endWith = secret => fetchJson(`${baseUrl}/api/agent-connection`, {
+      method: 'DELETE',
+      headers: secret ? { Authorization: `Bearer ${secret}` } : {}
+    });
+    assert.strictEqual((await endWith('')).response.status, 401, 'no token, nothing to end');
+    assert.strictEqual((await endWith('ntk_at_unknown')).response.status, 401, 'an unknown token ends nothing');
+    const ended = await endWith(desktop.body.secret);
+    assert.strictEqual(ended.response.status, 200);
+    assert.strictEqual(ended.body.token.status, 'revoked');
+    assert.strictEqual(ended.body.token.label, 'Omarchy desktop');
+    assert.strictEqual(AgentToken.rows.find(row => row.label === 'Omarchy desktop').status, 'revoked');
   } finally {
     await new Promise(resolve => server.close(resolve));
   }

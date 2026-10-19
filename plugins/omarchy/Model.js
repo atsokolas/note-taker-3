@@ -1,12 +1,16 @@
 .pragma library
 
-// Everything the Noeis panel decides without the shell: what counts as a
-// link, where a search result opens, what a save receipt says, and how a
-// failed request reads. Pure functions, so they are tested in node
+// Everything Noeis decides without the shell: what counts as a link, where
+// a search result opens, what a save receipt says, how a failed request
+// reads, how a piece becomes paragraphs for the reading window, and what
+// the evening says. Pure functions, so they are tested in node
 // (scripts/omarchy_plugin.test.js) and trusted in QML.
 
 var APP = "https://www.noeis.io"
 var API = "https://note-taker-3-unrg.onrender.com"
+
+// The rooms of noeis.io, in the order the panel lists them and the reader numbers them.
+var PLACES = [["Library", "/library"], ["Think", "/think"], ["Wiki", "/wiki"], ["Judgment", "/judgment"], ["Editions", "/editions"]]
 
 var MONTHS = ["January", "February", "March", "April", "May", "June", "July",
   "August", "September", "October", "November", "December"]
@@ -52,8 +56,20 @@ function sessionFrom(text, now) {
   return { token: token, ended: false }
 }
 
+// Text out of stored HTML: the tags gone, the entities a reader meets decoded.
+var ENTITIES = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " ", rsquo: "’", lsquo: "‘",
+  rdquo: "”", ldquo: "“", mdash: "—", ndash: "–", hellip: "…" }
+
+function plain(html) {
+  return String(html || "").replace(/<[^>]*>/g, " ").replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, function(whole, name) {
+    if (name.charAt(0) !== "#") return ENTITIES[name.toLowerCase()] || whole
+    var code = /^#x/i.test(name) ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10)
+    return isFinite(code) ? String.fromCharCode(code) : whole
+  })
+}
+
 function trimmed(text, length) {
-  var flat = String(text || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+  var flat = plain(text).replace(/\s+/g, " ").trim()
   return flat.length > length ? flat.slice(0, length).replace(/\s+\S*$/, "") + "…" : flat
 }
 
@@ -70,24 +86,24 @@ function searchResults(library, wiki, limit) {
     var claim = trimmed(p.judgment && p.judgment.currentJudgment, 120)
     if (claim) {
       var status = p.judgment.status
-      views.push({ kind: "View", title: claim,
+      views.push({ kind: "View", id: p._id, title: claim,
         detail: status === "parked" || status === "closed" ? "Set aside" : p.title && p.title !== claim ? p.title : "",
         path: "/judgment/" + encodeURIComponent(p._id) })
     } else {
-      pages.push({ kind: "Wiki", title: p.title || "Untitled page", detail: trimmed(p.plainText, 120),
+      pages.push({ kind: "Wiki", id: p._id, title: p.title || "Untitled page", detail: trimmed(p.plainText, 120),
         path: "/wiki/workspace?page=" + encodeURIComponent(p._id) })
     }
   })
   ;((library && library.articles) || []).forEach(function(a) {
-    sources.push({ kind: "Source", title: a.title || "Untitled", detail: trimmed(a.content, 120),
-      path: "/library?articleId=" + encodeURIComponent(a._id) })
+    sources.push({ kind: "Source", id: a._id, title: a.title || "Untitled", detail: trimmed(a.content, 120),
+      path: articlePath(a._id) })
   })
   ;((library && library.highlights) || []).forEach(function(h) {
-    passages.push({ kind: "Passage", title: trimmed(h.text, 120), detail: h.articleTitle || "",
-      path: "/library?articleId=" + encodeURIComponent(h.articleId) + "&highlightId=" + encodeURIComponent(h._id) })
+    passages.push({ kind: "Passage", id: h.articleId, passage: h.text, title: trimmed(h.text, 120), detail: h.articleTitle || "",
+      path: articlePath(h.articleId) + "&highlightId=" + encodeURIComponent(h._id) })
   })
   ;((library && library.notebook) || []).forEach(function(n) {
-    notes.push({ kind: "Note", title: n.title || "Untitled note", detail: trimmed(n.content, 120),
+    notes.push({ kind: "Note", id: n._id, title: n.title || "Untitled note", detail: trimmed(n.content, 120),
       path: "/think?tab=notebook&entryId=" + encodeURIComponent(n._id) })
   })
   var groups = [views, pages, sources, passages, notes]
@@ -103,13 +119,127 @@ function searchResults(library, wiki, limit) {
   return [].concat.apply([], groups.map(function(group, i) { return group.slice(0, taken[i]) }))
 }
 
+function articlePath(id) {
+  return "/library?articleId=" + encodeURIComponent(id)
+}
+
 // The nightstand as rows: what you set aside to read later, newest first,
-// each opening where it waits in the Library.
-function nightstandRows(reply, limit) {
-  return ((reply && reply.items) || []).slice(0, limit || 6).map(function(a) {
-    return { kind: "Nightstand", title: a.title || "Untitled", detail: a.siteName || a.author || "",
-      path: "/library?articleId=" + encodeURIComponent(a._id) }
+// each opening where it waits in the Library, or in the reading window.
+function nightstandRows(reply) {
+  return ((reply && reply.items) || []).map(function(a) {
+    return { kind: "Nightstand", id: a._id, title: a.title || "Untitled", detail: a.siteName || a.author || "",
+      minutes: Number(a.minutes || 0), path: articlePath(a._id) }
   })
+}
+
+// A piece as the reading window shows it: headings, paragraphs, quotes and
+// list items, in order. Block tags become breaks, marked with their kind;
+// everything else is text. Stored plain text splits on its blank lines.
+function blocksOf(html) {
+  var kinds = { h: "heading", q: "quote", l: "item" }
+  var marked = String(html || "")
+    .replace(/<(script|style|figure|nav|aside)\b[\s\S]*?<\/\1>/gi, "")
+    .replace(/<h[1-6]\b[^>]*>/gi, "\n\n\u0001h")
+    .replace(/<blockquote\b[^>]*>/gi, "\n\n\u0001q")
+    .replace(/<li\b[^>]*>/gi, "\n\n\u0001l")
+    .replace(/<\/?(p|div|section|article|h[1-6]|blockquote|li|ul|ol|pre|tr|table)\b[^>]*>|<br\s*\/?>/gi, "\n\n")
+  // A mark left alone (<blockquote><p>…) passes its kind to the text after it.
+  var blocks = [], pending = ""
+  plain(marked).split(/\n\s*\n/).forEach(function(part) {
+    var mark = /\u0001([hql])/.exec(part)
+    var text = part.replace(/\u0001[hql]/g, "").replace(/\s+/g, " ").trim()
+    if (mark) pending = kinds[mark[1]]
+    if (!text) return
+    blocks.push({ kind: pending || "paragraph", text: text })
+    pending = ""
+  })
+  return blocks
+}
+
+// A Wiki page's body is a document tree; its text nodes gather into the
+// heading, paragraph, quote or list item that holds them.
+function docBlocks(node, kind, out) {
+  out = out || []
+  var own = { heading: "heading", blockquote: "quote", listItem: "item" }[node && node.type] || kind
+  if (node && (node.type === "heading" || node.type === "paragraph")) {
+    var text = (function words(n) {
+      return n.type === "text" ? n.text || "" : (n.content || []).map(words).join(n.type === "hardBreak" ? " " : "")
+    })(node).replace(/\s+/g, " ").trim()
+    if (text) out.push({ kind: own || "paragraph", text: text })
+  } else {
+    ;((node && node.content) || []).forEach(function(child) { docBlocks(child, own, out) })
+  }
+  return out
+}
+
+// Where the reading window asks for a row's piece. Everything a panel row
+// names can be read in the window: a source (or a passage, in its source),
+// a note, a Wiki page or a view.
+function pieceSource(row) {
+  var id = encodeURIComponent(row.id)
+  return { Note: "/api/notebook/" + id, Wiki: "/api/wiki/pages/" + id + "?reader=1", View: "/api/wiki/pages/" + id + "?reader=1" }[row.kind]
+    || "/articles/" + id
+}
+
+// The piece itself: a title, a line saying what it is, its blocks, and the
+// block to start at, which is the passage a passage row named.
+function pieceFrom(row, reply) {
+  var r = reply || {}
+  var piece
+  if (row.kind === "Note") {
+    var noteKinds = { heading: "heading", quote: "quote", blockquote: "quote", highlight_embed: "quote", bullet: "item", todo: "item" }
+    piece = { title: r.title || "Untitled note", byline: "Note",
+      blocks: (r.blocks || []).map(function(b) { return { kind: noteKinds[b.type] || "paragraph", text: trimmed(b.text, 100000) } })
+        .filter(function(b) { return b.text }) }
+  } else if (row.kind === "Wiki" || row.kind === "View") {
+    var claim = trimmed(r.judgment && r.judgment.currentJudgment, 100000)
+    var body = docBlocks(r.body)
+    piece = { title: r.title || "Untitled page", byline: row.kind,
+      blocks: (claim ? [{ kind: "quote", text: claim }] : []).concat(body.length ? body : blocksOf(r.plainText)) }
+  } else {
+    piece = { title: r.title || "Untitled", byline: r.siteName || r.author || "", blocks: blocksOf(r.content) }
+  }
+  var start = row.passage ? trimmed(row.passage, 100000).slice(0, 60) : ""
+  piece.cursor = Math.max(0, start ? piece.blocks.findIndex(function(b) { return b.text.indexOf(start) !== -1 }) : 0)
+  return piece
+}
+
+// What the evening says: how many short pieces fit tonight, beginning with
+// the one that has waited longest. Short is what the web app's nightstand
+// calls short (server/services/nightstand.js). Nothing short waiting is
+// silence, never a long piece offered anyway.
+var TONIGHT_MINUTES = 15
+var COUNTS = ["", "One short piece fits", "Two short pieces fit", "Three short pieces fit", "Four short pieces fit"]
+
+function tonight(rows) {
+  var short = (rows || []).filter(function(r) { return r.minutes && r.minutes <= TONIGHT_MINUTES })
+  if (!short.length) return null
+  var first = short[short.length - 1]
+  return { id: first.id, text: (COUNTS[short.length] || short.length + " short pieces fit") + " tonight. "
+    + first.title + " has waited longest, " + first.minutes + " min." }
+}
+
+// Milliseconds until the clock next reads `hour`:00.
+function untilHour(hour, now) {
+  var next = new Date(now)
+  next.setHours(hour, 0, 0, 0)
+  if (next.getTime() <= now) next.setDate(next.getDate() + 1)
+  return next.getTime() - now
+}
+
+// The theme's colours from colors.toml. Omarchy's default, Tokyo Night,
+// stands in until the file holds a usable pair.
+var TOKYO_NIGHT = { background: "#1a1b26", foreground: "#a9b1d6", accent: "#7aa2f7", selection: "#292e42", urgent: "#f7768e" }
+
+function parseColors(toml) {
+  var found = {}
+  String(toml || "").split("\n").forEach(function(line) {
+    var m = /^\s*([a-z_]+)\s*=\s*"(#[0-9a-f]{6})"/i.exec(line)
+    if (m) found[m[1]] = m[2].toLowerCase()
+  })
+  if (!found.foreground || !found.background) return TOKYO_NIGHT
+  return { background: found.background, foreground: found.foreground, accent: found.accent || found.foreground,
+    selection: found.selection || found.lighter_background || found.background, urgent: found.red || found.accent || found.foreground }
 }
 
 function dayOf(value) {
