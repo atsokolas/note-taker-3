@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "io.noeis",
   "name": "Noeis",
-  "version": "0.1.0",
-  "author": "Noeis",
+  "version": "1.0.0",
+  "author": "atsokolas",
   "license": "ISC",
   "description": "Read your Noeis nightstand in a tiled window, save links and highlighted text, and search your Library, Wiki and views",
   "kinds": [
