@@ -10,11 +10,11 @@ import "Model.js" as Model
 //
 // Connecting is the same as the Noeis CLI: the panel asks for a connection,
 // you approve it at noeis.io in your browser, and the token is kept in
-// ~/.config/noeis/omarchy.json (the directory the CLI keeps private). It can
+// ~/.config/noeis/omarchy.json, a 0600 file in a 0700 directory. It can
 // bring links, files and text in, search, read, and see the nightstand,
 // nothing more, and lasts until you sign out here or revoke it under
-// Connected agents. Requests go through XMLHttpRequest, so the token never
-// sits in a process's arguments.
+// Connected agents. Requests go through XMLHttpRequest, over https only, so
+// the token never sits in a process's arguments.
 Item {
   id: root
 
@@ -27,8 +27,8 @@ Item {
     return value === undefined || value === null ? fallback : value
   }
 
-  readonly property string apiUrl: String(Quickshell.env("NOEIS_API_URL") || Model.API).replace(/\/+$/, "")
-  readonly property string appUrl: String(Quickshell.env("NOEIS_APP_URL") || Model.APP).replace(/\/+$/, "")
+  readonly property string apiUrl: Model.httpsOr(Quickshell.env("NOEIS_API_URL"), Model.API)
+  readonly property string appUrl: Model.httpsOr(Quickshell.env("NOEIS_APP_URL"), Model.APP)
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string sessionDir: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/noeis"
 
@@ -40,15 +40,21 @@ Item {
   property string lastSaved: ""
 
   // ---- The one door to the API. Every answer comes back as (status, body);
-  //      a refused token ends the session here, once, for every caller.
+  //      a refused token ends the session here, once, for every caller. A
+  //      request past its deadline, or an answer past the ceiling, is given
+  //      up and answers as status 0, unreachable.
   function request(method, path, body, done) {
     var xhr = new XMLHttpRequest()
+    var deadline = deadlineTimer.createObject(root, { xhr: xhr })
     xhr.onreadystatechange = function() {
+      if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED && Number(xhr.getResponseHeader("Content-Length")) > Model.REPLY_CHARS) return xhr.abort()
       if (xhr.readyState !== XMLHttpRequest.DONE) return
+      deadline.destroy()
+      var status = xhr.responseText.length > Model.REPLY_CHARS ? 0 : xhr.status
       var reply = null
-      try { reply = JSON.parse(xhr.responseText) } catch (e) { reply = null }
-      if (xhr.status === 401 && root.signedIn) root.forget(true)
-      if (done) done(xhr.status, reply)
+      if (status) try { reply = JSON.parse(xhr.responseText) } catch (e) { reply = null }
+      if (status === 401 && root.signedIn) root.forget(true)
+      if (done) done(status, reply)
     }
     xhr.open(method, apiUrl + path)
     xhr.setRequestHeader("Accept", "application/json")
@@ -57,10 +63,21 @@ Item {
     xhr.send(body === null ? null : JSON.stringify(body))
   }
 
+  // XMLHttpRequest has no timeout of its own; aborting finishes the request.
+  Component {
+    id: deadlineTimer
+    Timer {
+      property var xhr
+      interval: Model.REQUEST_MS
+      running: true
+      onTriggered: xhr.abort()
+    }
+  }
+
   // A line for when nothing of Noeis is open. Its click runs `click`: the
   // reading window at the piece it names, or the panel to connect again.
   function notify(text, click, isProblem) {
-    Quickshell.execDetached(["omarchy-notification-send", "--app-name", "Noeis", "-u", isProblem ? "normal" : "low", "Noeis", text]
+    Quickshell.execDetached(["omarchy-notification-send", "--app-name", "Noeis", "-u", isProblem ? "normal" : "low", "Noeis", Model.escaped(text)]
       .concat(click ? ["--exec"].concat(click) : []))
   }
 
@@ -75,9 +92,8 @@ Item {
     Quickshell.execDetached([noeisOpen, "--web", path])
   }
 
-  // ---- Session.
+  // ---- Session. Read here, written only by sessionWriter.
   FileView {
-    id: sessionFile
     path: root.sessionDir + "/omarchy.json"
     watchChanges: true
     printErrors: false
@@ -86,20 +102,30 @@ Item {
     onLoadFailed: root.session = Model.sessionFrom("", Date.now())
   }
 
-  // The directory is made private before the token is written into it.
+  // The directory and the file are made private (0700, 0600) whatever they
+  // were before, and only then is the session written in, from stdin so the
+  // token is in no process's arguments. A write asked for while one runs
+  // follows it.
   Process {
-    id: sessionDirProc
-    command: ["mkdir", "-p", "-m", "700", root.sessionDir]
-    onExited: root.write()
+    id: sessionWriter
+    property string pending: ""
+    command: ["sh", "-c", "umask 077 && mkdir -p \"$1\" && chmod 700 \"$1\" && touch \"$1/omarchy.json\" && chmod 600 \"$1/omarchy.json\" && IFS= read -r line && printf '%s\\n' \"$line\" >\"$1/omarchy.json\"", "noeis-session", root.sessionDir]
+    stdinEnabled: true
+    onStarted: {
+      sessionWriter.write(pending + "\n")
+      pending = ""
+    }
+    onExited: if (pending) running = true
   }
 
   function write() {
-    sessionFile.setText(JSON.stringify(signedIn ? { token: session.token } : {}) + "\n")
+    sessionWriter.pending = JSON.stringify(signedIn ? { token: session.token } : {})
+    sessionWriter.running = true
   }
 
   function keep(token) {
     session = { token: token, ended: false }
-    sessionDirProc.running = true
+    write()
   }
 
   function forget(ended) {

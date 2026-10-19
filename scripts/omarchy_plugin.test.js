@@ -149,6 +149,26 @@ assert.deepStrictEqual(plain(Model.parseColors('accent = "#7AA2F7"\nbackground =
   { background: '#1a1b26', foreground: '#a9b1d6', accent: '#7aa2f7', selection: '#1a1b26', urgent: '#f7768e' });
 assert.strictEqual(Model.parseColors(''), Model.TOKYO_NIGHT);
 
+// What the server sends is shown as typed: control and direction-override
+// characters gone, titles and paragraphs clipped, markup read as text.
+const loud = Model.nightstandRows({ items: [{ _id: 'x', title: 'On\u202e Slow\u0007 Reading\n' + 'very '.repeat(200), siteName: 'Essays\u0000' }] })[0];
+assert.ok(loud.title.startsWith('On Slow Reading very'), 'controls become spaces');
+assert.ok(loud.title.length <= Model.TITLE_CHARS + 1 && loud.title.endsWith('…'), 'a long title is clipped');
+assert.strictEqual(loud.detail, 'Essays');
+assert.deepStrictEqual(plain(Model.blocksOf('<p>Look<img src="https://example.com/x.png">here</p><p>&lt;img src=x&gt;</p>')).map(b => b.text),
+  ['Look here', '<img src=x>'], 'an image is dropped, and markup written as text stays text');
+const long = Model.pieceFrom({ kind: 'Source', id: 'a' }, { title: 'A', content: '<p>' + 'word '.repeat(10000) + '</p>' + '<p>x</p>'.repeat(Model.MAX_BLOCKS + 5) });
+assert.ok(long.blocks[0].text.length <= Model.BLOCK_CHARS + 1, 'a paragraph is clipped');
+assert.strictEqual(long.blocks.length, Model.MAX_BLOCKS, 'a piece is clipped');
+assert.strictEqual(Model.problem(500, { error: '<b>x</b>\u0007'.repeat(100) }).length <= Model.TITLE_CHARS + 1, true, 'a server error is clipped');
+assert.strictEqual(Model.escaped('Fish & <b>chips</b>'), 'Fish &amp; &lt;b&gt;chips&lt;/b&gt;', 'a notification body reads as typed');
+
+// Only https leaves the machine.
+assert.strictEqual(Model.httpsOr('https://staging.noeis.io/', Model.API), 'https://staging.noeis.io');
+for (const url of ['http://example.com', 'javascript:alert(1)', 'file:///etc/passwd', 'https://', 'https://a b', '', undefined]) {
+  assert.strictEqual(Model.httpsOr(url, Model.API), Model.API, `${url} is refused`);
+}
+
 // What the shell loads is what the manifest names.
 const manifest = JSON.parse(fs.readFileSync(path.join(plugin, 'manifest.json'), 'utf8'));
 for (const entry of Object.values(manifest.entryPoints)) assert.ok(fs.existsSync(path.join(plugin, entry)), `${entry} exists`);
@@ -163,6 +183,29 @@ for (const file of qml) {
   assert.doesNotMatch(read(file), /\bColor\./, `${file} takes its colours from the palette`);
   assert.doesNotMatch(read(file), /property \w+ (data|top|state|enabled|visible|width|height|children)\b/, `${file} redeclares no Item property`);
 }
+
+// The plain-text contract: every Text sets PlainText, so nothing the server
+// sends is read as markup, and nothing in the plugin loads an image.
+for (const file of qml) {
+  const source = read(file);
+  for (const match of source.matchAll(/\bText\s*\{/g)) {
+    let depth = 0, end = match.index + match[0].length - 1;
+    do { if (source[end] === '{') depth++; else if (source[end] === '}') depth--; end++; } while (depth);
+    assert.match(source.slice(match.index, end), /textFormat: Text\.PlainText/, `${file}:${source.slice(0, match.index).split('\n').length} is plain text`);
+  }
+  assert.doesNotMatch(source, /\b(Image|AnimatedImage|BorderImage)\s*\{|RichText|StyledText|MarkdownText/, `${file} loads no image and renders no markup`);
+}
+
+// Every network call from the scripts is https only, with a deadline; the
+// session is written by one private writer, never by FileView.
+for (const file of ['bin/noeis-open', 'bin/noeis-setup']) {
+  for (const call of read(file).match(/\bcurl -(\\\n|[^\n])*/g) || []) {
+    assert.match(call, /--proto =https/, `${file}: curl is https only`);
+    assert.match(call, /--max-time \d+/, `${file}: curl has a deadline`);
+  }
+}
+assert.doesNotMatch(read('Service.qml'), /setText\(/, 'the session is written only by its private writer');
+assert.match(read('Service.qml'), /umask 077 [^\n]*chmod 700 [^\n]*chmod 600 [^\n]*read -r/, 'the directory and file are private before the token is written');
 
 // Every `omarchy-shell noeis <call>` the scripts and README name is one the
 // Service answers.

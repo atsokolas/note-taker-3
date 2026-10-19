@@ -94,10 +94,11 @@ Panel {
     service.request("POST", "/api/agent-connect/sessions", { runtime: "omarchy", label: "Omarchy desktop",
       scopes: ["read", "capture"], appUrl: service.appUrl }, function(status, reply) {
       busy = false
-      if (status !== 201 || !reply || !reply.authorizeUrl) return say(Model.problem(status, reply, "connect"), true)
+      var approve = Model.httpsOr(reply && reply.authorizeUrl, "")
+      if (status !== 201 || !approve) return say(Model.problem(status, reply, "connect"), true)
       root.connection = { id: reply.session.sessionId, poll: reply.pollSecret, code: reply.session.deviceCode }
       say("Approve Noeis for this desktop in your browser. Its code is " + reply.session.deviceCode + ".")
-      Qt.openUrlExternally(reply.authorizeUrl)
+      Qt.openUrlExternally(approve)
       waiting.interval = Math.max(1, Number(reply.pollIntervalSec || 2)) * 1000
       waiting.start()
     })

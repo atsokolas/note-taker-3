@@ -9,6 +9,22 @@
 var APP = "https://www.noeis.io"
 var API = "https://note-taker-3-unrg.onrender.com"
 
+// Ceilings on what the server can make the shell hold: a request is given
+// up after REQUEST_MS, an answer longer than REPLY_CHARS is refused before
+// it is parsed, and text is clipped before a Text item shows it.
+var REQUEST_MS = 60000
+var REPLY_CHARS = 16 * 1024 * 1024
+var TITLE_CHARS = 300
+var BLOCK_CHARS = 20000
+var MAX_BLOCKS = 10000
+
+// A server named in the environment is used only over https; anything else
+// falls back to noeis.io's own.
+function httpsOr(value, fallback) {
+  var url = String(value || "").trim().replace(/\/+$/, "")
+  return /^https:\/\/[^\s\/?#]+([\/?#]\S*)?$/i.test(url) ? url : fallback
+}
+
 // The rooms of noeis.io, in the order the panel lists them and the reader numbers them.
 var PLACES = [["Library", "/library"], ["Think", "/think"], ["Wiki", "/wiki"], ["Judgment", "/judgment"], ["Editions", "/editions"]]
 
@@ -68,9 +84,21 @@ function plain(html) {
   })
 }
 
-function trimmed(text, length) {
-  var flat = plain(text).replace(/\s+/g, " ").trim()
+// Text from the server as a Text item may show it: control and
+// direction-override characters gone, whitespace single, at most `length`.
+function clip(text, length) {
+  var flat = String(text || "").replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, " ").replace(/\s+/g, " ").trim()
   return flat.length > length ? flat.slice(0, length).replace(/\s+\S*$/, "") + "…" : flat
+}
+
+function trimmed(html, length) {
+  return clip(plain(html), length)
+}
+
+// A notification body is markup to the shell, so text going into one is
+// escaped and reads as typed.
+function escaped(text) {
+  return String(text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
 
 // One list from the two places a search reaches: /api/search for the
@@ -86,24 +114,25 @@ function searchResults(library, wiki, limit) {
     var claim = trimmed(p.judgment && p.judgment.currentJudgment, 120)
     if (claim) {
       var status = p.judgment.status
+      var name = clip(p.title, TITLE_CHARS)
       views.push({ kind: "View", id: p._id, title: claim,
-        detail: status === "parked" || status === "closed" ? "Set aside" : p.title && p.title !== claim ? p.title : "",
+        detail: status === "parked" || status === "closed" ? "Set aside" : name !== claim ? name : "",
         path: "/judgment/" + encodeURIComponent(p._id) })
     } else {
-      pages.push({ kind: "Wiki", id: p._id, title: p.title || "Untitled page", detail: trimmed(p.plainText, 120),
+      pages.push({ kind: "Wiki", id: p._id, title: clip(p.title, TITLE_CHARS) || "Untitled page", detail: trimmed(p.plainText, 120),
         path: "/wiki/workspace?page=" + encodeURIComponent(p._id) })
     }
   })
   ;((library && library.articles) || []).forEach(function(a) {
-    sources.push({ kind: "Source", id: a._id, title: a.title || "Untitled", detail: trimmed(a.content, 120),
+    sources.push({ kind: "Source", id: a._id, title: clip(a.title, TITLE_CHARS) || "Untitled", detail: trimmed(a.content, 120),
       path: articlePath(a._id) })
   })
   ;((library && library.highlights) || []).forEach(function(h) {
-    passages.push({ kind: "Passage", id: h.articleId, passage: h.text, title: trimmed(h.text, 120), detail: h.articleTitle || "",
+    passages.push({ kind: "Passage", id: h.articleId, passage: h.text, title: trimmed(h.text, 120), detail: clip(h.articleTitle, TITLE_CHARS),
       path: articlePath(h.articleId) + "&highlightId=" + encodeURIComponent(h._id) })
   })
   ;((library && library.notebook) || []).forEach(function(n) {
-    notes.push({ kind: "Note", id: n._id, title: n.title || "Untitled note", detail: trimmed(n.content, 120),
+    notes.push({ kind: "Note", id: n._id, title: clip(n.title, TITLE_CHARS) || "Untitled note", detail: trimmed(n.content, 120),
       path: "/think?tab=notebook&entryId=" + encodeURIComponent(n._id) })
   })
   var groups = [views, pages, sources, passages, notes]
@@ -127,7 +156,7 @@ function articlePath(id) {
 // each opening where it waits in the Library, or in the reading window.
 function nightstandRows(reply) {
   return ((reply && reply.items) || []).map(function(a) {
-    return { kind: "Nightstand", id: a._id, title: a.title || "Untitled", detail: a.siteName || a.author || "",
+    return { kind: "Nightstand", id: a._id, title: clip(a.title, TITLE_CHARS) || "Untitled", detail: clip(a.siteName || a.author, TITLE_CHARS),
       minutes: Number(a.minutes || 0), path: articlePath(a._id) }
   })
 }
@@ -147,7 +176,7 @@ function blocksOf(html) {
   var blocks = [], pending = ""
   plain(marked).split(/\n\s*\n/).forEach(function(part) {
     var mark = /\u0001([hql])/.exec(part)
-    var text = part.replace(/\u0001[hql]/g, "").replace(/\s+/g, " ").trim()
+    var text = clip(part.replace(/\u0001[hql]/g, ""), BLOCK_CHARS)
     if (mark) pending = kinds[mark[1]]
     if (!text) return
     blocks.push({ kind: pending || "paragraph", text: text })
@@ -162,9 +191,9 @@ function docBlocks(node, kind, out) {
   out = out || []
   var own = { heading: "heading", blockquote: "quote", listItem: "item" }[node && node.type] || kind
   if (node && (node.type === "heading" || node.type === "paragraph")) {
-    var text = (function words(n) {
+    var text = clip((function words(n) {
       return n.type === "text" ? n.text || "" : (n.content || []).map(words).join(n.type === "hardBreak" ? " " : "")
-    })(node).replace(/\s+/g, " ").trim()
+    })(node), BLOCK_CHARS)
     if (text) out.push({ kind: own || "paragraph", text: text })
   } else {
     ;((node && node.content) || []).forEach(function(child) { docBlocks(child, own, out) })
@@ -188,18 +217,19 @@ function pieceFrom(row, reply) {
   var piece
   if (row.kind === "Note") {
     var noteKinds = { heading: "heading", quote: "quote", blockquote: "quote", highlight_embed: "quote", bullet: "item", todo: "item" }
-    piece = { title: r.title || "Untitled note", byline: "Note",
-      blocks: (r.blocks || []).map(function(b) { return { kind: noteKinds[b.type] || "paragraph", text: trimmed(b.text, 100000) } })
+    piece = { title: clip(r.title, TITLE_CHARS) || "Untitled note", byline: "Note",
+      blocks: (r.blocks || []).map(function(b) { return { kind: noteKinds[b.type] || "paragraph", text: trimmed(b.text, BLOCK_CHARS) } })
         .filter(function(b) { return b.text }) }
   } else if (row.kind === "Wiki" || row.kind === "View") {
-    var claim = trimmed(r.judgment && r.judgment.currentJudgment, 100000)
+    var claim = trimmed(r.judgment && r.judgment.currentJudgment, BLOCK_CHARS)
     var body = docBlocks(r.body)
-    piece = { title: r.title || "Untitled page", byline: row.kind,
+    piece = { title: clip(r.title, TITLE_CHARS) || "Untitled page", byline: row.kind,
       blocks: (claim ? [{ kind: "quote", text: claim }] : []).concat(body.length ? body : blocksOf(r.plainText)) }
   } else {
-    piece = { title: r.title || "Untitled", byline: r.siteName || r.author || "", blocks: blocksOf(r.content) }
+    piece = { title: clip(r.title, TITLE_CHARS) || "Untitled", byline: clip(r.siteName || r.author, TITLE_CHARS), blocks: blocksOf(r.content) }
   }
-  var start = row.passage ? trimmed(row.passage, 100000).slice(0, 60) : ""
+  piece.blocks = piece.blocks.slice(0, MAX_BLOCKS)
+  var start = row.passage ? trimmed(row.passage, BLOCK_CHARS).slice(0, 60) : ""
   piece.cursor = Math.max(0, start ? piece.blocks.findIndex(function(b) { return b.text.indexOf(start) !== -1 }) : 0)
   return piece
 }
@@ -251,7 +281,7 @@ function dayOf(value) {
 // the line is true whether or not this server puts links on the nightstand.
 function saveReceipt(reply) {
   var article = (reply && reply.article) || {}
-  var title = article.title || "Untitled"
+  var title = clip(article.title, TITLE_CHARS) || "Untitled"
   var where = { later: "on your nightstand", setAside: "on your desk" }[article.placement] || ""
   if (reply && reply.existing) {
     var since = dayOf(article.createdAt)
@@ -267,5 +297,5 @@ function problem(status, reply, action) {
   if (status === 401) return "Noeis no longer knows this desktop. Connect again."
   if (action === "save" && (status === 400 || status === 422))
     return "Noeis could not read that page. Some sites only show their text to a signed-in browser."
-  return (reply && reply.error) || "That did not work just now. Try it again."
+  return clip(reply && reply.error, TITLE_CHARS) || "That did not work just now. Try it again."
 }

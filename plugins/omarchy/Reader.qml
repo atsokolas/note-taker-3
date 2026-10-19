@@ -162,6 +162,7 @@ Scope {
 
         Text {
           text: root.list ? "FOUND" : "NIGHTSTAND"
+          textFormat: Text.PlainText
           color: root.fg
           opacity: root.muted
           font.family: Style.font.family
@@ -229,6 +230,7 @@ Scope {
 
         Text {
           text: "? for keys"
+          textFormat: Text.PlainText
           color: root.fg
           opacity: root.muted * 0.8
           topPadding: Style.space(10)
@@ -263,6 +265,7 @@ Scope {
           Text {
             visible: !page.wide && root.rows.length > 0
             text: (root.list ? "Found" : "Nightstand") + "  ·  " + (root.index + 1) + " of " + root.rows.length + "  ·  n and p turn"
+            textFormat: Text.PlainText
             color: root.fg
             opacity: root.muted
             font.family: Style.font.family
@@ -273,6 +276,7 @@ Scope {
             width: parent.width
             visible: text !== ""
             text: root.line
+            textFormat: Text.PlainText
             wrapMode: Text.Wrap
             color: root.fg
             opacity: root.muted
@@ -386,6 +390,7 @@ Scope {
               required property int index
               readonly property var pair: root.keys[Math.floor(index / 2)]
               text: pair[index % 2]
+              textFormat: Text.PlainText
               color: index % 2 ? root.fg : root.accent
               font.family: Style.font.family
               font.pixelSize: Style.font.body
