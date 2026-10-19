@@ -18,6 +18,9 @@ APP=${NOEIS_APP_URL:-https://www.noeis.io}
 BINDINGS=$HOME/.config/hypr/bindings.lua
 FLAGS=$HOME/.config/chromium-flags.conf
 MENU=$HOME/.config/omarchy/extensions/omarchy-menu.jsonc
+# Two folders down: the marketplace reads a manifest.json within one folder of
+# the root as a second plugin.
+EXTENSION=$PLUGIN/browser/chromium
 SAVE="omarchy-shell noeis saveClipboard"
 
 done_() { printf '  %s\n' "$1"; }
@@ -40,11 +43,11 @@ omarchy-webapp-install "Noeis reader" "$APP" noeis "noeis-open %U" \
   "application/epub+zip;application/pdf;text/markdown;" >/dev/null
 done_ "Noeis is in the launcher as its own app; Noeis reader is the reading window, and opens EPUB, PDF and Markdown files"
 
-if [[ -d $PLUGIN/extension ]] && ! grep -q "$PLUGIN/extension" "$FLAGS" 2>/dev/null; then
+if [[ -d $EXTENSION ]] && ! grep -q "$EXTENSION" "$FLAGS" 2>/dev/null; then
   if grep -q '^--load-extension=' "$FLAGS" 2>/dev/null; then
-    sed -i "s|^--load-extension=.*|&,$PLUGIN/extension|" "$FLAGS"
+    sed -i "s|^--load-extension=.*|&,$EXTENSION|" "$FLAGS"
   else
-    echo "--load-extension=$PLUGIN/extension" >>"$FLAGS"
+    echo "--load-extension=$EXTENSION" >>"$FLAGS"
   fi
   done_ "The extension loads the next time Chromium starts (Alt+Shift+N saves the tab)"
 fi

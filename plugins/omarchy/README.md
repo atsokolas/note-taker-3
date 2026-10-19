@@ -57,7 +57,7 @@ nothing, and [Remove](#remove) undoes every one:
   bindings and launcher entries call.
 
 `omarchy-noeis` is this folder published on its own (with the browser
-extension packed beside it) by `.github/workflows/omarchy-plugin.yml`, since
+extension packed in `browser/chromium`) by `.github/workflows/omarchy-plugin.yml`, since
 this repository's root is the Chrome extension and `omarchy plugin add`
 cannot read it. From a checkout, `cp -r plugins/omarchy
 ~/.config/omarchy/plugins/io.noeis` does the same, without the extension.
@@ -195,7 +195,7 @@ If you ran `noeis-setup`, undo it:
 
 ```bash
 sed -i '/^-- Noeis$/d; /^o\.bind(.*[Nn]oeis/d' ~/.config/hypr/bindings.lua
-sed -i 's|,[^,=]*/io\.noeis/extension||; s|=[^,]*/io\.noeis/extension,\?|=|; /^--load-extension=$/d' ~/.config/chromium-flags.conf
+sed -i 's|,[^,=]*/io\.noeis/[a-z/]*||; s|=[^,]*/io\.noeis/[a-z/]*,\?|=|; /^--load-extension=$/d' ~/.config/chromium-flags.conf
 sed -i '/"trigger.share.noeis"/d' ~/.config/omarchy/extensions/omarchy-menu.jsonc
 omarchy-webapp-remove Noeis
 omarchy-webapp-remove "Noeis reader"
