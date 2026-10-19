@@ -195,6 +195,15 @@ test('real Mongo: export files land as books, saved articles and notes, and a se
     assert.ok(indexed.some(([kind, title]) => kind === 'article' && title === 'The Origin of Species'), 'the pages are indexed');
     assert.deepEqual(fetched, [], 'a book is never fetched');
 
+    // A PDF lands as a readable piece, never fetched, and a second time adds nothing.
+    const pdf = await send(url, [['on-reading-slowly.pdf']]);
+    assert.equal(pdf.body.summary, 'Saved 1 document.');
+    const paper = await Article.findOne({ userId, url: 'import://pdf/on-reading-slowly-ada-reader' }).lean();
+    assert.equal(paper.title, 'On Reading Slowly');
+    assert.match(paper.content, /^<p>A page read twice/);
+    assert.equal((await send(url, [['on-reading-slowly.pdf']])).body.summary, 'Everything in that export was already here.');
+    assert.deepEqual(fetched, [], 'a PDF is never fetched');
+
     // Silence: a file nobody recognises imports nothing and says only that.
     const form = new FormData();
     form.append('files', new Blob(['a,b\n1,2']), 'numbers.csv');

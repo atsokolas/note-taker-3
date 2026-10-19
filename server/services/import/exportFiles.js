@@ -3,7 +3,7 @@
    Every reading app lets you take your reading with you, each in its own
    dialect: Kindle's My Clippings.txt, the notes Apple Books mails you, Pocket's
    HTML or CSV, Instapaper's CSV, Readwise's CSV, a folder of Markdown from
-   Notion or Obsidian, an EPUB book. Each parser here turns one dialect into the same two
+   Notion or Obsidian, an EPUB book, a PDF. Each parser here turns one dialect into the same two
    lists, and the import route lands those lists the same way whatever they
    came from:
 
@@ -23,6 +23,7 @@ const INSTAPAPER = 'instapaper';
 const READWISE = 'readwise';
 const MARKDOWN = 'markdown';
 const EPUB = 'epub';
+const PDF = 'pdf';
 
 const FORMAT_LABELS = {
   [KINDLE]: 'Kindle',
@@ -31,7 +32,8 @@ const FORMAT_LABELS = {
   [INSTAPAPER]: 'Instapaper',
   [READWISE]: 'Readwise',
   [MARKDOWN]: 'Markdown',
-  [EPUB]: 'EPUB'
+  [EPUB]: 'EPUB',
+  [PDF]: 'PDF'
 };
 
 const clean = (value = '') => String(value ?? '').replace(/﻿/g, '').replace(/\s+/g, ' ').trim();
@@ -605,6 +607,79 @@ const parseEpub = (buffer) => {
   };
 };
 
+/* ---------- PDF ----------
+   A paper or a book laid out for print. A PDF keeps no paragraphs, only
+   words placed on a page, so they are read back from the page: a line is
+   text on one baseline, a paragraph ends where the next line drops further
+   than a line's height or changes size, and lines set larger than the body
+   are headings. A bare number on its own line is a page number. Without a
+   title in its metadata, the first heading names it. */
+
+const pdfjs = () => import('pdfjs-dist/legacy/build/pdf.mjs');
+
+const pdfLines = async (page) => {
+  const lines = [];
+  (await page.getTextContent()).items.forEach(({ str, transform: [, , , size, , y] }) => {
+    const line = lines[lines.length - 1];
+    if (line && Math.abs(line.y - y) < 1) {
+      line.text += str;
+      line.size = Math.max(line.size, str.trim() ? size : 0);
+    } else {
+      lines.push({ text: str, size: str.trim() ? size : 0, y });
+    }
+  });
+  return lines.map(line => ({ ...line, text: clean(line.text) })).filter(line => line.text && !/^\d+$/.test(line.text));
+};
+
+const pdfBlocks = (pages) => {
+  const sizes = new Map();
+  pages.flat().forEach(({ text, size }) => sizes.set(size, (sizes.get(size) || 0) + text.length));
+  const body = [...sizes].sort((a, b) => b[1] - a[1])[0][0];
+  const blocks = [];
+  pages.forEach((lines) => {
+    lines.forEach((line, index) => {
+      const previous = index ? lines[index - 1] : null;
+      const block = blocks[blocks.length - 1];
+      const heading = line.size > body * 1.2;
+      const continues = previous
+        ? previous.size === line.size && previous.y > line.y && previous.y - line.y < line.size * 1.6
+        // A sentence left unfinished at the foot of a page goes on over the leaf.
+        : block && !block.heading && !heading && !/[.!?:"”’)]$/.test(block.text);
+      if (!continues) {
+        blocks.push({ heading, text: line.text });
+      } else if (/\p{L}-$/u.test(block.text) && /^\p{Ll}/u.test(line.text)) {
+        // A word the layout broke across two lines is one word again.
+        block.text = block.text.slice(0, -1) + line.text;
+      } else {
+        block.text += ` ${line.text}`;
+      }
+    });
+  });
+  return blocks;
+};
+
+const parsePdf = async ({ name = '', buffer }) => {
+  const { getDocument } = await pdfjs();
+  const loading = getDocument({ data: new Uint8Array(buffer), isEvalSupported: false, verbosity: 0 });
+  try {
+    const pdf = await loading.promise;
+    const { info = {} } = await pdf.getMetadata();
+    const pages = [];
+    for (let number = 1; number <= pdf.numPages; number += 1) pages.push(await pdfLines(await pdf.getPage(number)));
+    if (!pages.flat().length) return { sources: [], skipped: 1 };
+    const blocks = pdfBlocks(pages);
+    const title = clean(info.Title) || blocks.find(block => block.heading)?.text || stem(name);
+    if (blocks[0].heading && sameWords(blocks[0].text) === sameWords(title)) blocks.shift();
+    const content = blocks.map(({ heading, text }) => (heading ? `<h2>${escapeHtml(text)}</h2>` : `<p>${escapeHtml(text)}</p>`)).join('');
+    return { sources: [{ ...bookSource({ provider: PDF, title, author: info.Author }), content }], skipped: 0 };
+  } catch (error) {
+    // Damaged, or locked with a password.
+    return { sources: [], skipped: 1 };
+  } finally {
+    await loading.destroy();
+  }
+};
+
 /* ---------- Recognising a file ---------- */
 
 const detectFormat = ({ name = '', text = '' }) => {
@@ -628,8 +703,9 @@ const detectFormat = ({ name = '', text = '' }) => {
   return null;
 };
 
-const parseExportFile = (file = {}) => {
+const parseExportFile = async (file = {}) => {
   if (/\.epub$/i.test(file.name || '') && file.buffer) return { format: EPUB, notes: [], ...parseEpub(file.buffer) };
+  if (file.buffer?.subarray(0, 5).toString('latin1') === '%PDF-') return { format: PDF, notes: [], ...(await parsePdf(file)) };
   const text = unwrapMail(String(file.text || ''));
   const format = detectFormat({ name: file.name, text });
   const isHtml = /^\s*</.test(text);
