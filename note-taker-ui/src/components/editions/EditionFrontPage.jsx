@@ -22,7 +22,7 @@ const paperPath = paper => `/editions?paper=${encodeURIComponent(paper.profile)}
    Its paper is the column's head, said once. */
 const Story = ({ story, size = 'm' }) => (
   <article className={`front-story front-story--${size}`}>
-    <h3><Link to={storyPath(story)}>{headlineOf(story.item)}</Link></h3>
+    <h3><Link to={storyPath(story)} data-noeis-item>{headlineOf(story.item)}</Link></h3>
     <p>{story.item.plain ? story.item.title : story.item.finding}</p>
   </article>
 );
@@ -56,7 +56,7 @@ export default function EditionFrontPage({ papers, opened, news }) {
         <div className="front__page">
           <article className="front__lead">
             <span className="front-kicker">{lead.paper.title} · lead story</span>
-            <h2><Link to={storyPath(lead)}>{headlineOf(lead.item)}</Link></h2>
+            <h2><Link to={storyPath(lead)} data-noeis-item>{headlineOf(lead.item)}</Link></h2>
             <SourceLine item={lead.item} />
             <Figures figures={lead.item.figures} />
             <p className="front__body">{lead.item.finding}</p>

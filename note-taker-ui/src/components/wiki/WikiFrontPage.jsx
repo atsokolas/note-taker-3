@@ -549,7 +549,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               return (
                 <li key={row.id} className="wiki-collection__row" id={`row-${row.id}`}>
                   <div className="wiki-collection__row-line">
-                    <Link className="wiki-collection__title" id={`open-${row.id}`} to={wikiReadPath(row.id)}>
+                    <Link className="wiki-collection__title" id={`open-${row.id}`} data-noeis-item to={wikiReadPath(row.id)}>
                       {row.title}
                     </Link>
                     <Link className="wiki-collection__open" to={wikiReadPath(row.id)} aria-label={`Read ${row.title}`}>

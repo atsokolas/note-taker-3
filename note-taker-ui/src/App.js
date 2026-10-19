@@ -32,14 +32,19 @@ import TourManager from './tour/TourManager';
 import FirstRunGate from './onboarding/FirstRunGate';
 import { buildCanonicalHighlightPath } from './utils/sourceRoutes';
 import {
+  adjacentRoom,
   buildThinkPosturePath,
   consumeGoToChord,
+  focusRoomSearch,
   GO_TO_CHORD_MS,
   GO_TO_PRIMED_CLASS,
   getPrimaryNavItems,
   getSecondaryNavItems,
   getTopBarUtilityNavItems,
-  isGoToTypingTarget
+  isGoToTypingTarget,
+  openFocusedItem,
+  resolveMove,
+  walkItems
 } from './navigation/appNavigation';
 import { namesAThinkObject } from './pages/thinkNotesModel';
 import { useSystemStatus } from './system/useSystemStatus';
@@ -387,8 +392,8 @@ const AuthenticatedLayoutRuntime = ({ renderLayout, openPalette, setShortcutOver
       const next = consumeGoToChord({ primedAt }, event);
       primedAt = next.primedAt;
       showLetters(Boolean(primedAt));
+      if (next.spent) event.preventDefault();
       if (next.to) {
-        event.preventDefault();
         event.stopPropagation();
         setShortcutOverlayOpen(false);
         navigate(next.to);
@@ -402,9 +407,29 @@ const AuthenticatedLayoutRuntime = ({ renderLayout, openPalette, setShortcutOver
         setShortcutOverlayOpen(true);
       }
     };
+    /* The moves come after the room. A room listens on the document, which
+       hears a key before the window does, and claims what it owns with
+       preventDefault: J in the reader walks paragraphs, H on a nightstand row
+       sends it home. The window takes only what no room claimed. */
+    const moves = {
+      previousRoom: () => navigate(adjacentRoom(window.location, -1)),
+      nextRoom: () => navigate(adjacentRoom(window.location, 1)),
+      nextItem: () => walkItems(1),
+      previousItem: () => walkItems(-1),
+      open: openFocusedItem,
+      back: () => navigate(-1),
+      forward: () => navigate(1),
+      search: () => focusRoomSearch() || openPalette()
+    };
+    const handleMove = (event) => {
+      const move = resolveMove(event);
+      if (move && moves[move]() !== false) event.preventDefault();
+    };
     window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keydown', handleMove);
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keydown', handleMove);
       window.clearTimeout(lapse);
       document.body.classList.remove(GO_TO_PRIMED_CLASS);
     };

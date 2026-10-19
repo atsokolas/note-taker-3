@@ -64,7 +64,7 @@ test('a title opens directly while Peek never saves a reading position and Escap
     })
   );
   expect(saveArticleReadingState).not.toHaveBeenCalled();
-  fireEvent.keyDown(window, { key: 'Escape' });
+  fireEvent.keyDown(document, { key: 'Escape' });
   expect(trigger).toHaveFocus();
   expect(
     screen.queryByRole('button', { name: 'Read from here →' })
@@ -102,7 +102,7 @@ test('one Peek at a time, including keyboard search access', async () => {
     expect(document.querySelectorAll('.library-inline-peek')).toHaveLength(1)
   );
   expect(document.getElementById('peek-b')).toBeInTheDocument();
-  fireEvent.keyDown(window, { key: '/' });
+  fireEvent.keyDown(document, { key: '/' });
   expect(screen.getByRole('searchbox')).toHaveFocus();
 });
 test('a row opens its peek when tapped, without a label to aim at', async () => {

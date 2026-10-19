@@ -162,6 +162,13 @@ body.go-to-primed .topbar__primary-key {
   opacity: 1;
 }
 
+/* Where J and K have put you. The theme's own focus ink, so under Omarchy it
+   is the desktop's accent. */
+[data-noeis-item]:focus-visible {
+  outline: 2px solid var(--noeis-focus);
+  outline-offset: 3px;
+}
+
 .topbar__right {
   display: flex;
   align-items: center;

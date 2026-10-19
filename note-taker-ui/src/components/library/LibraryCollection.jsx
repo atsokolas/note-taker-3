@@ -250,8 +250,8 @@ export default function LibraryCollection({
         search.current?.focus();
       }
     };
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
   });
   const closePeek = () => {
     const id = peekId;
@@ -434,6 +434,7 @@ export default function LibraryCollection({
                   <div>
                     <button
                       className="library-source-title"
+                      data-noeis-item
                       disabled={opening === row._id}
                       onClick={() => open(row)}
                     >
@@ -513,7 +514,7 @@ export default function LibraryCollection({
             className={`library-collection-row${row.retiredAt ? ' is-retired' : ''}`}
             key={`${row.kind}:${row.targetId}`}
           >
-            <Link className="library-source-title" to={evergreenHref(row)}>
+            <Link className="library-source-title" data-noeis-item to={evergreenHref(row)}>
               {row.title}
             </Link>
             <p className="library-source-meta">

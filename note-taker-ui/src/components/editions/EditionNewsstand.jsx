@@ -37,7 +37,7 @@ function Cover({ papers, paper, opened, open = false }) {
   const className = `stand__cover stand__cover--${inkOf(papers, paper)}${open ? ' is-open' : ''}`;
   return open
     ? <div className={className}>{face}</div>
-    : <Link className={className} to={`/editions?open=${encodeURIComponent(paper.profile)}`}>{face}</Link>;
+    : <Link className={className} data-noeis-item to={`/editions?open=${encodeURIComponent(paper.profile)}`}>{face}</Link>;
 }
 
 /**

@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import KeyboardShortcutOverlay from './KeyboardShortcutOverlay';
+import { NOEIS_MOVES } from '../navigation/appNavigation';
 
 describe('KeyboardShortcutOverlay', () => {
   it('returns null when closed', () => {
@@ -24,6 +25,16 @@ describe('KeyboardShortcutOverlay', () => {
       expect(screen.queryByText(gone)).not.toBeInTheDocument();
     });
     expect(screen.getAllByText('then').length).toBeGreaterThan(0);
+  });
+
+  /* The moves are read from the list App.js answers to, so a key the help
+     prints is a key that works. */
+  it('prints every move the app answers to', () => {
+    render(<KeyboardShortcutOverlay open onClose={() => {}} />);
+    const section = screen.getByRole('heading', { level: 4, name: 'Moving around' }).parentElement;
+    const rows = [...section.querySelectorAll('.kbd-overlay__row')].map(row => row.textContent);
+    expect(rows).toHaveLength(NOEIS_MOVES.length);
+    expect(rows).toEqual(expect.arrayContaining(['Previous room[', 'Next room]', 'BackH', 'BackAlt+←', 'ForwardAlt+→']));
   });
 
   it('closes on Escape', () => {

@@ -371,7 +371,8 @@ const ArticleReader = ({
   /* The reader's one keyboard. J and K walk the paragraphs, N and P turn to
      the next and previous piece in the list it was opened from, and H, T and
      A act on a selection while its menu is open. Typing and shortcuts are
-     left alone. */
+     left alone. On the document, so the reader claims these before the
+     app's own moves hear them. */
   const keys = useRef({});
   useEffect(() => {
     const press = (event) => {
@@ -381,8 +382,8 @@ const ArticleReader = ({
       event.preventDefault();
       action();
     };
-    window.addEventListener('keydown', press);
-    return () => window.removeEventListener('keydown', press);
+    document.addEventListener('keydown', press);
+    return () => document.removeEventListener('keydown', press);
   }, []);
 
   useEffect(() => {

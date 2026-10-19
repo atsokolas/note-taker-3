@@ -97,7 +97,8 @@ export const isGoToTypingTarget = (target) => {
 
 /* One chord state in, one chord state out. Quiet: no toast, no palette,
    no motion — reduced-motion users get the same silent navigate.
-   Incomplete sequences fail silently: the prime drops and nothing is announced. */
+   Incomplete sequences fail silently: the prime drops and nothing is announced.
+   The key after G is spent on the chord either way, so G then H is not back. */
 export const consumeGoToChord = (state = {}, event = {}, now = Date.now()) => {
   const primedAt = Number(state.primedAt) || 0;
   if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) {
@@ -114,7 +115,73 @@ export const consumeGoToChord = (state = {}, event = {}, now = Date.now()) => {
     return { primedAt: 0, to: null };
   }
   const shortcut = resolveGoToShortcut(key);
-  return { primedAt: 0, to: shortcut?.to || null };
+  return { primedAt: 0, to: shortcut?.to || null, spent: true };
+};
+
+/* The app's own moves, for a window with no browser around it: no address
+   bar, no back button, so everything is a key. App.js resolves a key through
+   this list and the ? overlay prints it, so the help cannot advertise a key
+   that does nothing. `l` is not forward: on a nightstand row and in Power
+   through it already means later. */
+export const NOEIS_MOVES = Object.freeze([
+  { key: '[', move: 'previousRoom', label: 'Previous room' },
+  { key: ']', move: 'nextRoom', label: 'Next room' },
+  { key: 'j', move: 'nextItem', label: 'Next item in the room’s list' },
+  { key: 'k', move: 'previousItem', label: 'Previous item in the room’s list' },
+  { key: 'Enter', move: 'open', label: 'Open the item you are on' },
+  { key: 'h', move: 'back', label: 'Back' },
+  { key: 'ArrowLeft', alt: true, move: 'back', label: 'Back' },
+  { key: 'ArrowRight', alt: true, move: 'forward', label: 'Forward' },
+  { key: '/', move: 'search', label: 'Search the room, or open the palette' }
+].map(Object.freeze));
+
+/* A modal over the room owns the keyboard. The app marks its modals three
+   ways — the overlays' shared classes, an aria-modal dialog, a <dialog> —
+   and the rooms that step aside already read the last two. */
+const MODAL_OPEN = '.modal-overlay, .palette-overlay, [aria-modal="true"], dialog[open]';
+
+export const resolveMove = (event = {}) => {
+  if (event.defaultPrevented || event.metaKey || event.ctrlKey || isGoToTypingTarget(event.target)) return null;
+  if (document.querySelector(MODAL_OPEN)) return null;
+  return NOEIS_MOVES.find(item => item.key === event.key && Boolean(item.alt) === Boolean(event.altKey))?.move || null;
+};
+
+/* [ and ] step along the masthead and wrap at its ends. Outside the rooms,
+   in Settings say, ] starts at the first room and [ at the last. */
+export const adjacentRoom = (location, step) => {
+  const rooms = getPrimaryNavItems();
+  const here = rooms.findIndex(room => room.match(location));
+  const from = here < 0 ? (step > 0 ? -1 : rooms.length) : here;
+  return rooms[(from + step + rooms.length) % rooms.length].to;
+};
+
+/* A room marks each thing in its list you can open — a link or a button —
+   with this one attribute, and J and K walk whichever of them are on the
+   page. A room that walks its own list (the reader, the highlights, an
+   edition) marks nothing, so the walk finds nothing there to double. */
+export const NOEIS_ITEM = 'data-noeis-item';
+
+const onPage = selector => [...document.querySelectorAll(selector)].filter(node => !node.closest('[hidden]'));
+
+export const walkItems = (step) => {
+  const items = onPage(`[${NOEIS_ITEM}]`);
+  if (!items.length) return false;
+  const here = items.indexOf(document.activeElement);
+  items[here < 0 ? 0 : Math.min(Math.max(here + step, 0), items.length - 1)].focus();
+  return true;
+};
+
+export const openFocusedItem = () => {
+  const item = document.activeElement;
+  if (!item?.hasAttribute?.(NOEIS_ITEM)) return false;
+  item.click();
+  return true;
+};
+
+export const focusRoomSearch = () => {
+  const [field] = onPage('input[type="search"]');
+  field?.focus();
+  return Boolean(field);
 };
 
 const THINK_POSTURE_PARAMS = {

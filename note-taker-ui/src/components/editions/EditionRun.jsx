@@ -63,7 +63,7 @@ export default function EditionRun({ paper }) {
       <ol className="edition-run__issues">
         {grid.rows.map(({ issue, cells }) => (
           <li key={issue._id}>
-            <Link to={`/editions/${encodeURIComponent(issue._id)}`} className="edition-run__issue">
+            <Link to={`/editions/${encodeURIComponent(issue._id)}`} className="edition-run__issue" data-noeis-item>
               <span className="edition-run__number">
                 {issueLine({ ...issue, issueLabel: paper.issueLabel }) || windowLine(issue)}
               </span>

@@ -104,6 +104,25 @@ cannot read it. From a checkout, `cp -r plugins/omarchy
 The mark lands on the right of the bar; `omarchy bar move io.noeis --section
 left` moves it.
 
+## Moving around the app
+
+The Noeis window has no address bar and no back button, so the app answers
+to keys, the way the rest of Omarchy does. `?` lists them all in the app.
+
+| Key | |
+|---|---|
+| `g` then a room's initial | Library, Think, Wiki, Editions, Judgment (`l` `t` `w` `e` `j`); `c` Connections, `s` Settings |
+| `[` `]` | Previous and next room, in the masthead's order |
+| `j` `k` | Next and previous item in the room's list |
+| `Enter` | Open the item you are on |
+| `h` or `Alt+←` | Back; `Alt+→` forward |
+| `/` | The room's search, or the palette where it has none |
+| `Ctrl+K` | The palette |
+| `?` | Every key |
+
+Inside a piece, `j` `k` walk its paragraphs instead, and `n` `p` turn to the
+next and previous piece.
+
 ## Connecting
 
 The first time, the panel offers **Connect in your browser**. It opens
