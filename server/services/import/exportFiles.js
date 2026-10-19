@@ -3,16 +3,17 @@
    Every reading app lets you take your reading with you, each in its own
    dialect: Kindle's My Clippings.txt, the notes Apple Books mails you, Pocket's
    HTML or CSV, Instapaper's CSV, Readwise's CSV, a folder of Markdown from
-   Notion or Obsidian. Each parser here turns one dialect into the same two
+   Notion or Obsidian, an EPUB book. Each parser here turns one dialect into the same two
    lists, and the import route lands those lists the same way whatever they
    came from:
 
-     sources  [{ url, aliases, title, author, folderName, tags, savedAt,
+     sources  [{ url, aliases, title, author, folderName, tags, savedAt, content,
                  highlights: [{ text, note, createdAt, location }] }]
      notes    [{ externalId, title, folderPath, tags, blocks, content }]
 
    Parsing is pure: no database, no network. A file nobody recognises comes
    back as `unknown`, never guessed at. */
+const zlib = require('zlib');
 const Papa = require('papaparse');
 
 const KINDLE = 'kindle';
@@ -21,6 +22,7 @@ const POCKET = 'pocket';
 const INSTAPAPER = 'instapaper';
 const READWISE = 'readwise';
 const MARKDOWN = 'markdown';
+const EPUB = 'epub';
 
 const FORMAT_LABELS = {
   [KINDLE]: 'Kindle',
@@ -28,7 +30,8 @@ const FORMAT_LABELS = {
   [POCKET]: 'Pocket',
   [INSTAPAPER]: 'Instapaper',
   [READWISE]: 'Readwise',
-  [MARKDOWN]: 'Markdown'
+  [MARKDOWN]: 'Markdown',
+  [EPUB]: 'EPUB'
 };
 
 const clean = (value = '') => String(value ?? '').replace(/﻿/g, '').replace(/\s+/g, ' ').trim();
@@ -544,6 +547,64 @@ const unwrapMail = (text = '') => {
   return text;
 };
 
+/* ---------- EPUB ----------
+   A book you own, whole. An EPUB is a zip: container.xml names the package,
+   the package names the book and lists its chapters in reading order. The
+   chapters become one article, kept to the tags a reader needs, addressed
+   like any other book so its Kindle or Readwise highlights find it. */
+
+const unzip = (buffer) => {
+  const files = new Map();
+  const end = buffer.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  if (end < 0) return files;
+  let at = buffer.readUInt32LE(end + 16);
+  for (let count = buffer.readUInt16LE(end + 10); count > 0; count -= 1) {
+    const method = buffer.readUInt16LE(at + 10);
+    const size = buffer.readUInt32LE(at + 20);
+    const nameLength = buffer.readUInt16LE(at + 28);
+    const local = buffer.readUInt32LE(at + 42);
+    const name = buffer.toString('utf8', at + 46, at + 46 + nameLength);
+    const start = local + 30 + buffer.readUInt16LE(local + 26) + buffer.readUInt16LE(local + 28);
+    const data = buffer.subarray(start, start + size);
+    files.set(name, () => (method === 8 ? zlib.inflateRawSync(data) : data).toString('utf8'));
+    at += 46 + nameLength + buffer.readUInt16LE(at + 30) + buffer.readUInt16LE(at + 32);
+  }
+  return files;
+};
+
+const READER_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'em', 'i', 'strong', 'b', 'blockquote', 'ul', 'ol', 'li', 'br', 'hr', 'pre', 'code', 'sup', 'sub']);
+const readerHtml = (xhtml = '') => (/<body[^>]*>([\s\S]*)<\/body>/i.exec(xhtml) || [, xhtml])[1]
+  .replace(/<(script|style|svg)[\s\S]*?<\/\1>/gi, '')
+  .replace(/<\/?([a-z][a-z0-9]*)[^>]*>/gi, (tag, name) => {
+    const lower = name.toLowerCase();
+    return READER_TAGS.has(lower) ? `<${tag[1] === '/' ? '/' : ''}${lower}>` : '';
+  })
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const parseEpub = (buffer) => {
+  const files = unzip(buffer);
+  const read = name => (files.get(name) || (() => ''))();
+  const packagePath = (/full-path="([^"]+)"/.exec(read('META-INF/container.xml')) || [])[1] || '';
+  const opf = read(packagePath);
+  if (!opf) return { sources: [], skipped: 1 };
+  const base = packagePath.includes('/') ? packagePath.replace(/[^/]*$/, '') : '';
+  const meta = name => decodeEntities((new RegExp(`<dc:${name}[^>]*>([\\s\\S]*?)</dc:${name}>`, 'i').exec(opf) || [])[1] || '');
+  const hrefs = new Map([...opf.matchAll(/<item\b[^>]*>/gi)].map(([item]) => [
+    (/\bid="([^"]+)"/.exec(item) || [])[1],
+    (/\bhref="([^"]+)"/.exec(item) || [])[1]
+  ]));
+  const chapters = [...opf.matchAll(/<itemref\b[^>]*\bidref="([^"]+)"/gi)]
+    .map(([, id]) => hrefs.get(id))
+    .filter(Boolean)
+    .map(href => readerHtml(read(base + decodeURIComponent(href))))
+    .filter(Boolean);
+  return {
+    sources: [{ ...bookSource({ provider: EPUB, title: meta('title'), author: meta('creator') }), content: chapters.join('\n') }],
+    skipped: 0
+  };
+};
+
 /* ---------- Recognising a file ---------- */
 
 const detectFormat = ({ name = '', text = '' }) => {
@@ -568,6 +629,7 @@ const detectFormat = ({ name = '', text = '' }) => {
 };
 
 const parseExportFile = (file = {}) => {
+  if (/\.epub$/i.test(file.name || '') && file.buffer) return { format: EPUB, notes: [], ...parseEpub(file.buffer) };
   const text = unwrapMail(String(file.text || ''));
   const format = detectFormat({ name: file.name, text });
   const isHtml = /^\s*</.test(text);
@@ -587,6 +649,7 @@ module.exports = {
   detectFormat,
   parseAppleBooksExcerpts,
   parseAppleBooksHtml,
+  parseEpub,
   parseExportFile,
   parseInstapaperCsv,
   parseKindleClippings,

@@ -11,6 +11,7 @@ import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
 import PassageThought from './reader/PassageThought';
 import ReadFresh, { useReadFresh } from './reader/ReadFresh';
+import { PASSAGES, walkPassages } from './reader/passageWalk';
 import useArticleReadingPlace from './reader/useArticleReadingPlace';
 import MagneticReadingRail from './reader/MagneticReadingRail';
 import ReturnGreeting from './reader/ReturnGreeting';
@@ -33,6 +34,7 @@ import {
 import { handOffSentence, takeFirstPaint } from '../motion/columnMotion';
 import { PLACES } from '../motion/crossings';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
+import { isGoToTypingTarget } from '../navigation/appNavigation';
 import { knownHighlightColor } from '../constants/highlightColors';
 import { placementOf } from '../pages/placementModel';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
@@ -165,6 +167,8 @@ const ArticleReader = ({
   onToggleEvergreen,
   onTogglePlacement,
   onOpenedSentence,
+  onNext,
+  onPrevious,
   sourceTrace = null
 }) => {
   const contentRef = useRef(null);
@@ -183,7 +187,7 @@ const ArticleReader = ({
   const articleId = article?._id;
   const modelReads = useModelReads(articleId);
   const asking = useMarginAsk(articleId, modelReads);
-  const reading = useReadFresh(readerRootRef, articleId, '.article-reader-content p, .article-reader-content blockquote, .article-reader-content h2');
+  const reading = useReadFresh(readerRootRef, articleId, PASSAGES);
   const articlePlacement = article?.placement;
   /* Kept lives here rather than being read straight off the prop, so pressing
      it settles immediately instead of waiting for the article list to refetch.
@@ -364,6 +368,23 @@ const ArticleReader = ({
     );
   };
 
+  /* The reader's one keyboard. J and K walk the paragraphs, N and P turn to
+     the next and previous piece in the list it was opened from, and H, T and
+     A act on a selection while its menu is open. Typing and shortcuts are
+     left alone. */
+  const keys = useRef({});
+  useEffect(() => {
+    const press = (event) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || isGoToTypingTarget(event.target)) return;
+      const action = keys.current[String(event.key || '').toLowerCase()];
+      if (!action) return;
+      event.preventDefault();
+      action();
+    };
+    window.addEventListener('keydown', press);
+    return () => window.removeEventListener('keydown', press);
+  }, []);
+
   useEffect(() => {
     if (!selectionState.isOpen) return;
     setSaveError('');
@@ -425,6 +446,7 @@ const ArticleReader = ({
   }, [highlightSignature]);
 
   if (!article) {
+    keys.current = {};
     return (
       <div className="article-reader-empty">
         <p className="muted">Select an article to start reading.</p>
@@ -526,9 +548,29 @@ const ArticleReader = ({
     clearSelection();
   };
 
+  const leaveThought = () => persistHighlight(highlight => {
+    setThought(highlight);
+    const params = new URLSearchParams(location.search);
+    params.set('articleId', articleId);
+    params.set('highlightId', highlight._id);
+    params.delete('exploration');
+    params.set('thought', '1');
+    navigate({ pathname: '/library', search: params.toString(), hash: '' });
+  });
+  const ask = asking.available && !isHighlightOnlyImport ? askAboutSelection : undefined;
+  const menuOpen = selectionState.isOpen && !reading.readFresh;
+  const walk = (step) => () => walkPassages(readerRootRef.current, step, { reducedMotion });
+  keys.current = {
+    j: walk(1),
+    k: walk(-1),
+    n: onNext,
+    p: onPrevious,
+    ...(menuOpen && !saving ? { h: handleCreateHighlight, t: leaveThought, a: ask } : {})
+  };
+
   return (
     <div className="article-reader" ref={readerRootRef} data-read-fresh={reading.readFresh || undefined} data-source-kind={dress || undefined}>
-      {selectionState.isOpen && !reading.readFresh && (
+      {menuOpen && (
         <SelectionMenu
           ref={menuRef}
           rect={selectionState.rect}
@@ -547,16 +589,8 @@ const ArticleReader = ({
               navigate({ pathname: '/library', search: params.toString(), hash: '' });
             });
           }}
-          onThought={() => persistHighlight(highlight => {
-            setThought(highlight);
-            const params = new URLSearchParams(location.search);
-            params.set('articleId', articleId);
-            params.set('highlightId', highlight._id);
-            params.delete('exploration');
-            params.set('thought', '1');
-            navigate({ pathname: '/library', search: params.toString(), hash: '' });
-          })}
-          onAsk={asking.available && !isHighlightOnlyImport ? askAboutSelection : undefined}
+          onThought={leaveThought}
+          onAsk={ask}
         />
       )}
       <div className="article-reader-header">

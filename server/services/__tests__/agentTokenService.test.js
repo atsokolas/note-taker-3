@@ -118,6 +118,22 @@ const run = async () => {
   assert.strictEqual(gatewayReq.user.id, 'user-1');
   assert.strictEqual(activeToken.callsToday, 0);
 
+  // A capture token saves links and nothing else; agent-write covers capture.
+  const captureMiddleware = buildAuthenticateAgentToken({ isAccountActive: async () => true,
+    AgentToken, now: () => now, requiredScope: 'capture', consume: false
+  });
+  const captureRes = createResponse();
+  await runMiddleware(captureMiddleware, { method: 'POST', headers: { authorization: 'Bearer ntk_at_active' } }, captureRes);
+  assert.strictEqual(captureRes.statusCode, 403);
+  activeToken.scopes = ['capture'];
+  const captureReq = { method: 'POST', headers: { authorization: 'Bearer ntk_at_active' } };
+  await runMiddleware(captureMiddleware, captureReq, createResponse());
+  assert.strictEqual(captureReq.user.id, 'user-1');
+  const captureWriteRes = createResponse();
+  await runMiddleware(middleware, { method: 'POST', headers: { authorization: 'Bearer ntk_at_active' } }, captureWriteRes);
+  assert.strictEqual(captureWriteRes.statusCode, 403);
+  activeToken.scopes = ['read'];
+
   const revokedToken = {
     ...activeToken,
     hashedSecret: hashAgentTokenSecret('ntk_at_revoked'),

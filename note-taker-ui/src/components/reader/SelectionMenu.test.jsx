@@ -76,11 +76,10 @@ describe('SelectionMenu', () => {
     expect(screen.queryByPlaceholderText(/Tags/i)).toBeNull();
   });
 
-  it('offers no Ask, and ignores A, where no model can read the piece', () => {
+  it('offers no Ask where no model can read the piece', () => {
     const { onAsk, ...withoutAsk } = baseProps;
     render(<SelectionMenu {...withoutAsk} />);
     expect(screen.queryByRole('button', { name: 'Ask' })).toBeNull();
-    expect(() => fireEvent.keyDown(window, { key: 'a' })).not.toThrow();
   });
 
   it('does not focus the menu on a pointer press, so closing it cannot jump the page', () => {
@@ -113,25 +112,6 @@ describe('SelectionMenu', () => {
     render(<SelectionMenu {...baseProps} saving />);
     screen.getAllByRole('button', { name: /^Highlight as / })
       .forEach(ink => expect(ink).toBeDisabled());
-  });
-
-  it('acts on H, T and A, and leaves typing and shortcuts alone', () => {
-    const onHighlight = jest.fn();
-    const onThought = jest.fn();
-    const onAsk = jest.fn();
-    render(<SelectionMenu {...baseProps} onHighlight={onHighlight} onThought={onThought} onAsk={onAsk} />);
-    fireEvent.keyDown(window, { key: 'h' });
-    fireEvent.keyDown(window, { key: 'T' });
-    fireEvent.keyDown(window, { key: 'a' });
-    fireEvent.keyDown(window, { key: 'a', metaKey: true });
-    const input = document.createElement('input');
-    document.body.appendChild(input);
-    fireEvent.keyDown(input, { key: 'h' });
-    input.remove();
-    expect(onHighlight).toHaveBeenCalledTimes(1);
-    expect(onHighlight).toHaveBeenCalledWith();
-    expect(onThought).toHaveBeenCalledTimes(1);
-    expect(onAsk).toHaveBeenCalledTimes(1);
   });
 
   it('shows the keys the first three times on this device, then stops', () => {

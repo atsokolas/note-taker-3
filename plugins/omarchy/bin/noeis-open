@@ -1,0 +1,47 @@
+#!/bin/bash
+# Noeis as the desktop's reader. With nothing, it opens noeis.io in its own
+# window wearing the current Omarchy theme. A link opens the app's save page,
+# which puts it on the nightstand. A file (EPUB, Markdown) is brought into
+# your Library with the panel's connection.
+#
+#   noeis-open                            the app
+#   noeis-open https://example.com/essay  save a link for later
+#   noeis-open ~/Books/Middlemarch.epub   bring a book in
+set -euo pipefail
+
+APP=${NOEIS_APP_URL:-https://www.noeis.io}
+API=${NOEIS_API_URL:-https://note-taker-3-unrg.onrender.com}
+SESSION=${XDG_CONFIG_HOME:-$HOME/.config}/noeis/omarchy.json
+COLORS=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/current/theme/colors.toml
+
+# The theme as the fragment noeis.io reads: its own names for Omarchy's.
+theme() {
+  [[ -f $COLORS ]] || return 0
+  awk -F' *= *' '
+    BEGIN { split("background=background foreground=foreground accent=accent red=color1 green=color2 yellow=color3", pairs, " ")
+            for (i in pairs) { split(pairs[i], kv, "="); name[kv[1]] = kv[2] } }
+    $1 in name { gsub(/[" #]/, "", $2); printf "&%s=%s", name[$1], $2 }' "$COLORS" | sed 's/^/#omarchy-colors/'
+}
+
+app() { exec omarchy-launch-webapp "$APP$1$(theme)"; }
+
+say() { omarchy-notification-send --app-name Noeis -u "$1" Noeis "$2" ${3:+--exec xdg-open "$APP$3"}; }
+
+bring() {
+  local token reply
+  token=$(jq -r '.token // empty' "$SESSION" 2>/dev/null) || true
+  [[ -n $token ]] || { say normal "Connect Noeis from its panel first, then open it again." /; exit 1; }
+  # The token goes to curl on stdin, never in its arguments.
+  if reply=$(printf 'Authorization: Bearer %s\n' "$token" | curl -fsS -H @- -F "files=@$1" "$API/api/import/files" 2>&1); then
+    say low "In your Library: $(basename "$1")" /library
+  else
+    say normal "Noeis could not bring $(basename "$1") in. $reply"
+    exit 1
+  fi
+}
+
+case ${1:-} in
+  "") app / ;;
+  http://* | https://*) app "/library/save?url=$(jq -rn --arg u "$1" '$u|@uri')" ;;
+  *) bring "$1" ;;
+esac

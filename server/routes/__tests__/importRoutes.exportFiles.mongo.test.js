@@ -182,6 +182,19 @@ test('real Mongo: export files land as books, saved articles and notes, and a se
     assert.equal(notesAgain.body.summary, 'Everything in that export was already here.');
     assert.equal(await NotebookEntry.countDocuments({ userId }), 2);
 
+    // An EPUB of a book already held by its highlights gives that book its pages, not a twin.
+    const books = await Article.countDocuments({ userId });
+    fetched.length = 0;
+    const epub = await send(url, [['origin-of-species.epub']]);
+    assert.equal(epub.status, 200);
+    assert.equal(epub.body.summary, 'Saved 1 book.');
+    assert.equal(await Article.countDocuments({ userId }), books);
+    const whole = await Article.findOne({ userId, url: 'import://readwise/the-origin-of-species-source' }).lean();
+    assert.match(whole.content, /<h1>Variation under Domestication<\/h1>/);
+    assert.equal(whole.highlights.length, 2, 'its passages stay where they were');
+    assert.ok(indexed.some(([kind, title]) => kind === 'article' && title === 'The Origin of Species'), 'the pages are indexed');
+    assert.deepEqual(fetched, [], 'a book is never fetched');
+
     // Silence: a file nobody recognises imports nothing and says only that.
     const form = new FormData();
     form.append('files', new Blob(['a,b\n1,2']), 'numbers.csv');

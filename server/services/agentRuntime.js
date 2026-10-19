@@ -5,6 +5,7 @@ const RUNTIME_LABELS = {
   'claude-code': 'Claude Code',
   codex: 'Codex',
   hermes: 'Hermes',
+  omarchy: 'Omarchy',
   openclaw: 'OpenClaw',
   opencode: 'OpenCode'
 };

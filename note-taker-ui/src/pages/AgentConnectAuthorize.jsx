@@ -5,6 +5,7 @@ import { Button, Card, Page, PageHeader, buttonClass } from '../components/ui';
 
 const SCOPE_LABELS = {
   read: 'Read, search, and retrieve your Noeis workspace',
+  capture: 'Bring links and files into your Library and see your nightstand, and nothing else',
   'agent-write': 'Create drafts, write wiki updates, and add sourced material'
 };
 

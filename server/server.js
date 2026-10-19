@@ -628,6 +628,10 @@ const requireHumanReader = (req, res, next) => {
   }
   return next();
 };
+// Your own desktop, approved with `capture`, may see the Library's lists (the nightstand).
+const requireHumanOrDesktop = (req, res, next) => (
+  (req.agentToken?.scopes || []).includes('capture') ? next() : requireHumanReader(req, res, next)
+);
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
 const { buildAgentConnectRouter } = require('./routes/agentConnectRoutes');
 const { buildAgentTaskLinkRouter } = require('./routes/agentTaskLinkRoutes');
@@ -4417,16 +4421,19 @@ const authenticateMcpToken = buildAuthenticateAgentToken({
   resourceMetadataUrl: chatgptOAuthConfig ? `${chatgptOAuthConfig.issuer}/.well-known/oauth-protected-resource` : null
 });
 
-function authenticateUserOrAgentToken(req, res, next) {
+// A browser session, or an agent token checked by `agentAuth`.
+const userOr = agentAuth => function authenticateUserOrAgent(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   const headerToken = authHeader.startsWith('Bearer ')
     ? authHeader.slice(7).trim()
     : '';
   if (headerToken.startsWith(AGENT_TOKEN_PREFIX)) {
-    return authenticateAgentToken(req, res, next);
+    return agentAuth(req, res, next);
   }
   return authenticateToken(req, res, next);
-}
+};
+const authenticateUserOrAgentToken = userOr(authenticateAgentToken);
+const authenticateCapture = userOr(buildAuthenticateAgentToken({ AgentToken, requiredScope: 'capture', ...oauthTokenOptions }));
 
 async function authenticatePersonalAgentKey(req, res, next) {
   try {
@@ -5230,7 +5237,7 @@ const toSafeObjectId = (value) => (
 
 app.use(buildSearchRetrievalRouter({
   mongoose,
-  authenticateToken,
+  authenticateToken: authenticateUserOrAgentToken,
   Article,
   NotebookEntry,
   ItemViewEvent,
@@ -5433,7 +5440,7 @@ app.use(buildPersonalAgentRouter({
    rewrite what it told you last week. */
 app.use(buildEditionThoughtRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Edition, Note }));
 app.use(buildArticleReadingStateRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Article, ArticleReadingState }));
-app.use(buildLibraryCollectionRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, mongoose, Article, ArticleReadingState }));
+app.use(buildLibraryCollectionRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanOrDesktop, mongoose, Article, ArticleReadingState }));
 app.use(buildReadingRoomRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, mongoose, Article, ArticleReadingState }));
 
 app.use(buildEditionRouter({
@@ -5812,6 +5819,7 @@ app.use(buildImportSessionRouter({
 
 const importRouter = buildImportRouter({
   authenticateToken,
+  authenticateCapture,
   isAccountActive,
   upload,
   slugify,

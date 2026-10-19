@@ -60,7 +60,8 @@
             'everforest': ['dark', 'palette', '#2d353b'],
             'monokai': ['dark', 'palette', '#272822'],
             'solarized-dark': ['dark', 'palette', '#002b36'],
-            'solarized-light': ['light', 'palette', '#fdf6e3']
+            'solarized-light': ['light', 'palette', '#fdf6e3'],
+            'omarchy': ['dark', 'palette', '#1a1b26']
           };
           var savedTheme = String(saved.theme || '').toLowerCase();
           var themePref = themes.hasOwnProperty(savedTheme) || savedTheme === 'auto' ? savedTheme : defaults.theme;
@@ -79,6 +80,15 @@
           var themeColor = document.querySelector('meta[name="theme-color"]');
           if (themeColor) {
             themeColor.setAttribute('content', active[2]);
+          }
+          /* The desktop's colours, kept by src/settings/omarchyColors.js. */
+          if (activeTheme === 'omarchy') {
+            var omarchy = JSON.parse(window.localStorage.getItem('omarchy-colors.v1') || '{}');
+            Object.keys(omarchy).forEach(function (key) {
+              if (key !== 'scheme') root.style.setProperty('--omarchy-' + key, omarchy[key]);
+            });
+            if (omarchy.scheme === 'light') root.setAttribute('data-ui-scheme', 'light');
+            if (themeColor && omarchy.background) themeColor.setAttribute('content', omarchy.background);
           }
           root.setAttribute('data-ui-density', density);
           root.setAttribute('data-ui-typography', typography);
