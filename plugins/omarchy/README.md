@@ -56,16 +56,17 @@ cannot read it. From a checkout, `cp -r plugins/omarchy
 The mark lands on the right of the bar; `omarchy bar move io.noeis --section
 left` moves it.
 
-## Signing in
+## Connecting
 
-The panel signs in with your Noeis username and password, the way the iPhone
-app does, and keeps the session token in `~/.config/noeis/omarchy.json`. That
-directory is created private (`0700`) and is the one the Noeis CLI uses; the
-CLI's own `config.json` is left alone. Requests are made from QML with
-`XMLHttpRequest`, and `noeis-open` hands it to `curl` on stdin, so the token
-never appears in a process's arguments. When
-the server refuses the token, or it expires (after seven days), the panel
-forgets it and asks you to sign in again.
+The first time, the panel offers **Connect in your browser**. It opens
+noeis.io, where you approve this desktop the way you approve the Noeis CLI,
+and the panel keeps the token in `~/.config/noeis/omarchy.json`. That
+directory is created private (`0700`) and is the one the CLI uses; the CLI's
+own `config.json` is left alone. The token may save links, search, and see
+your nightstand, and nothing else. It lasts until you revoke it under
+Connected agents on noeis.io; then the panel asks to connect again. Requests
+are made from QML with `XMLHttpRequest`, and `noeis-open` hands the token to
+`curl` on stdin, so it never appears in a process's arguments.
 
 `NOEIS_API_URL` and `NOEIS_APP_URL` point it at a local server, as they do
 for the CLI.
@@ -83,7 +84,7 @@ shell, with your user's permissions.
 |---|---|
 | `manifest.json` | The plugin's id (`io.noeis`), kind (`bar-widget`) and entry point |
 | `BarWidget.qml` | The mark in the bar; hosts the panel |
-| `Panel.qml` | The panel: sign in, the field, search results, receipts |
+| `Panel.qml` | The panel: connecting, the field, search results, the nightstand, receipts |
 | `NoeisMark.qml` | The three-ring mark, drawn natively at bar size |
 | `Model.js` | The panel's decisions, tested in node by `scripts/omarchy_plugin.test.js` |
 | `bin/noeis-open` | The app in its own window, `web+noeis://` links, and files into your Library |

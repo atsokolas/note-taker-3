@@ -2,8 +2,8 @@ const crypto = require('crypto');
 const { CHATGPT_ACCESS_PROFILE, isChatgptRequestAllowed } = require('./chatgptAccessPolicy');
 
 const AGENT_TOKEN_PREFIX = 'ntk_at_';
-/* What each scope lets a token do. `capture` only saves links, so a desktop
-   shortcut can keep a token for years without being able to write anything else. */
+/* What each scope lets a token do. `capture` is a person's own desktop: it
+   brings links and files in and sees the nightstand, and writes nothing else. */
 const SCOPE_GRANTS = {
   read: ['read'],
   capture: ['capture'],

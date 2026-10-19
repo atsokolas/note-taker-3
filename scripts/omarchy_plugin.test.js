@@ -26,10 +26,11 @@ for (const words of ['hiring', 'e.g.', 'what I read about hiring', 'v1.2', 'ftp:
 const token = exp => ['e30', Buffer.from(JSON.stringify({ id: 'u1', exp })).toString('base64url'), 'sig'].join('.');
 const now = Date.UTC(2026, 9, 18);
 const live = token(now / 1000 + 60);
-assert.deepStrictEqual(plain(Model.sessionFrom(JSON.stringify({ token: live, username: 'athan' }), now)),
-  { token: live, username: 'athan', ended: false });
-assert.deepStrictEqual(plain(Model.sessionFrom(JSON.stringify({ token: token(now / 1000 - 1), username: 'athan' }), now)),
-  { token: '', username: '', ended: true }, 'an expired token is no session, and says it ended');
+assert.deepStrictEqual(plain(Model.sessionFrom(JSON.stringify({ token: live }), now)), { token: live, ended: false });
+assert.deepStrictEqual(plain(Model.sessionFrom(JSON.stringify({ token: token(now / 1000 - 1) }), now)),
+  { token: '', ended: true }, 'an expired token is no session, and says it ended');
+assert.deepStrictEqual(plain(Model.sessionFrom(JSON.stringify({ token: 'ntk_at_abc' }), now)),
+  { token: 'ntk_at_abc', ended: false }, 'a connection token lasts until it is revoked');
 assert.strictEqual(Model.sessionFrom('{}', now).ended, false, 'signed out is not ended');
 assert.strictEqual(Model.sessionFrom('not json', now).token, '');
 
@@ -72,8 +73,8 @@ assert.strictEqual(Model.saveReceipt({ existing: true, article: {} }), 'Already 
 
 // Failures read as sentences.
 assert.match(Model.problem(0), /could not be reached/);
-assert.strictEqual(Model.problem(401, null, 'signIn'), 'That username and password do not match.');
-assert.strictEqual(Model.problem(401, null, 'search'), 'Your Noeis session ended. Sign in again.');
+assert.strictEqual(Model.problem(410, null, 'connect'), 'That approval ran out of time. Connect again.');
+assert.strictEqual(Model.problem(401, null, 'search'), 'Noeis no longer knows this desktop. Connect again.');
 assert.match(Model.problem(422, { error: 'Could not extract readable text from that URL.' }, 'save'), /could not read that page/);
 assert.strictEqual(Model.problem(500, { error: 'Failed to perform search.' }, 'search'), 'Failed to perform search.');
 assert.strictEqual(Model.problem(503, null, 'search'), 'That did not work just now. Try it again.');

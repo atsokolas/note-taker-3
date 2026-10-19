@@ -39,17 +39,17 @@ function claimsOf(token) {
   try { return JSON.parse(json) } catch (e) { return {} }
 }
 
-// A saved session is the account's token and name. A token past its expiry
-// is no session at all, so the panel asks to sign in instead of failing on
-// the first request.
+// A saved session is a token. A sign-in token past its expiry is no session
+// at all, so the panel asks to connect instead of failing on the first
+// request; a connection's token carries no expiry and lasts until revoked.
 function sessionFrom(text, now) {
   var saved
   try { saved = JSON.parse(String(text || "")) } catch (e) { saved = null }
   var token = saved && typeof saved.token === "string" ? saved.token : ""
-  if (!token) return { token: "", username: "", ended: false }
+  if (!token) return { token: "", ended: false }
   var expiresAt = Number(claimsOf(token).exp || 0) * 1000
-  if (expiresAt && expiresAt <= now) return { token: "", username: "", ended: true }
-  return { token: token, username: String(saved.username || ""), ended: false }
+  if (expiresAt && expiresAt <= now) return { token: "", ended: true }
+  return { token: token, ended: false }
 }
 
 function trimmed(text, length) {
@@ -133,8 +133,8 @@ function saveReceipt(reply) {
 // Failures as sentences someone can act on, never a status code.
 function problem(status, reply, action) {
   if (!status) return "Noeis could not be reached. Check your connection and try again."
-  if (action === "signIn" && (status === 400 || status === 401)) return "That username and password do not match."
-  if (status === 401) return "Your Noeis session ended. Sign in again."
+  if (action === "connect" && status === 410) return "That approval ran out of time. Connect again."
+  if (status === 401) return "Noeis no longer knows this desktop. Connect again."
   if (action === "save" && (status === 400 || status === 422))
     return "Noeis could not read that page. Some sites only show their text to a signed-in browser."
   return (reply && reply.error) || "That did not work just now. Try it again."

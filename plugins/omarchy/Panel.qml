@@ -18,11 +18,12 @@ import "Model.js" as Model
 // `omarchy-shell noeis saveClipboard` saves the clipboard's link without
 // opening anything, and says where it landed in a notification.
 //
-// Signing in is the same as the iPhone app: username and password for a
-// session token, kept in ~/.config/noeis/omarchy.json (the directory the
-// Noeis CLI keeps private) and dropped the moment the server refuses it.
-// Requests go through XMLHttpRequest, so the token never sits in a
-// process's arguments.
+// Connecting is the same as the Noeis CLI: the panel asks for a connection,
+// you approve it at noeis.io in your browser, and the panel keeps the token
+// in ~/.config/noeis/omarchy.json (the directory the CLI keeps private).
+// The token can save links, search, and see the nightstand, nothing more,
+// and lasts until you revoke it under Connected agents. Requests go through
+// XMLHttpRequest, so the token never sits in a process's arguments.
 Panel {
   id: root
   moduleName: "io.noeis"
@@ -128,35 +129,63 @@ Panel {
   }
 
   function write() {
-    sessionFile.setText(JSON.stringify(signedIn ? { token: session.token, username: session.username } : {}) + "\n")
+    sessionFile.setText(JSON.stringify(signedIn ? { token: session.token } : {}) + "\n")
   }
 
-  function keep(token, username) {
-    session = { token: token, username: username, ended: false }
+  function keep(token) {
+    session = { token: token, ended: false }
     sessionDirProc.running = true
   }
 
   function forget(ended) {
-    session = { token: "", username: "", ended: !!ended }
+    connection = null
+    session = { token: "", ended: !!ended }
     field.text = ""
     say("")
     write()
   }
 
-  function signIn(username, password) {
-    if (busy || !username || !password) return
+  // ---- Connecting: ask, open the approval page, and wait for your yes.
+  property var connection: null
+
+  function connect() {
+    if (busy) return
     busy = true
-    say("Signing in…")
-    request("POST", "/api/auth/login", { username: username, password: password }, function(status, reply) {
+    say("Opening noeis.io to approve…")
+    request("POST", "/api/agent-connect/sessions", { runtime: "omarchy", label: "Omarchy desktop",
+      scopes: ["read", "capture"], appUrl: appUrl }, function(status, reply) {
       busy = false
-      if (status === 200 && reply && reply.token) {
-        root.keep(reply.token, reply.username || username)
-        say("")
-        Qt.callLater(function() { field.forceActiveFocus() })
-      } else {
-        say(Model.problem(status, reply, "signIn"), true)
-      }
+      if (status !== 201 || !reply || !reply.authorizeUrl) return say(Model.problem(status, reply, "connect"), true)
+      root.connection = { id: reply.session.sessionId, poll: reply.pollSecret, code: reply.session.deviceCode }
+      say("Approve Noeis for this desktop in your browser. Its code is " + reply.session.deviceCode + ".")
+      Qt.openUrlExternally(reply.authorizeUrl)
+      waiting.interval = Math.max(1, Number(reply.pollIntervalSec || 2)) * 1000
+      waiting.start()
     })
+  }
+
+  Timer {
+    id: waiting
+    repeat: true
+    onTriggered: {
+      var c = root.connection
+      if (!c) return stop()
+      root.request("POST", "/api/agent-connect/sessions/" + encodeURIComponent(c.id) + "/poll", { pollSecret: c.poll }, function(status, reply) {
+        if (root.connection !== c) return
+        var state = reply && reply.session ? reply.session.status : ""
+        if (status === 200 && state === "approved" && reply.secret) {
+          waiting.stop()
+          root.connection = null
+          root.keep(reply.secret)
+          root.say("")
+          Qt.callLater(function() { field.forceActiveFocus() })
+        } else if (status !== 200 || state === "expired" || state === "cancelled") {
+          waiting.stop()
+          root.connection = null
+          root.say(Model.problem(status === 200 ? 410 : status, reply, "connect"), true)
+        }
+      })
+    }
   }
 
   // ---- Saving a link: in the panel, or quietly, answered by a notification.
@@ -287,7 +316,7 @@ Panel {
     owner: root.barIdentity
     bar: root.bar
     open: root.opened
-    focusTarget: root.signedIn ? field : usernameField
+    focusTarget: root.signedIn ? field : connectButton
     contentWidth: panel.fittedContentWidth(Style.space(420))
     contentHeight: panel.fittedContentHeight(body.implicitHeight)
 
@@ -296,27 +325,9 @@ Panel {
       width: parent.width
       spacing: Style.spacing.panelGap
 
-      Item {
-        width: parent.width
-        height: heading.implicitHeight
-
-        PanelSectionHeader {
-          id: heading
-          text: "NOEIS"
-          foreground: root.foreground
-        }
-
-        Text {
-          anchors.right: parent.right
-          anchors.baseline: heading.baseline
-          visible: root.signedIn && root.session.username !== ""
-          text: root.session.username
-          textFormat: Text.PlainText
-          color: root.foreground
-          opacity: root.muted
-          font.family: Style.font.family
-          font.pixelSize: Style.font.caption
-        }
+      PanelSectionHeader {
+        text: "NOEIS"
+        foreground: root.foreground
       }
 
       // ---- Signed in: the field, its hint or receipt, and what it found.
@@ -420,41 +431,18 @@ Panel {
         Note {
           text: root.line !== "" ? root.line
             : root.session.ended ? Model.problem(401)
-            : "Sign in to save links and search what you keep from here."
+            : "Connect this desktop to save links and search what you keep from here."
           problem: root.lineIsProblem
         }
 
-        TextField {
-          id: usernameField
-          width: parent.width
-          foreground: root.foreground
-          placeholderText: "Username"
-          enabled: !root.busy
-          inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
-          onAccepted: passwordField.forceActiveFocus()
-          Keys.onEscapePressed: root.close()
-        }
-
-        TextField {
-          id: passwordField
-          width: parent.width
-          foreground: root.foreground
-          placeholderText: "Password"
-          password: true
-          enabled: !root.busy
-          onAccepted: signInButton.clicked()
-          Keys.onEscapePressed: root.close()
-        }
-
         Button {
-          id: signInButton
-          text: "Sign in"
+          id: connectButton
+          text: root.connection ? "Open the approval page again" : "Connect in your browser"
           foreground: root.foreground
           bordered: true
-          onClicked: {
-            root.signIn(usernameField.text.trim(), passwordField.text)
-            passwordField.text = ""
-          }
+          focusable: true
+          Keys.onEscapePressed: root.close()
+          onClicked: root.connect()
         }
       }
 

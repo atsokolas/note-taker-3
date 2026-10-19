@@ -93,6 +93,8 @@ const bareLinks = (articles = []) => articles
 
 const buildImportRouter = ({
   authenticateToken,
+  // Bringing in a link or a file also takes a token that may do little else (`capture`).
+  authenticateCapture = authenticateToken,
   isAccountActive = async () => false,
   upload,
   slugify,
@@ -375,7 +377,7 @@ const buildImportRouter = ({
     });
   };
 
-  router.post('/api/import/url', authenticateToken, async (req, res) => {
+  router.post('/api/import/url', authenticateCapture, async (req, res) => {
     try {
       const userId = req.user.id;
       const folderId = toTrimmedString(req.body?.folderId);
@@ -1733,7 +1735,7 @@ const buildImportRouter = ({
     return [`${summary}.`, ...asides].join(' ');
   };
 
-  router.post('/api/import/files', authenticateToken, receiveExportFiles, async (req, res) => {
+  router.post('/api/import/files', authenticateCapture, receiveExportFiles, async (req, res) => {
     const importSessionId = readImportSessionId(req);
     const userId = req.user.id;
     const files = Array.isArray(req.files) ? req.files : [];
