@@ -3,6 +3,7 @@ const {
   WIKI_PAGE_TYPES
 } = require('../services/wikiPageStructureService');
 const { buildAuthoredExplorationModel } = require('./authoredExploration');
+const { AGENT_TOKEN_SCOPES } = require('../services/agentTokenService');
 
 // --- AUTHENTICATION ADDITIONS: User Schema and Model ---
 const userAgentProfileSchema = new mongoose.Schema({
@@ -2417,7 +2418,7 @@ const agentTokenSchema = new mongoose.Schema({
   oauthResource: { type: String, default: '' },
   hashedSecret: { type: String, required: true, trim: true },
   secretPrefix: { type: String, default: '', trim: true },
-  scopes: { type: [String], enum: ['read', 'agent-write'], default: ['read'] },
+  scopes: { type: [String], enum: AGENT_TOKEN_SCOPES, default: ['read'] },
   dailyQuota: { type: Number, default: null, min: 0 },
   callsToday: { type: Number, default: 0, min: 0 },
   quotaWindowStartedAt: { type: Date, default: null },
@@ -2438,7 +2439,7 @@ const agentConnectSessionSchema = new mongoose.Schema({
   deviceCode: { type: String, required: true, trim: true, index: true },
   runtime: { type: String, default: 'agent', trim: true },
   label: { type: String, default: '', trim: true },
-  scopes: { type: [String], enum: ['read', 'agent-write'], default: ['read', 'agent-write'] },
+  scopes: { type: [String], enum: AGENT_TOKEN_SCOPES, default: ['read', 'agent-write'] },
   requestedApiUrl: { type: String, default: '', trim: true },
   requestedAppUrl: { type: String, default: '', trim: true },
   status: { type: String, enum: ['pending', 'approved', 'expired', 'cancelled'], default: 'pending', index: true },
