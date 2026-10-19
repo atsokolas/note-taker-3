@@ -41,6 +41,20 @@ test('silhouette chooses the number of subjects the library holds', () => {
   assert.deepEqual(clusterBySilhouette(pca(groups(), 4)).assignment, best.assignment);
 });
 
+test('a large library is never drawn as two subjects', () => {
+  // 250 sources: one tight corner, and the rest spread loosely over six themes.
+  const rows = Array.from({ length: 250 }, (_, i) => {
+    const row = new Array(12).fill(0).map((_, j) => ((i * 31 + j * 17) % 23) / 25);
+    if (i < 40) row[11] += 10;
+    else row[i % 6] += 0.5;
+    return normalize(row);
+  });
+  const { assignment } = clusterBySilhouette(pca(rows, 8));
+  const sizes = [...new Set(assignment)].map(c => assignment.filter(a => a === c).length);
+  assert.ok(sizes.length >= 7, `${sizes.length} subjects drawn`);
+  assert.ok(Math.max(...sizes) < 125, `largest subject holds ${Math.max(...sizes)}`);
+});
+
 test('layout fits the unit square and keeps dots apart', () => {
   const scores = [[0, 0], [0, 0], [10, 0], [10, 0.001], [-10, 5]];
   const points = layout(scores, [0, 0, 1, 1, 2]);
