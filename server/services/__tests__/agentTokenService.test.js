@@ -6,8 +6,15 @@ const {
   normalizeAgentTokenScopes,
   sanitizeAgentToken,
   buildAuthenticateAgentToken,
-  requiredScopeForRequest
+  requiredScopeForRequest,
+  AGENT_TOKEN_SCOPES
 } = require('../agentTokenService');
+const { AgentToken: AgentTokenModel, AgentConnectSession } = require('../../models');
+
+// Every scope a token may hold is one the database will store.
+for (const Model of [AgentTokenModel, AgentConnectSession]) {
+  assert.deepStrictEqual(Model.schema.path('scopes').caster.enumValues, AGENT_TOKEN_SCOPES, `${Model.modelName} stores every scope`);
+}
 
 const createResponse = () => {
   const headers = {};
