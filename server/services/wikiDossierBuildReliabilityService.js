@@ -101,6 +101,32 @@ const createDossierBuildRun = async ({
   }
 };
 
+// A dossier build reads every filing with the writer model, so an account gets
+// a few a week (DOSSIER_WEEKLY_BUILD_LIMIT, 0 for none). An interrupted build
+// and its resume count once, and rejoining a page's running build is free.
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+const dossierBuildAllowance = async ({ WikiMaintenanceRun, userId, pageId = null, now = new Date() } = {}) => {
+  const limit = Number(process.env.DOSSIER_WEEKLY_BUILD_LIMIT ?? 3);
+  if (!(limit > 0) || !WikiMaintenanceRun?.find) return { allowed: true };
+  if (pageId && await WikiMaintenanceRun.exists({ pageId, 'metadata.kind': BUILD_KIND, status: 'running' })) {
+    return { allowed: true };
+  }
+  const runs = await WikiMaintenanceRun.find({
+    userId,
+    'metadata.kind': BUILD_KIND,
+    'metadata.interrupted': { $ne: true },
+    startedAt: { $gte: new Date(now.getTime() - WEEK_MS) }
+  }).sort({ startedAt: 1 }).limit(limit).select('startedAt').lean();
+  if (runs.length < limit) return { allowed: true };
+  const opensAt = new Date(new Date(runs[0].startedAt).getTime() + WEEK_MS);
+  return {
+    allowed: false,
+    opensAt,
+    error: `You have built ${limit} dossiers this week. The next one opens ${opensAt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })}.`
+  };
+};
+
 const recordDossierBuildStage = async ({
   run,
   stage = '',
@@ -279,6 +305,7 @@ module.exports = {
   BUILD_KIND,
   STALE_ACTIVE_BUILD_MS,
   createDossierBuildRun,
+  dossierBuildAllowance,
   finishDossierBuildRun,
   isTransientDossierError,
   isCompanyDossier,

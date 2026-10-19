@@ -1614,6 +1614,7 @@ const WikiPageReadView = ({
     } catch (maintainError) {
       const rejected = maintainError?.code === 'WIKI_CANDIDATE_REJECTED';
       const evidenceIncomplete = maintainError?.code === 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE';
+      const limited = maintainError?.code === 'DOSSIER_WEEKLY_LIMIT';
       const firstFailure = (Array.isArray(maintainError?.qualityFailures) ? maintainError.qualityFailures : []).find(Boolean);
       const message = rejected
         ? `The page is unchanged. ${firstFailure || 'The proposed change did not hold up against the sources.'}`
@@ -1631,9 +1632,9 @@ const WikiPageReadView = ({
       }
       setError(message);
       setRereadResult({ status: rejected || evidenceIncomplete ? 'research' : 'failed', summary: message });
-      if (rejected || evidenceIncomplete) {
+      if (rejected || evidenceIncomplete || limited) {
         systemStatus.setLatestReceipt({
-          title: rejected ? 'The page was not changed.' : 'More reading is needed.',
+          title: rejected || limited ? 'The page was not changed.' : 'More reading is needed.',
           summary: message,
           status: 'needs_review',
           href: wikiReadPath(pageId)

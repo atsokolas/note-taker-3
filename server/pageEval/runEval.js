@@ -29,6 +29,9 @@ const openDatabase = async () => {
   return async () => { await mongoose.disconnect(); await server.stop(); };
 };
 
+// One throwaway account builds every case, so the weekly build cap stays off.
+process.env.DOSSIER_WEEKLY_BUILD_LIMIT = '0';
+
 const startApp = async (userId) => {
   const models = require('../models');
   const { buildWikiRouter } = require('../routes/wikiRoutes');

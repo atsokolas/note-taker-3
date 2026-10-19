@@ -74,7 +74,7 @@ const WikiCompanyDossierComposer = ({
             ? 'Filer not supported yet'
             : 'Company dossier creation',
         message,
-        retryable: !['DOSSIER_INPUT_CONFLICT', 'DOSSIER_FOREIGN_FILER_UNSUPPORTED', 'DOSSIER_FILER_UNSUPPORTED'].includes(response.code)
+        retryable: !['DOSSIER_INPUT_CONFLICT', 'DOSSIER_FOREIGN_FILER_UNSUPPORTED', 'DOSSIER_FILER_UNSUPPORTED', 'DOSSIER_WEEKLY_LIMIT'].includes(response.code)
       });
     } finally {
       setBusy(false);
@@ -106,7 +106,7 @@ const WikiCompanyDossierComposer = ({
             <input aria-label="Company ticker" value={ticker} onChange={event => setTicker(event.target.value)} placeholder="AMD" disabled={busy} />
           </label>
           <label>
-            Starting judgment
+            Your view (optional)
             <textarea
               aria-label="Starting investment judgment"
               value={startingJudgment}
@@ -126,7 +126,7 @@ const WikiCompanyDossierComposer = ({
               <span><input aria-label="Investment horizon" type="number" min="1" max="20" step="1" value={horizonYears} onChange={event => setHorizonYears(event.target.value)} disabled={busy} /> years</span>
             </label>
           </div>
-          <Button type="submit" disabled={busy || !ticker.trim() || startingJudgment.trim().length < 20}>
+          <Button type="submit" disabled={busy || !ticker.trim()}>
             {busy ? 'Attaching SEC filings…' : 'Create dossier'}
           </Button>
           {status ? <p className="wiki-company-dossier__status" role="status">{status}</p> : null}

@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const {
   BUILD_KIND,
   createDossierBuildRun,
+  dossierBuildAllowance,
   finishDossierBuildRun,
   recordDossierBuildStage,
   recoverInterruptedDossierBuilds,
@@ -217,6 +218,28 @@ const run = async () => {
   assert.equal(recovered.recovered, 1);
   assert.equal(pageUpdates[0].update.$set['aiState.errorCode'], 'WIKI_BUILD_INTERRUPTED');
   assert.match(pageUpdates[0].update.$set['aiState.lastError'], /Resume it/);
+
+  // Three builds a week: the fourth waits for the oldest to age out, while
+  // rejoining a page's running build never counts.
+  const started = ['2026-07-20T09:00:00Z', '2026-07-22T09:00:00Z', '2026-07-24T09:00:00Z'];
+  let query = null;
+  const Weekly = {
+    exists: async filter => filter.pageId === 'running-page',
+    find: filter => {
+      query = filter;
+      const chain = { sort: () => chain, limit: () => chain, select: () => chain, lean: async () => started.map(startedAt => ({ startedAt })) };
+      return chain;
+    }
+  };
+  const now = new Date('2026-07-25T12:00:00Z');
+  const capped = await dossierBuildAllowance({ WikiMaintenanceRun: Weekly, userId: 'u1', now });
+  assert.equal(capped.allowed, false);
+  assert.equal(capped.opensAt.toISOString(), '2026-07-27T09:00:00.000Z');
+  assert.match(capped.error, /built 3 dossiers this week\. The next one opens Monday, July 27\./);
+  assert.deepEqual(query['metadata.interrupted'], { $ne: true });
+  assert.equal((await dossierBuildAllowance({ WikiMaintenanceRun: Weekly, userId: 'u1', pageId: 'running-page', now })).allowed, true);
+  started.pop();
+  assert.equal((await dossierBuildAllowance({ WikiMaintenanceRun: Weekly, userId: 'u1', now })).allowed, true);
 };
 
 run()

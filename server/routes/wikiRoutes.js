@@ -101,6 +101,7 @@ const {
 const { runWikiMaintenanceCandidate } = require('../services/wikiMaintenancePublicationService');
 const {
   createDossierBuildRun,
+  dossierBuildAllowance,
   finishDossierBuildRun,
   isCompanyDossier,
   recordDossierBuildStage,
@@ -3829,7 +3830,9 @@ const buildWikiRouter = ({
           return review.status === 'needs_review' && !reviewExpired(raw, Date.now());
         }
         if (qualityFilter === 'blocked') return review.surfaceEligible === false;
-        if (includeLowQuality) return true;
+        // A dossier is research its owner asked for; it stays in their list
+        // while its review is still out.
+        if (includeLowQuality || raw.investmentDossier?.version) return true;
         return review.surfaceEligible !== false;
       }).map(({ raw, value }) => (
         qualityFilter === 'needs_review'
@@ -4108,6 +4111,10 @@ const buildWikiRouter = ({
         });
       }
 
+      const allowance = await dossierBuildAllowance({ WikiMaintenanceRun, userId: req.user.id });
+      if (!allowance.allowed) {
+        return res.status(409).json({ error: allowance.error, code: 'DOSSIER_WEEKLY_LIMIT', opensAt: allowance.opensAt });
+      }
       const title = normalizeTitle(`${company.companyName || company.ticker} investment dossier`);
       const body = buildCompanyDossierBody({ ...input, ...company });
       const page = new WikiPage({
@@ -7611,6 +7618,12 @@ const buildWikiRouter = ({
         });
         res.end();
         return;
+      }
+      if (isCompanyDossier(page)) {
+        const allowance = await dossierBuildAllowance({ WikiMaintenanceRun, userId: req.user.id, pageId: page._id });
+        if (!allowance.allowed) {
+          return res.status(409).json({ error: allowance.error, code: 'DOSSIER_WEEKLY_LIMIT', opensAt: allowance.opensAt });
+        }
       }
       activeStreamKey = `${serializeId(req.user.id)}:${serializeId(page._id)}`;
       if (activeWikiDraftStreams.has(activeStreamKey) && !isCompanyDossier(page)) {

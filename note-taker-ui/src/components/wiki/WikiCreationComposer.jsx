@@ -18,12 +18,12 @@ const CREATION_MODES = [
   {
     id: 'dossier',
     label: 'Investment dossier',
-    description: 'Start company research from free SEC filings and your judgment.'
+    description: 'Track a public company from its SEC filings, checked figure by figure.'
   }
 ];
 
-const WikiCreationComposer = ({ className = '' }) => {
-  const [mode, setMode] = useState('wiki');
+const WikiCreationComposer = ({ className = '', initialMode = 'wiki' }) => {
+  const [mode, setMode] = useState(initialMode);
   const [busyMode, setBusyMode] = useState('');
   const selected = CREATION_MODES.find(item => item.id === mode) || CREATION_MODES[0];
 
