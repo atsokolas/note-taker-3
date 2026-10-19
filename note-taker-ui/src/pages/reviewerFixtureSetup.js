@@ -12,6 +12,20 @@ const canonical = value => Array.isArray(value) ? `[${value.map(canonical).join(
   : value && typeof value === 'object' ? `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`
     : JSON.stringify(value);
 
+const readerNoteReceipt = (owner, source, highlight) => {
+  if (validId(idOf(highlight)) && highlight.text === plan.highlight.text) {
+    if (highlight.note === plan.highlight.note && (highlight.noteRevision === undefined || highlight.noteRevision === 0)) {
+      return { readerNoteHash: plan.highlight.noteHash, readerNoteRevision: 0 };
+    }
+    const append = plan.highlight.reviewedAppend;
+    if (owner === plan.edition.ownerId && idOf(source) === append.sourceId && idOf(highlight) === append.highlightId
+      && highlight.note === `${plan.highlight.note}\n\n${append.text}` && highlight.noteRevision === append.noteRevision) {
+      return { readerNoteHash: append.noteHash, readerNoteRevision: append.noteRevision };
+    }
+  }
+  throw pause('The saved highlight differs or is duplicated. It was preserved.');
+};
+
 export const editionFixturePayload = () => ({
   ...plan.edition.issue, profile: plan.edition.profile.key,
   items: [{ ...plan.edition.item, title: plan.sources[0].title, url: plan.sources[0].url,
@@ -131,10 +145,11 @@ export const createFixtureSession = ({ client, storage, locks }) => {
     if ((sources[0]?.highlights || []).length !== matchingHighlights.length || (sources[1]?.highlights || []).length) {
       throw pause('An existing fixture source has unexpected highlights. They were preserved.');
     }
-    if (matchingHighlights.length > 1 || matchingHighlights.some(row => row.note !== plan.highlight.note || !validId(idOf(row)))) {
+    if (matchingHighlights.length > 1) {
       throw pause('The saved highlight differs or is duplicated. It was preserved.');
     }
     const highlight = matchingHighlights[0] || null;
+    if (highlight) readerNoteReceipt(owner, sources[0], highlight);
     const candidates = (await client.pages()).filter(row => row.title === plan.wiki.readbackTitle);
     if (candidates.length > 1) throw pause('Duplicate fixture Wiki pages need review; setup is paused.');
     const wiki = candidates.length ? checkPage(await client.page(idOf(candidates[0])), sources) : null;
@@ -306,6 +321,7 @@ export const editionFixtureReceipt = state => {
     windowStart: state.edition.issue.windowStart, windowEnd: state.edition.issue.windowEnd,
     baselineItem: state.edition.issue.items[0], existingSourceId: idOf(state.sources[0]),
     sourceContentHash: plan.sources[0].contentHash, passageHash: plan.highlight.textHash,
+    ...readerNoteReceipt(state.identity.userId, state.sources[0], state.highlight),
     setupInference: 'no_inference_route_called', schedule: 'not_created', sharing: 'not_requested',
     passageVerification: 'unchecked_until_reader_save', connectorAcceptance: 'not_run' };
 };
@@ -318,7 +334,7 @@ export const fixtureReceipt = state => {
   sourceIds: state.sources.map(source => source ? idOf(source) : null),
   highlightId: state.highlight ? idOf(state.highlight) : null, wikiPageId: state.wiki ? idOf(state.wiki) : null,
   contentHashes: plan.sources.map(source => source.contentHash), highlightHash: plan.highlight.textHash,
-  readerNoteHash: plan.highlight.noteHash, wikiBodyHash: plan.wiki.bodyHash,
+  ...readerNoteReceipt(state.identity.userId, state.sources[0], state.highlight), wikiBodyHash: plan.wiki.bodyHash,
   wikiBodyFormat: 'exact_tiptap_doc',
   contentComparison: 'exact', sourceEvents: 'held_with_zero_attempts',
   setupInference: 'no_inference_route_called', connectorAcceptance: 'not_run'

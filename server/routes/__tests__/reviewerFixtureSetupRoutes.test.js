@@ -31,21 +31,22 @@ test.before(async () => {
   await models.TagMeta.collection.insertOne({ _id: new mongoose.Types.ObjectId(policy.identityConceptId), userId: new mongoose.Types.ObjectId(reviewer), name: 'Offline synthetic reviewer concept', isPublic: false });
 });
 test.after(async () => { await Promise.allSettled(pending); Object.assign(policy, originalPolicy); await mongoose.disconnect(); await mongo.stop(); });
-const response = () => ({ statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
+const response = () => ({ statusCode: 200, headers: {}, set(name, value) { this.headers[name] = value; return this; },
+  status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
 const handle = (router, path, method) => router.stack.find(layer => layer.route?.path === path && layer.route.methods[method]).route.stack.at(-1).handle;
 const authenticateToken = (_req, _res, next) => next();
 const track = promise => { pending.push(promise); return promise; };
 
 // Execute the actual browser workflow with offline API bindings. Removing only
 // ESM declarations avoids adding a browser compiler to the server test runtime.
-const fixtureWorkflow = api => {
+const fixtureWorkflow = (api, plan = fixturePlan) => {
   const filename = require('node:path').resolve(__dirname, '../../../note-taker-ui/src/pages/reviewerFixtureSetup.js');
   const source = require('node:fs').readFileSync(filename, 'utf8');
   assert.equal((source.match(/^import .*;$/gm) || []).length, 4);
   const program = source.replace(/^import .*;$/gm, '').replace(/export const /g, 'const ');
   return require('node:vm').compileFunction(`${program}\nreturn { createSetupClient, createFixtureSession, fixtureReceipt, editionFixtureReceipt };`,
     ['api', 'getAuthHeaders', 'plan', 'heldFixtureEvent'], { filename })(api,
-    () => ({ headers: { Authorization: 'Bearer OFFLINE_UNUSABLE' } }), fixturePlan, heldFixtureEvent);
+    () => ({ headers: { Authorization: 'Bearer OFFLINE_UNUSABLE' } }), plan, heldFixtureEvent);
 };
 test('existing owned concept read verifies only the exact enabled reviewer, without credentials or new access', async () => {
   const router = buildConceptMetaRouter({ authenticateToken, TagMeta: models.TagMeta, User: models.User, escapeRegExp: value => value });
@@ -192,8 +193,8 @@ test('actual core and Edition routes persist and reconcile lost responses withou
       return { data };
     }
   };
-  const workflow = fixtureWorkflow(api);
-  const client = workflow.createSetupClient(undefined, { origin: 'https://www.noeis.io', conceptId: policy.identityConceptId });
+  let workflow = fixtureWorkflow(api);
+  let client = workflow.createSetupClient(undefined, { origin: 'https://www.noeis.io', conceptId: policy.identityConceptId });
   const saved = new Map();
   const storage = { getItem: key => saved.get(key) || null, setItem: (key, value) => saved.set(key, value) };
   const locks = { request: async (_name, _options, callback) => callback({}) };
@@ -229,6 +230,24 @@ test('actual core and Edition routes persist and reconcile lost responses withou
   }
   alterRead = (_path, data) => data; await session().inspect(); calls.length = 0;
   const originalCoreJournal = saved.get(key);
+  const append = fixturePlan.highlight.reviewedAppend;
+  const appendedNote = `${fixturePlan.highlight.note}\n\n${append.text}`;
+  const thought = await invoke(highlights, '/articles/:articleId/highlights/:highlightId/thoughts', 'post', {
+    params: { articleId: complete.sources[0]._id, highlightId: complete.highlight._id },
+    body: { explicitlyRequested: true, thought: append.text, operationId: 'offline_p2_guard_regression',
+      expectedNoteHash: fixturePlan.highlight.noteHash, expectedNoteRevision: 0,
+      expectedPassageHash: fixturePlan.highlight.textHash }
+  });
+  assert.equal(thought.noteHash, append.noteHash); assert.equal(thought.noteRevision, 1);
+  // Bind the offline fixture's newly generated IDs to this same reviewed state.
+  // Production keeps the fixed source/highlight IDs in the bundled fixture plan.
+  workflow = fixtureWorkflow(api, { ...fixturePlan, highlight: { ...fixturePlan.highlight,
+    reviewedAppend: { ...append, sourceId: complete.sources[0]._id, highlightId: complete.highlight._id } } });
+  client = workflow.createSetupClient(undefined, { origin: 'https://www.noeis.io', conceptId: policy.identityConceptId });
+  const p2 = await session().inspect();
+  assert.equal(p2.highlight.note, appendedNote); assert.equal(p2.highlight.noteRevision, 1);
+  assert.equal(workflow.fixtureReceipt(p2).readerNoteHash, append.noteHash);
+  assert.equal(saved.get(key), originalCoreJournal); assert(calls.every(call => call.method === 'GET'));
   const originalArticleCount = await models.Article.countDocuments({ userId: reviewer });
   const originalEventCount = await models.WikiSourceEvent.countDocuments({ userId: reviewer });
   loseReply = '/api/edition-profiles';
@@ -246,10 +265,16 @@ test('actual core and Edition routes persist and reconcile lost responses withou
   assert.equal(edition.edition.issue.items[0].passage, fixturePlan.highlight.text);
   assert.equal(edition.edition.issue.items[0].passageCheck, 'unchecked');
   assert.equal(workflow.editionFixtureReceipt(edition).editionId, edition.edition.issue._id);
+  assert.equal(workflow.editionFixtureReceipt(edition).readerNoteHash, append.noteHash);
+  assert.equal(workflow.editionFixtureReceipt(edition).readerNoteRevision, 1);
   await session().runEdition(); assert(calls.every(call => call.method === 'GET'));
   assert.equal(saved.get(key), originalCoreJournal);
   assert.equal(await models.Article.countDocuments({ userId: reviewer }), originalArticleCount);
   assert.equal(await models.WikiSourceEvent.countDocuments({ userId: reviewer }), originalEventCount);
+  const persistedArticle = await models.Article.findById(complete.sources[0]._id);
+  assert.equal(persistedArticle.highlights.id(complete.highlight._id).note, appendedNote);
+  assert.equal(persistedArticle.highlights.id(complete.highlight._id).noteRevision, 1);
+  assert.equal(persistedArticle.highlights.id(complete.highlight._id).thoughtOperations.length, 1);
   const editionKey = `${key}.edition`; const editionJournal = saved.get(editionKey);
   for (const change of [
     data => { data.items[0].passage = 'Changed source words'; },
