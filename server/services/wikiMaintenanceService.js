@@ -1270,7 +1270,7 @@ Investment dossier rules:
 - For each source not attached, say plainly in the relevant section that it could not be found (use those words), and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
 - Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused. Write a figure as precisely as the source states it, never more: the filing's "$15.6 billion" stays "$15.6 billion", never "$15,606 million".
 - For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it, and give its latest quarter alongside any year-to-date total. A figure from an older period cites the filing that reports it, and is compared only with the same length of period ("first half against first half", never a half-year against nine months).
-- A market value is the dated price times the shares outstanding stated in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity. Use the cover share count alone, not a weighted-average count beside it, and count every class of common stock: pricing one class alone understates the company. Where classes differ in worth, convert at the ratio the filing states; with no stated ratio, say the total is a sensitivity.
+- A market value is the dated price times the shares outstanding on the filing cover or in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity. Use the cover share count alone, not a weighted-average count beside it, and count every class of common stock: pricing one class alone understates the company. Where classes differ in worth, convert at the ratio the filing states; with no stated ratio, say the total is a sensitivity. A segment's operating result keeps its sign: a segment that lost money is never described as profitable.
 - State the latest fiscal year's reported net income and diluted EPS from SEC Company Facts.
 - Use consolidated income-statement totals for margins and earnings; a segment total is named as one ("total segment operating income") and never called the company's total. Cite reported net income and EPS directly; never back into them.
 - Say a ratio as its number ("about 1.6x"), never as a word it is not ("roughly double"); when comparing two amounts, divide the larger by the smaller and name which is larger.
@@ -1554,6 +1554,7 @@ const DOSSIER_EDITOR_BRIEF = `Above are the sources and the brief the writer was
 - a sentence cut off mid-word: finish it from the sources or remove it;
 - a figure computed without its inputs beside it: write them in ("98% ($297.25bn / $303.15bn)");
 - a market value that counts only one class of common stock when the filing reports several: count every class, at the filing's conversion ratio where it states one;
+- a segment that lost money described as profitable: a segment's operating result keeps the filing's sign;
 - a figure worked out from a percentage when the filing states it (operating income, gross profit): use the stated figure; and a span of periods that does not match its figures ("the last four quarters" naming a fifth);
 - a figure more precise than its source ("$15,606 million" where the filing says "$15.6 billion"), or rounded to a different value (74.9% given as 75.0%): write it as the source does;
 - a figure cited to a source that does not state it: cite the one that does, and cite every filing a sentence draws on (an earlier quarter's figure cites that quarter's filing);
@@ -1707,11 +1708,16 @@ const extractSecFilingEvidenceText = (value = '', limit = SEC_FILING_EVIDENCE_TE
     windows.push(`[Filing excerpt: ${label}]\n${text.slice(safeStart, Math.min(safeEnd, safeStart + remaining))}`);
   };
   addWindow({ start: 0, end: 2400, label: 'filing identity and period' });
+  // The cover states every class's outstanding share count; a market value
+  // needs all of them, and Company Facts omits them for some filers.
+  const cover = text.slice(0, 20000).search(/\b(?:latest practicable date|registrant had [\d,]+ shares|shares of (?:the registrant['’]s )?(?:Class [A-Z] )?common stock outstanding)/i);
+  if (cover >= 0) addWindow({ start: Math.max(cover - 200, 2400), end: cover + 900, label: 'shares outstanding on the cover' });
   [
     // Most decision-bearing first: windows are taken in this order until the
     // excerpt is full, so a long 10-Q keeps its results, buybacks and
     // concentration before its descriptions.
     ['results of operations', /\b(?:management['’]s discussion and analysis|results of operations)\b/ig],
+    ['segment results', /\b(?:segment operating (?:income|loss)|operating (?:income|loss) by segment|reportable segments?)\b/ig],
     ['revenue and cost structure', /\b(?:cost of revenue|gross profit|gross margin|operating loss)\b/ig],
     // The reported rows, with prior years, and the year's renewal rate.
     ['membership fees and renewal', /\bmembership fees \$|\brenewal rates? (?:was|were|of)\b/ig],

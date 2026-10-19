@@ -1233,6 +1233,19 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     ]);
   });
 
+  it('carries every class on the cover and the segment results', () => {
+    const filler = count => 'lorem ipsum '.repeat(count);
+    const filing = `${filler(400)} Indicate the number of shares outstanding of each of the issuer's classes of common stock, as of the latest practicable date. As of July 28, 2026, the registrant had 7,696,293,669 shares of Class A common stock and 5,485,486,276 shares of Class B common stock outstanding. ${filler(3000)} Space segment operating loss was $(1,204) million ${filler(20000)}`;
+    const excerpt = __testables.extractSecFilingEvidenceText(filing);
+    expect(excerpt).toContain('[Filing excerpt: shares outstanding on the cover]');
+    expect(excerpt).toContain('7,696,293,669 shares of Class A common stock and 5,485,486,276 shares of Class B');
+    expect(excerpt).toContain('Space segment operating loss was $(1,204) million');
+
+    // A cover that straddles the identity window keeps its later classes.
+    const straddling = `${'x'.repeat(2300)} As of July 28, 2026, the registrant had ${'7,696,293,669 shares of Class A common stock, '.repeat(3)}and 5,485,486,276 shares of Class B common stock outstanding. ${filler(20000)}`;
+    expect(__testables.extractSecFilingEvidenceText(straddling)).toContain('5,485,486,276 shares of Class B');
+  });
+
   it('carries a membership business\'s reported fee rows and renewal rate', () => {
     const filler = count => 'lorem ipsum '.repeat(count);
     const filing = `${filler(300)} Membership fee revenue increased 11% ${filler(2000)} Membership fees $ 5,907 $ 5,323 $ 4,828 ${filler(2000)} Our worldwide renewal rate was 89.8% ${filler(20000)}`;
