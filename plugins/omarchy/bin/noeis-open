@@ -14,16 +14,19 @@ set -euo pipefail
 
 APP=${NOEIS_APP_URL:-https://www.noeis.io}
 API=${NOEIS_API_URL:-https://note-taker-3-unrg.onrender.com}
+# https only, as in the shell (Model.httpsOr); curl refuses anything else.
+[[ $APP == https://* ]] || APP=https://www.noeis.io
 SESSION=${XDG_CONFIG_HOME:-$HOME/.config}/noeis/omarchy.json
 COLORS=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/current/theme/colors.toml
 
 # The theme as the fragment noeis.io reads: its own names for Omarchy's.
+# Only hex colours pass, since the fragment ends up inside a command line.
 theme() {
   [[ -f $COLORS ]] || return 0
   awk -F' *= *' '
     BEGIN { split("background=background foreground=foreground accent=accent red=color1 green=color2 yellow=color3", pairs, " ")
             for (i in pairs) { split(pairs[i], kv, "="); name[kv[1]] = kv[2] } }
-    $1 in name { gsub(/[" #]/, "", $2); printf "&%s=%s", name[$1], $2 }' "$COLORS" | sed 's/^/#omarchy-colors/'
+    $1 in name { gsub(/[" #]/, "", $2); if ($2 ~ /^[0-9A-Fa-f]{6}$/) printf "&%s=%s", name[$1], $2 }' "$COLORS" | sed 's/^/#omarchy-colors/'
 }
 
 # The app window's class carries noeis.io's host (chrome-www.noeis.io__-Default),
@@ -35,9 +38,12 @@ web() {
   exec omarchy-launch-or-focus "${host%.*}" "omarchy-launch-webapp '$APP/$(theme)'"
 }
 
-# A notification; the rest of the line is what its click runs.
+# A notification; the rest of the line is what its click runs. Its body is
+# markup to the shell, so the text is escaped.
 say() {
-  local urgency=$1 text=$2
+  local urgency=$1 text=${2//&/&amp;}
+  text=${text//</&lt;}
+  text=${text//>/&gt;}
   shift 2
   omarchy-notification-send --app-name Noeis -u "$urgency" Noeis "$text" ${1:+--exec} "$@"
 }
@@ -46,11 +52,13 @@ bring() {
   local token reply
   token=$(jq -r '.token // empty' "$SESSION" 2>/dev/null) || true
   [[ -n $token ]] || { say normal "Connect Noeis from its panel first, then open it again." omarchy-shell shell toggle io.noeis; exit 1; }
-  # The token goes to curl on stdin, never in its arguments.
-  if reply=$(printf 'Authorization: Bearer %s\n' "$token" | curl -fsS -H @- -F "files=@$1" "$API/api/import/files" 2>&1); then
+  # The token goes to curl on stdin, never in its arguments. https only, with
+  # a deadline, and the answer (a receipt) held to a megabyte.
+  if reply=$(printf 'Authorization: Bearer %s\n' "$token" | curl -fsS --proto =https --proto-redir =https \
+    --connect-timeout 15 --max-time 600 --max-filesize 1048576 -H @- -F "files=@$1" "$API/api/import/files" 2>&1); then
     say low "In your Library: $(basename "$1")" omarchy-shell noeis read
   else
-    say normal "Noeis could not bring $(basename "$1") in. $reply"
+    say normal "Noeis could not bring $(basename "$1") in. ${reply:0:300}"
     exit 1
   fi
 }
