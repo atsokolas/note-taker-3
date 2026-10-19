@@ -1459,7 +1459,7 @@ const buildImportRouter = ({
   };
 
   /* One door for every export file: Kindle, Apple Books, Pocket, Instapaper,
-     Readwise CSV, folders of Markdown from Notion or Obsidian, and EPUB books. The files
+     Readwise CSV, folders of Markdown from Notion or Obsidian, EPUB books and PDFs. The files
      are read by services/import/exportFiles into sources and notes; this lands
      them. Safe to repeat: a source is found again by its address, a highlight
      by its words, a note by its path, and nothing is added twice. */
@@ -1471,7 +1471,8 @@ const buildImportRouter = ({
     instapaper: 'article',
     readwise: 'source',
     markdown: 'note',
-    epub: 'book'
+    epub: 'book',
+    pdf: 'document'
   };
   const sameText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -1759,7 +1760,7 @@ const buildImportRouter = ({
         }
       });
 
-      const parsed = readable.map(parseExportFile);
+      const parsed = await Promise.all(readable.map(file => parseExportFile(file)));
       const formats = [...new Set(parsed.map(result => result.format).filter(format => format !== 'unknown'))];
       const sources = parsed.flatMap(result => result.sources.map(source => ({ ...source, provider: result.format })));
       const notes = parsed.flatMap(result => result.notes || []);
