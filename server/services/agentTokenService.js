@@ -177,6 +177,7 @@ module.exports = {
   AGENT_TOKEN_PREFIX,
   AGENT_TOKEN_SCOPES,
   AGENT_TOKEN_SCOPE_SET,
+  getBearerToken,
   createAgentTokenSecret,
   hashAgentTokenSecret,
   normalizeAgentTokenScopes,
