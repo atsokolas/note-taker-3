@@ -1,8 +1,11 @@
 {
   "userId": "6acaddb425462ec49bd0866f",
   "identityConceptId": "6acb64742a6fed4f58c07ff6",
-  "pageId": "",
-  "sourceIds": [],
+  "pageId": "6ad52ccb13221be2170de3d1",
+  "sourceIds": [
+    "6ad5293ef118732bfdef3e09",
+    "6ad52cc713221be2170de38a"
+  ],
   "ledgerId": "noeis-openai-review-2026-10-11",
-  "evidence": "Owner verified by existing private-concept read and Render REVIEWER_IDENTITY at 2026-10-11T23:21:43.215640759Z: enabled noeis_openai_review owns 6acb64742a6fed4f58c07ff6. User-only holds; page/source IDs remain unverified and synchronous drafting stays closed."
+  "evidence": "Dedicated reviewer browser complete exact readback at 2026-10-18T20:48:48.694Z: owner/source/highlight/private Wiki IDs verified; source events held with zero attempts; no inference route called. Parent-held original receipt. Existing lifetime ledger and reviewer-only guard limits retained."
 }
