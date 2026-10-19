@@ -3889,12 +3889,12 @@ const evaluateWikiArticleQuality = ({
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
     if (pattern.test(plainText)) failures.push(`Article contains ${label}.`);
   });
-  // A written paragraph ends its sentence; one that stops on a word, a comma
-  // or an ellipsis was cut off ("under-disclosed by[2]").
+  // A written paragraph ends its sentence; one that stops anywhere else, or
+  // trails off in an ellipsis, was cut off ("under-disclosed by[2]").
   const unfinished = ((body || page?.body)?.content || [])
     .filter(node => node?.type === 'paragraph' && node.content?.some(child => child.marks?.some(mark => mark?.type === 'claim')))
     .map(toPlainText)
-    .filter(text => /(?:[A-Za-z,]|…|\.\.\.)$/.test(text));
+    .filter(text => !/(?<!\.\.)[.!?:]["'”’)\]]*$/.test(text));
   if (unfinished.length) {
     failures.push(`Article has sentences that stop before they end: ${unfinished.slice(0, 3).map(text => `"…${text.slice(-80)}"`).join('; ')}. Finish each from its sources or remove it.`);
   }
