@@ -5,11 +5,13 @@
   "version": "0.1.0",
   "author": "Noeis",
   "license": "ISC",
-  "description": "Save a link to read later and search your Noeis library, Wiki and views from the bar",
+  "description": "Read your Noeis nightstand in a tiled window, save links and highlighted text, and search your Library, Wiki and views",
   "kinds": [
+    "service",
     "bar-widget"
   ],
   "entryPoints": {
+    "service": "Service.qml",
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
@@ -17,6 +19,29 @@
     "description": "Save a link to read later and search your Noeis library, Wiki and views",
     "category": "Info",
     "allowMultiple": false,
-    "defaultSection": "right"
+    "defaultSection": "right",
+    "defaults": {
+      "evening": true,
+      "hour": 20
+    },
+    "schema": [
+      {
+        "key": "evening",
+        "type": "boolean",
+        "label": "What fits tonight",
+        "defaultValue": true,
+        "description": "A notification when short pieces wait on your nightstand. Clicking it opens the reading window."
+      },
+      {
+        "key": "hour",
+        "type": "integer",
+        "label": "At",
+        "min": 0,
+        "max": 23,
+        "step": 1,
+        "defaultValue": 20,
+        "description": "The hour it comes, on the clock."
+      }
+    ]
   }
 }
