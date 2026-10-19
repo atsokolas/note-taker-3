@@ -173,6 +173,7 @@ const LibrarySourceRow = React.memo(({
           aria-label={openLabelFor(source)}
           aria-current={selected ? 'true' : undefined}
           data-testid="library-source-open"
+          data-noeis-item
           onClick={() => {
             triggerReceipt();
             onOpenSource?.(source);

@@ -140,6 +140,7 @@ const LibraryArticleRow = React.memo(({
       type="button"
       aria-label={`Open in Reading Room: ${article.title || 'Untitled article'}`}
       data-testid="library-article-open"
+      data-noeis-item
       onClick={() => {
         triggerReceipt();
         onSelectArticle(article._id);

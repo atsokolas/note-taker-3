@@ -2,6 +2,7 @@ import React from 'react';
 import * as router from 'react-router-dom';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import Judgment from './Judgment';
+import { openFocusedItem, walkItems } from '../navigation/appNavigation';
 import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import {
   createWikiPage,
@@ -134,6 +135,23 @@ describe('the index', () => {
     expect(screen.getByRole('link', { name: 'Set aside' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Record' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'The Mirror' })).toBeInTheDocument();
+  });
+
+  /* J and K walk the views from the keyboard, and Enter opens the one you
+     are on: the room only marks its list, the app does the walking. */
+  it('lets the keyboard walk the views and open one', async () => {
+    listWikiPages.mockResolvedValue([viewPage(), { ...viewPage(), _id: 'view-2', title: 'Rates stay high.', judgment: { ...viewPage().judgment, currentJudgment: 'Rates stay high.' } }]);
+    openIndex();
+    const first = await screen.findByRole('link', { name: CLAIM });
+    const second = screen.getByRole('link', { name: 'Rates stay high.' });
+    const opened = jest.fn(event => event.preventDefault());
+    second.addEventListener('click', opened);
+    walkItems(1);
+    expect(first).toHaveFocus();
+    walkItems(1);
+    expect(second).toHaveFocus();
+    openFocusedItem();
+    expect(opened).toHaveBeenCalledTimes(1);
   });
 });
 

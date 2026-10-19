@@ -1,13 +1,16 @@
 import React, { useEffect } from 'react';
-import { NOEIS_GO_TO_SHORTCUTS } from '../navigation/appNavigation';
+import { NOEIS_GO_TO_SHORTCUTS, NOEIS_MOVES } from '../navigation/appNavigation';
 
 /**
  * KeyboardShortcutOverlay — modal that lists every global shortcut.
  * Triggered globally by `?` (handled in App.js).
  *
- * Go-to destinations are projected from the same contract used by App.js.
- * The overlay describes that behavior; it does not maintain a second list.
+ * Go-to destinations and moves are projected from the same contract used by
+ * App.js. The overlay describes that behavior; it does not maintain a second list.
  */
+const CAPS = { ArrowLeft: '←', ArrowRight: '→' };
+const capOf = key => CAPS[key] || (key.length === 1 ? key.toUpperCase() : key);
+
 const SECTIONS = [
   {
     title: 'Anywhere',
@@ -24,6 +27,13 @@ const SECTIONS = [
       keys: ['G', item.key.toUpperCase()],
       label: item.label,
       sequential: true
+    }))
+  },
+  {
+    title: 'Moving around',
+    items: NOEIS_MOVES.map(item => ({
+      keys: [...(item.alt ? ['Alt'] : []), capOf(item.key)],
+      label: item.label
     }))
   },
   {
@@ -83,7 +93,7 @@ const KeyboardShortcutOverlay = ({ open, onClose }) => {
               <h4 className="kbd-overlay__section-title">{section.title}</h4>
               <ul className="kbd-overlay__list">
                 {section.items.map((item) => (
-                  <li key={item.label} className="kbd-overlay__row">
+                  <li key={`${item.label}-${item.keys.join('+')}`} className="kbd-overlay__row">
                     <span className="kbd-overlay__row-label">{item.label}</span>
                     <span className="kbd-overlay__row-keys">
                       {item.keys.map((k, i) => (

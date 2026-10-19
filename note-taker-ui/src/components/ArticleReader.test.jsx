@@ -156,24 +156,24 @@ describe('ArticleReader', () => {
       <ArticleReader article={{ _id: 'article-1', title: 'A real source', content: '<p>One.</p><p>Two.</p><p>Three.</p>' }} highlights={[]} onNext={onNext} />
     </MemoryRouter>);
     const here = () => document.querySelector('.is-reader-here')?.textContent;
-    fireEvent.keyDown(window, { key: 'j' });
+    fireEvent.keyDown(document, { key: 'j' });
     expect(here()).toBe('One.');
-    fireEvent.keyDown(window, { key: 'J' });
-    fireEvent.keyDown(window, { key: 'j' });
-    fireEvent.keyDown(window, { key: 'j' });
+    fireEvent.keyDown(document, { key: 'J' });
+    fireEvent.keyDown(document, { key: 'j' });
+    fireEvent.keyDown(document, { key: 'j' });
     expect(here()).toBe('Three.');
-    fireEvent.keyDown(window, { key: 'k' });
+    fireEvent.keyDown(document, { key: 'k' });
     expect(here()).toBe('Two.');
     expect(document.querySelectorAll('.is-reader-here')).toHaveLength(1);
-    fireEvent.keyDown(window, { key: 'n', metaKey: true });
+    fireEvent.keyDown(document, { key: 'n', metaKey: true });
     const input = document.createElement('input');
     document.body.appendChild(input);
     fireEvent.keyDown(input, { key: 'n' });
     input.remove();
     expect(onNext).not.toHaveBeenCalled();
-    fireEvent.keyDown(window, { key: 'n' });
+    fireEvent.keyDown(document, { key: 'n' });
     expect(onNext).toHaveBeenCalledTimes(1);
-    expect(() => fireEvent.keyDown(window, { key: 'p' })).not.toThrow();
+    expect(() => fireEvent.keyDown(document, { key: 'p' })).not.toThrow();
   });
 
   it('highlights on H only while a selection is open', async () => {
@@ -182,16 +182,16 @@ describe('ArticleReader', () => {
     const { rerender } = render(<MemoryRouter>
       <ArticleReader article={{ _id: 'article-1', title: 'A real source', content: '<p>One.</p>' }} highlights={[]} />
     </MemoryRouter>);
-    fireEvent.keyDown(window, { key: 'h', ctrlKey: true });
+    fireEvent.keyDown(document, { key: 'h', ctrlKey: true });
     expect(createHighlight).not.toHaveBeenCalled();
-    fireEvent.keyDown(window, { key: 'h' });
+    fireEvent.keyDown(document, { key: 'h' });
     await waitFor(() => expect(createHighlight).toHaveBeenCalledWith(expect.objectContaining({ text: 'One.' })));
     useTextSelection.mockReturnValue({ selectionState: { text: '', anchor: null, isOpen: false, rect: null }, clearSelection: jest.fn() });
     rerender(<MemoryRouter>
       <ArticleReader article={{ _id: 'article-1', title: 'A real source', content: '<p>One.</p>' }} highlights={[]} />
     </MemoryRouter>);
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Work with this passage' })).toBeNull());
-    fireEvent.keyDown(window, { key: 'h' });
+    fireEvent.keyDown(document, { key: 'h' });
     expect(createHighlight).toHaveBeenCalledTimes(1);
   });
 
@@ -207,7 +207,7 @@ describe('ArticleReader', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Read fresh' }));
     expect(screen.getByRole('button', { name: 'Show my work' })).toHaveAttribute('aria-pressed', 'true');
     expect(onOpenedSentence).toHaveBeenLastCalledWith('');
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape' });
     fireEvent.click(screen.getByRole('button', { name: 'Show my work' }));
     expect(screen.getByRole('textbox', { name: 'Your writing' })).toBe(writing);
     expect(writing).toHaveValue('Words worth keeping.');
