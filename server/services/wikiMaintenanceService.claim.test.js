@@ -284,6 +284,37 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(remapped.summary.citationIndexes).toEqual([1]);
   });
 
+  it('refuses a paragraph that stops before its sentence ends', () => {
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'SpaceX', pageType: 'concept' },
+      body: docFromArticle({
+        title: 'SpaceX',
+        article: {
+          summary: { text: 'Two customers made up 30.1% of revenue.', citationIndexes: [1] },
+          sections: [{
+            heading: 'Concentration',
+            paragraphs: [
+              { text: 'Customer concentration is material and under-disclosed by[2]' },
+              { text: 'Revenue rose from $90 million to $100' },
+              { text: 'The filing says the backlog "is subject to change."' },
+              { text: 'The trend is unclear...' }
+            ],
+            bullets: ['Customer A: 17.9%']
+          }]
+        }
+      }),
+      claims: [],
+      sourceRefs: [{ title: '10-Q', snippet: 'Customer A 17.9%' }, { title: '8-K', snippet: '' }]
+    });
+
+    const stops = quality.failures.filter(failure => /stop before they end/.test(failure));
+    expect(stops).toHaveLength(1);
+    expect(stops[0]).toMatch(/under-disclosed by"/);
+    expect(stops[0]).toMatch(/to \$100"/);
+    expect(stops[0]).toMatch(/unclear\.\.\."/);
+    expect(stops[0]).not.toMatch(/subject to change/);
+  });
+
   it('defers ordinary durable-id enforcement until the persisted quality pass', () => {
     const input = {
       page: { title: 'Investing', pageType: 'concept' },
