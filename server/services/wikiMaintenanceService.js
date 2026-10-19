@@ -1711,7 +1711,7 @@ const extractSecFilingEvidenceText = (value = '', limit = SEC_FILING_EVIDENCE_TE
   // The cover states every class's outstanding share count; a market value
   // needs all of them, and Company Facts omits them for some filers.
   const cover = text.slice(0, 20000).search(/\b(?:latest practicable date|registrant had [\d,]+ shares|shares of (?:the registrant['’]s )?(?:Class [A-Z] )?common stock outstanding)/i);
-  if (cover >= 0) addWindow({ start: cover - 200, end: cover + 900, label: 'shares outstanding on the cover' });
+  if (cover >= 0) addWindow({ start: Math.max(cover - 200, 2400), end: cover + 900, label: 'shares outstanding on the cover' });
   [
     // Most decision-bearing first: windows are taken in this order until the
     // excerpt is full, so a long 10-Q keeps its results, buybacks and

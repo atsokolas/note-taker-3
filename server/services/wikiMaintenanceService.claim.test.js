@@ -1240,6 +1240,10 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(excerpt).toContain('[Filing excerpt: shares outstanding on the cover]');
     expect(excerpt).toContain('7,696,293,669 shares of Class A common stock and 5,485,486,276 shares of Class B');
     expect(excerpt).toContain('Space segment operating loss was $(1,204) million');
+
+    // A cover that straddles the identity window keeps its later classes.
+    const straddling = `${'x'.repeat(2300)} As of July 28, 2026, the registrant had ${'7,696,293,669 shares of Class A common stock, '.repeat(3)}and 5,485,486,276 shares of Class B common stock outstanding. ${filler(20000)}`;
+    expect(__testables.extractSecFilingEvidenceText(straddling)).toContain('5,485,486,276 shares of Class B');
   });
 
   it('carries a membership business\'s reported fee rows and renewal rate', () => {
