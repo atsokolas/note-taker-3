@@ -93,7 +93,7 @@ const bareLinks = (articles = []) => articles
 
 const buildImportRouter = ({
   authenticateToken,
-  // Bringing in a link or a file also takes a token that may do little else (`capture`).
+  // Bringing in a link, a file or a piece of text also takes a token that may do little else (`capture`).
   authenticateCapture = authenticateToken,
   isAccountActive = async () => false,
   upload,
@@ -272,7 +272,7 @@ const buildImportRouter = ({
     return { article, sourceEvent, isNew };
   };
 
-  router.post('/api/import/text', authenticateToken, async (req, res) => {
+  router.post('/api/import/text', authenticateCapture, async (req, res) => {
     try {
       const userId = req.user.id;
       const text = normalizeIngestText(req.body?.text);
