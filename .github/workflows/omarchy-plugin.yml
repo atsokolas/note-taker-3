@@ -2,7 +2,7 @@
 #   omarchy plugin add https://github.com/atsokolas/omarchy-noeis --enable
 # This repository's root is the Chrome extension, which `omarchy plugin add`
 # cannot read as a plugin. Each push to main that touches the plugin or the
-# extension publishes plugins/omarchy, with the packed extension beside it
+# extension publishes plugins/omarchy, with the packed extension in browser/chromium
 # for noeis-setup to load into Chromium.
 #
 # Needs a deploy key with write access on atsokolas/omarchy-noeis, stored
@@ -39,7 +39,7 @@ jobs:
           export GIT_SSH_COMMAND="ssh -i ~/.ssh_key -o StrictHostKeyChecking=accept-new"
           git clone git@github.com:atsokolas/omarchy-noeis.git out
           rsync -a --delete --exclude .git plugins/omarchy/ out/
-          cp -r dist/extension out/extension
+          mkdir -p out/browser && cp -r dist/extension out/browser/chromium
           cd out
           git add -A
           git diff --cached --quiet && exit 0
