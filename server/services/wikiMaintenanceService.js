@@ -1269,8 +1269,8 @@ Investment dossier rules:
 - Not attached: ${(plan.missingEvidenceArchetypes || []).map(describeEvidence).join('; ') || 'nothing'}.
 - For each source not attached, say plainly in the relevant section that it could not be found (use those words), and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
 - Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused. Write a figure as precisely as the source states it, never more: the filing's "$15.6 billion" stays "$15.6 billion", never "$15,606 million".
-- For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it, and give its latest quarter alongside any year-to-date total. A figure from an older period cites the filing that reports it, and is compared only with the same length of period ("first half against first half", never a half-year against nine months).
-- A market value is the dated price times the shares outstanding on the filing cover or in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity. Use the cover share count alone, not a weighted-average count beside it, and count every class of common stock: pricing one class alone understates the company. Where classes differ in worth, convert at the ratio the filing states; with no stated ratio, say the total is a sensitivity. A segment's operating result keeps its sign: a segment that lost money is never described as profitable.
+- For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it, and give its latest quarter alongside any year-to-date total. A figure from an older period cites the filing that reports it, and is compared only with the same length of period ("first half against first half", never a half-year against nine months). A balance (cash, debt, backlog) is the latest balance sheet's figure wherever it appears, the opening included; a figure from another date carries that date.
+- A market value is the dated price times the shares outstanding on the filing cover or in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity. Use the cover share count alone, not a weighted-average count beside it, and count every class of common stock: pricing one class alone understates the company. Where classes differ in worth, convert at the ratio the filing states; with no stated ratio, say the total is a sensitivity. A segment's operating result keeps its sign: a segment that lost money is never described as profitable, and a margin that fell is never described as expanding.
 - State the latest fiscal year's reported net income and diluted EPS from SEC Company Facts.
 - Use consolidated income-statement totals for margins and earnings; a segment total is named as one ("total segment operating income") and never called the company's total. Cite reported net income and EPS directly; never back into them.
 - Say a ratio as its number ("about 1.6x"), never as a word it is not ("roughly double"); when comparing two amounts, divide the larger by the smaller and name which is larger.
@@ -1551,10 +1551,11 @@ const DOSSIER_EDITOR_BRIEF = `Above are the sources and the brief the writer was
 - a comparison that names the wrong side as larger, or a ratio called by a word it is not ("double" for 1.6x);
 - two totals called a discrepancy when the line items reconcile them;
 - a paragraph that repeats another;
-- a sentence cut off mid-word: finish it from the sources or remove it;
+- a sentence that stops before it ends ("under-disclosed by"): finish it from the sources or remove it;
+- a balance (cash, debt, backlog) in the opening or a summary that differs from the latest balance sheet's: use the balance sheet's, or give the other figure its date;
 - a figure computed without its inputs beside it: write them in ("98% ($297.25bn / $303.15bn)");
 - a market value that counts only one class of common stock when the filing reports several: count every class, at the filing's conversion ratio where it states one;
-- a segment that lost money described as profitable: a segment's operating result keeps the filing's sign;
+- a segment that lost money described as profitable, or a margin that fell described as expanding: keep the filing's direction;
 - a figure worked out from a percentage when the filing states it (operating income, gross profit): use the stated figure; and a span of periods that does not match its figures ("the last four quarters" naming a fifth);
 - a figure more precise than its source ("$15,606 million" where the filing says "$15.6 billion"), or rounded to a different value (74.9% given as 75.0%): write it as the source does;
 - a figure cited to a source that does not state it: cite the one that does, and cite every filing a sentence draws on (an earlier quarter's figure cites that quarter's filing);
@@ -3888,6 +3889,15 @@ const evaluateWikiArticleQuality = ({
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
     if (pattern.test(plainText)) failures.push(`Article contains ${label}.`);
   });
+  // A written paragraph ends its sentence; one that stops on a word, a comma
+  // or an ellipsis was cut off ("under-disclosed by[2]").
+  const unfinished = ((body || page?.body)?.content || [])
+    .filter(node => node?.type === 'paragraph' && node.content?.some(child => child.marks?.some(mark => mark?.type === 'claim')))
+    .map(toPlainText)
+    .filter(text => /(?:[A-Za-z,]|…|\.\.\.)$/.test(text));
+  if (unfinished.length) {
+    failures.push(`Article has sentences that stop before they end: ${unfinished.slice(0, 3).map(text => `"…${text.slice(-80)}"`).join('; ')}. Finish each from its sources or remove it.`);
+  }
   // A number is checked only against sources the writer was given the text
   // of; a citation to a source with no text is not evidence either way.
   unstatedFigureClaims = docClaims.flatMap((claim) => {
