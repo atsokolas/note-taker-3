@@ -1810,6 +1810,18 @@ const hydrateSecFilingCandidates = async ({
   }));
 };
 
+/* A page keeps only snippets of what it cites; the figure check needs the
+   text the build read. A later check of a built page (accepting a held
+   candidate, adopting a head) reloads that text the same way the build did. */
+const groundingSourceRefsForPage = async ({ page = {}, userId, models = {} } = {}) => groundingSourceRefsForCandidates({
+  sourceRefs: page?.sourceRefs,
+  candidates: await hydrateSecFilingCandidates({
+    candidates: collectExistingSourceCandidates({ page }),
+    userId,
+    models
+  })
+});
+
 const dedupeSourceRefs = (existing = [], next = []) => {
   const seen = new Set();
   return [...existing, ...next].filter((source) => {
@@ -5056,6 +5068,7 @@ const maintainWikiPage = async ({
 module.exports = {
   maintainWikiPage,
   evaluateWikiArticleQuality,
+  groundingSourceRefsForPage,
   isGitHubRepoPage,
   deriveClaimsFromDoc,
   buildSectionMaintenancePlan,

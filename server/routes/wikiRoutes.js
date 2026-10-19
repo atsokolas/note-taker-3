@@ -9,7 +9,8 @@ const mongoose = require('mongoose');
 const archiver = require('archiver');
 const {
   maintainWikiPage: defaultMaintainWikiPage,
-  evaluateWikiArticleQuality: defaultEvaluateWikiArticleQuality
+  evaluateWikiArticleQuality: defaultEvaluateWikiArticleQuality,
+  groundingSourceRefsForPage
 } = require('../services/wikiMaintenanceService');
 const { prepareOrdinaryWikiBuild: defaultPrepareOrdinaryWikiBuild } = require('../services/wikiBuildPreflightService');
 const {
@@ -4489,7 +4490,7 @@ const buildWikiRouter = ({
           page: revision.after,
           body: revision.after.body,
           claims: revision.after.claims || [],
-          sourceRefs: revision.after.sourceRefs || []
+          sourceRefs: await groundingSourceRefsForPage({ page: revision.after, userId: req.user.id, models: { WikiSourceEvent } })
         });
         if (!currentQuality?.ok) {
           return res.status(409).json({
@@ -4772,7 +4773,7 @@ const buildWikiRouter = ({
         page,
         body: page.body,
         claims: page.claims || [],
-        sourceRefs: page.sourceRefs || []
+        sourceRefs: await groundingSourceRefsForPage({ page: snapshotPage(page), userId: req.user.id, models: { WikiSourceEvent } })
       });
       if (!quality?.ok) {
         return res.status(409).json({

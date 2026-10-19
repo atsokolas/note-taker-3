@@ -72,6 +72,7 @@ const run = async () => {
   const pageId = new mongoose.Types.ObjectId().toString();
   const legacyPageId = new mongoose.Types.ObjectId().toString();
   const candidateId = new mongoose.Types.ObjectId().toString();
+  const filingEventId = new mongoose.Types.ObjectId().toString();
   const base = {
     _id: pageId,
     userId: ownerId,
@@ -83,7 +84,12 @@ const run = async () => {
     sourceScope: 'selected_sources',
     body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Private scaffold.' }] }] },
     plainText: 'Private scaffold.',
-    sourceRefs: [{ _id: new mongoose.Types.ObjectId().toString(), title: 'FAST 10-K' }],
+    sourceRefs: [{
+      _id: new mongoose.Types.ObjectId().toString(),
+      title: 'FAST 10-K',
+      snippet: 'Fastenal annual report.',
+      metadata: { source: 'sec-edgar', sourceEventId: filingEventId }
+    }],
     claims: [],
     citations: [],
     judgment: { kind: 'thesis', governingQuestion: 'Can FAST compound?', currentJudgment: 'FAST can compound.' },
@@ -144,6 +150,11 @@ const run = async () => {
   }]);
   const receipts = [];
   let candidateQualityPass = true;
+  let gradedSourceText = '';
+  // The page keeps a snippet; the filing text the build read lives on its event.
+  const WikiSourceEvent = {
+    find: () => new Query([{ _id: filingEventId, text: 'Net sales were $7,546.0 million in 2025.', metadata: {} }])
+  };
   const NoeisReceipt = {
     find: query => new Query(receipts.filter(record => matches(record, query))),
     findOne: query => new Query(receipts.find(record => matches(record, query)) || null),
@@ -165,8 +176,9 @@ const run = async () => {
     },
     WikiPage,
     WikiRevision,
+    WikiSourceEvent,
     NoeisReceipt,
-    evaluateWikiArticleQuality: () => ({
+    evaluateWikiArticleQuality: ({ sourceRefs }) => (gradedSourceText = sourceRefs.map(source => source.text || '').join(' '), {
       ok: candidateQualityPass,
       status: candidateQualityPass ? 'pass' : 'needs_rebuild',
       failures: candidateQualityPass ? [] : ['Numeric claim is not grounded in cited source text.'],
@@ -210,6 +222,7 @@ const run = async () => {
     const accepted = await request(`/api/wiki/pages/${pageId}/research-candidate/accept`, { method: 'POST' });
     assert.equal(accepted.response.status, 200, JSON.stringify(accepted.body));
     assert.equal(accepted.body.page.plainText, 'Accepted research candidate.');
+    assert.match(gradedSourceText, /\$7,546\.0 million/, 'Accept grades figures against the filing text the build read, not the stored snippet.');
     assert.equal(accepted.body.page.investmentDossier.firstHead.status, 'accepted');
     assert.equal(accepted.body.page.aiState.draftStatus, 'ready');
     assert.equal(accepted.body.page.aiState.lastError, '');
