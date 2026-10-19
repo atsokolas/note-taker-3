@@ -105,8 +105,9 @@ const buildHighlightMutationRouter = ({
         return res.status(404).json({ error: "Article not found or you do not have permission to add highlight." });
       }
       /* A passage typed at the desk may be one already marked on the Kindle,
-         or only its ends: the note joins the mark that is there. */
-      const held = typed ? absorbPassage(article.highlights, { text: typed, note: thought }) : null;
+         or only its ends: the note joins the mark that is there. A selection
+         in an article has its own anchor, and stays its own mark. */
+      const held = typed && !anchor ? absorbPassage(article.highlights, { text: typed, note: thought }) : null;
       if (held) {
         held.page = held.page || page;
         await article.save();

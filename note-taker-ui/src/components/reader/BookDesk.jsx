@@ -59,11 +59,12 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   const send = async (draft, tempId) => {
     try {
       const saved = await createHighlight({ articleId, ...draft });
-      const known = marks.some(mark => mark._id === saved._id);
+      const before = marks.find(mark => mark._id === saved._id);
+      const known = Boolean(before);
       onRemove?.(tempId);
       if (known) onReplace?.(saved._id, saved);
       else onAdd?.(saved);
-      sent.current.push(saved._id);
+      sent.current.push({ id: saved._id, before });
       setReceipt(receiptFor(draft, saved, known));
       if (draft.text && saved.text !== draft.text) setInked(saved._id);
       return true;
@@ -110,7 +111,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     setReceipt('');
     if (!text && !note) return;
     const quote = attach && note && [...sent.current].reverse()
-      .map(id => marks.find(mark => mark._id === id)).find(mark => mark?.text);
+      .map(({ id }) => marks.find(mark => mark._id === id)).find(mark => mark?.text);
     if (quote) {
       const saved = await updateHighlight({ articleId, highlightId: quote._id, payload: { note: joinNotes(quote.note, note) } })
         .catch(() => null);
@@ -127,12 +128,19 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     setReceipt('Kept on this device. It goes to Noeis when you are back online.');
   };
 
+  /* A line that made a mark is taken back by deleting it; one that joined a
+     mark already there gives that mark back its own note. */
   const takeBack = async () => {
-    const id = sent.current.pop();
+    const { id, before } = sent.current.pop() || {};
     const mark = marks.find(item => item._id === id);
     if (!mark) return;
-    await deleteHighlight({ articleId, highlightId: id }).catch(() => null);
-    onRemove?.(id);
+    if (before) {
+      await updateHighlight({ articleId, highlightId: id, payload: { note: before.note || '' } }).catch(() => null);
+      onReplace?.(id, before);
+    } else {
+      await deleteHighlight({ articleId, highlightId: id }).catch(() => null);
+      onRemove?.(id);
+    }
     setReceipt(`Took back “${(mark.text || mark.note).slice(0, 60)}”.`);
   };
 

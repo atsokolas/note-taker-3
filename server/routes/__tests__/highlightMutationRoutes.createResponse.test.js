@@ -93,6 +93,12 @@ describe('created highlight carries its article', () => {
     });
   });
 
+  test('a selection in an article stays its own mark when the sentence repeats', async () => {
+    const first = { _id: 'first', text: 'Proximity is expensive.', note: '', anchor: { start: 10 } };
+    const result = await createHighlight({ text: 'Proximity is expensive.', anchor: { start: 900, end: 923 } }, [first]);
+    expect(result.body.highlight._id).toBe('highlight-1');
+  });
+
   /* The update path answers from the document it just saved rather than reading
      the same row back. What it answers with still has to be the change. */
   test('an update answers with the saved highlight and its article', async () => {

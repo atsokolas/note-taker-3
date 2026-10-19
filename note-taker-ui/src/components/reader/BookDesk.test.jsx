@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import BookDesk from './BookDesk';
-import { createHighlight, updateHighlight } from '../../api/highlights';
+import { createHighlight, deleteHighlight, updateHighlight } from '../../api/highlights';
 
 jest.mock('../../api/highlights', () => ({
   createHighlight: jest.fn(),
@@ -73,6 +73,19 @@ test('the book finishes a quote you marked on the Kindle, and it stays one mark'
   await act(async () => keep());
   expect(createHighlight).toHaveBeenCalledWith({ articleId: 'book-1', text: KINDLE.text, note: '', page: 214 });
   expect(await screen.findByText('You marked this on your Kindle too. It is one mark now, with your note.')).toBeInTheDocument();
+  expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(1);
+});
+
+test('taking back a line that joined a Kindle mark gives the mark its own note back, never deletes it', async () => {
+  const noted = { ...KINDLE, note: 'first read' };
+  createHighlight.mockResolvedValue({ ...noted, page: 214 });
+  updateHighlight.mockResolvedValue(noted);
+  render(<Desk marks={[noted]} />);
+  type(`214 "${KINDLE.text}`);
+  await act(async () => keep());
+  fireEvent.keyDown(line(), { key: 'z', metaKey: true });
+  await waitFor(() => expect(updateHighlight).toHaveBeenCalledWith({ articleId: 'book-1', highlightId: 'k1', payload: { note: 'first read' } }));
+  expect(deleteHighlight).not.toHaveBeenCalled();
   expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(1);
 });
 

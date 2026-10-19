@@ -73,6 +73,9 @@ const normalizeSourcePath = (value = '') => {
   }
   return toTrimmedString(value);
 };
+/* A book already on the shelf, under any address an import gives it or by its title. */
+const bookOnShelf = (shelf, book) => shelf.find(item => [book.url, ...book.aliases].includes(item.url))
+  || shelf.find(item => sameWords(item.title) === sameWords(book.title));
 const NOTEBOOK_IMPORT_FOLDER_OWNERSHIP = 'import_mirror';
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
 const IMPORT_ORGANIZATION_SUGGESTION_TYPE = 'organize_import';
@@ -410,9 +413,7 @@ const buildImportRouter = ({
       const title = toTrimmedString(req.body?.title);
       if (!title) return res.status(400).json({ error: 'A book needs its title.' });
       const book = bookSource({ provider: BOOK, title, author: toTrimmedString(req.body?.author) });
-      const shelf = await Article.find({ userId, url: /^import:\/\// }).select('url title author');
-      const known = shelf.find(item => [book.url, ...book.aliases].includes(item.url))
-        || shelf.find(item => sameWords(item.title) === sameWords(book.title));
+      const known = bookOnShelf(await Article.find({ userId, url: /^import:\/\// }).select('url title author'), book);
       if (known) return res.status(200).json({ article: known, existing: true });
       const article = await Article.create({
         userId,
@@ -2342,6 +2343,7 @@ const buildImportRouter = ({
     let duplicateSkips = 0;
     let invalidSkips = 0;
     const articleCache = new Map();
+    let shelf = null;
     const dirtyArticles = new Set();
     const pendingHighlightRefs = [];
     const pendingCorrections = [];
@@ -2371,6 +2373,12 @@ const buildImportRouter = ({
       let article = articleCache.get(url);
       if (!article) {
         article = await Article.findOne({ userId, url });
+        // A book with no web address may already be on the shelf, started at the desk or imported from a file.
+        if (!article && !sourceUrl && metadataTitle) {
+          shelf ||= await Article.find({ userId, url: /^import:\/\// }).select('url title');
+          const known = bookOnShelf(shelf, bookSource({ provider: 'readwise', title: metadataTitle, author }));
+          if (known) article = await Article.findById(known._id);
+        }
         if (!article) {
           article = new Article({
             url,

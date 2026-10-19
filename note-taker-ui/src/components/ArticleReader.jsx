@@ -667,6 +667,7 @@ const ArticleReader = ({
       {atDesk ? (
         <div className="article-reader-content reader article-reader-content--highlights" ref={contentRef}>
           <BookDesk
+            key={article._id}
             article={article}
             marks={highlights}
             arriving={!focusedHighlightId}
