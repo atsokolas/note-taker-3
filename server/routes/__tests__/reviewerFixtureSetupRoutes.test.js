@@ -15,11 +15,12 @@ const { buildHighlightMutationRouter } = require('../highlightMutationRoutes');
 const { buildWikiRouter } = require('../wikiRoutes');
 const { buildConceptMetaRouter } = require('../conceptMetaRoutes');
 const { buildLegacyContentRouter } = require('../legacyContentRoutes');
+const { buildEditionRouter } = require('../editionRoutes');
 const { normalizeWikiTitleForPresentation } = require('../../services/wikiPresentationGuard');
 const { heldFixtureEvent } = require('../../../note-taker-ui/src/pages/reviewerFixtureEvents');
 const fixturePlan = require('../../../note-taker-ui/src/pages/reviewerFixturePlan.json');
 const jobs = require('../../ai/embeddingJobs');
-const reviewer = '111111111111111111111111';
+const reviewer = fixturePlan.edition.ownerId;
 const ordinary = '555555555555555555555555';
 const originalPolicy = { ...policy };
 let mongo; let providerCalls = 0; let pending = [];
@@ -42,7 +43,7 @@ const fixtureWorkflow = api => {
   const source = require('node:fs').readFileSync(filename, 'utf8');
   assert.equal((source.match(/^import .*;$/gm) || []).length, 4);
   const program = source.replace(/^import .*;$/gm, '').replace(/export const /g, 'const ');
-  return require('node:vm').compileFunction(`${program}\nreturn { createSetupClient, createFixtureSession, fixtureReceipt };`,
+  return require('node:vm').compileFunction(`${program}\nreturn { createSetupClient, createFixtureSession, fixtureReceipt, editionFixtureReceipt };`,
     ['api', 'getAuthHeaders', 'plan', 'heldFixtureEvent'], { filename })(api,
     () => ({ headers: { Authorization: 'Bearer OFFLINE_UNUSABLE' } }), fixturePlan, heldFixtureEvent);
 };
@@ -146,7 +147,7 @@ test('direct event processing, ID invocation and worker claiming fail closed bef
   assert.equal(readBackCalls, 0);
 });
 
-test('actual creation/list/full-read contracts reconcile an uncertain Wiki with no repeated POST', async () => {
+test('actual core and Edition routes persist and reconcile lost responses without repeating POSTs or invoking inference', async () => {
   providerCalls = 0; readBackCalls = 0; pending = [];
   const imports = buildImportRouter({ ...models, authenticateToken,
     crypto: require('node:crypto'), upload: { single: () => (_req, _res, next) => next() },
@@ -158,7 +159,11 @@ test('actual creation/list/full-read contracts reconcile an uncertain Wiki with 
   const wiki = buildWikiRouter({ ...models, authenticateToken });
   const concepts = buildConceptMetaRouter({ authenticateToken, TagMeta: models.TagMeta, User: models.User, escapeRegExp: value => value });
   const articles = buildLegacyContentRouter({ ...models, authenticateToken });
-  const calls = []; let alterRead = (_path, data) => data;
+  const editions = buildEditionRouter({ ...models, auth: authenticateToken,
+    readArticle: async () => { providerCalls++; throw new Error('Edition setup must not fetch a source'); },
+    relatedHighlights: async () => { providerCalls++; throw new Error('Edition setup must not retrieve semantically'); },
+    onArticleSaved: () => { providerCalls++; throw new Error('Edition setup must not queue embeddings'); } });
+  const calls = []; let alterRead = (_path, data) => data; let loseReply = '';
   const invoke = async (router, route, method, req) => {
     const res = response(); await handle(router, route, method)({ user: { id: reviewer }, query: {}, params: {}, ...req }, res);
     assert(res.statusCode < 400, JSON.stringify(res.body));
@@ -171,6 +176,8 @@ test('actual creation/list/full-read contracts reconcile an uncertain Wiki with 
       else if (path === '/api/articles/by-url') data = await invoke(articles, path, 'get', { query: config.params });
       else if (['/api/wiki/pages', '/api/wiki/source-events'].includes(path)) data = await invoke(wiki, path, 'get', { query: config.params });
       else if (/^\/api\/wiki\/pages\/[a-f0-9]{24}$/.test(path)) data = await invoke(wiki, '/api/wiki/pages/:id', 'get', { params: { id: path.split('/').at(-1) } });
+      else if (path === '/api/edition-profiles' || path === '/api/editions') data = await invoke(editions, path, 'get', { query: config.params });
+      else if (/^\/api\/editions\/[a-f0-9]{24}$/.test(path)) data = await invoke(editions, '/api/editions/:id', 'get', { params: { id: path.split('/').at(-1) } });
       else assert.fail(`Unexpected fixture GET ${path}`);
       return { data: alterRead(path, data) };
     },
@@ -179,7 +186,9 @@ test('actual creation/list/full-read contracts reconcile an uncertain Wiki with 
       if (path === '/api/import/text') data = await invoke(imports, path, 'post', { body });
       else if (path === '/api/wiki/pages') data = await invoke(wiki, path, 'post', { body });
       else if (/^\/articles\/[a-f0-9]{24}\/highlights$/.test(path)) data = await invoke(highlights, '/articles/:id/highlights', 'post', { params: { id: path.split('/')[2] }, body });
+      else if (path === '/api/edition-profiles' || path === '/api/editions/file') data = await invoke(editions, path, 'post', { body });
       else assert.fail(`Unexpected fixture POST ${path}`);
+      if (path === loseReply) { loseReply = ''; throw new Error('Lost committed Edition response'); }
       return { data };
     }
   };
@@ -218,6 +227,43 @@ test('actual creation/list/full-read contracts reconcile an uncertain Wiki with 
     await assert.rejects(session().inspect(), /Wiki differs/);
     assert.equal(saved.get(key), uncertain); assert(calls.every(call => call.method === 'GET'));
   }
+  alterRead = (_path, data) => data; await session().inspect(); calls.length = 0;
+  const originalCoreJournal = saved.get(key);
+  const originalArticleCount = await models.Article.countDocuments({ userId: reviewer });
+  const originalEventCount = await models.WikiSourceEvent.countDocuments({ userId: reviewer });
+  loseReply = '/api/edition-profiles';
+  await assert.rejects(session().runEdition(), /uncertain/);
+  assert.deepEqual(calls.filter(call => call.method === 'POST').map(call => call.path), ['/api/edition-profiles']);
+  assert.equal(await models.EditionProfile.countDocuments({ userId: reviewer }), 1);
+  calls.length = 0; const profileOnly = await session().inspectEdition();
+  assert.equal(profileOnly.edition.profile.key, fixturePlan.edition.profile.key);
+  assert.equal(profileOnly.edition.issue, null); assert(calls.every(call => call.method === 'GET'));
+  loseReply = '/api/editions/file';
+  await assert.rejects(session().runEdition(), /uncertain/);
+  assert.equal(await models.Edition.countDocuments({ userId: reviewer }), 1);
+  calls.length = 0; const edition = await session().inspectEdition();
+  assert.equal(edition.edition.complete, true);
+  assert.equal(edition.edition.issue.items[0].passage, fixturePlan.highlight.text);
+  assert.equal(edition.edition.issue.items[0].passageCheck, 'unchecked');
+  assert.equal(workflow.editionFixtureReceipt(edition).editionId, edition.edition.issue._id);
+  await session().runEdition(); assert(calls.every(call => call.method === 'GET'));
+  assert.equal(saved.get(key), originalCoreJournal);
+  assert.equal(await models.Article.countDocuments({ userId: reviewer }), originalArticleCount);
+  assert.equal(await models.WikiSourceEvent.countDocuments({ userId: reviewer }), originalEventCount);
+  const editionKey = `${key}.edition`; const editionJournal = saved.get(editionKey);
+  for (const change of [
+    data => { data.items[0].passage = 'Changed source words'; },
+    data => { data.items[0].readerStatus = 'later'; },
+    data => { data.items.push({ ...data.items[0], itemId: 'later-filing' }); },
+    data => { data.windowEnd = data.windowStart; }
+  ]) {
+    calls.length = 0;
+    alterRead = (path, data) => { if (path === `/api/editions/${edition.edition.issue._id}`) change(data); return data; };
+    await assert.rejects(session().runEdition(), /Edition issue differs/);
+    assert.equal(saved.get(editionKey), editionJournal); assert(calls.every(call => call.method === 'GET'));
+  }
+  const foreign = response(); await handle(editions, '/api/editions/:id', 'get')({ user: { id: ordinary }, params: { id: edition.edition.issue._id } }, foreign);
+  assert.equal(foreign.statusCode, 404);
   for (const change of [
     rows => rows.map(row => ({ ...row, title: fixturePlan.wiki.title })),
     rows => [...rows, ...rows]

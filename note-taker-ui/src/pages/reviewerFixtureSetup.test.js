@@ -1,17 +1,18 @@
-import { createFixtureSession, createSetupClient, fixtureReceipt, verifySetupIdentity } from './reviewerFixtureSetup';
+import { createFixtureSession, createSetupClient, fixtureReceipt, verifySetupIdentity, editionFixturePayload, editionFixtureReceipt } from './reviewerFixtureSetup';
 import plan from './reviewerFixturePlan.json';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
 jest.mock('../api', () => ({ get: jest.fn(), post: jest.fn() }));
 jest.mock('../hooks/useAuthHeaders', () => ({ getAuthHeaders: jest.fn() }));
-const owner = '111111111111111111111111';
+const owner = plan.edition.ownerId;
 const id = value => String(value).padStart(24, '0');
 const conceptId = '999999999999999999999999';
 const identity = () => ({ userId: owner, username: 'Offline fixture reviewer', conceptId,
   ownershipVerified: true, holdsActive: true, fixtureBindingComplete: false });
 const rig = () => {
   const saved = new Map(); const articles = new Map(); const pages = []; const events = []; const writes = [];
+  const profiles = []; const editions = [];
   const storage = { getItem: key => saved.get(key) || null, setItem: (key, value) => saved.set(key, value) };
   let busy = false;
   const locks = { request: async (_name, _options, callback) => {
@@ -47,10 +48,22 @@ const rig = () => {
         sourceRefs: plan.sources.map((source, index) => ({ type: 'article', objectId: sourceIds[index],
           title: source.title, url: source.url, snippet: source.text })) };
       pages.push(page); return page;
+    }),
+    editionProfiles: jest.fn(async () => ({ profiles })),
+    editions: jest.fn(async () => ({ editions: editions.map(row => ({ _id: row._id, profile: row.profile })) })),
+    edition: jest.fn(async editionId => editions.find(row => row._id === editionId)),
+    configureEdition: jest.fn(async () => { writes.push('edition-profile'); profiles.push({ ...JSON.parse(JSON.stringify(plan.edition.profile)), configuredBy: '', configuredByRuntime: '' }); }),
+    fileEdition: jest.fn(async () => {
+      writes.push('edition-issue'); const payload = editionFixturePayload();
+      const issue = { ...payload, _id: id(5), number: null, writtenByRuntime: '', windowStart: '2026-10-18T00:00:00.000Z', windowEnd: '2026-10-24T00:00:00.000Z',
+        headline: '', throughLine: '', followUps: [], watchNext: [], items: payload.items.map(item => ({ ...item,
+          plain: '', confidence: '', figures: [], readings: [], passageCheck: 'unchecked', readerStatus: 'new', savedArticleId: null,
+          filedBy: payload.writtenBy, filedByRuntime: '', filedAt: '2026-10-18T00:00:00Z' })) };
+      editions.push(issue); return issue;
     })
   };
   const session = () => createFixtureSession({ client, storage, locks });
-  return { saved, articles, pages, events, writes, storage, locks, client, session };
+  return { saved, articles, pages, events, writes, storage, locks, client, session, profiles, editions };
 };
 
 test('fixed four writes persist exact fixtures; reload and retry only read back, preserving an unrelated empty Wiki', async () => {
@@ -298,4 +311,125 @@ test('missing concept stops before authentication and a different returned conce
   api.get.mockResolvedValue({ data: { reviewerIdentity: { ...identity(), conceptId: id(92) } } });
   await expect(createSetupClient(undefined, { origin: 'https://www.noeis.io', conceptId }).identity()).rejects.toThrow(/did not verify/);
   expect(api.post).not.toHaveBeenCalled();
+});
+
+const editionRig = async () => { const r = rig(); await r.session().run(); r.writes.length = 0; return r; };
+const editionKey = `noeis.reviewer.fixtures.v${plan.version}.${owner}.edition`;
+
+test('Edition preparation reads before two bounded writes and reload never opens another issue window', async () => {
+  const r = await editionRig(); const before = await r.session().inspectEdition();
+  expect(before.edition.complete).toBe(false); expect(r.writes).toEqual([]);
+  expect(r.client.editions).not.toHaveBeenCalled(); // unknown profile does not narrow the newsstand
+  expect(() => editionFixtureReceipt(before)).toThrow(/complete exact readback/);
+  const state = await r.session().runEdition();
+  expect(r.writes).toEqual(['edition-profile', 'edition-issue']); expect(state.edition.complete).toBe(true);
+  const receipt = editionFixtureReceipt(state);
+  expect(receipt.ownerId).toBe(owner); expect(receipt.editionId).toBe(id(5));
+  expect(receipt.baselineItem.passage).toBe(plan.highlight.text);
+  expect(receipt.connectorAcceptance).toBe('not_run'); expect(receipt.passageVerification).toBe('unchecked_until_reader_save');
+  jest.useFakeTimers().setSystemTime(new Date('2026-11-01T12:00:00Z'));
+  try { await r.session().inspectEdition(); await r.session().runEdition(); } finally { jest.useRealTimers(); }
+  expect(r.writes).toHaveLength(2); expect(r.editions).toHaveLength(1);
+  expect(r.articles.size).toBe(2); expect(r.pages).toHaveLength(1);
+  expect(JSON.parse(r.saved.get(editionKey)).intent).toBe(null);
+});
+
+test.each(['configureEdition', 'fileEdition'])('lost %s response reconciles by readback without repeating a POST', async method => {
+  const r = await editionRig(); const write = r.client[method];
+  r.client[method] = jest.fn(async () => { await write(); throw new Error('response lost'); });
+  await expect(r.session().runEdition()).rejects.toThrow(/uncertain/);
+  const postCount = r.writes.length;
+  const inspected = await r.session().inspectEdition(); expect(r.writes).toHaveLength(postCount);
+  expect(JSON.parse(r.saved.get(editionKey)).intent).toBe(null);
+  r.client[method] = write; await r.session().runEdition();
+  expect(r.writes).toEqual(['edition-profile', 'edition-issue']);
+  expect(inspected.edition.profile.key).toBe(plan.edition.profile.key);
+});
+
+test.each(['configureEdition', 'fileEdition'])('unknown outcome of %s blocks retry even with no visible object', async method => {
+  const r = await editionRig(); r.client[method] = jest.fn(async () => { r.writes.push('uncertain'); throw new Error('timeout'); });
+  await expect(r.session().runEdition()).rejects.toThrow(/uncertain/);
+  await expect(r.session().inspectEdition()).rejects.toThrow(/uncertain/);
+  await expect(r.session().runEdition()).rejects.toThrow(/uncertain/);
+  expect(r.client[method]).toHaveBeenCalledTimes(1);
+});
+
+test('Edition setup rejects another verified owner, incomplete fixtures, held-event attempts and activated binding', async () => {
+  const foreign = await editionRig(); foreign.client.identity.mockResolvedValue({ ...identity(), userId: id(90) });
+  foreign.articles.forEach(article => { article.userId = id(90); }); foreign.events.forEach(event => { event.userId = id(90); });
+  foreign.pages.forEach(page => { page.userId = id(90); });
+  await expect(foreign.session().runEdition()).rejects.toThrow(); expect(foreign.client.editionProfiles).not.toHaveBeenCalled();
+  const incomplete = rig(); await expect(incomplete.session().runEdition()).rejects.toThrow(/complete original fixtures/);
+  const attempted = await editionRig(); attempted.events[0].attemptCount = 1;
+  await expect(attempted.session().runEdition()).rejects.toThrow(/hold is unverified/);
+  const bound = await editionRig(); bound.client.identity.mockResolvedValue({ ...identity(), fixtureBindingComplete: true });
+  await expect(bound.session().runEdition()).rejects.toThrow(/read-only/);
+  expect([foreign, incomplete, attempted, bound].every(r => r.writes.length === 0)).toBe(true);
+});
+
+test.each([
+  ['profile title', r => { r.profiles[0].title = 'Reader changed this'; }],
+  ['profile sections', r => { r.profiles[0].sections[0].keeper = { runtime: 'codex' }; }],
+  ['profile provenance', r => { r.profiles[0].configuredBy = 'Someone else'; }],
+  ['duplicate profiles', r => { r.profiles.push({ ...r.profiles[0] }); }],
+  ['duplicate issues', r => { r.editions.push({ ...r.editions[0], _id: id(8) }); }],
+  ['issue title', r => { r.editions[0].title = 'Reader changed this'; }],
+  ['issue window', r => { r.editions[0].windowEnd = '2026-10-25T00:00:00.000Z'; }],
+  ['passage', r => { r.editions[0].items[0].passage = 'Changed quotation'; }],
+  ['source date', r => { r.editions[0].items[0].sourceDate = '2020-01-01'; }],
+  ['item signer', r => { r.editions[0].items[0].filedBy = 'Someone else'; }],
+  ['item runtime', r => { r.editions[0].items[0].filedByRuntime = 'codex'; }],
+  ['issue runtime', r => { r.editions[0].writtenByRuntime = 'codex'; }],
+  ['reader save', r => { r.editions[0].items[0].savedArticleId = id(8); }],
+  ['reader state', r => { r.editions[0].items[0].readerStatus = 'later'; }],
+  ['additional filing', r => { r.editions[0].items.push({ ...r.editions[0].items[0], itemId: 'new' }); }]
+])('Edition mismatch (%s) preserves the stored object and journal without repair', async (_name, change) => {
+  const r = await editionRig(); await r.session().runEdition(); r.writes.length = 0;
+  const journal = r.saved.get(editionKey); change(r);
+  await expect(r.session().inspectEdition()).rejects.toThrow();
+  await expect(r.session().runEdition()).rejects.toThrow();
+  expect(r.writes).toEqual([]); expect(r.saved.get(editionKey)).toBe(journal);
+});
+
+test('an issue listed without full detail never establishes absence or permits filing', async () => {
+  const r = await editionRig(); await r.session().runEdition(); r.writes.length = 0; r.saved.delete(editionKey);
+  r.client.edition.mockResolvedValue(null);
+  await expect(r.session().inspectEdition()).rejects.toThrow(/detail readback is incomplete/);
+  await expect(r.session().runEdition()).rejects.toThrow(/detail readback is incomplete/);
+  expect(r.writes).toEqual([]); expect(r.saved.has(editionKey)).toBe(false);
+});
+
+test('Edition intent storage and shared browser lock fail closed before POST', async () => {
+  const r = await editionRig(); const save = r.storage.setItem;
+  r.storage.setItem = (key, value) => { if (key === editionKey && JSON.parse(value).intent) throw new Error('storage blocked'); return save(key, value); };
+  await expect(r.session().runEdition()).rejects.toThrow(/Durable/); expect(r.writes).toEqual([]);
+  const locked = await editionRig(); let release; let started;
+  const barrier = new Promise(resolve => { release = resolve; }); const start = new Promise(resolve => { started = resolve; });
+  const configure = locked.client.configureEdition;
+  locked.client.configureEdition = async () => { started(); await barrier; return configure(); };
+  const running = locked.session().runEdition(); await start;
+  await expect(locked.session().runEdition()).rejects.toThrow(/Another setup/);
+  await expect(locked.session().inspect()).rejects.toThrow(/Another setup/);
+  release(); await running; expect(locked.writes).toEqual(['edition-profile', 'edition-issue']);
+});
+
+test.each([false, 0, '', { version: plan.version, owner, profile: false, issueId: null, intent: 'issue' }])(
+  'malformed Edition journal %p is preserved and never becomes a new session', async value => {
+    const r = await editionRig(); const serialized = JSON.stringify(value); r.saved.set(editionKey, serialized);
+    await expect(r.session().runEdition()).rejects.toThrow(/state needs review/);
+    expect(r.writes).toEqual([]); expect(r.saved.get(editionKey)).toBe(serialized);
+  }
+);
+
+test('Edition transport uses the same captured browser session and only existing profile/file/read routes', async () => {
+  jest.clearAllMocks(); getAuthHeaders.mockReturnValue({ headers: { Authorization: 'Bearer OFFLINE_SYNTHETIC_SESSION' } });
+  api.get.mockResolvedValue({ data: {} }); api.post.mockResolvedValue({ data: {} });
+  const client = createSetupClient(undefined, { origin: 'https://www.noeis.io', conceptId });
+  await client.editionProfiles(); await client.editions(); await client.edition(id(5));
+  await client.configureEdition(); await client.fileEdition();
+  expect(api.post.mock.calls.map(call => call[0])).toEqual(['/api/edition-profiles', '/api/editions/file']);
+  expect(api.post.mock.calls[1][1]).toEqual(editionFixturePayload());
+  expect(api.get.mock.calls[1][1].params).toEqual({ profile: plan.edition.profile.key, limit: 100 });
+  expect(getAuthHeaders).toHaveBeenCalledTimes(1);
+  expect([...api.get.mock.calls, ...api.post.mock.calls].every(call => call.at(-1).headers.Authorization === 'Bearer OFFLINE_SYNTHETIC_SESSION')).toBe(true);
 });
