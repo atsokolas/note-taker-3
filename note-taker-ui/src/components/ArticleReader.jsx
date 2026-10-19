@@ -21,6 +21,7 @@ import usePassageOpens from './reader/usePassageOpens';
 import { sourceKind } from './reader/readerDress';
 import ExplainItBack, { useModelReads } from './reader/ExplainItBack';
 import PassageDoor from './reader/PassageDoorView';
+import BookDesk from './reader/BookDesk';
 import { ArticleMargins, paragraphAt } from './margins/LibraryMargins';
 import { useMarginAsk } from './margins/MarginAnswer';
 import { heldHighlightIds, sourceWhereabouts } from './reader/sourceWhereabouts';
@@ -275,11 +276,12 @@ const ArticleReader = ({
   }, [articleId, focusedHighlightId, focusedHighlight, location.key, location.search]);
   const focusedPassageIsInArticle = Boolean(focusedHighlightId)
     && html.includes(`data-highlight-id="highlight-${focusedHighlightId}"`);
-  const isHighlightOnlyImport = Boolean(article)
+  /* A source with no text of its own, a book above all, is read elsewhere
+     and written about here: it opens at the desk. */
+  const atDesk = Boolean(article)
     && !hasReadableContent(article.content)
-    && Array.isArray(highlights)
-    && highlights.length > 0;
-  const focusedPassage = focusedHighlight && !focusedPassageIsInArticle && !isHighlightOnlyImport
+    && (highlights.length > 0 || /^import:\/\//.test(article.url || ''));
+  const focusedPassage = focusedHighlight && !focusedPassageIsInArticle && !atDesk
     ? focusedHighlight
     : null;
   const { selectionState, clearSelection } = useTextSelection({
@@ -558,7 +560,7 @@ const ArticleReader = ({
     params.set('thought', '1');
     navigate({ pathname: '/library', search: params.toString(), hash: '' });
   });
-  const ask = asking.available && !isHighlightOnlyImport ? askAboutSelection : undefined;
+  const ask = asking.available && !atDesk ? askAboutSelection : undefined;
   const menuOpen = selectionState.isOpen && !reading.readFresh;
   const walk = (step) => () => walkPassages(readerRootRef.current, step, { reducedMotion });
   keys.current = {
@@ -662,43 +664,17 @@ const ArticleReader = ({
           onOpenedText={onOpenedSentence}
         />
       ) : null}
-      {isHighlightOnlyImport ? (
+      {atDesk ? (
         <div className="article-reader-content reader article-reader-content--highlights" ref={contentRef}>
-          <section className="article-highlight-edition" aria-label="Saved highlights">
-            <div className="article-highlight-edition__lead">
-              <span className="eyebrow">Highlight edition</span>
-              <p>
-                No full article text was imported for this source, so Noeis is showing the saved
-                highlights as the reading body.
-              </p>
-            </div>
-            <ol className="article-highlight-edition__list">
-              {highlights.map((highlight, index) => {
-                const highlightId = highlight?._id || highlight?.id || `${article?._id || 'article'}-${index}`;
-                const tags = Array.isArray(highlight?.tags) ? highlight.tags.filter(Boolean) : [];
-                const createdAt = formatCalendarDate(highlight?.createdAt || highlight?.highlightedAt);
-                return (
-                  <li
-                    key={highlightId}
-                    className="article-highlight-edition__item"
-                    data-highlight-id={`highlight-${highlightId}`}
-                  >
-                    <blockquote>{highlight?.text || 'Untitled highlight'}</blockquote>
-                    {(highlight?.note || createdAt || tags.length > 0) && (
-                      <div className="article-highlight-edition__meta">
-                        {createdAt && <span>{createdAt}</span>}
-                        {tags.slice(0, 6).map(tag => <span key={`${highlightId}-${tag}`}>{tag}</span>)}
-                      </div>
-                    )}
-                    {highlight?.note && (
-                      <p className="article-highlight-edition__note">{highlight.note}</p>
-                    )}
-                    {passageDoorFor(highlight, index)}
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
+          <BookDesk
+            article={article}
+            marks={highlights}
+            arriving={!focusedHighlightId}
+            onAdd={onHighlightOptimistic}
+            onReplace={onHighlightReplace}
+            onRemove={onHighlightRemove}
+            doorFor={passageDoorFor}
+          />
         </div>
       ) : (
         <>
@@ -747,7 +723,8 @@ const ArticleReader = ({
           ))}
         </ul>
       ) : null}
-      <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
+      {/* How much is left is the book's to know; the desk has no length. */}
+      {atDesk ? null : <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />}
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>
   );

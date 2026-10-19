@@ -17,12 +17,15 @@ const { buildHighlightMutationRouter } = require('../highlightMutationRoutes');
    caller reading articleId off it saw nothing — one agent read its own five
    successful writes as five unattached highlights and reported them as lost. */
 describe('created highlight carries its article', () => {
-  const createHighlight = async (body) => {
+  const createHighlight = async (body, held = []) => {
     const article = {
       _id: 'article-1',
       title: 'Going Founder Mode on Cancer',
       url: 'https://centuryofbio.com/p/sid',
-      highlights: []
+      highlights: Object.assign([...held], {
+        push(...marks) { return Array.prototype.push.apply(this, marks.map(mark => ({ _id: 'highlight-1', ...mark }))); }
+      }),
+      save: async () => article
     };
 
     const app = express();
@@ -33,12 +36,7 @@ describe('created highlight carries its article', () => {
         req.user = { id: 'user-1' };
         next();
       },
-      Article: {
-        findOneAndUpdate: async (_query, update) => {
-          article.highlights.push({ _id: 'highlight-1', ...update.$push.highlights });
-          return article;
-        }
-      },
+      Article: { findOne: async () => article },
       normalizeTags: value => (Array.isArray(value) ? value : []),
       enqueueHighlightEmbedding: () => {},
       markTourSignal: async () => {},
@@ -67,6 +65,32 @@ describe('created highlight carries its article', () => {
     expect(result.body.highlight.articleTitle).toBe('Going Founder Mode on Cancer');
     expect(result.body.highlight._id).toBe('highlight-1');
     expect(result.body.highlight.text).toBe('Founder mode is a claim about proximity.');
+  });
+
+  /* At the reading desk a line is a passage, a thought at a page, or a passage
+     already marked on the Kindle, which keeps one mark and gains the note. */
+  test('a thought at a page needs no passage under it', async () => {
+    const result = await createHighlight({ text: '', note: 'Is he conflating risk and uncertainty?', page: 212 });
+    expect(result.status).toBe(200);
+    expect(result.body.highlight).toMatchObject({ text: '', note: 'Is he conflating risk and uncertainty?', page: 212 });
+    expect((await createHighlight({ text: '', note: '' })).status).toBe(400);
+  });
+
+  test('a passage already marked takes the note instead of a second mark', async () => {
+    const kindle = {
+      _id: 'kindle-1',
+      text: 'Founder mode is a claim about proximity, and proximity is expensive.',
+      note: '',
+      importMeta: { sourcePath: 'Location 1702–1705' }
+    };
+    const result = await createHighlight({ text: 'Founder mode is … proximity is expensive', note: 'cost of what?', page: 9 }, [kindle]);
+    expect(result.body.highlight).toMatchObject({
+      _id: 'kindle-1',
+      text: kindle.text,
+      note: 'cost of what?',
+      page: 9,
+      location: 'Location 1702–1705'
+    });
   });
 
   /* The update path answers from the document it just saved rather than reading

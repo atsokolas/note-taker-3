@@ -58,10 +58,10 @@ export const deleteHighlight = async ({ articleId, highlightId }) => {
   return res.data;
 };
 
-export const createHighlight = async ({ articleId, text, tags = [], note = '', anchor, color }) => {
+export const createHighlight = async ({ articleId, text, tags = [], note = '', anchor, color, page }) => {
   const res = await api.post(
     `/articles/${articleId}/highlights`,
-    { text, tags, note, anchor, color },
+    { text, tags, note, anchor, color, page },
     getAuthHeaders()
   );
   clearHighlightsCache();

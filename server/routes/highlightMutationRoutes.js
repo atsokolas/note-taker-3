@@ -10,6 +10,7 @@ const {
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { recordSourceCorrection } = require('../services/authoredSourceCorrection');
+const { absorbPassage } = require('../utils/passages');
 
 const buildHighlightMutationRouter = ({
   mongoose,
@@ -91,29 +92,40 @@ const buildHighlightMutationRouter = ({
       const { text, note, tags, anchor, color } = req.body;
       const userId = req.user.id;
 
-      const trimmedText = typeof text === 'string' ? text.trim() : '';
-      if (trimmedText.length < 3) {
+      const typed = typeof text === 'string' ? text.trim() : '';
+      const thought = typeof note === 'string' ? note.trim() : '';
+      const page = Number.isInteger(req.body.page) && req.body.page > 0 ? req.body.page : undefined;
+      // A passage, or a thought written beside a book with no passage under it.
+      if (typed ? typed.length < 3 : !thought) {
         return res.status(400).json({ error: "Highlight text is required." });
       }
 
-      const newHighlight = buildHighlightDocument({
-        text: trimmedText,
-        note,
+      const article = await Article.findOne({ _id: id, userId });
+      if (!article) {
+        return res.status(404).json({ error: "Article not found or you do not have permission to add highlight." });
+      }
+      /* A passage typed at the desk may be one already marked on the Kindle,
+         or only its ends: the note joins the mark that is there. */
+      const held = typed ? absorbPassage(article.highlights, { text: typed, note: thought }) : null;
+      if (held) {
+        held.page = held.page || page;
+        await article.save();
+        return res.status(200).json({
+          article,
+          highlight: serializeHighlightWithArticle(article, held, { includeAnchor: true, normalizeItemType })
+        });
+      }
+      article.highlights.push(buildHighlightDocument({
+        text: typed,
+        note: thought,
         tags,
         color,
         anchor,
+        page,
         normalizeTags
-      });
+      }));
+      const updatedArticle = await article.save();
 
-      const updatedArticle = await Article.findOneAndUpdate(
-        { _id: id, userId: userId },
-        { $push: { highlights: newHighlight } },
-        { new: true, populate: ['highlights', 'folder'] }
-      );
-
-      if (!updatedArticle) {
-        return res.status(404).json({ error: "Article not found or you do not have permission to add highlight." });
-      }
       const createdHighlight = updatedArticle.highlights?.[updatedArticle.highlights.length - 1];
       if (createdHighlight) {
         enqueueHighlightEmbedding({ highlight: createdHighlight, article: updatedArticle });

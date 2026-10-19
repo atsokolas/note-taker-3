@@ -515,7 +515,7 @@ describe('ArticleReader', () => {
     expect(screen.getByRole('status')).toHaveTextContent('could not be read');
   });
 
-  it('shows saved highlights as the reading body when an imported source has no full text', () => {
+  it('opens a source with no text of its own at the reading desk, its marks in page order', () => {
     render(
       <ArticleReader
         article={{
@@ -538,11 +538,10 @@ describe('ArticleReader', () => {
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent("Poor Charlie's Almanack");
-    expect(screen.getByText('Highlight edition')).toBeInTheDocument();
-    expect(screen.getByText(/No full article text was imported/)).toBeInTheDocument();
-    expect(screen.getByText('Invert, always invert.')).toBeInTheDocument();
-    expect(screen.getByText('Useful for decision-making.')).toBeInTheDocument();
-    expect(screen.getByText('mental models')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Reading desk' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Type a quote, a note or a question')).toBeInTheDocument();
+    expect(screen.getByText('Invert, always invert.', { selector: 'blockquote' })).toBeInTheDocument();
+    expect(screen.getByText('Useful for decision-making.', { selector: 'p' })).toBeInTheDocument();
   });
 
   it('puts a deep-linked saved passage in the reader when the imported body omits it', () => {

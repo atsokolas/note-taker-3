@@ -18,8 +18,7 @@
 [data-read-fresh] :is(.open-sentence__open, .open-sentence__chip, .open-sentence__reveal,
   .open-sentence__way-home, .open-sentence__library-open, .open-sentence__library-pocket,
   .open-sentence-works, .open-sentence-library-arrival, .article-cited-passage,
-  .article-folio, .article-passage-threads, .article-highlight-edition__meta,
-  .article-highlight-edition__note, .passage-door) { display: none !important; }
+  .article-folio, .article-passage-threads, .book-desk__own, .passage-door) { display: none !important; }
 
 [data-read-fresh] .open-sentence__held::before { display: none; }
 [data-read-fresh] :is(mark.highlight[data-highlight-id], [data-transient-passage="true"],
@@ -220,8 +219,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   color: var(--noeis-ink);
 }
 
-.article-reader-content mark.highlight.open-sentence__held,
-.article-highlight-edition mark.highlight.open-sentence__held {
+.article-reader-content mark.highlight.open-sentence__held {
   position: relative;
 }
 

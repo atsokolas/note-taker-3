@@ -1,0 +1,216 @@
+/* The reading desk: the marks set like a printed book's pages, page numbers
+   in the gutter, and one line at the foot to type into. Quotes are the
+   book's type; your words are the hand beside them. */
+
+.book-desk {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.book-desk__lede {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.book-desk__lede q {
+  font-family: var(--font-serif);
+  color: var(--text);
+}
+
+.book-desk__pages,
+.book-desk__marks {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.book-desk__page {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.book-desk__folio {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  font-variant-numeric: oldstyle-nums;
+}
+
+.book-desk__marks {
+  grid-column: 2;
+}
+
+.book-desk__mark {
+  display: grid;
+  gap: var(--space-2);
+  position: relative;
+}
+
+.book-desk__mark blockquote {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+  line-height: 1.6;
+}
+
+.book-desk__own {
+  margin: 0;
+  color: var(--ink-human, var(--muted));
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+blockquote + .book-desk__own {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border-subtle-2);
+}
+
+/* A question hangs its mark in the margin, the way a pencilled query does. */
+.book-desk__mark[data-kind='question']::before {
+  content: '?';
+  position: absolute;
+  left: -1.1rem;
+  top: 0;
+  color: var(--wiki-warm-accent);
+  font-family: var(--font-serif);
+}
+
+/* Typed with only its ends: the gap shows until the book fills it. */
+.book-desk__mark[data-unfinished] blockquote {
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 0.3em;
+}
+
+.book-desk__mark[data-unsent] {
+  opacity: 0.6;
+}
+
+.book-desk__mark[data-inked] blockquote {
+  animation: book-desk-ink 1.6s ease-out;
+}
+
+@keyframes book-desk-ink {
+  from { background: color-mix(in srgb, var(--highlight-color, #f6e27a) 45%, transparent); }
+  to { background: transparent; }
+}
+
+.book-desk__line {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  align-items: start;
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  border: 1px solid var(--border-subtle-2);
+  border-radius: 14px;
+  background: var(--surface-elevated);
+}
+
+.book-desk__turn {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 2px;
+  padding-right: var(--space-3);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+}
+
+.book-desk__turn input {
+  width: 3ch;
+  padding: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  font-variant-numeric: oldstyle-nums tabular-nums;
+}
+
+.book-desk__turn input:focus-visible,
+.book-desk__type textarea:focus-visible {
+  outline: none;
+}
+
+.book-desk__line:focus-within {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 45%, var(--border-subtle-2));
+}
+
+/* The field and its mirror share one cell, so the field grows with the line
+   and the book's words run on after the caret. */
+.book-desk__type {
+  display: grid;
+}
+
+.book-desk__mirror,
+.book-desk__type textarea {
+  grid-area: 1 / 1;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.book-desk__mirror {
+  color: transparent;
+  pointer-events: none;
+}
+
+.book-desk__ghost {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+/* body.noeis-editorial rules every field with !important; the desk line is
+   already a ruled box, so it out-ranks that here. */
+.book-desk .book-desk__type textarea,
+.book-desk .book-desk__turn input {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+.book-desk .book-desk__type textarea {
+  resize: none;
+  overflow: hidden;
+  font-family: var(--font-serif);
+  caret-color: var(--wiki-warm-accent);
+}
+
+.book-desk__hint {
+  margin: calc(var(--space-3) * -1) 0 0 4.5rem;
+  min-height: 1.2em;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 560px) {
+  .book-desk__page,
+  .book-desk__line {
+    grid-template-columns: 3.25rem minmax(0, 1fr);
+  }
+
+  .book-desk__hint {
+    margin-left: 3.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-desk__mark[data-inked] blockquote {
+    animation: none;
+  }
+}

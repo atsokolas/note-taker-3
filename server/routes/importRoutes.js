@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { encryptSecret, decryptSecret } = require('../utils/integrationSecrets');
+const { absorbPassage, isUnfinished, passageIn, sameWords } = require('../utils/passages');
 const {
   blockToPlainText,
   buildNotionPropertyLines,
@@ -25,7 +26,7 @@ const {
 const {
   buildReadwisePreviewSummary
 } = require('../services/import/readwiseTransform');
-const { FORMAT_LABELS, parseExportFile } = require('../services/import/exportFiles');
+const { BOOK, FORMAT_LABELS, bookSource, parseExportFile } = require('../services/import/exportFiles');
 const {
   fetchUrlForIngest,
   normalizeIngestText
@@ -397,6 +398,33 @@ const buildImportRouter = ({
     } catch (error) {
       console.error('Error importing URL:', error);
       res.status(error.statusCode || 500).json({ error: error.message || 'Failed to import URL.' });
+    }
+  });
+
+  /* A book you are starting, by its title and author. It is addressed the
+     way an import addresses a book, so the Kindle's marks for it land in it
+     later; one an import already brought, by that title, is opened instead. */
+  router.post('/api/import/book', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const title = toTrimmedString(req.body?.title);
+      if (!title) return res.status(400).json({ error: 'A book needs its title.' });
+      const book = bookSource({ provider: BOOK, title, author: toTrimmedString(req.body?.author) });
+      const shelf = await Article.find({ userId, url: /^import:\/\// }).select('url title author');
+      const known = shelf.find(item => [book.url, ...book.aliases].includes(item.url))
+        || shelf.find(item => sameWords(item.title) === sameWords(book.title));
+      if (known) return res.status(200).json({ article: known, existing: true });
+      const article = await Article.create({
+        userId,
+        url: book.url,
+        title: book.title,
+        author: book.author,
+        importMeta: { provider: BOOK, sourceType: BOOK, importedAt: new Date() }
+      });
+      return res.status(201).json({ article, existing: false });
+    } catch (error) {
+      console.error('Error starting a book:', error);
+      res.status(500).json({ error: 'That book could not be started.' });
     }
   });
 
@@ -1565,8 +1593,13 @@ const buildImportRouter = ({
         dirty.add(article);
         tally.newSources += 1;
       } else if (source.content && !article.content) {
-        // A book first known by its highlights gets its pages when the book itself arrives.
+        /* A book first known by its highlights gets its pages when the book
+           itself arrives, and the quotes typed with only their ends take its words. */
         article.content = source.content;
+        const pages = source.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+        article.highlights.filter(mark => isUnfinished(mark.text)).forEach((mark) => {
+          mark.text = passageIn(pages, mark.text) || mark.text;
+        });
         dirty.add(article);
         tally.newSources += 1;
       } else if (!source.highlights.length && !madeNow.has(article)) {
@@ -1577,20 +1610,21 @@ const buildImportRouter = ({
         if (conceptId) pins.push({ conceptId, article });
       });
 
-      const held = new Set((article.highlights || []).map(highlight => sameText(highlight.text)));
       let added = 0;
       source.highlights.forEach((highlight) => {
-        const words = sameText(highlight.text);
-        if (!words) return;
-        if (held.has(words)) {
+        if (!sameText(highlight.text)) return;
+        const held = absorbPassage(article.highlights, { text: highlight.text, note: highlight.note, at: highlight.createdAt });
+        if (held) {
+          held.page = held.page || highlight.page;
+          if (article.isModified()) dirty.add(article);
           tally.alreadyHere += 1;
           return;
         }
-        held.add(words);
         article.highlights.push({
           text: highlight.text,
           note: highlight.note || '',
           tags: highlight.tags || [],
+          ...(highlight.page ? { page: highlight.page } : {}),
           ...(highlight.createdAt ? { createdAt: highlight.createdAt } : {}),
           importMeta: { ...importMeta, sourcePath: highlight.location || '' }
         });
@@ -2386,10 +2420,18 @@ const buildImportRouter = ({
           dirtyArticles.add(article);
           continue;
         }
-        const highlightAlreadyExists = Boolean(existingHighlight) || (article.highlights || []).some((highlight) => (
-          highlight.text === highlightText
-        ));
-        if (highlightAlreadyExists) {
+        // A quote or note typed at the desk that this highlight completes.
+        const absorbed = !existingHighlight && absorbPassage(article.highlights, {
+          text: highlightText,
+          note: toTrimmedString(highlightRow.note),
+          at: highlightRow.highlighted_at
+        });
+        if (absorbed) {
+          // Readwise knows it by this id from now on.
+          absorbed.importMeta.externalId = absorbed.importMeta.externalId || highlightExternalId;
+          if (article.isModified()) dirtyArticles.add(article);
+        }
+        if (existingHighlight || absorbed) {
           skippedRows += 1;
           duplicateSkips += 1;
           continue;
@@ -2402,6 +2444,8 @@ const buildImportRouter = ({
           note: toTrimmedString(highlightRow.note),
           tags: highlightTags.length > 0 ? highlightTags : (documentTags.length > 0 ? documentTags : ['imported']),
           createdAt: highlightRow.highlighted_at || highlightRow.created_at || new Date(),
+          // A paper book read through Readwise's own app knows its printed page.
+          ...(highlightRow.location_type === 'page' && Number(highlightRow.location) > 0 ? { page: Number(highlightRow.location) } : {}),
           importMeta: {
             provider: 'readwise',
             sourceType: 'api',

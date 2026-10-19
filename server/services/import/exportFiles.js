@@ -8,13 +8,14 @@
    came from:
 
      sources  [{ url, aliases, title, author, folderName, tags, savedAt, content,
-                 highlights: [{ text, note, createdAt, location }] }]
+                 highlights: [{ text, note, createdAt, location, page }] }]
      notes    [{ externalId, title, folderPath, tags, blocks, content }]
 
    Parsing is pure: no database, no network. A file nobody recognises comes
    back as `unknown`, never guessed at. */
 const zlib = require('zlib');
 const Papa = require('papaparse');
+const { joinNotes } = require('../../utils/passages');
 
 const KINDLE = 'kindle';
 const APPLE_BOOKS = 'apple-books';
@@ -24,6 +25,8 @@ const READWISE = 'readwise';
 const MARKDOWN = 'markdown';
 const EPUB = 'epub';
 const PDF = 'pdf';
+// A book started by hand at the reading desk, before any import knew it.
+const BOOK = 'book';
 
 const FORMAT_LABELS = {
   [KINDLE]: 'Kindle',
@@ -62,12 +65,12 @@ const escapeHtml = (value = '') => String(value)
 
 /* A book has no URL, so it is addressed by what it is. The Readwise CSV import
    has always addressed books the same way (and, reading the wrong column,
-   mostly without the author), so a book that came through Readwise first is
-   recognised rather than shelved twice. */
+   mostly without the author), so a book that came through Readwise first, or
+   was started at the desk, is recognised rather than shelved twice. */
 const bookSource = ({ provider, title, author }) => {
   const base = `${slug(title)}-${slug(author || 'source')}`;
-  const aliases = [...new Set([base, `${slug(title)}-source`])]
-    .map(key => `import://${READWISE}/${key}`)
+  const aliases = [...new Set([`${READWISE}/${base}`, `${READWISE}/${slug(title)}-source`, `${BOOK}/${base}`])]
+    .map(key => `import://${key}`)
     .filter(alias => alias !== `import://${provider}/${base}`);
   return {
     url: `import://${provider}/${base}`,
@@ -144,7 +147,7 @@ const parseKindleClippings = (text = '') => {
       pendingNotes.push({ book, meta, body });
       return;
     }
-    const highlight = { text: body, note: '', createdAt: meta.createdAt, location: describeKindleLocation(meta), start: meta.start, end: meta.end };
+    const highlight = { text: body, note: '', createdAt: meta.createdAt, location: describeKindleLocation(meta), page: Number(meta.page) || undefined, start: meta.start, end: meta.end };
     /* Changing a highlight on a Kindle adds a second clipping rather than
        replacing the first, and a repeated sync copies them again. The later
        clipping is the one the reader settled on. */
@@ -168,7 +171,7 @@ const parseKindleClippings = (text = '') => {
       unattachedNotes += 1;
       return;
     }
-    home.note = home.note && !home.note.includes(body) ? `${home.note}\n\n${body}` : body;
+    home.note = joinNotes(home.note, body);
   });
 
   const books = [...sources.values()]
@@ -721,7 +724,9 @@ const parseExportFile = async (file = {}) => {
 };
 
 module.exports = {
+  BOOK,
   FORMAT_LABELS,
+  bookSource,
   detectFormat,
   parseAppleBooksExcerpts,
   parseAppleBooksHtml,
