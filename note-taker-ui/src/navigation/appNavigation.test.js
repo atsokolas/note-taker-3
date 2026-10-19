@@ -269,6 +269,34 @@ describe('moving around the app', () => {
     expect(resolveMove({ key: '/', target: field })).toBeNull();
   });
 
+  /* G then a letter no room has fails silently, as it always did: the key
+     is the chord's, so the moves never see it as back or as the walk. */
+  it('spends the key after G on the chord, room or not', () => {
+    const primed = consumeGoToChord({}, bodyEvent('g'), 1000);
+    expect(consumeGoToChord(primed, bodyEvent('h'), 1100)).toEqual({ primedAt: 0, to: null, spent: true });
+    expect(consumeGoToChord(primed, bodyEvent('l'), 1100)).toEqual({ primedAt: 0, to: '/library', spent: true });
+    expect(consumeGoToChord({}, bodyEvent('h'), 1100).spent).toBeUndefined();
+    expect(consumeGoToChord(primed, bodyEvent('h'), 1000 + GO_TO_CHORD_MS + 1).spent).toBeUndefined();
+  });
+
+  /* The ? overlay, the palette, a move-to-folder box: whatever is open on
+     top has the keys, so H cannot navigate away underneath it. */
+  it('does nothing while a modal is open over the room', () => {
+    ['modal-overlay kbd-overlay', 'palette-overlay'].forEach((className) => {
+      const overlay = document.body.appendChild(document.createElement('div'));
+      overlay.className = className;
+      expect(resolveMove(bodyEvent('h'))).toBeNull();
+      expect(resolveMove(bodyEvent('j'))).toBeNull();
+      overlay.remove();
+    });
+    const dialog = document.body.appendChild(document.createElement('div'));
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    expect(resolveMove(bodyEvent('['))).toBeNull();
+    dialog.remove();
+    expect(resolveMove(bodyEvent('h'))).toBe('back');
+  });
+
   it('steps along the masthead with [ and ], wrapping at its ends', () => {
     expect(adjacentRoom({ pathname: '/library' }, 1)).toBe('/think');
     expect(adjacentRoom({ pathname: '/think' }, -1)).toBe('/library');

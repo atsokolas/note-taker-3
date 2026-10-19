@@ -392,8 +392,8 @@ const AuthenticatedLayoutRuntime = ({ renderLayout, openPalette, setShortcutOver
       const next = consumeGoToChord({ primedAt }, event);
       primedAt = next.primedAt;
       showLetters(Boolean(primedAt));
+      if (next.spent) event.preventDefault();
       if (next.to) {
-        event.preventDefault();
         event.stopPropagation();
         setShortcutOverlayOpen(false);
         navigate(next.to);
