@@ -66,7 +66,7 @@ test('the book finishes a quote you marked on the Kindle, and it stays one mark'
 
   type('214 "The decline of viol');
   expect(screen.getByText('ence may be the most significant development in our history.')).toHaveClass('book-desk__ghost');
-  expect(screen.getByText('⇥ takes the rest of the passage you marked')).toBeInTheDocument();
+  expect(screen.getByText('Tab takes the rest of the passage you marked')).toBeInTheDocument();
   fireEvent.keyDown(line(), { key: 'Tab' });
   expect(line()).toHaveValue(`214 "${KINDLE.text}`);
 

@@ -81,10 +81,11 @@ blockquote + .book-desk__own {
 .book-desk__mark[data-kind='question']::before {
   content: '?';
   position: absolute;
-  left: -1.1rem;
+  left: -0.9rem;
   top: 0;
-  color: var(--wiki-warm-accent);
+  color: var(--muted);
   font-family: var(--font-serif);
+  line-height: 1.55;
 }
 
 /* Typed with only its ends: the gap shows until the book fills it. */
@@ -106,22 +107,19 @@ blockquote + .book-desk__own {
   to { background: transparent; }
 }
 
+/* The line is written on, not typed into a box: a page number in the
+   gutter like every folio above it, and one rule that inks when you write. */
 .book-desk__line {
   display: grid;
   grid-template-columns: 4.5rem minmax(0, 1fr);
-  align-items: start;
-  padding: var(--space-3) var(--space-3) var(--space-3) 0;
-  border: 1px solid var(--border-subtle-2);
-  border-radius: 14px;
-  background: var(--surface-elevated);
+  align-items: baseline;
+  margin-top: var(--space-3);
 }
 
 .book-desk__turn {
   display: flex;
-  justify-content: flex-end;
   align-items: baseline;
-  gap: 2px;
-  padding-right: var(--space-3);
+  gap: 0.2em;
   color: var(--muted);
   font-size: 0.72rem;
   font-variant: all-small-caps;
@@ -129,10 +127,9 @@ blockquote + .book-desk__own {
 }
 
 .book-desk__turn input {
-  width: 3ch;
+  width: 4ch;
   padding: 0;
   font: inherit;
-  font-size: 0.9rem;
   font-variant-numeric: oldstyle-nums tabular-nums;
 }
 
@@ -141,14 +138,18 @@ blockquote + .book-desk__own {
   outline: none;
 }
 
-.book-desk__line:focus-within {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent) 45%, var(--border-subtle-2));
-}
 
 /* The field and its mirror share one cell, so the field grows with the line
    and the book's words run on after the caret. */
 .book-desk__type {
   display: grid;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle-2);
+  transition: border-color 160ms ease-out;
+}
+
+.book-desk__line:focus-within .book-desk__type {
+  border-bottom-color: var(--muted);
 }
 
 .book-desk__mirror,
@@ -191,11 +192,21 @@ blockquote + .book-desk__own {
   caret-color: var(--wiki-warm-accent);
 }
 
+/* How to write here shows only while you are writing; what became of a
+   line stays until the next one. */
 .book-desk__hint {
-  margin: calc(var(--space-3) * -1) 0 0 4.5rem;
+  margin: calc(var(--space-4) * -1) 0 0;
+  padding-left: 4.5rem;
   min-height: 1.2em;
   color: var(--muted);
   font-size: 0.78rem;
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+
+.book-desk__hint[data-said],
+.book-desk__line:focus-within + .book-desk__hint {
+  opacity: 1;
 }
 
 @media (max-width: 560px) {
@@ -205,12 +216,17 @@ blockquote + .book-desk__own {
   }
 
   .book-desk__hint {
-    margin-left: 3.25rem;
+    padding-left: 3.25rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .book-desk__mark[data-inked] blockquote {
     animation: none;
+  }
+
+  .book-desk__type,
+  .book-desk__hint {
+    transition: none;
   }
 }

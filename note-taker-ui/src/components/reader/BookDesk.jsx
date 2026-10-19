@@ -219,16 +219,16 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
             aria-label="Type a quote, a note or a question"
             enterKeyHint="send"
             value={line}
-            placeholder="“A quote, or what you think"
+            placeholder="A quote, or what you think"
             onChange={(event) => setLine(event.target.value)}
             onKeyDown={press}
           />
         </div>
       </form>
-      <p className="book-desk__hint" aria-live="polite">
+      <p className="book-desk__hint" aria-live="polite" data-said={receipt || ghost ? true : undefined}>
         {receipt || (ghost
-          ? '⇥ takes the rest of the passage you marked'
-          : '↩ keeps the line · ⌥↩ makes it a note on the quote above · ⌘↑ ⌘↓ turn the page')}
+          ? 'Tab takes the rest of the passage you marked'
+          : 'Return keeps the line. Option-Return adds it to the quote above.')}
       </p>
     </section>
   );
