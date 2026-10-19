@@ -166,6 +166,11 @@ const createArticleModel = () => {
     return article;
   };
 
+  Article.find = ({ userId } = {}) => ({
+    select: async () => [...byUrl.values()].filter(article => article.userId === userId && /^import:\/\//.test(article.url))
+  });
+  Article.findById = async id => [...byUrl.values()].find(article => article._id === id) || null;
+
   Article.prototype.save = async function save() {
     byUrl.set(String(this.url || ''), this);
     return this;
@@ -193,19 +198,14 @@ const run = async () => {
     { id: 'highlight-empty', text: '' },
     { id: 'highlight-1', text: 'Attention is a choice.' }
   ];
+  const books = [{ id: 'book-1', user_book_id: 'book-1', title: 'Deep Work', author: 'Cal Newport', highlights }];
   axios.get = async (url, config = {}) => {
     if (String(url) === 'https://readwise.io/api/v2/export/') {
       exportAuthHeaders.push(String(config?.headers?.Authorization || ''));
       exportParams.push(config?.params || {});
       return {
         data: {
-          results: [{
-            id: 'book-1',
-            user_book_id: 'book-1',
-            title: 'Deep Work',
-            author: 'Cal Newport',
-            highlights
-          }],
+          results: books,
           nextPageCursor: ''
         }
       };
@@ -461,6 +461,14 @@ const run = async () => {
     assert.strictEqual(connection.lastReceipt.metrics.importedHighlights, 1);
     assert.strictEqual(connection.lastReceipt.nextAction, null, 'No import session, so no filing offer to follow.');
     assert.strictEqual(savedReceipts.length, receiptsBeforeQuietCheck + 1, 'New passages are recorded where background results live.');
+
+    // A paper book started at the desk, then highlighted on the Kindle: Readwise lands it in that book.
+    const desk = new Article({ userId: 'user-1', url: 'import://book/the-origin-of-species-darwin-charles', title: 'The Origin of Species' });
+    await desk.save();
+    books.push({ id: 'book-2', user_book_id: 'book-2', title: 'The Origin of Species', author: 'Charles Darwin', highlights: [{ id: 'highlight-3', text: 'There is grandeur in this view of life.' }] });
+    const kindle = await importRouter.syncReadwiseConnection({ connection, recordEmpty: false });
+    assert.strictEqual(kindle.result.importedArticles, 0, 'A book started at the desk is not shelved twice.');
+    assert.deepStrictEqual(desk.highlights.map(mark => mark.text), ['There is grandeur in this view of life.']);
   } finally {
     axios.get = originalAxiosGet;
     global.fetch = originalFetch;

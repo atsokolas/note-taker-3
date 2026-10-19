@@ -204,6 +204,9 @@ const articleSchema = new mongoose.Schema({
     /* How many times its passage has been opened. The reader deepens the ink
        a step or two; the number itself is never shown. */
     opens: { type: Number, default: 0, min: 0 },
+    /* The printed page, for a mark made at the reading desk. A Kindle mark
+       has a location instead, kept where its import put it. */
+    page: { type: Number, min: 1 },
     importMeta: { type: importMetaSchema, default: () => ({}) }
   }],
   pdfs: { type: [pdfAttachmentSchema], default: [] },

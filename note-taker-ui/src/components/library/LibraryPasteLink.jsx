@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { importPastedUrl } from '../../api/imports';
+import { importPastedUrl, startBook } from '../../api/imports';
 import { setArticlePlacement } from '../../api/articles';
 
 /* What a person pastes is rarely a clean URL: a bare domain, a trailing space,
@@ -11,7 +11,8 @@ export const linkFrom = (value = '') => {
   const candidate = /^https?:\/\//i.test(text) ? text : `https://${text}`;
   try {
     const url = new URL(candidate);
-    return /^https?:$/.test(url.protocol) && url.hostname.includes('.') ? url.toString() : '';
+    // A bare number parses as an IPv4 host, so the dot is asked of what was typed.
+    return /^https?:$/.test(url.protocol) && url.hostname.includes('.') && text.includes('.') ? url.toString() : '';
   } catch (_) {
     return '';
   }
@@ -23,6 +24,15 @@ export const linksFrom = (value = '') => {
   const written = String(value || '').match(/<?https?:\/\/[^\s<>"]+/gi) || [];
   const links = [...new Set(written.map(linkFrom).filter(Boolean))];
   return links.length ? links : [linkFrom(value)].filter(Boolean);
+};
+
+/* Words that are not a link are the book you are reading: "Middlemarch",
+   or "Middlemarch by George Eliot". */
+export const bookFrom = (value = '') => {
+  const text = String(value || '').trim();
+  if (!text || linksFrom(text).length) return null;
+  const by = text.toLowerCase().lastIndexOf(' by ');
+  return by > 0 ? { title: text.slice(0, by).trim(), author: text.slice(by + 4).trim() } : { title: text, author: '' };
 };
 
 const savedOn = value => {
@@ -55,10 +65,7 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
 
   const save = async (raw) => {
     const links = linksFrom(raw);
-    if (!links.length) {
-      setState({ phase: 'problem', line: 'That does not look like a link.' });
-      return;
-    }
+    if (!links.length) return start(bookFrom(raw));
     setWhy(null);
     setValue('');
     if (links.length > 1) return saveAll(links);
@@ -75,6 +82,21 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
           ? 'Noeis could not read that page. Some sites only show their text to a signed-in browser.'
           : 'That did not save. Try it again.'
       });
+    }
+  };
+
+  /* A book opens at its desk, the one you already had if an import brought it. */
+  const start = async (book) => {
+    if (!book) return;
+    setValue('');
+    setState({ phase: 'starting' });
+    try {
+      const { article } = await startBook(book);
+      setState({ phase: 'idle' });
+      onSaved?.(article);
+      onOpen?.(article._id);
+    } catch (_) {
+      setState({ phase: 'problem', line: 'That book did not start. Try it again.' });
     }
   };
 
@@ -113,6 +135,7 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
   };
 
   const { phase, article, line } = state;
+  const book = bookFrom(value);
   const titleOf = piece => (
     <button type="button" className="library-paste-link__title" onClick={() => onOpen?.(piece._id)}>
       {piece.title || 'Untitled'}
@@ -158,12 +181,11 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
       <div className="library-paste-link__line">
         <input
           aria-label="Paste a link to save"
-          type="url"
-          inputMode="url"
           enterKeyHint="go"
+          autoCapitalize="off"
           value={value}
-          placeholder="Paste a link you found"
-          disabled={phase === 'saving' || (phase === 'many' && !state.done)}
+          placeholder="Paste a link, or name the book you’re reading"
+          disabled={phase === 'saving' || phase === 'starting' || (phase === 'many' && !state.done)}
           onChange={(event) => {
             setValue(event.target.value);
             if (phase === 'problem') setState({ phase: 'idle' });
@@ -175,8 +197,13 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
             save(pasted);
           }}
         />
-        {value.trim() && phase !== 'saving' ? <button type="submit" className="library-paste-link__save">Save</button> : null}
+        {value.trim() && !['saving', 'starting'].includes(phase) ? <button type="submit" className="library-paste-link__save">{book ? 'Start' : 'Save'}</button> : null}
       </div>
+      {book ? (
+        <p className="library-paste-link__route">
+          Opens <cite>{book.title}</cite>{book.author ? `, by ${book.author},` : ''} at its desk, where you type as you read.
+        </p>
+      ) : (
       <p className="library-paste-link__route">
         Goes{' '}
         <button
@@ -201,8 +228,10 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
         ) : null}
         .{children ? <> {children}</> : null}
       </p>
+      )}
       <p className="library-paste-link__receipt" role="status" aria-live="polite">
         {phase === 'saving' ? 'Reading the page…' : null}
+        {phase === 'starting' ? 'Finding the book…' : null}
         {phase === 'saved' ? <>{capital(place)}: {titleOf(article)}{reason}{nightstand}</> : null}
         {phase === 'existing' ? <>Already yours{since ? ` since ${since}` : ''}{place ? `, ${place}` : ''}: {titleOf(article)}{reason}{nightstand}</> : null}
         {many}

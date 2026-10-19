@@ -183,18 +183,19 @@ describe('editorial house CSS', () => {
     const reader = read('reader-editorial.css');
     expect(css).toContain('--ink-human:');
     expect(css).toContain('--ink-agent:');
-    expect(reader).toContain('color: var(--ink-agent, var(--vellum-ink))');
     expect(reader).toContain('color: var(--ink-human, var(--vellum-ink))');
   });
 
-  it('inks the reader highlight warm, and keeps the note in agent ink', () => {
+  it('inks the reader highlight warm, and the reader\'s own words at the desk in human ink', () => {
     const reader = fs.readFileSync(path.join(__dirname, 'reader-editorial.css'), 'utf8');
     const theme = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
+    const desk = fs.readFileSync(path.join(__dirname, 'book-desk.css'), 'utf8');
     expect(theme).toContain('var(--highlight-color, #f6e27a)');
     expect(theme).not.toContain('rgba(11, 116, 255');
     expect(reader).toContain('var(--highlight-color, #f6e27a)');
     expect(reader).toContain('color: var(--ink-human, var(--vellum-ink))');
-    expect(reader).toContain('color: var(--ink-agent, var(--vellum-ink))');
+    expect(desk).toMatch(/\.book-desk__own \{[^}]*color: var\(--ink-human/);
+    expect(desk).not.toContain('--ink-agent');
     expect(reader).toMatch(/html\[data-ui-scheme='dark'\][\s\S]*mark\.highlight/);
   });
 });

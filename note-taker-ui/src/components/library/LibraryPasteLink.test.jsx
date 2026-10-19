@@ -1,10 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import LibraryPasteLink, { linkFrom, linksFrom } from './LibraryPasteLink';
-import { importPastedUrl } from '../../api/imports';
+import LibraryPasteLink, { bookFrom, linkFrom, linksFrom } from './LibraryPasteLink';
+import { importPastedUrl, startBook } from '../../api/imports';
 import { setArticlePlacement } from '../../api/articles';
 
-jest.mock('../../api/imports', () => ({ importPastedUrl: jest.fn() }));
+jest.mock('../../api/imports', () => ({ importPastedUrl: jest.fn(), startBook: jest.fn() }));
 jest.mock('../../api/articles', () => ({ setArticlePlacement: jest.fn() }));
 
 const field = () => screen.getByLabelText('Paste a link to save');
@@ -91,12 +91,20 @@ test('without folders the sentence only says where, and Save shows once there is
   expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
 });
 
-test('words that are not a link are not sent anywhere', () => {
-  render(<LibraryPasteLink />);
-  fireEvent.change(field(), { target: { value: 'not a link' } });
-  fireEvent.submit(field().closest('form'));
+test('words that are not a link are the book you are reading, and it opens at its desk', async () => {
+  expect(bookFrom('Middlemarch by George Eliot')).toEqual({ title: 'Middlemarch', author: 'George Eliot' });
+  expect(bookFrom('The Remains of the Day')).toEqual({ title: 'The Remains of the Day', author: '' });
+  expect(bookFrom('example.com/a')).toBeNull();
+  expect(bookFrom('1984')).toEqual({ title: '1984', author: '' });
+  startBook.mockResolvedValue({ article: { _id: 'b1', title: 'Middlemarch' }, existing: false });
+  const onOpen = jest.fn();
+  render(<LibraryPasteLink onOpen={onOpen} />);
+  fireEvent.change(field(), { target: { value: 'Middlemarch by George Eliot' } });
+  expect(screen.getByText(/at its desk, where you type as you read/)).toHaveTextContent('Opens Middlemarch, by George Eliot, at its desk');
+  fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+  await waitFor(() => expect(onOpen).toHaveBeenCalledWith('b1'));
+  expect(startBook).toHaveBeenCalledWith({ title: 'Middlemarch', author: 'George Eliot' });
   expect(importPastedUrl).not.toHaveBeenCalled();
-  expect(screen.getByRole('status')).toHaveTextContent('That does not look like a link.');
 });
 
 test('several links pasted at once all save, titles arriving in order', async () => {

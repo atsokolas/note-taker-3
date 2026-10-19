@@ -37,6 +37,15 @@ export const importPastedUrl = async ({ url, title = '', placement, folderId } =
   return response.data || {};
 };
 
+/* A book you are starting: found if an import already brought it, made if not. */
+export const startBook = async ({ title, author = '' } = {}) => {
+  const response = await api.post('/api/import/book', { title, author }, getAuthHeaders());
+  return response.data || {};
+};
+
+/* Every book on the shelf, with its marks. */
+export const listBooks = async () => (await api.get('/api/books', getAuthHeaders())).data?.books || [];
+
 export const listImportConnections = async ({ provider = '' } = {}) => {
   const params = new URLSearchParams();
   if (provider) params.set('provider', String(provider).trim());

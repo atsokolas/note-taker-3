@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from './ui';
 import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
@@ -275,11 +275,12 @@ const ArticleReader = ({
   }, [articleId, focusedHighlightId, focusedHighlight, location.key, location.search]);
   const focusedPassageIsInArticle = Boolean(focusedHighlightId)
     && html.includes(`data-highlight-id="highlight-${focusedHighlightId}"`);
-  const isHighlightOnlyImport = Boolean(article)
+  /* A source with no text of its own, a book above all, is read elsewhere
+     and written about at its desk, on a page of its own. */
+  const atDesk = Boolean(article)
     && !hasReadableContent(article.content)
-    && Array.isArray(highlights)
-    && highlights.length > 0;
-  const focusedPassage = focusedHighlight && !focusedPassageIsInArticle && !isHighlightOnlyImport
+    && (highlights.length > 0 || /^import:\/\//.test(article.url || ''));
+  const focusedPassage = focusedHighlight && !focusedPassageIsInArticle
     ? focusedHighlight
     : null;
   const { selectionState, clearSelection } = useTextSelection({
@@ -558,7 +559,7 @@ const ArticleReader = ({
     params.set('thought', '1');
     navigate({ pathname: '/library', search: params.toString(), hash: '' });
   });
-  const ask = asking.available && !isHighlightOnlyImport ? askAboutSelection : undefined;
+  const ask = asking.available ? askAboutSelection : undefined;
   const menuOpen = selectionState.isOpen && !reading.readFresh;
   const walk = (step) => () => walkPassages(readerRootRef.current, step, { reducedMotion });
   keys.current = {
@@ -568,6 +569,10 @@ const ArticleReader = ({
     p: onPrevious,
     ...(menuOpen && !saving ? { h: handleCreateHighlight, t: leaveThought, a: ask } : {})
   };
+
+  if (atDesk) {
+    return <Navigate replace to={`/library/books/${article._id}${focusedHighlightId ? `?highlight=${focusedHighlightId}` : ''}`} />;
+  }
 
   return (
     <div className="article-reader" ref={readerRootRef} data-read-fresh={reading.readFresh || undefined} data-source-kind={dress || undefined}>
@@ -662,64 +667,22 @@ const ArticleReader = ({
           onOpenedText={onOpenedSentence}
         />
       ) : null}
-      {isHighlightOnlyImport ? (
-        <div className="article-reader-content reader article-reader-content--highlights" ref={contentRef}>
-          <section className="article-highlight-edition" aria-label="Saved highlights">
-            <div className="article-highlight-edition__lead">
-              <span className="eyebrow">Highlight edition</span>
-              <p>
-                No full article text was imported for this source, so Noeis is showing the saved
-                highlights as the reading body.
-              </p>
-            </div>
-            <ol className="article-highlight-edition__list">
-              {highlights.map((highlight, index) => {
-                const highlightId = highlight?._id || highlight?.id || `${article?._id || 'article'}-${index}`;
-                const tags = Array.isArray(highlight?.tags) ? highlight.tags.filter(Boolean) : [];
-                const createdAt = formatCalendarDate(highlight?.createdAt || highlight?.highlightedAt);
-                return (
-                  <li
-                    key={highlightId}
-                    className="article-highlight-edition__item"
-                    data-highlight-id={`highlight-${highlightId}`}
-                  >
-                    <blockquote>{highlight?.text || 'Untitled highlight'}</blockquote>
-                    {(highlight?.note || createdAt || tags.length > 0) && (
-                      <div className="article-highlight-edition__meta">
-                        {createdAt && <span>{createdAt}</span>}
-                        {tags.slice(0, 6).map(tag => <span key={`${highlightId}-${tag}`}>{tag}</span>)}
-                      </div>
-                    )}
-                    {highlight?.note && (
-                      <p className="article-highlight-edition__note">{highlight.note}</p>
-                    )}
-                    {passageDoorFor(highlight, index)}
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        </div>
-      ) : (
-        <>
-          <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
-          <FootnotePeek contentRef={contentRef} />
-          <ArticleMargins
-            articleId={articleId}
-            contentRef={contentRef}
-            frameRef={readerRootRef}
-            contentKey={article.content}
-            layoutKey={contentMarkup.__html}
-            hidden={Boolean(reading.readFresh)}
-            asking={asking}
-          />
-          <div className="article-passage-threads" aria-label="Connections to held judgments">
-            {highlights
-              .filter((highlight) => !heldPassages.has(String(highlight?._id || highlight?.id || '')))
-              .map(passageDoorFor)}
-          </div>
-        </>
-      )}
+      <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
+      <FootnotePeek contentRef={contentRef} />
+      <ArticleMargins
+        articleId={articleId}
+        contentRef={contentRef}
+        frameRef={readerRootRef}
+        contentKey={article.content}
+        layoutKey={contentMarkup.__html}
+        hidden={Boolean(reading.readFresh)}
+        asking={asking}
+      />
+      <div className="article-passage-threads" aria-label="Connections to held judgments">
+        {highlights
+          .filter((highlight) => !heldPassages.has(String(highlight?._id || highlight?.id || '')))
+          .map(passageDoorFor)}
+      </div>
       {/* The source record — who wrote it, when it was saved, where else it is
           used — sat between the headline and the first paragraph, so every
           article opened onto a panel instead of onto its text. It is the same
@@ -747,6 +710,7 @@ const ArticleReader = ({
           ))}
         </ul>
       ) : null}
+      {/* How much is left is the book's to know; the desk has no length. */}
       <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>

@@ -154,15 +154,6 @@ body.noeis-editorial .article-reader-content mark.highlight {
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--highlight-color, #f6e27a) 40%, transparent);
 }
 
-body.noeis-editorial .article-highlight-edition__item blockquote {
-  color: var(--ink-human, var(--vellum-ink));
-}
-
-body.noeis-editorial .article-highlight-edition__note {
-  color: var(--ink-agent, var(--vellum-ink));
-  font-style: italic;
-}
-
 html[data-ui-scheme='dark'] body.noeis-editorial .article-reader-content mark.highlight {
   background: color-mix(in srgb, var(--highlight-color, #f6e27a) calc(46% + var(--ink-deepen, 0%)), transparent) !important;
 }
