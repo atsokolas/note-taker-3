@@ -1,11 +1,11 @@
 #!/bin/bash
 # Noeis as the desktop's reader. With nothing, it opens noeis.io in its own
-# window wearing the current Omarchy theme. A web+noeis:// link goes to the
-# app the way the browser's protocol handler sends it. A file (EPUB,
-# Markdown) is brought into your Library with the panel's session.
+# window wearing the current Omarchy theme. A link opens the app's save page,
+# which puts it on the nightstand. A file (EPUB, Markdown) is brought into
+# your Library with the panel's connection.
 #
 #   noeis-open                            the app
-#   noeis-open web+noeis://save?url=…     save a link for later
+#   noeis-open https://example.com/essay  save a link for later
 #   noeis-open ~/Books/Middlemarch.epub   bring a book in
 set -euo pipefail
 
@@ -30,7 +30,7 @@ say() { omarchy-notification-send --app-name Noeis -u "$1" Noeis "$2" ${3:+--exe
 bring() {
   local token reply
   token=$(jq -r '.token // empty' "$SESSION" 2>/dev/null) || true
-  [[ -n $token ]] || { say normal "Sign in from the Noeis panel first, then open it again." /; exit 1; }
+  [[ -n $token ]] || { say normal "Connect Noeis from its panel first, then open it again." /; exit 1; }
   # The token goes to curl on stdin, never in its arguments.
   if reply=$(printf 'Authorization: Bearer %s\n' "$token" | curl -fsS -H @- -F "files=@$1" "$API/api/import/files" 2>&1); then
     say low "In your Library: $(basename "$1")" /library
@@ -42,6 +42,6 @@ bring() {
 
 case ${1:-} in
   "") app / ;;
-  web+noeis:*) app "/library?save=$(jq -rn --arg u "$1" '$u|@uri')" ;;
+  http://* | https://*) app "/library/save?url=$(jq -rn --arg u "$1" '$u|@uri')" ;;
   *) bring "$1" ;;
 esac

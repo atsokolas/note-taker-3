@@ -44,7 +44,7 @@ cannot read it. From a checkout, `cp -r plugins/omarchy
   (`noeis-open` reads the theme's colours each time it opens, once you
   choose Omarchy in noeis.io's theme settings).
 - **Open with Noeis** for EPUB and Markdown files, which land in your
-  Library, and `web+noeis://save?url=…` links, which save to the nightstand.
+  Library. `noeis-open <link>` saves a link to the nightstand.
 - **The browser extension** loaded into Omarchy's Chromium, so Alt+Shift+N
   saves the tab you are reading.
 - **Super+Alt+N** opens the panel; **Super+Alt+Shift+N** saves the link on
@@ -87,7 +87,7 @@ shell, with your user's permissions.
 | `Panel.qml` | The panel: connecting, the field, search results, the nightstand, receipts |
 | `NoeisMark.qml` | The three-ring mark, drawn natively at bar size |
 | `Model.js` | The panel's decisions, tested in node by `scripts/omarchy_plugin.test.js` |
-| `bin/noeis-open` | The app in its own window, `web+noeis://` links, and files into your Library |
+| `bin/noeis-open` | The app in its own window, links onto the nightstand, and files into your Library |
 | `bin/noeis-setup` | Makes Noeis the reader on this machine |
 
 `omarchy plugin validate plugins/omarchy` checks the folder the way the shell

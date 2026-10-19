@@ -3,7 +3,7 @@
 # first, so running it again changes nothing that is already in place.
 #
 #   - noeis-open on your PATH, and Noeis in the launcher as its own window
-#     that opens EPUB and Markdown files and web+noeis:// links
+#     that opens EPUB and Markdown files
 #   - the Noeis browser extension loaded into Omarchy's Chromium
 #   - Super+Alt+N opens the panel; Super+Alt+Shift+N saves the clipboard's link
 #   - "Noeis" in the Share menu (Super+Ctrl+S) saves the clipboard's link
@@ -23,9 +23,8 @@ ln -sf "$PLUGIN/bin/noeis-open" "$HOME/.local/bin/noeis-open"
 done_ "noeis-open is on your PATH"
 
 omarchy-webapp-install Noeis "$APP" "" "noeis-open %U" \
-  "application/epub+zip;text/markdown;x-scheme-handler/web+noeis;" >/dev/null
-xdg-mime default Noeis.desktop x-scheme-handler/web+noeis
-done_ "Noeis is in the launcher and opens web+noeis:// links"
+  "application/epub+zip;text/markdown;" >/dev/null
+done_ "Noeis is in the launcher, and opens EPUB and Markdown files"
 
 if [[ -d $PLUGIN/extension ]] && ! grep -q "$PLUGIN/extension" "$FLAGS" 2>/dev/null; then
   if grep -q '^--load-extension=' "$FLAGS" 2>/dev/null; then
