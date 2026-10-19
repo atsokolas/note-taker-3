@@ -32,6 +32,7 @@ Scope {
     ["j  k", "Next and previous paragraph"],
     ["n  p", "Next and previous piece"],
     ["o", "Open it on noeis.io"],
+    ["1–5", Model.PLACES.map(function(place) { return place[0] }).join(", ")],
     ["q  Esc", "Close"],
     ["?", "These keys"]
   ]
@@ -127,6 +128,7 @@ Scope {
     else if (text === "n") turn(1)
     else if (text === "p") turn(-1)
     else if (text === "o" && shown) service.visit(shown.path)
+    else if (Model.PLACES[text - 1]) service.visit(Model.PLACES[text - 1][1])
     else return
     event.accepted = true
   }

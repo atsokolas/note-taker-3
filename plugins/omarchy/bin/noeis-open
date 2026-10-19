@@ -2,13 +2,14 @@
 # Noeis as the desktop's reader. With nothing, it opens the reading window:
 # your nightstand, tiled beside whatever else is open. A link goes onto the
 # nightstand and a file (EPUB, PDF, Markdown) into your Library, each
-# answered by a notification that opens it there. --web opens noeis.io
-# itself, in its own window wearing the current Omarchy theme.
+# answered by a notification that opens it there. --web opens all of
+# noeis.io as an app in its own tiled window, wearing the current Omarchy
+# theme; with no page named it comes to the window already open.
 #
 #   noeis-open                            the reading window
 #   noeis-open https://example.com/essay  save a link for later
 #   noeis-open ~/Books/Middlemarch.epub   bring a book in
-#   noeis-open --web [/library]           noeis.io, at a page if one is named
+#   noeis-open --web [/think]             noeis.io, at a page if one is named
 set -euo pipefail
 
 APP=${NOEIS_APP_URL:-https://www.noeis.io}
@@ -25,7 +26,14 @@ theme() {
     $1 in name { gsub(/[" #]/, "", $2); printf "&%s=%s", name[$1], $2 }' "$COLORS" | sed 's/^/#omarchy-colors/'
 }
 
-web() { exec omarchy-launch-webapp "$APP$1$(theme)"; }
+# The app window's class carries noeis.io's host (chrome-www.noeis.io__-Default),
+# which is how it is found again; the match is by whole words, so the host
+# goes without its last label.
+web() {
+  local host=${APP#https://}
+  [[ -n $1 ]] && exec omarchy-launch-webapp "$APP$1$(theme)"
+  exec omarchy-launch-or-focus "${host%.*}" "omarchy-launch-webapp '$APP/$(theme)'"
+}
 
 # A notification; the rest of the line is what its click runs.
 say() {
@@ -49,7 +57,7 @@ bring() {
 
 case ${1:-} in
   "") exec omarchy-shell noeis read ;;
-  --web) web "${2:-/}" ;;
+  --web) web "${2:-}" ;;
   http://* | https://*) exec omarchy-shell noeis save "$1" ;;
   *) bring "$1" ;;
 esac

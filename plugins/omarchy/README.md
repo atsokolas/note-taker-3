@@ -2,13 +2,14 @@
 
 Noeis as the reader on [Omarchy](https://github.com/omacom/omarchy) 4
 ("Quattro"), whose desktop runs as one Quickshell process with every piece of
-it a plugin. Your nightstand opens in a window of its own that Hyprland tiles
-beside your work; the Noeis mark in the bar opens a panel where one field
+it a plugin. All of noeis.io (Library, Think, Wiki, Judgment, Editions) opens
+as an app in a window Hyprland tiles beside your work, and your nightstand
+has a reading window of its own, drawn by the shell; the Noeis mark in the bar opens a panel where one field
 takes either a link or a search.
 
 ## The reading window
 
-`omarchy-shell noeis read` (Super+Alt+N, or Noeis in the launcher) opens it:
+`omarchy-shell noeis read` (Super+Alt+R, or Noeis reader in the launcher) opens it:
 your nightstand on the left, the piece on the right, in your theme's colours
 and the system font. It is an ordinary window, titled "Noeis", so it tiles,
 moves between workspaces and takes window rules like any app.
@@ -18,11 +19,11 @@ moves between workspaces and takes window rules like any app.
 | `j` `k` | Next and previous paragraph; the one you are on is marked in the margin |
 | `n` `p` | Next and previous piece in the list |
 | `o` | Open the piece on noeis.io |
+| `1`–`5` | Library, Think, Wiki, Judgment, Editions in the Noeis app |
 | `q` `Esc` | Close |
 | `?` | These keys |
 
-The window follows a theme change at once. It is the only way in that opens
-noeis.io's own window, and only on `o`.
+The window follows a theme change at once.
 
 ## The panel
 
@@ -84,19 +85,20 @@ cannot read it. From a checkout, `cp -r plugins/omarchy
 
 `noeis-setup` makes Noeis the reader on the machine, and is safe to run again:
 
-- **Noeis in the launcher** opens the reading window, and opens EPUB, PDF
-  and Markdown files into your Library. **Noeis (web)** is noeis.io in its own
-  window wearing your Omarchy theme (`noeis-open --web` reads the theme's
+- **Noeis in the launcher** is all of noeis.io as an app in its own tiled
+  window, wearing your Omarchy theme (`noeis-open --web` reads the theme's
   colours each time it opens, once you choose Omarchy in noeis.io's theme
-  settings).
+  settings). Opening it again comes to the window already open. **Noeis
+  reader** is the reading window, and opens EPUB, PDF and Markdown files into
+  your Library.
 - **The browser extension** loaded into Omarchy's Chromium, so Alt+Shift+N
   saves the tab you are reading.
-- **Keys:** Super+Alt+N reads, Super+Ctrl+Alt+N opens the panel,
+- **Keys:** Super+Alt+N opens Noeis, Super+Alt+R reads, Super+Ctrl+Alt+N opens the panel,
   Super+Alt+Shift+N saves the clipboard's link, Super+Alt+T saves highlighted
   text, Super+Ctrl+Alt+Print saves text off the screen. A key Noeis bound
   before is moved to its new meaning; check the rest are free first with
   `omarchy menu keybindings --print`. By hand, a binding reads
-  `o.bind("SUPER + ALT + N", "Noeis", "omarchy-shell noeis read")`.
+  `o.bind("SUPER + ALT + N", "Noeis", "noeis-open --web")`.
 - **Share → Noeis** (Super+Ctrl+S) saves the link on your clipboard.
 
 The mark lands on the right of the bar; `omarchy bar move io.noeis --section

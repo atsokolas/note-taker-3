@@ -9,6 +9,9 @@
 var APP = "https://www.noeis.io"
 var API = "https://note-taker-3-unrg.onrender.com"
 
+// The rooms of noeis.io, in the order the panel lists them and the reader numbers them.
+var PLACES = [["Library", "/library"], ["Think", "/think"], ["Wiki", "/wiki"], ["Judgment", "/judgment"], ["Editions", "/editions"]]
+
 var MONTHS = ["January", "February", "March", "April", "May", "June", "July",
   "August", "September", "October", "November", "December"]
 

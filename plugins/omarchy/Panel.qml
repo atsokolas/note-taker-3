@@ -349,7 +349,7 @@ Panel {
 
           Repeater {
             model: root.signedIn
-              ? [["Library", "/library"], ["Think", "/think"], ["Wiki", "/wiki"], ["Judgment", "/judgment"], ["Editions", "/editions"]]
+              ? Model.PLACES
               : [["Make an account at noeis.io", "/"]]
 
             Place {
