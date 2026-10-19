@@ -10,7 +10,7 @@ const id = value => String(value).padStart(24, '0');
 const conceptId = '999999999999999999999999';
 const identity = () => ({ userId: owner, username: 'Offline fixture reviewer', conceptId,
   ownershipVerified: true, holdsActive: true, fixtureBindingComplete: false });
-const rig = () => {
+const rig = ({ source1Id = id(1), highlightId = id(3) } = {}) => {
   const saved = new Map(); const articles = new Map(); const pages = []; const events = []; const writes = [];
   const profiles = []; const editions = [];
   const storage = { getItem: key => saved.get(key) || null, setItem: (key, value) => saved.set(key, value) };
@@ -31,13 +31,13 @@ const rig = () => {
     page: jest.fn(async pageId => pages.find(row => row._id === pageId)),
     importSource: jest.fn(async source => {
       writes.push(source.fixtureKey);
-      const article = { _id: id(articles.size + 1), userId: owner, title: source.title, url: source.url,
+      const article = { _id: source.fixtureKey === 'source-1' ? source1Id : id(2), userId: owner, title: source.title, url: source.url,
         author: source.author, content: source.text, highlights: [] };
       articles.set(source.url, article); held('article', article._id, source);
       return { status: 'held', article: { _id: article._id } };
     }),
     highlight: jest.fn(async articleId => {
-      writes.push('highlight'); const highlight = { _id: id(3), text: plan.highlight.text, note: plan.highlight.note };
+      writes.push('highlight'); const highlight = { _id: highlightId, text: plan.highlight.text, note: plan.highlight.note, noteRevision: 0 };
       [...articles.values()].find(row => row._id === articleId).highlights.push(highlight); held('highlight', highlight._id);
       return { highlight };
     }),
@@ -287,6 +287,7 @@ test('bundled fictional text hashes match the pinned values reported after exact
   plan.sources.forEach(source => expect(hash(source.text)).toBe(source.contentHash));
   expect(hash(plan.highlight.text)).toBe(plan.highlight.textHash);
   expect(hash(plan.highlight.note)).toBe(plan.highlight.noteHash);
+  expect(hash(`${plan.highlight.note}\n\n${plan.highlight.reviewedAppend.text}`)).toBe(plan.highlight.reviewedAppend.noteHash);
   expect(hash(plan.wiki.body)).toBe(plan.wiki.bodyHash);
 });
 
@@ -315,6 +316,73 @@ test('missing concept stops before authentication and a different returned conce
 
 const editionRig = async () => { const r = rig(); await r.session().run(); r.writes.length = 0; return r; };
 const editionKey = `noeis.reviewer.fixtures.v${plan.version}.${owner}.edition`;
+const reviewedAppendRig = async () => {
+  const append = plan.highlight.reviewedAppend;
+  const r = rig({ source1Id: append.sourceId, highlightId: append.highlightId });
+  await r.session().run(); r.writes.length = 0;
+  Object.assign(r.articles.get(plan.sources[0].url).highlights[0], {
+    note: `${plan.highlight.note}\n\n${append.text}`, noteRevision: append.noteRevision
+  });
+  return r;
+};
+
+test.each([0, undefined])('the original note remains the baseline with a zero or legacy missing revision (%p)', async revision => {
+  const r = await editionRig(); r.articles.get(plan.sources[0].url).highlights[0].noteRevision = revision;
+  const state = await r.session().inspectEdition();
+  expect(state.highlight.note).toBe(plan.highlight.note);
+  expect(fixtureReceipt(state)).toMatchObject({ readerNoteHash: plan.highlight.noteHash, readerNoteRevision: 0 });
+  expect(r.writes).toEqual([]);
+});
+
+test('the exact verified P2 append survives checks, Edition preparation and reload without core writes', async () => {
+  const r = await reviewedAppendRig(); const key = `noeis.reviewer.fixtures.v${plan.version}.${owner}`;
+  const originalJournal = r.saved.get(key); const originalCorpus = JSON.stringify([...r.articles.values(), ...r.pages, ...r.events]);
+  const read = await r.session().inspect(); await r.session().run(); await r.session().inspectEdition();
+  const noteReceipt = { readerNoteHash: plan.highlight.reviewedAppend.noteHash, readerNoteRevision: 1 };
+  expect(fixtureReceipt(read)).toMatchObject(noteReceipt); expect(r.writes).toEqual([]);
+  const state = await r.session().runEdition();
+  expect(r.writes).toEqual(['edition-profile', 'edition-issue']);
+  expect(editionFixtureReceipt(state)).toMatchObject(noteReceipt);
+  expect(editionFixtureReceipt(state).baselineItem.passage).toBe(plan.highlight.text);
+  await r.session().inspect(); await r.session().inspectEdition(); await r.session().runEdition();
+  expect(r.writes).toEqual(['edition-profile', 'edition-issue']);
+  expect(r.saved.get(key)).toBe(originalJournal);
+  expect(JSON.stringify([...r.articles.values(), ...r.pages, ...r.events])).toBe(originalCorpus);
+});
+
+test.each([
+  ['changed append', (_r, row) => { row.note += ' More'; }],
+  ['another append', (_r, row) => { row.note += `\n\n${plan.highlight.reviewedAppend.text}`; }],
+  ['changed original', (_r, row) => { row.note = row.note.replace('bounded result', 'different result'); }],
+  ['different separator', (_r, row) => { row.note = row.note.replace('\n\n', '\n'); }],
+  ['missing revision', (_r, row) => { delete row.noteRevision; }],
+  ['string revision', (_r, row) => { row.noteRevision = '1'; }],
+  ['older revision', (_r, row) => { row.noteRevision = 0; }],
+  ['later revision', (_r, row) => { row.noteRevision = 2; }],
+  ['original text at P2 revision', (_r, row) => { row.note = plan.highlight.note; }],
+  ['null original revision', (_r, row) => { row.note = plan.highlight.note; row.noteRevision = null; }],
+  ['string original revision', (_r, row) => { row.note = plan.highlight.note; row.noteRevision = '0'; }],
+  ['different highlight ID', (_r, row) => { row._id = id(88); }],
+  ['changed passage', (_r, row) => { row.text += ' Changed'; }],
+  ['duplicate highlight', (r, row) => { r.articles.get(plan.sources[0].url).highlights.push({ ...row }); }],
+  ['different source ID', r => {
+    const article = r.articles.get(plan.sources[0].url); const previous = article._id; article._id = id(88);
+    r.pages[0].sourceRefs[0].objectId = article._id;
+    r.events.filter(event => event.sourceObjectId === previous).forEach(event => { event.sourceObjectId = article._id; });
+  }],
+  ['different verified owner', r => {
+    r.client.identity.mockResolvedValue({ ...identity(), userId: id(90) });
+    r.articles.forEach(row => { row.userId = id(90); });
+    [...r.events, ...r.pages].forEach(row => { row.userId = id(90); });
+  }]
+])('P2 exception rejects %s before any POST or journal change', async (_name, change) => {
+  const r = await reviewedAppendRig(); change(r, r.articles.get(plan.sources[0].url).highlights[0]);
+  const beforeJournal = [...r.saved.entries()]; const beforeCorpus = JSON.stringify([...r.articles.values(), ...r.pages, ...r.events]);
+  for (const action of ['inspect', 'run', 'inspectEdition', 'runEdition']) await expect(r.session()[action]()).rejects.toThrow();
+  expect(r.client.editionProfiles).not.toHaveBeenCalled(); expect(r.writes).toEqual([]);
+  expect([...r.saved.entries()]).toEqual(beforeJournal);
+  expect(JSON.stringify([...r.articles.values(), ...r.pages, ...r.events])).toBe(beforeCorpus);
+});
 
 test('Edition preparation reads before two bounded writes and reload never opens another issue window', async () => {
   const r = await editionRig(); const before = await r.session().inspectEdition();
