@@ -43,7 +43,7 @@ cannot read it. From a checkout, `cp -r plugins/omarchy
 - **Noeis in the launcher**, in its own window wearing your Omarchy theme
   (`noeis-open` reads the theme's colours each time it opens, once you
   choose Omarchy in noeis.io's theme settings).
-- **Open with Noeis** for EPUB and Markdown files, which land in your
+- **Open with Noeis** for EPUB, PDF and Markdown files, which land in your
   Library. `noeis-open <link>` saves a link to the nightstand.
 - **The browser extension** loaded into Omarchy's Chromium, so Alt+Shift+N
   saves the tab you are reading.
