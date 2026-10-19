@@ -63,6 +63,9 @@ const escapeHtml = (value = '') => String(value)
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
+/* Every address a book can arrive under: a shelf of books is these. */
+const BOOK_URL = new RegExp(`^import://(?:${[KINDLE, APPLE_BOOKS, BOOK, EPUB, READWISE].join('|')})/`);
+
 /* A book has no URL, so it is addressed by what it is. The Readwise CSV import
    has always addressed books the same way (and, reading the wrong column,
    mostly without the author), so a book that came through Readwise first, or
@@ -725,6 +728,7 @@ const parseExportFile = async (file = {}) => {
 
 module.exports = {
   BOOK,
+  BOOK_URL,
   FORMAT_LABELS,
   bookSource,
   detectFormat,

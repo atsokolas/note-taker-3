@@ -1,0 +1,173 @@
+/* Books: a shelf of the books you are reading, and a page for each one.
+   Set like the front matter of a book: the titles in the reading serif, and
+   everything about them small and quiet beneath. */
+
+.books {
+  width: min(100% - 32px, 720px);
+  margin: 0 auto;
+  padding: 28px 0 120px;
+  color: var(--text);
+}
+
+.books__tools {
+  font: 13px/1.6 var(--font-sans);
+}
+
+.books__tools a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+.books__tools a:hover,
+.books__tools a:focus-visible {
+  color: var(--text);
+}
+
+.books h1 {
+  margin: var(--space-5) 0 var(--space-4);
+  font-family: var(--font-serif);
+  font-size: clamp(2.2rem, 5vw, 3rem);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.books__head {
+  margin-bottom: var(--space-5);
+}
+
+.books__head h1 {
+  margin-top: var(--space-2);
+}
+
+.books__author {
+  margin: 0;
+  color: var(--muted);
+  font: 0.7rem/1.4 var(--font-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.books--one .books__head .books__author {
+  margin-top: var(--space-5);
+}
+
+/* Starting a book is writing its name on a rule, like the desk's own line. */
+.books__start {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle-2);
+  transition: border-color var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+.books__start:focus-within {
+  border-bottom-color: var(--muted);
+}
+
+.books .books__start input,
+.books .books__start button {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.books .books__start input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  color: var(--text) !important;
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+}
+
+.books__start input:focus-visible {
+  outline: none;
+}
+
+.books .books__start button {
+  min-height: 44px;
+  padding: 0;
+  color: var(--text);
+  font: 0.85rem var(--font-sans);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.books .books__start button:disabled {
+  color: var(--muted);
+  text-decoration: none;
+  cursor: default;
+}
+
+.books__quiet {
+  margin: var(--space-5) 0 0;
+  color: var(--muted);
+  font: 0.9rem/1.6 var(--font-sans);
+}
+
+.books__shelf {
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.books__shelf li + li {
+  border-top: 1px solid var(--border-subtle-2);
+}
+
+.books .books__book {
+  display: grid;
+  gap: 4px;
+  padding: var(--space-4) 0;
+  color: var(--text) !important;
+  text-decoration: none;
+}
+
+.books__title {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  line-height: 1.25;
+  text-decoration: underline transparent;
+  text-underline-offset: 5px;
+  transition: text-decoration-color var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+.books__book:hover .books__title,
+.books__book:focus-visible .books__title {
+  text-decoration-color: currentColor;
+}
+
+.books__tally {
+  color: var(--muted);
+  font: 0.82rem/1.5 var(--font-sans);
+  font-variant-numeric: oldstyle-nums;
+}
+
+.books__last {
+  margin-top: var(--space-2);
+  color: var(--text);
+  font-family: var(--font-serif);
+  line-height: 1.5;
+}
+
+.books__last.is-own {
+  color: var(--ink-human, var(--muted));
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .books__tools a,
+  .books__start,
+  .books__title {
+    transition: none;
+  }
+}

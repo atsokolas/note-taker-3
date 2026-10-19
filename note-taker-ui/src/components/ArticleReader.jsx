@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from './ui';
 import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
@@ -21,7 +21,6 @@ import usePassageOpens from './reader/usePassageOpens';
 import { sourceKind } from './reader/readerDress';
 import ExplainItBack, { useModelReads } from './reader/ExplainItBack';
 import PassageDoor from './reader/PassageDoorView';
-import BookDesk from './reader/BookDesk';
 import { ArticleMargins, paragraphAt } from './margins/LibraryMargins';
 import { useMarginAsk } from './margins/MarginAnswer';
 import { heldHighlightIds, sourceWhereabouts } from './reader/sourceWhereabouts';
@@ -277,11 +276,11 @@ const ArticleReader = ({
   const focusedPassageIsInArticle = Boolean(focusedHighlightId)
     && html.includes(`data-highlight-id="highlight-${focusedHighlightId}"`);
   /* A source with no text of its own, a book above all, is read elsewhere
-     and written about here: it opens at the desk. */
+     and written about at its desk, on a page of its own. */
   const atDesk = Boolean(article)
     && !hasReadableContent(article.content)
     && (highlights.length > 0 || /^import:\/\//.test(article.url || ''));
-  const focusedPassage = focusedHighlight && !focusedPassageIsInArticle && !atDesk
+  const focusedPassage = focusedHighlight && !focusedPassageIsInArticle
     ? focusedHighlight
     : null;
   const { selectionState, clearSelection } = useTextSelection({
@@ -560,7 +559,7 @@ const ArticleReader = ({
     params.set('thought', '1');
     navigate({ pathname: '/library', search: params.toString(), hash: '' });
   });
-  const ask = asking.available && !atDesk ? askAboutSelection : undefined;
+  const ask = asking.available ? askAboutSelection : undefined;
   const menuOpen = selectionState.isOpen && !reading.readFresh;
   const walk = (step) => () => walkPassages(readerRootRef.current, step, { reducedMotion });
   keys.current = {
@@ -570,6 +569,10 @@ const ArticleReader = ({
     p: onPrevious,
     ...(menuOpen && !saving ? { h: handleCreateHighlight, t: leaveThought, a: ask } : {})
   };
+
+  if (atDesk) {
+    return <Navigate replace to={`/library/books/${article._id}${focusedHighlightId ? `?highlight=${focusedHighlightId}` : ''}`} />;
+  }
 
   return (
     <div className="article-reader" ref={readerRootRef} data-read-fresh={reading.readFresh || undefined} data-source-kind={dress || undefined}>
@@ -664,39 +667,22 @@ const ArticleReader = ({
           onOpenedText={onOpenedSentence}
         />
       ) : null}
-      {atDesk ? (
-        <div className="article-reader-content reader article-reader-content--highlights" ref={contentRef}>
-          <BookDesk
-            key={article._id}
-            article={article}
-            marks={highlights}
-            arriving={!focusedHighlightId}
-            onAdd={onHighlightOptimistic}
-            onReplace={onHighlightReplace}
-            onRemove={onHighlightRemove}
-            doorFor={passageDoorFor}
-          />
-        </div>
-      ) : (
-        <>
-          <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
-          <FootnotePeek contentRef={contentRef} />
-          <ArticleMargins
-            articleId={articleId}
-            contentRef={contentRef}
-            frameRef={readerRootRef}
-            contentKey={article.content}
-            layoutKey={contentMarkup.__html}
-            hidden={Boolean(reading.readFresh)}
-            asking={asking}
-          />
-          <div className="article-passage-threads" aria-label="Connections to held judgments">
-            {highlights
-              .filter((highlight) => !heldPassages.has(String(highlight?._id || highlight?.id || '')))
-              .map(passageDoorFor)}
-          </div>
-        </>
-      )}
+      <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
+      <FootnotePeek contentRef={contentRef} />
+      <ArticleMargins
+        articleId={articleId}
+        contentRef={contentRef}
+        frameRef={readerRootRef}
+        contentKey={article.content}
+        layoutKey={contentMarkup.__html}
+        hidden={Boolean(reading.readFresh)}
+        asking={asking}
+      />
+      <div className="article-passage-threads" aria-label="Connections to held judgments">
+        {highlights
+          .filter((highlight) => !heldPassages.has(String(highlight?._id || highlight?.id || '')))
+          .map(passageDoorFor)}
+      </div>
       {/* The source record — who wrote it, when it was saved, where else it is
           used — sat between the headline and the first paragraph, so every
           article opened onto a panel instead of onto its text. It is the same
@@ -725,7 +711,7 @@ const ArticleReader = ({
         </ul>
       ) : null}
       {/* How much is left is the book's to know; the desk has no length. */}
-      {atDesk ? null : <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />}
+      <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>
   );

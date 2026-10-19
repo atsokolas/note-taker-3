@@ -1,4 +1,4 @@
-import { completionFor, kindOf, lastTime, pageNow, pagesOf, readLine, sittingOf, tonightLine } from './bookDesk';
+import { completionFor, kindOf, lastTime, pageNow, pagesOf, readLine, sittingOf, tallyLine } from './bookDesk';
 
 const at = minutes => new Date(Date.UTC(2026, 9, 19, 21, minutes)).toISOString();
 const NOW = Date.UTC(2026, 9, 19, 22, 0);
@@ -43,7 +43,7 @@ test('tonight is the sitting still going on, said as a receipt', () => {
   ];
   const sitting = sittingOf(marks, NOW);
   expect(sitting.map(mark => mark._id)).toEqual(['a', 'b', 'c']);
-  expect(tonightLine(sitting)).toBe('pp. 188–212 · 1 quote, 1 note, 1 question');
+  expect(tallyLine(sitting)).toBe('pp. 188–212 · 1 quote, 1 note, 1 question');
   expect(sittingOf(marks, NOW + 3 * 60 * 60 * 1000)).toEqual([]);
 });
 

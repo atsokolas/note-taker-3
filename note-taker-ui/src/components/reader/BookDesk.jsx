@@ -3,7 +3,7 @@ import { createHighlight, deleteHighlight, updateHighlight } from '../../api/hig
 import { useFinePointer } from '../../hooks/useMotionPreferences';
 import { scopedKey } from '../../utils/browserScope';
 import {
-  completionFor, isUnfinished, kindOf, lastTime, pageNow, pagesOf, readLine, sittingOf, tonightLine
+  completionFor, isUnfinished, kindOf, lastTime, pageNow, pagesOf, readLine, sittingOf, tallyLine
 } from './bookDesk';
 import '../../styles/book-desk.css';
 
@@ -100,7 +100,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   /* The book opens where you are in it: the newest pages and the line, unless
      a link asked for one passage. */
   useEffect(() => {
-    if (arriving) lineRef.current?.scrollIntoView?.({ block: 'center' });
+    if (arriving) lineRef.current?.scrollIntoView?.({ block: 'nearest' });
     if (finePointer) lineRef.current?.focus({ preventScroll: true });
   }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -166,8 +166,8 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   return (
     <section className="book-desk" aria-label="Reading desk">
       <p className="book-desk__lede">
-        {sitting.length ? <>Tonight · {tonightLine(sitting)}</>
-          : last ? <>Last time{last.page ? `, p. ${last.page}` : ''}: <q className={last.own ? 'book-desk__own' : ''}>{last.words}</q></>
+        {sitting.length ? <><span className="book-desk__label">Tonight</span>{tallyLine(sitting)}</>
+          : last ? <><span className="book-desk__label">Last time{last.page ? `, p. ${last.page}` : ''}</span><q className={last.own ? 'book-desk__own' : ''}>{last.words}</q></>
             : 'Type as you read. A number turns the page; a quote mark makes the line the book’s own words.'}
       </p>
 

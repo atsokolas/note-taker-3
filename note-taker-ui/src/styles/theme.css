@@ -3012,10 +3012,6 @@ button.connections-row {
   margin: 0 0 16px;
 }
 
-.article-reader-content--highlights {
-  width: 100%;
-}
-
 .article-passage-threads {
   display: grid;
   gap: var(--space-2);

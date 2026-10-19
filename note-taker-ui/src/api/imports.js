@@ -43,6 +43,9 @@ export const startBook = async ({ title, author = '' } = {}) => {
   return response.data || {};
 };
 
+/* Every book on the shelf, with its marks. */
+export const listBooks = async () => (await api.get('/api/books', getAuthHeaders())).data?.books || [];
+
 export const listImportConnections = async ({ provider = '' } = {}) => {
   const params = new URLSearchParams();
   if (provider) params.set('provider', String(provider).trim());

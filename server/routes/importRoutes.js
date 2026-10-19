@@ -26,7 +26,7 @@ const {
 const {
   buildReadwisePreviewSummary
 } = require('../services/import/readwiseTransform');
-const { BOOK, FORMAT_LABELS, bookSource, parseExportFile } = require('../services/import/exportFiles');
+const { BOOK, BOOK_URL, FORMAT_LABELS, bookSource, parseExportFile } = require('../services/import/exportFiles');
 const {
   fetchUrlForIngest,
   normalizeIngestText
@@ -413,7 +413,7 @@ const buildImportRouter = ({
       const title = toTrimmedString(req.body?.title);
       if (!title) return res.status(400).json({ error: 'A book needs its title.' });
       const book = bookSource({ provider: BOOK, title, author: toTrimmedString(req.body?.author) });
-      const known = bookOnShelf(await Article.find({ userId, url: /^import:\/\// }).select('url title author'), book);
+      const known = bookOnShelf(await Article.find({ userId, url: BOOK_URL }).select('url title author'), book);
       if (known) return res.status(200).json({ article: known, existing: true });
       const article = await Article.create({
         userId,
@@ -426,6 +426,26 @@ const buildImportRouter = ({
     } catch (error) {
       console.error('Error starting a book:', error);
       res.status(500).json({ error: 'That book could not be started.' });
+    }
+  });
+
+  /* The shelf of books, each with its marks, newest reading first. The page,
+     the count and the last thing written are read from the marks by the
+     page that shows them. */
+  router.get('/api/books', authenticateToken, async (req, res) => {
+    try {
+      const books = await Article.find({ userId: req.user.id, url: BOOK_URL })
+        .select('title author createdAt highlights._id highlights.text highlights.note highlights.page highlights.importMeta.sourcePath highlights.createdAt')
+        .lean();
+      const shelf = books.map(({ highlights = [], ...book }) => ({
+        ...book,
+        marks: highlights.map(({ importMeta, ...mark }) => ({ ...mark, location: importMeta?.sourcePath || '' }))
+      }));
+      const lastTouched = book => Math.max(new Date(book.createdAt).getTime() || 0, ...book.marks.map(mark => new Date(mark.createdAt).getTime() || 0));
+      return res.json({ books: shelf.sort((a, b) => lastTouched(b) - lastTouched(a)) });
+    } catch (error) {
+      console.error('Error reading the book shelf:', error);
+      res.status(500).json({ error: 'The books could not be read.' });
     }
   });
 
@@ -2375,7 +2395,7 @@ const buildImportRouter = ({
         article = await Article.findOne({ userId, url });
         // A book with no web address may already be on the shelf, started at the desk or imported from a file.
         if (!article && !sourceUrl && metadataTitle) {
-          shelf ||= await Article.find({ userId, url: /^import:\/\// }).select('url title');
+          shelf ||= await Article.find({ userId, url: BOOK_URL }).select('url title');
           const known = bookOnShelf(shelf, bookSource({ provider: 'readwise', title: metadataTitle, author }));
           if (known) article = await Article.findById(known._id);
         }

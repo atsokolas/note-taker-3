@@ -55,14 +55,16 @@ test('a number turns the page, and the page stays for the lines after it', async
   type('or is he?');
   await act(async () => keep());
   expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: 'or is he?', page: 212 });
-  expect(await screen.findByText('Tonight · p. 212 · 1 note, 1 question')).toBeInTheDocument();
+  expect(await screen.findByText('Tonight')).toBeInTheDocument();
+  expect(screen.getByText('p. 212 · 1 note, 1 question')).toBeInTheDocument();
   expect(screen.getByText('p. 212')).toBeInTheDocument();
 });
 
 test('the book finishes a quote you marked on the Kindle, and it stays one mark', async () => {
   createHighlight.mockResolvedValue({ ...KINDLE, page: 214 });
   render(<Desk marks={[KINDLE]} />);
-  expect(screen.getByText(/Last time:/)).toHaveTextContent(KINDLE.text);
+  expect(screen.getByText('Last time')).toBeInTheDocument();
+  expect(screen.getByText(KINDLE.text, { selector: 'q' })).toBeInTheDocument();
 
   type('214 "The decline of viol');
   expect(screen.getByText('ence may be the most significant development in our history.')).toHaveClass('book-desk__ghost');

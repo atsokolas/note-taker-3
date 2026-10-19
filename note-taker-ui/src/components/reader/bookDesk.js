@@ -74,13 +74,14 @@ export const pageNow = (marks = []) => (
 
 const counted = (n, one, many = `${one}s`) => (n ? `${n} ${n === 1 ? one : many}` : '');
 
-/* Tonight, as a receipt: the pages it covered and what was written. */
-export const tonightLine = (sitting = []) => {
-  if (!sitting.length) return '';
-  const pages = sitting.map(mark => mark.page).filter(Boolean);
+/* A run of marks as a receipt: the pages it covered and what was written.
+   Tonight's sitting at the desk, or a whole book on the shelf. */
+export const tallyLine = (marks = []) => {
+  if (!marks.length) return '';
+  const pages = marks.map(mark => mark.page).filter(Boolean);
   const span = !pages.length ? ''
     : Math.min(...pages) === Math.max(...pages) ? `p. ${pages[0]}` : `pp. ${Math.min(...pages)}–${Math.max(...pages)}`;
-  const kinds = sitting.map(kindOf);
+  const kinds = marks.map(kindOf);
   const tally = [
     counted(kinds.filter(kind => kind === 'quote').length, 'quote'),
     counted(kinds.filter(kind => kind === 'note').length, 'note'),

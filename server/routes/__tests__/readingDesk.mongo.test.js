@@ -99,6 +99,13 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
     const again = await post(`/articles/${bookId}/highlights`, { text: 'Natural selection acts … inherited modifications', note: 'only?', page: 40 });
     assert.equal(again.body.highlight._id, String(fromKindle._id));
     assert.equal((await Article.findById(bookId).lean()).highlights.length, book.highlights.length);
+
+    // The shelf: one row per book, with its marks to read the page and the last line from.
+    const shelf = await (await fetch(`${url}/api/books`)).json();
+    const row = shelf.books.find(item => String(item._id) === bookId);
+    assert.equal(shelf.books.filter(item => /Origin of Species/i.test(item.title)).length, 1);
+    assert.ok(row.marks.some(mark => mark.page === 40 && /Natural selection/.test(mark.text)));
+    assert.ok(row.marks.every(mark => typeof mark.location === 'string' && !mark.importMeta));
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
     await mongoose.disconnect();

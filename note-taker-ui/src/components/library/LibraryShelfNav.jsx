@@ -5,7 +5,8 @@ import {
   RoomShelfButton,
   RoomShelfList,
   RoomShelfMeta,
-  RoomShelfSection
+  RoomShelfSection,
+  roomShelfItemClass
 } from '../collection/RoomShelf';
 import { flySentenceInto } from '../../motion/columnMotion';
 import { buildFolderTree, flattenFolderTree, folderCountPhrase, isFolderDescendant } from '../../pages/folderTreeModel';
@@ -324,6 +325,8 @@ const LibraryShelfNav = ({
             <span>Passages</span>
           </RoomShelfButton>
         </li>
+        {/* Books are a page of their own: each one is the desk you write at. */}
+        <li><Link className={roomShelfItemClass()} to="/library/books">Books</Link></li>
       </RoomShelfList>
 
       {/* The same shelves seen from above, and bound: quiet doors, not scopes. */}

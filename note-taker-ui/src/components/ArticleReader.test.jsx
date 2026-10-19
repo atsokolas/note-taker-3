@@ -515,33 +515,18 @@ describe('ArticleReader', () => {
     expect(screen.getByRole('status')).toHaveTextContent('could not be read');
   });
 
-  it('opens a source with no text of its own at the reading desk, its marks in page order', () => {
+  it('sends a source with no text of its own to its book page, at the passage asked for', () => {
+    jest.spyOn(Router, 'Navigate').mockImplementation(({ to }) => <p>{`to ${to}`}</p>);
     render(
       <ArticleReader
-        article={{
-          _id: 'article-1',
-          title: 'Poor Charlie\'s Almanack',
-          content: '',
-          createdAt: '2026-06-07T00:00:00.000Z'
-        }}
-        highlights={[
-          {
-            _id: 'highlight-1',
-            text: 'Invert, always invert.',
-            note: 'Useful for decision-making.',
-            tags: ['mental models'],
-            createdAt: '2026-06-07T00:00:00.000Z'
-          }
-        ]}
+        article={{ _id: 'article-1', title: 'Poor Charlie\'s Almanack', content: '', createdAt: '2026-06-07T00:00:00.000Z' }}
+        highlights={[{ _id: 'highlight-1', text: 'Invert, always invert.', createdAt: '2026-06-07T00:00:00.000Z' }]}
+        focusedHighlightId="highlight-1"
       />
     );
 
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent("Poor Charlie's Almanack");
-    expect(screen.getByRole('region', { name: 'Reading desk' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Type a quote, a note or a question')).toBeInTheDocument();
-    expect(screen.getByText('Invert, always invert.', { selector: 'blockquote' })).toBeInTheDocument();
-    expect(screen.getByText('Useful for decision-making.', { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByText('to /library/books/article-1?highlight=highlight-1')).toBeInTheDocument();
+    expect(screen.queryByText('Invert, always invert.')).not.toBeInTheDocument();
   });
 
   it('puts a deep-linked saved passage in the reader when the imported body omits it', () => {
@@ -610,22 +595,6 @@ describe('ArticleReader', () => {
           _id: 'highlight-1',
           text: 'The exact cited passage is already here.',
           anchor: { text: 'The exact cited passage is already here.', startOffsetApprox: 0 }
-        }]}
-        focusedHighlightId="highlight-1"
-      />
-    );
-
-    expect(screen.queryByRole('complementary', { name: 'Saved passage' })).not.toBeInTheDocument();
-    expect(container.querySelectorAll('[data-highlight-id="highlight-highlight-1"]')).toHaveLength(1);
-  });
-
-  it('does not repeat a deep-linked passage in a highlight-only import', () => {
-    const { container } = render(
-      <ArticleReader
-        article={{ _id: 'article-1', title: 'Highlight-only import', content: '' }}
-        highlights={[{
-          _id: 'highlight-1',
-          text: 'The saved highlight is already the reading body.'
         }]}
         focusedHighlightId="highlight-1"
       />

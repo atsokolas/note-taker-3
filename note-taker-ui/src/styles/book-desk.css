@@ -15,6 +15,13 @@
   font-size: 0.9rem;
 }
 
+.book-desk__label {
+  margin-right: 0.75em;
+  font: 0.7rem var(--font-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .book-desk__lede q {
   font-family: var(--font-serif);
   color: var(--text);
@@ -37,7 +44,7 @@
 
 .book-desk__folio {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-variant: all-small-caps;
   letter-spacing: 0.08em;
   font-variant-numeric: oldstyle-nums;
@@ -120,8 +127,9 @@ blockquote + .book-desk__own {
   display: flex;
   align-items: baseline;
   gap: 0.2em;
+  min-height: 44px;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-variant: all-small-caps;
   letter-spacing: 0.08em;
 }
@@ -143,6 +151,8 @@ blockquote + .book-desk__own {
    and the book's words run on after the caret. */
 .book-desk__type {
   display: grid;
+  align-items: end;
+  min-height: 44px;
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border-subtle-2);
   transition: border-color 160ms ease-out;
