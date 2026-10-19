@@ -55,17 +55,19 @@ export const pagesOf = (marks = []) => {
   }, []);
 };
 
-/* The marks of the sitting still going on: the newest run with no long gap,
-   if its last mark was made just now. */
+/* The marks split into the sittings they were made in, oldest first. */
+export const sittingsOf = (marks = []) => [...marks].sort((a, b) => at(a) - at(b)).reduce((runs, mark) => {
+  const run = runs[runs.length - 1];
+  if (run && at(mark) - at(run[run.length - 1]) <= SITTING_GAP_MS) run.push(mark);
+  else runs.push([mark]);
+  return runs;
+}, []);
+
+/* The marks of the sitting still going on: the newest run, if its last mark
+   was made just now. */
 export const sittingOf = (marks = [], now = Date.now()) => {
-  const newest = [...marks].sort((a, b) => at(b) - at(a));
-  if (!newest.length || now - at(newest[0]) > SITTING_GAP_MS) return [];
-  const sitting = [newest[0]];
-  for (const mark of newest.slice(1)) {
-    if (at(sitting[sitting.length - 1]) - at(mark) > SITTING_GAP_MS) break;
-    sitting.push(mark);
-  }
-  return sitting.reverse();
+  const run = sittingsOf(marks).pop() || [];
+  return run.length && now - at(run[run.length - 1]) <= SITTING_GAP_MS ? run : [];
 };
 
 export const pageNow = (marks = []) => (

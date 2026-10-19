@@ -106,6 +106,26 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
     assert.equal(shelf.books.filter(item => /Origin of Species/i.test(item.title)).length, 1);
     assert.ok(row.marks.some(mark => mark.page === 40 && /Natural selection/.test(mark.text)));
     assert.ok(row.marks.every(mark => typeof mark.location === 'string' && !mark.importMeta));
+    assert.equal(row.returning, null);
+
+    // Closing it: the day and the sentence, kept on the book. Rewriting the
+    // sentence keeps the day; still reading it clears both.
+    const close = line => fetch(`${url}/api/books/${bookId}/closed`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ line }) }).then(res => res.json());
+    const closed = await close('  Variation is the raw material.  ');
+    assert.equal(closed.closingLine, 'Variation is the raw material.');
+    const rewritten = await close('Selection keeps what variation offers.');
+    assert.equal(rewritten.finishedAt, closed.finishedAt);
+    await Article.updateOne({ _id: bookId }, { $set: { finishedAt: new Date(Date.now() - 366 * 24 * 60 * 60 * 1000) } });
+    const year = (await (await fetch(`${url}/api/books`)).json()).books.find(item => String(item._id) === bookId);
+    assert.deepEqual(year.returning, { years: 1, days: 1 });
+    assert.equal(year.closingLine, 'Selection keeps what variation offers.');
+    await fetch(`${url}/api/books/${bookId}/closed`, { method: 'DELETE' });
+    assert.deepEqual(
+      (({ finishedAt, closingLine }) => ({ finishedAt, closingLine }))(await Article.findById(bookId).lean()),
+      { finishedAt: null, closingLine: '' }
+    );
+    const notABook = await Article.create({ userId, url: 'https://example.com/essay', title: 'An essay' });
+    assert.equal((await fetch(`${url}/api/books/${notABook._id}/closed`, { method: 'PUT' })).status, 404);
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
     await mongoose.disconnect();

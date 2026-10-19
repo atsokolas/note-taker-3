@@ -222,6 +222,10 @@ const articleSchema = new mongoose.Schema({
      the human sets and no agent may. */
   evergreen: { type: Boolean, default: false },
   evergreenAt: { type: Date, default: null },
+  /* Closing a book: the day you finished it, and the one sentence you said
+     you would remember. The sentence comes back to you a year later. */
+  finishedAt: { type: Date, default: null },
+  closingLine: { type: String, default: '', trim: true },
   /* Placement is the Hey pile. Keep is forever and orthogonal. Later is owed
      a move; set aside is at hand this week; stream is home. The agent may not
      write this. */

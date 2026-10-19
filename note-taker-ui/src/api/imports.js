@@ -43,6 +43,15 @@ export const startBook = async ({ title, author = '' } = {}) => {
   return response.data || {};
 };
 
+/* Closing a book with the one sentence you will remember, or none; and
+   opening it again when you are still reading it after all. */
+export const closeBook = async (id, line = '') => (
+  (await api.put(`/api/books/${encodeURIComponent(id)}/closed`, { line }, getAuthHeaders())).data
+);
+export const reopenBook = async (id) => (
+  (await api.delete(`/api/books/${encodeURIComponent(id)}/closed`, getAuthHeaders())).data
+);
+
 /* Every book on the shelf, with its marks. */
 export const listBooks = async () => (await api.get('/api/books', getAuthHeaders())).data?.books || [];
 
