@@ -35,5 +35,36 @@
       "source-2"
     ],
     "bodyHash": "71eac715579745fda48508e53c76bbd8b8e6adc5913c979e3b77604b700f7979"
+  },
+  "edition": {
+    "ownerId": "6acaddb425462ec49bd0866f",
+    "profile": {
+      "key": "noeis_reviewer_synthetic_20261018",
+      "title": "NOEIS reviewer synthetic fixture",
+      "cadence": "weekly",
+      "issueLabel": "Synthetic issue",
+      "sections": [
+        {
+          "key": "synthetic_evidence",
+          "label": "Synthetic evidence"
+        }
+      ],
+      "minItems": 1,
+      "maxItems": 4
+    },
+    "issue": {
+      "title": "NOEIS reviewer synthetic baseline — fictional only",
+      "standfirst": "Sample-only reviewer fixture. No real study or publication is represented.",
+      "writtenBy": "Synthetic reviewer setup"
+    },
+    "item": {
+      "itemId": "noeis_reviewer_baseline_source_1",
+      "section": "synthetic_evidence",
+      "finding": "This fictional fixture distinguishes the result of a measurement from a justified general claim and describes independent replication as repeating the procedure with new material.",
+      "boundary": "Fictional sample-only material; it reports no real experiment and supports no empirical or general claim.",
+      "note": "Setup baseline only. Keep the source in the existing Library; do not use the Edition Save action or fetch the example.com URL.",
+      "sourceKind": "other",
+      "sourceDate": ""
+    }
   }
 }
