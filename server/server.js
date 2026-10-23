@@ -7,7 +7,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const PDFDocument = require('pdfkit');
 const archiver = require('archiver');
-const multer = require('multer');
+const upload = require('./services/import/upload');
 const crypto = require('crypto');
 const { ensureWorkspace } = require('./utils/workspaceUtils');
 const {
@@ -72,14 +72,10 @@ app.get('/api/version', (_req, res) => {
     commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || 'unknown',
     branch: process.env.RENDER_GIT_BRANCH || '',
     service: process.env.RENDER_SERVICE_NAME || '',
+    node: process.version,
     bootedAt: SERVER_BOOTED_AT,
     uptimeSeconds: Math.round(process.uptime())
   });
-});
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 }
 });
 
 mongoose.connect(process.env.MONGODB_URI) // useNewUrlParser and useUnifiedTopology are deprecated in recent Mongoose versions
