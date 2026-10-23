@@ -72,10 +72,10 @@ test('the spine places each mark along the book and names the thickest stretch o
   expect(spine.end).toBe('p. 400');
   expect(spine.ticks.map(tick => tick.at)).toEqual([0.025, 0.45, 0.4625, 0.475, 1]);
   expect(spine.ticks[2]).toMatchObject({ kind: 'note', label: 'p. 185' });
-  expect(spine.thickest).toBe('pp. 160–200');
+  expect(spine.thickest).toEqual({ label: 'pp. 160–200', id: 'm180' });
 
   const even = spineOf([at(40), at(120), at(200), at(280), at(400)]);
-  expect(even.thickest).toBe('');
+  expect(even.thickest).toBeNull();
 });
 
 test('a Kindle book runs by location, and too few marks make no spine', () => {

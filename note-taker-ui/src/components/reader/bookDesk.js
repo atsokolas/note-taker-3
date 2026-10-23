@@ -57,8 +57,9 @@ export const pagesOf = (marks = []) => {
 
 /* The spine: every mark placed along the book, by printed page, or by Kindle
    location for a book read on the Kindle. The book's length is not known,
-   so it runs to the furthest mark, and says so. The thickest tenth is named
-   only when it stands out: twice its share and at least three marks. */
+   so it runs to the furthest mark, and says so. The thickest tenth is named,
+   with the first mark in it, only when it stands out: twice its share and at
+   least three marks. */
 export const spineOf = (marks = []) => {
   const paged = marks.filter(mark => mark.page).map(mark => [mark, mark.page]);
   const located = marks.filter(mark => !mark.page && locationOf(mark)).map(mark => [mark, locationOf(mark)]);
@@ -66,12 +67,14 @@ export const spineOf = (marks = []) => {
   if (placed.length < 3) return null;
   const end = Math.max(...placed.map(([, at]) => at));
   const ticks = placed.map(([mark, at]) => ({ id: mark._id, at: at / end, kind: kindOf(mark), label: `${unit} ${at}` }));
-  const tenths = Array.from({ length: 10 }, (_, tenth) => ticks.filter(tick => Math.min(9, Math.floor(tick.at * 10)) === tenth).length);
+  const tenthOf = tick => Math.min(9, Math.floor(tick.at * 10));
+  const tenths = Array.from({ length: 10 }, (_, tenth) => ticks.filter(tick => tenthOf(tick) === tenth).length);
   const most = Math.max(...tenths);
   const tenth = tenths.indexOf(most);
-  const thickest = most >= 3 && most >= placed.length / 5
-    ? `${span} ${Math.max(1, Math.round((tenth * end) / 10))}–${Math.round(((tenth + 1) * end) / 10)}`
-    : '';
+  const thickest = most >= 3 && most >= placed.length / 5 ? {
+    label: `${span} ${Math.max(1, Math.round((tenth * end) / 10))}–${Math.round(((tenth + 1) * end) / 10)}`,
+    id: [...ticks].sort((a, b) => a.at - b.at).find(tick => tenthOf(tick) === tenth).id
+  } : null;
   return { ticks, end: `${unit} ${end}`, thickest };
 };
 

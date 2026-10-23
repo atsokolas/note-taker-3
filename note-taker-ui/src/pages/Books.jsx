@@ -201,7 +201,9 @@ const showMark = (id, smooth = false) => {
 
 /* The spine: the whole book as one strip, a tick for every mark where it
    sits. Ticks overlap and darken, so the stretch where the book got you
-   reads as ink before anything is said about it. A tick opens its mark. */
+   reads as ink before anything is said about it. A tick opens its mark; the
+   ticks are a picture of the marks listed below, so they stay out of the tab
+   order, and the thickest stretch is a link anyone can follow. */
 const Spine = ({ marks }) => {
   const spine = useMemo(() => spineOf(marks), [marks]);
   const still = usePrefersReducedMotion();
@@ -211,14 +213,16 @@ const Spine = ({ marks }) => {
     if (mark) showMark(mark, !still);
   };
   return (
-    <figure className="books__spine" aria-label={`Your marks along the book, to ${spine.end}${spine.thickest ? `, thickest at ${spine.thickest}` : ''}`}>
+    <figure className="books__spine" aria-label={`Your marks along the book, to ${spine.end}`}>
       <div className="books__spine-strip" onClick={open} aria-hidden="true">
         {spine.ticks.map(tick => (
           <span key={tick.id} data-mark={tick.id} data-kind={tick.kind} title={tick.label} style={{ left: `${tick.at * 100}%` }} />
         ))}
       </div>
       <figcaption>
-        <span>{spine.thickest ? `Thickest at ${spine.thickest}` : ''}</span>
+        {spine.thickest ? (
+          <button type="button" onClick={() => showMark(spine.thickest.id, !still)}>Thickest at {spine.thickest.label}</button>
+        ) : <span />}
         <span>{spine.end}</span>
       </figcaption>
     </figure>
