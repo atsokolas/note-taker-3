@@ -1,4 +1,4 @@
-import { completionFor, kindOf, lastTime, pageNow, pagesOf, readLine, sittingOf, tallyLine } from './bookDesk';
+import { completionFor, kindOf, lastTime, pageNow, pagesOf, readLine, sittingOf, spineOf, tallyLine } from './bookDesk';
 
 const at = minutes => new Date(Date.UTC(2026, 9, 19, 21, minutes)).toISOString();
 const NOW = Date.UTC(2026, 9, 19, 22, 0);
@@ -64,4 +64,23 @@ test('the book finishes a quote you already marked, from its first words', () =>
   expect(completionFor('The decline of violence', marks)).toBe(' may be the most significant development in our history.');
   expect(completionFor('the most significant development', marks)).toBe('');
   expect(completionFor('The decline', marks)).toBe('');
+});
+
+test('the spine places each mark along the book and names the thickest stretch only when it stands out', () => {
+  const at = (page, kind = 'quote') => ({ _id: `m${page}`, page, ...(kind === 'quote' ? { text: 'words' } : { note: 'mine' }) });
+  const spine = spineOf([at(10), at(180), at(185, 'note'), at(190), at(400)]);
+  expect(spine.end).toBe('p. 400');
+  expect(spine.ticks.map(tick => tick.at)).toEqual([0.025, 0.45, 0.4625, 0.475, 1]);
+  expect(spine.ticks[2]).toMatchObject({ kind: 'note', label: 'p. 185' });
+  expect(spine.thickest).toBe('pp. 160–200');
+
+  const even = spineOf([at(40), at(120), at(200), at(280), at(400)]);
+  expect(even.thickest).toBe('');
+});
+
+test('a Kindle book runs by location, and too few marks make no spine', () => {
+  const kindle = [1200, 1250, 5000].map(n => ({ _id: `k${n}`, text: 'w', location: `Location ${n}–${n + 3}` }));
+  expect(spineOf(kindle)).toMatchObject({ end: 'Loc. 5000' });
+  expect(spineOf(kindle.slice(0, 2))).toBeNull();
+  expect(spineOf([{ _id: 'r', text: 'no place' }, ...kindle.slice(0, 2)])).toBeNull();
 });

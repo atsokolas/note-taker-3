@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { closeBook, listBooks, reopenBook, startBook } from '../api/imports';
 import BookDesk from '../components/reader/BookDesk';
-import { lastTime, sittingsOf, tallyLine } from '../components/reader/bookDesk';
+import { lastTime, sittingsOf, spineOf, tallyLine } from '../components/reader/bookDesk';
 import { bookFrom } from '../components/library/LibraryPasteLink';
 import useArticleDetail from '../hooks/useArticleDetail';
 import useDocumentTitle from '../hooks/useDocumentTitle';
+import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import '../styles/books.css';
 
 /* The books you are reading, paper or Kindle, each with a page of its own:
@@ -189,6 +190,41 @@ const Closing = ({ book, marks, onChange }) => {
   );
 };
 
+/* Bring one mark into view and ink it for a moment, so the eye lands on it. */
+const showMark = (id, smooth = false) => {
+  const mark = document.querySelector(`[data-highlight-id="highlight-${id}"]`);
+  if (!mark) return;
+  mark.scrollIntoView?.({ block: 'center', behavior: smooth ? 'smooth' : 'auto' });
+  mark.setAttribute('data-found', '');
+  mark.addEventListener('animationend', () => mark.removeAttribute('data-found'), { once: true });
+};
+
+/* The spine: the whole book as one strip, a tick for every mark where it
+   sits. Ticks overlap and darken, so the stretch where the book got you
+   reads as ink before anything is said about it. A tick opens its mark. */
+const Spine = ({ marks }) => {
+  const spine = useMemo(() => spineOf(marks), [marks]);
+  const still = usePrefersReducedMotion();
+  if (!spine) return null;
+  const open = (event) => {
+    const { mark } = event.target.dataset;
+    if (mark) showMark(mark, !still);
+  };
+  return (
+    <figure className="books__spine" aria-label={`Your marks along the book, to ${spine.end}${spine.thickest ? `, thickest at ${spine.thickest}` : ''}`}>
+      <div className="books__spine-strip" onClick={open} aria-hidden="true">
+        {spine.ticks.map(tick => (
+          <span key={tick.id} data-mark={tick.id} data-kind={tick.kind} title={tick.label} style={{ left: `${tick.at * 100}%` }} />
+        ))}
+      </div>
+      <figcaption>
+        <span>{spine.thickest ? `Thickest at ${spine.thickest}` : ''}</span>
+        <span>{spine.end}</span>
+      </figcaption>
+    </figure>
+  );
+};
+
 /* One book, at its desk. A link to a passage opens the desk at that mark. */
 const Book = ({ id }) => {
   const [searchParams] = useSearchParams();
@@ -199,8 +235,7 @@ const Book = ({ id }) => {
   useDocumentTitle(article?.title || 'A book', 'Library');
 
   useEffect(() => {
-    if (!asked || !highlights.length) return;
-    document.querySelector(`[data-highlight-id="highlight-${asked}"]`)?.scrollIntoView?.({ block: 'center' });
+    if (asked && highlights.length) showMark(asked);
   }, [asked, highlights.length]);
 
   return (
@@ -213,6 +248,7 @@ const Book = ({ id }) => {
             {book.author ? <p className="books__author">{book.author}</p> : null}
             <h1 id="book-title">{book.title || 'Untitled book'}</h1>
           </header>
+          <Spine marks={highlights} />
           <BookDesk
             key={article._id}
             article={article}
