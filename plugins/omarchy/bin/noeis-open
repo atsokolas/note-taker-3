@@ -15,7 +15,8 @@ set -euo pipefail
 APP=${NOEIS_APP_URL:-https://www.noeis.io}
 API=${NOEIS_API_URL:-https://note-taker-3-unrg.onrender.com}
 # https only, as in the shell (Model.httpsOr); curl refuses anything else.
-[[ $APP == https://* ]] || APP=https://www.noeis.io
+# The app is a bare origin, since it is handed to a launcher that evals it.
+[[ $APP =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || APP=https://www.noeis.io
 SESSION=${XDG_CONFIG_HOME:-$HOME/.config}/noeis/omarchy.json
 COLORS=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/current/theme/colors.toml
 
@@ -31,11 +32,14 @@ theme() {
 
 # The app window's class carries noeis.io's host (chrome-www.noeis.io__-Default),
 # which is how it is found again; the match is by whole words, so the host
-# goes without its last label.
+# goes without its last label. A page is a path on noeis.io and nothing
+# else, so it cannot turn the app's host into another one. The launcher
+# evals its command, so the address goes in quoted for the shell.
 web() {
-  local host=${APP#https://}
-  [[ -n $1 ]] && exec omarchy-launch-webapp "$APP$1$(theme)"
-  exec omarchy-launch-or-focus "${host%.*}" "omarchy-launch-webapp '$APP/$(theme)'"
+  local host=${APP#https://} page=${1:-}
+  [[ -z $page || $page =~ ^/[^[:space:]]*$ ]] || page=
+  [[ -n $page ]] && exec omarchy-launch-webapp "$APP$page$(theme)"
+  exec omarchy-launch-or-focus "${host%.*}" "omarchy-launch-webapp $(printf '%q' "$APP/$(theme)")"
 }
 
 # A notification; the rest of the line is what its click runs. Its body is

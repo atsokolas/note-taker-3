@@ -102,14 +102,15 @@ Item {
     onLoadFailed: root.session = Model.sessionFrom("", Date.now())
   }
 
-  // The directory and the file are made private (0700, 0600) whatever they
-  // were before, and only then is the session written in, from stdin so the
-  // token is in no process's arguments. A write asked for while one runs
+  // The directory is made private (0700) whatever it was before. The session
+  // goes into a new 0600 file beside the old one, from stdin so the token is
+  // in no process's arguments, and is renamed over it: the token never enters
+  // a file someone may already hold open. A write asked for while one runs
   // follows it.
   Process {
     id: sessionWriter
     property string pending: ""
-    command: ["sh", "-c", "umask 077 && mkdir -p \"$1\" && chmod 700 \"$1\" && touch \"$1/omarchy.json\" && chmod 600 \"$1/omarchy.json\" && IFS= read -r line && printf '%s\\n' \"$line\" >\"$1/omarchy.json\"", "noeis-session", root.sessionDir]
+    command: ["sh", "-c", "umask 077 && mkdir -p \"$1\" && chmod 700 \"$1\" && tmp=$(mktemp \"$1/.omarchy.json.XXXXXX\") && chmod 600 \"$tmp\" && IFS= read -r line && printf '%s\\n' \"$line\" >\"$tmp\" && mv -f \"$tmp\" \"$1/omarchy.json\" || { rm -f \"$tmp\"; exit 1; }", "noeis-session", root.sessionDir]
     stdinEnabled: true
     onStarted: {
       sessionWriter.write(pending + "\n")

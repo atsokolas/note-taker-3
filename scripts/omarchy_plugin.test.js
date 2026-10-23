@@ -205,7 +205,17 @@ for (const file of ['bin/noeis-open', 'bin/noeis-setup']) {
   }
 }
 assert.doesNotMatch(read('Service.qml'), /setText\(/, 'the session is written only by its private writer');
-assert.match(read('Service.qml'), /umask 077 [^\n]*chmod 700 [^\n]*chmod 600 [^\n]*read -r/, 'the directory and file are private before the token is written');
+assert.match(read('Service.qml'), /umask 077 [^\n]*chmod 700 [^\n]*mktemp [^\n]*chmod 600 [^\n]*read -r[^\n]*mv -f /, 'the token goes into a new private file that replaces the session, never into the old one');
+
+// noeis-open hands the app to omarchy-launch-or-focus, which evals it: the app
+// is a bare https origin, a page only a path, and the command is quoted.
+{
+  const open = read('bin/noeis-open');
+  assert.match(open, /APP =~ \^https:\/\/\[A-Za-z0-9\.-\]\+/, 'noeis-open takes the app only as a bare https origin');
+  assert.match(open, /page =~ \^\/\[\^\[:space:\]\]\*\$/, 'a page is a path on the app and nothing else');
+  assert.match(open, /launch-or-focus [^\n]*printf '%q'/, 'the evaled launch command is shell-quoted');
+  assert.doesNotMatch(open, /launch-webapp '\$APP/, 'the app is not pasted into single quotes');
+}
 
 // Every `omarchy-shell noeis <call>` the scripts and README name is one the
 // Service answers.
