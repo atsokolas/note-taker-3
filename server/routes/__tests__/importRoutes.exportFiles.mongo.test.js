@@ -5,7 +5,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const express = require('express');
-const multer = require('multer');
+const upload = require('../../services/import/upload');
 const mongoose = require('mongoose');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const { buildImportRouter } = require('../importRoutes');
@@ -68,7 +68,7 @@ test('real Mongo: export files land as books, saved articles and notes, and a se
     const app = express();
     app.use(buildImportRouter({
       authenticateToken: (req, res, next) => { req.user = { id: String(userId) }; next(); },
-      upload: multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } }),
+      upload,
       slugify: value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       Article,
       Folder,

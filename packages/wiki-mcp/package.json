@@ -23,7 +23,7 @@
     "server.json"
   ],
   "scripts": {
-    "test": "node test/server.test.js && node test/config.test.js && node test/ingest.test.js && node test/library.test.js && node test/think.test.js && node test/editions.test.js && node test/chatgpt.test.js && node test/chatgpt-access.test.js",
+    "test": "node test/server.test.js && node test/config.test.js && node test/ingest.test.js && node test/library.test.js && node test/think.test.js && node test/editions.test.js && node test/chatgpt.test.js && node test/chatgpt-access.test.js && node test/security.test.js",
     "smoke": "node bin/noeis-wiki-mcp --help"
   },
   "keywords": [
@@ -34,7 +34,7 @@
   ],
   "license": "ISC",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "zod": "^3.25.76"
   },
   "engines": {
