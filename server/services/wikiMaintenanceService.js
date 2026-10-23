@@ -1754,7 +1754,8 @@ const hydrateSecFilingCandidates = async ({
   candidates = [],
   userId,
   models = {},
-  onProgress = null
+  onProgress = null,
+  fetchMissing = true
 } = {}) => {
   const WikiSourceEvent = models?.WikiSourceEvent;
   if (!WikiSourceEvent?.find) return candidates;
@@ -1780,7 +1781,8 @@ const hydrateSecFilingCandidates = async ({
     const expectedLength = Number(event?.metadata?.filingTextLength || source?.metadata?.filingTextLength || 0);
     const filingUrl = asString(event?.url || source?.url);
     if (
-      expectedLength > eventText.length
+      fetchMissing
+      && expectedLength > eventText.length
       && /^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\//i.test(filingUrl)
     ) {
       try {
@@ -1809,6 +1811,20 @@ const hydrateSecFilingCandidates = async ({
     };
   }));
 };
+
+/* A page keeps only snippets of what it cites; the figure check needs the
+   text the build read. A later check of a built page (accepting a held
+   candidate, adopting a head) reloads that text from what was saved, never
+   from SEC: an owner's click does not wait on someone else's server. */
+const groundingSourceRefsForPage = async ({ page = {}, userId, models = {} } = {}) => groundingSourceRefsForCandidates({
+  sourceRefs: page?.sourceRefs,
+  candidates: await hydrateSecFilingCandidates({
+    candidates: collectExistingSourceCandidates({ page }),
+    userId,
+    models,
+    fetchMissing: false
+  })
+});
 
 const dedupeSourceRefs = (existing = [], next = []) => {
   const seen = new Set();
@@ -5056,6 +5072,7 @@ const maintainWikiPage = async ({
 module.exports = {
   maintainWikiPage,
   evaluateWikiArticleQuality,
+  groundingSourceRefsForPage,
   isGitHubRepoPage,
   deriveClaimsFromDoc,
   buildSectionMaintenancePlan,

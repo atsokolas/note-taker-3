@@ -62,6 +62,26 @@ test('requires review confirmation before accepting the exact candidate', async 
   expect(onPageUpdate).toHaveBeenCalled();
 });
 
+test('says why a refused accept was refused, and blames a newer page only when there is one', async () => {
+  reviewWikiFirstHeadCandidate.mockRejectedValue({
+    response: {
+      status: 409,
+      data: {
+        code: 'WIKI_RESEARCH_CANDIDATE_QUALITY_STALE',
+        error: 'This candidate no longer satisfies the current decision-grade dossier contract. Rebuild it before accepting.'
+      }
+    }
+  });
+  render(<WikiFirstHeadReview page={page} pageId="page-1" />);
+
+  await screen.findByText('Candidate research body.');
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+  expect(await screen.findByText(/no longer satisfies the current decision-grade dossier contract/)).toBeInTheDocument();
+  expect(screen.queryByText(/current page changed/)).not.toBeInTheDocument();
+});
+
 test('supports rejecting a maintenance candidate without acceptance confirmation', async () => {
   const maintenancePage = {
     ...page,

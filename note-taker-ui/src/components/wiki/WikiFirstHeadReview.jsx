@@ -163,8 +163,7 @@ const WikiFirstHeadReview = ({
       });
       if (decision === 'accept') onAccepted?.(result);
     } catch (requestError) {
-      const stale = requestError?.response?.data?.code === 'WIKI_RESEARCH_CANDIDATE_STALE'
-        || requestError?.response?.status === 409;
+      const stale = requestError?.response?.data?.code === 'WIKI_RESEARCH_CANDIDATE_STALE';
       const message = stale
         ? staleMessage
         : (requestError?.response?.data?.error || requestError?.message || 'Could not record the first-head decision.');
