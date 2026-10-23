@@ -111,3 +111,25 @@ test('a book closed without a sentence keeps asking for one', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
   expect(await screen.findByText('Late, but true.', { selector: 'blockquote' })).toBeInTheDocument();
 });
+
+test('the spine sits under the book’s name and a tick opens its mark', () => {
+  const marks = [12, 180, 190, 400].map(page => ({ _id: `m${page}`, text: `On p. ${page}`, page, createdAt: '2026-10-19T20:00:00Z' }));
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch' }, highlights: marks, error: '' });
+  const { container } = at('b2');
+  expect(screen.getByRole('figure', { name: /Your marks along the book, to p\. 400/ })).toHaveTextContent('p. 400');
+  const mark = container.querySelector('[data-highlight-id="highlight-m190"]');
+  mark.scrollIntoView = jest.fn();
+  fireEvent.click(container.querySelector('[data-mark="m190"]'));
+  expect(mark.scrollIntoView).toHaveBeenCalled();
+  expect(mark).toHaveAttribute('data-found');
+});
+
+test('the thickest stretch is a button that opens its first mark', () => {
+  const marks = [12, 180, 182, 185, 400].map(page => ({ _id: `m${page}`, text: `On p. ${page}`, page, createdAt: '2026-10-19T20:00:00Z' }));
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch' }, highlights: marks, error: '' });
+  const { container } = at('b2');
+  const mark = container.querySelector('[data-highlight-id="highlight-m180"]');
+  mark.scrollIntoView = jest.fn();
+  fireEvent.click(screen.getByRole('button', { name: 'Thickest at pp. 160–200' }));
+  expect(mark.scrollIntoView).toHaveBeenCalled();
+});
