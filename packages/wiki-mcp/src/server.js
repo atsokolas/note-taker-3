@@ -114,7 +114,8 @@ const errorContent = (error) => ({
 
 export const createMcpServer = ({ client, token, apiUrl, appUrl, grantedScopes, accessProfile, resourceMetadataUrl } = {}) => {
   const resolvedClient = client || new NoeisClient({ token, apiUrl, appUrl });
-  const server = new McpServer(SERVER_INFO);
+  // Bound validation work before Zod expands untrusted arrays and records.
+  const server = new McpServer(SERVER_INFO, { maxToolInputElements: 10_000 });
 
   const exposedTools = accessProfile === CHATGPT_ACCESS_PROFILE
     ? toolDefinitions.filter(tool => isChatgptToolAllowed(tool.name))

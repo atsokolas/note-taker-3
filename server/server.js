@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const PDFDocument = require('pdfkit');
 const archiver = require('archiver');
 const upload = require('./services/import/upload');
+const { buildHostedMcpRouter, parseHostedMcpBody } = require('./routes/hostedMcpRoutes');
 const crypto = require('crypto');
 const { ensureWorkspace } = require('./utils/workspaceUtils');
 const {
@@ -52,6 +53,7 @@ app.use(buildOpenaiAppsChallengeRouter());
 const { buildChatgptOAuthIngress } = require('./services/chatgptOAuthIngress');
 app.use(buildChatgptOAuthIngress());
 // The raw bytes stay on the request for webhooks that sign them (email-in).
+app.use('/mcp', parseHostedMcpBody);
 app.use(express.json({ limit: '50mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -605,7 +607,6 @@ const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes
 const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
-const { buildHostedMcpRouter } = require('./routes/hostedMcpRoutes');
 const { buildChatgptOAuthRouter } = require('./routes/chatgptOAuthRoutes');
 const { readChatgptOAuthConfig } = require('./services/chatgptOAuthConfig');
 const { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl } = require('./models/chatgptOAuthModels');

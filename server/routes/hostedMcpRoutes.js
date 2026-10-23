@@ -3,6 +3,14 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 
+const MCP_BODY_LIMIT = 1024 * 1024;
+// Mount before the general API parser so pre-parsed bodies cannot bypass this cap.
+const parseJsonBody = express.json({ limit: MCP_BODY_LIMIT });
+const parseHostedMcpBody = (req, res, next) => {
+  if (req.method === 'POST' && !req.is('application/json')) return res.sendStatus(415);
+  return parseJsonBody(req, res, next);
+};
+
 const mcpSource = pathToFileURL(
   path.resolve(__dirname, '../../packages/wiki-mcp/src/server.js')
 ).href;
@@ -65,7 +73,7 @@ const buildHostedMcpRouter = ({
     try {
       const { createMcpServer } = await loadServer();
       server = createMcpServer({ token, apiUrl: internalApiUrl, appUrl, grantedScopes: req.agentToken?.scopes, accessProfile: req.agentToken?.accessProfile, resourceMetadataUrl });
-      const transport = new Transport({ sessionIdGenerator: undefined, enableJsonResponse });
+      const transport = new Transport({ sessionIdGenerator: undefined, enableJsonResponse, maxRequestBodySize: MCP_BODY_LIMIT });
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);
     } catch (error) {
@@ -86,5 +94,6 @@ const buildHostedMcpRouter = ({
 };
 
 module.exports = {
-  buildHostedMcpRouter
+  buildHostedMcpRouter,
+  parseHostedMcpBody
 };
