@@ -171,3 +171,81 @@
     transition: none;
   }
 }
+
+/* A book coming back a year on: a passage at the top of the shelf, ruled
+   off from the books beneath it. */
+.books .books__returning {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border-subtle-2);
+  color: var(--text) !important;
+  font: 1rem/1.5 var(--font-sans);
+  text-decoration: none;
+}
+
+.books__returning cite {
+  font-family: var(--font-serif);
+  font-style: italic;
+}
+
+.books__returning q,
+.books__colophon blockquote {
+  margin: 0;
+  color: var(--ink-human, var(--text));
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  line-height: 1.4;
+}
+
+.books__closing,
+.books__colophon {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle-2);
+}
+
+.books__colophon {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.books__remember {
+  margin-top: var(--space-2);
+}
+
+.books .books__quiet-button {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: 0.85rem var(--font-sans);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  transition: color var(--noeis-motion-base) var(--noeis-ease-standard), text-decoration-color var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+.books .books__quiet-button:hover,
+.books .books__quiet-button:focus-visible {
+  color: var(--text);
+  text-decoration-color: currentColor;
+}
+
+.books__closing .books__quiet {
+  margin-top: var(--space-2);
+}
+
+.books__colophon .books__quiet {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .books .books__quiet-button {
+    transition: none;
+  }
+}

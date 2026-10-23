@@ -101,11 +101,30 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
     assert.equal((await Article.findById(bookId).lean()).highlights.length, book.highlights.length);
 
     // The shelf: one row per book, with its marks to read the page and the last line from.
-    const shelf = await (await fetch(`${url}/api/books`)).json();
+    const shelf = await (await fetch(`${url}/api/books?today=2026-10-19`)).json();
     const row = shelf.books.find(item => String(item._id) === bookId);
     assert.equal(shelf.books.filter(item => /Origin of Species/i.test(item.title)).length, 1);
     assert.ok(row.marks.some(mark => mark.page === 40 && /Natural selection/.test(mark.text)));
     assert.ok(row.marks.every(mark => typeof mark.location === 'string' && !mark.importMeta));
+    assert.equal(row.returning, null);
+
+    // Closing it: the day and the sentence, kept on the book. Rewriting the
+    // sentence keeps the day; still reading it clears both.
+    const close = (line, on) => fetch(`${url}/api/books/${bookId}/closed`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ line, on }) }).then(res => res.json());
+    const closed = await close('  Variation is the raw material.  ', '2025-10-18');
+    assert.deepEqual(closed, { finishedOn: '2025-10-18', closingLine: 'Variation is the raw material.' });
+    const rewritten = await close('Selection keeps what variation offers.', '2026-10-19');
+    assert.equal(rewritten.finishedOn, '2025-10-18');
+    const year = (await (await fetch(`${url}/api/books?today=2026-10-19`)).json()).books.find(item => String(item._id) === bookId);
+    assert.deepEqual(year.returning, { years: 1, days: 1 });
+    assert.equal(year.closingLine, 'Selection keeps what variation offers.');
+    await fetch(`${url}/api/books/${bookId}/closed`, { method: 'DELETE' });
+    assert.deepEqual(
+      (({ finishedOn, closingLine }) => ({ finishedOn, closingLine }))(await Article.findById(bookId).lean()),
+      { finishedOn: '', closingLine: '' }
+    );
+    const notABook = await Article.create({ userId, url: 'https://example.com/essay', title: 'An essay' });
+    assert.equal((await fetch(`${url}/api/books/${notABook._id}/closed`, { method: 'PUT' })).status, 404);
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));
     await mongoose.disconnect();

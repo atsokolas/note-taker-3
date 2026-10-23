@@ -53,6 +53,7 @@ const { recordSourceCorrection } = require('../services/authoredSourceCorrection
 const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
+const { calendarDay, returningOf } = require('../services/closedBooks');
 const { fillArticleBodies } = require('../services/readableArticle');
 const {
   inboundMailConfig,
@@ -434,11 +435,14 @@ const buildImportRouter = ({
      page that shows them. */
   router.get('/api/books', authenticateToken, async (req, res) => {
     try {
+      // Today as the reader's calendar has it, for the book coming back.
+      const today = calendarDay(req.query?.today);
       const books = await Article.find({ userId: req.user.id, url: BOOK_URL })
-        .select('title author createdAt highlights._id highlights.text highlights.note highlights.page highlights.importMeta.sourcePath highlights.createdAt')
+        .select('title author createdAt finishedOn closingLine highlights._id highlights.text highlights.note highlights.page highlights.importMeta.sourcePath highlights.createdAt')
         .lean();
       const shelf = books.map(({ highlights = [], ...book }) => ({
         ...book,
+        returning: returningOf(book, today),
         marks: highlights.map(({ importMeta, ...mark }) => ({ ...mark, location: importMeta?.sourcePath || '' }))
       }));
       const lastTouched = book => Math.max(new Date(book.createdAt).getTime() || 0, ...book.marks.map(mark => new Date(mark.createdAt).getTime() || 0));
@@ -446,6 +450,39 @@ const buildImportRouter = ({
     } catch (error) {
       console.error('Error reading the book shelf:', error);
       res.status(500).json({ error: 'The books could not be read.' });
+    }
+  });
+
+  /* Closing a book: you finished it today (your today, sent as a calendar
+     day), and here is the one sentence you will remember, which may be none.
+     The day is when you first closed it, so rewriting the sentence does not
+     move its anniversary. */
+  router.put('/api/books/:id/closed', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL });
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      book.finishedOn ||= calendarDay(req.body?.on);
+      book.closingLine = toTrimmedString(req.body?.line).slice(0, 400);
+      await book.save();
+      return res.json({ finishedOn: book.finishedOn, closingLine: book.closingLine });
+    } catch (error) {
+      console.error('Error closing a book:', error);
+      res.status(500).json({ error: 'The book could not be closed.' });
+    }
+  });
+
+  /* Still reading it after all. */
+  router.delete('/api/books/:id/closed', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user.id, url: BOOK_URL },
+        { $set: { finishedOn: '', closingLine: '' } }
+      );
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      return res.json({ finishedOn: '', closingLine: '' });
+    } catch (error) {
+      console.error('Error reopening a book:', error);
+      res.status(500).json({ error: 'The book could not be reopened.' });
     }
   });
 
