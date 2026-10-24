@@ -3,7 +3,8 @@ import { createHighlight, deleteHighlight, updateHighlight } from '../../api/hig
 import { useFinePointer } from '../../hooks/useMotionPreferences';
 import { scopedKey } from '../../utils/browserScope';
 import {
-  completionFor, isUnfinished, kindOf, lastTime, pageNow, pagesOf, readLine, sittingOf, tallyLine
+  completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastTime, markedBefore, monthOf, pageNow, pagesOf,
+  readingSince, readLine, sittingOf, tallyLine
 } from './bookDesk';
 import '../../styles/book-desk.css';
 
@@ -21,8 +22,11 @@ const keepUnsent = (articleId, lines) => {
 
 const joinNotes = (held = '', more = '') => (held ? `${held}\n\n${more}` : more);
 
+const yearOf = mark => new Date(mark.createdAt).getFullYear();
+
 /* What a sent line became, said once under the line. Nothing when it simply saved. */
-const receiptFor = (sent, saved, known) => {
+const receiptFor = (sent, saved, known, earlier) => {
+  if (earlier) return `You marked this in ${yearOf(earlier)} too.`;
   if (known) {
     return /\bLocation\b/.test(saved.location || '')
       ? 'You marked this on your Kindle too. It is one mark now, with your note.'
@@ -43,15 +47,20 @@ const receiptFor = (sent, saved, known) => {
 export default function BookDesk({ article, marks = [], arriving = true, onAdd, onReplace, onRemove, doorFor }) {
   const articleId = article?._id;
   const finePointer = useFinePointer();
+  /* What the desk reads back is this reading's; the passages you are offered
+     to finish come from every reading. */
+  const since = readingSince(article);
+  const now = marks.filter(mark => !isEarlier(mark, since));
+  const lastReading = since ? article.readBefore[article.readBefore.length - 1] : null;
   const [line, setLine] = useState('');
-  const [page, setPage] = useState(() => pageNow(marks));
+  const [page, setPage] = useState(() => pageNow(now));
   const [receipt, setReceipt] = useState('');
   const [inked, setInked] = useState('');
   const sent = useRef([]);
   const lineRef = useRef(null);
 
-  const sitting = sittingOf(marks);
-  const last = sitting.length ? null : lastTime(marks);
+  const sitting = sittingOf(now);
+  const last = sitting.length ? null : lastTime(now);
   const pages = useMemo(() => pagesOf(marks), [marks]);
   const typed = readLine(line, page);
   const ghost = typed.text && !isUnfinished(typed.text) ? completionFor(typed.text, marks) : '';
@@ -65,7 +74,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       if (known) onReplace?.(saved._id, saved);
       else onAdd?.(saved);
       sent.current.push({ id: saved._id, before });
-      setReceipt(receiptFor(draft, saved, known));
+      setReceipt(receiptFor(draft, saved, known, !known && markedBefore(saved.text, marks, since)));
       if (draft.text && saved.text !== draft.text) setInked(saved._id);
       return true;
     } catch (error) {
@@ -168,7 +177,8 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       <p className="book-desk__lede">
         {sitting.length ? <><span className="book-desk__label">Tonight</span>{tallyLine(sitting)}</>
           : last ? <><span className="book-desk__label">Last time{last.page ? `, p. ${last.page}` : ''}</span><q className={last.own ? 'book-desk__own' : ''}>{last.words}</q></>
-            : 'Type as you read. A number turns the page; a quote mark makes the line the book’s own words.'}
+            : lastReading?.finishedOn ? <><span className="book-desk__label">Read before, finished {monthOf(dayOf(lastReading.finishedOn))}</span>{lastReading.closingLine ? <q>{lastReading.closingLine}</q> : 'What you marked then is here in faded ink.'}</>
+              : 'Type as you read. A number turns the page; a quote mark makes the line the book’s own words.'}
       </p>
 
       {pages.length ? <ol className="book-desk__pages">
@@ -185,9 +195,11 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
                   data-unfinished={(mark.text && isUnfinished(mark.text)) || undefined}
                   data-unsent={mark.unsent || undefined}
                   data-inked={mark._id === inked || undefined}
+                  data-earlier={isEarlier(mark, since) || undefined}
                 >
                   {mark.text ? <blockquote>{mark.text}</blockquote> : null}
                   {mark.note ? <p className="book-desk__own">{mark.note}</p> : null}
+                  {isEarlier(mark, since) ? <span className="book-desk__when">{yearOf(mark)}</span> : null}
                   {doorFor?.(mark, index)}
                 </li>
               ))}

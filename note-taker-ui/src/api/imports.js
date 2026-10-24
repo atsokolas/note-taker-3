@@ -55,6 +55,10 @@ export const closeBook = async (id, line = '') => (
 export const reopenBook = async (id) => (
   (await api.delete(`/api/books/${encodeURIComponent(id)}/closed`, getAuthHeaders())).data
 );
+/* Starting a finished book again: the reading you closed is kept, with its marks. */
+export const readAgain = async (id) => (
+  (await api.post(`/api/books/${encodeURIComponent(id)}/again`, {}, getAuthHeaders())).data
+);
 
 /* Every book on the shelf, with its marks. */
 export const listBooks = async () => (

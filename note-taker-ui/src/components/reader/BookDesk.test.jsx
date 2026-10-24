@@ -18,11 +18,11 @@ const KINDLE = {
 };
 
 /* The desk as the reader holds it: the marks live with the parent. */
-const Desk = ({ marks: initial }) => {
+const Desk = ({ marks: initial, readBefore }) => {
   const [marks, setMarks] = useState(initial);
   return (
     <BookDesk
-      article={{ _id: 'book-1', title: 'The Better Angels', url: 'import://kindle/the-better-angels-pinker' }}
+      article={{ _id: 'book-1', title: 'The Better Angels', url: 'import://kindle/the-better-angels-pinker', readBefore }}
       marks={marks}
       onAdd={mark => setMarks(current => [...current, mark])}
       onReplace={(id, mark) => setMarks(current => current.map(item => (item._id === id ? { ...item, ...mark } : item)))}
@@ -76,6 +76,19 @@ test('the book finishes a quote you marked on the Kindle, and it stays one mark'
   expect(createHighlight).toHaveBeenCalledWith({ articleId: 'book-1', text: KINDLE.text, note: '', page: 214 });
   expect(await screen.findByText('You marked this on your Kindle too. It is one mark now, with your note.')).toBeInTheDocument();
   expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(1);
+});
+
+test('on a second reading a passage marked again is a new mark, and the desk says when you marked it before', async () => {
+  const readBefore = [{ finishedOn: '2026-10-10', closingLine: '', until: '2026-10-20T09:00:00Z' }];
+  createHighlight.mockResolvedValue({ ...KINDLE, _id: 'k2', location: '', page: 214, createdAt: new Date().toISOString() });
+  render(<Desk marks={[KINDLE]} readBefore={readBefore} />);
+  expect(screen.getByText('What you marked then is here in faded ink.')).toBeInTheDocument();
+
+  type(`214 "${KINDLE.text}`);
+  await act(async () => keep());
+  expect(await screen.findByText('You marked this in 2026 too.')).toBeInTheDocument();
+  expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(2);
+  expect(screen.getByText('Tonight')).toBeInTheDocument();
 });
 
 test('taking back a line that joined a Kindle mark gives the mark its own note back, never deletes it', async () => {

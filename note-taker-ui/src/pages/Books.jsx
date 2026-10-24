@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { closeBook, listBooks, reopenBook, startBook } from '../api/imports';
+import { closeBook, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
 import BookDesk from '../components/reader/BookDesk';
-import { lastTime, sittingsOf, spineOf, tallyLine } from '../components/reader/bookDesk';
+import {
+  dayOf, isEarlier, lastTime, longDate, monthOf, readingSince, sittingsOf, spineOf, tallyLine
+} from '../components/reader/bookDesk';
 import { bookFrom } from '../components/library/LibraryPasteLink';
 import useArticleDetail from '../hooks/useArticleDetail';
 import useDocumentTitle from '../hooks/useDocumentTitle';
@@ -12,24 +14,16 @@ import '../styles/books.css';
 /* The books you are reading, paper or Kindle, each with a page of its own:
    the desk you type at while the book is open beside you. */
 
-// A book is finished on a calendar day ("2026-10-19"), read here as that day.
-const dayOf = (day, years = 0) => {
-  const [year, month, date] = day.split('-').map(Number);
-  return new Date(year + years, month - 1, date);
-};
-const longDate = date => date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
-const monthOf = date => date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-
 /* A book you closed a year ago this week, handed back with its sentence.
    The server says which book and how long ago; nothing comes back unless a
-   sentence was written. */
+   sentence was written, and a sentence from an earlier reading still comes. */
 const Returning = ({ book }) => {
-  const { years, days } = book.returning;
+  const { years, days, line } = book.returning;
   return (
     <Link to={`/library/books/${book._id}`} className="books__returning">
       <span className="books__author">{years > 1 ? `${years} years ago` : 'A year ago'} {days ? 'this week' : 'today'}</span>
       <span>You finished <cite>{book.title}</cite> and said you’d remember:</span>
-      <q>{book.closingLine}</q>
+      <q>{line}</q>
       <span>Do you?</span>
     </Link>
   );
@@ -137,7 +131,7 @@ const Remember = ({ label, onKeep }) => {
 /* Closing the book. While you read, it is one quiet line under the desk.
    Closed, the book gets its colophon there, where a printed book keeps one:
    when you read it, how many sittings, what you wrote, and the sentence you
-   said you would remember. */
+   said you would remember; and under it, each time you read it before. */
 const Closing = ({ book, marks, onChange }) => {
   const [asking, setAsking] = useState(false);
   const [said, setSaid] = useState('');
@@ -155,14 +149,15 @@ const Closing = ({ book, marks, onChange }) => {
       return false;
     }
   };
-  const reopen = async () => {
+  const open = (again) => async () => {
     try {
-      onChange(await reopenBook(book._id));
+      onChange(await (again ? readAgain : reopenBook)(book._id));
       setSaid('');
     } catch (_) {
       setSaid('The book is still closed. Try it again.');
     }
   };
+  const before = (book.readBefore || []).filter(reading => reading.finishedOn);
 
   if (!book.finishedOn) {
     return (
@@ -184,8 +179,16 @@ const Closing = ({ book, marks, onChange }) => {
       <p className="books__author">Finished {longDate(dayOf(book.finishedOn))}</p>
       {book.closingLine ? <blockquote>{book.closingLine}</blockquote> : <Remember label="Keep" onKeep={keep} />}
       {colophon ? <p className="books__tally">{colophon}</p> : null}
+      {before.map(reading => (
+        <p key={reading.until} className="books__tally books__before">
+          Also finished {longDate(dayOf(reading.finishedOn))}{reading.closingLine ? <>, and said: <q>{reading.closingLine}</q></> : null}
+        </p>
+      ))}
       {said ? <p className="books__quiet" role="status">{said}</p> : null}
-      <button type="button" className="books__quiet-button" onClick={reopen}>Still reading it</button>
+      <p className="books__again">
+        <button type="button" className="books__quiet-button" onClick={open(true)}>Read it again</button>
+        <button type="button" className="books__quiet-button" onClick={open(false)}>Still reading it</button>
+      </p>
     </section>
   );
 };
@@ -204,8 +207,8 @@ const showMark = (id, smooth = false) => {
    reads as ink before anything is said about it. A tick opens its mark; the
    ticks are a picture of the marks listed below, so they stay out of the tab
    order, and the thickest stretch is a link anyone can follow. */
-const Spine = ({ marks }) => {
-  const spine = useMemo(() => spineOf(marks), [marks]);
+const Spine = ({ marks, since }) => {
+  const spine = useMemo(() => spineOf(marks, since), [marks, since]);
   const still = usePrefersReducedMotion();
   if (!spine) return null;
   const open = (event) => {
@@ -216,7 +219,7 @@ const Spine = ({ marks }) => {
     <figure className="books__spine" aria-label={`Your marks along the book, to ${spine.end}`}>
       <div className="books__spine-strip" onClick={open} aria-hidden="true">
         {spine.ticks.map(tick => (
-          <span key={tick.id} data-mark={tick.id} data-kind={tick.kind} title={tick.label} style={{ left: `${tick.at * 100}%` }} />
+          <span key={tick.id} data-mark={tick.id} data-kind={tick.kind} data-earlier={tick.earlier || undefined} title={tick.label} style={{ left: `${tick.at * 100}%` }} />
         ))}
       </div>
       <figcaption>
@@ -236,6 +239,7 @@ const Book = ({ id }) => {
   const { article, highlights, error, addHighlightOptimistic, replaceHighlight, removeHighlight } = useArticleDetail(id);
   const [closed, setClosed] = useState(null);
   const book = article ? { ...article, ...closed } : null;
+  const since = readingSince(book || {});
   useDocumentTitle(article?.title || 'A book', 'Library');
 
   useEffect(() => {
@@ -252,17 +256,17 @@ const Book = ({ id }) => {
             {book.author ? <p className="books__author">{book.author}</p> : null}
             <h1 id="book-title">{book.title || 'Untitled book'}</h1>
           </header>
-          <Spine marks={highlights} />
+          <Spine marks={highlights} since={since} />
           <BookDesk
             key={article._id}
-            article={article}
+            article={book}
             marks={highlights}
             arriving={!asked}
             onAdd={addHighlightOptimistic}
             onReplace={replaceHighlight}
             onRemove={removeHighlight}
           />
-          <Closing book={book} marks={highlights} onChange={setClosed} />
+          <Closing book={book} marks={highlights.filter(mark => !isEarlier(mark, since))} onChange={setClosed} />
         </>
       ) : null}
     </main>

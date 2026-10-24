@@ -240,3 +240,33 @@ blockquote + .book-desk__own {
     transition: none;
   }
 }
+
+/* Earlier ink: what you marked the last time you read the book, still on its
+   page beside tonight's, faded and dated like an old pencil margin. */
+.book-desk__mark[data-earlier] blockquote,
+.book-desk__mark[data-earlier] .book-desk__own {
+  opacity: 0.5;
+}
+
+/* The year sits at the end of the line, in the margin's small type. */
+.book-desk__mark[data-earlier] {
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--space-3);
+}
+
+.book-desk__mark[data-earlier] > * {
+  grid-column: 1;
+}
+
+.book-desk__mark[data-earlier] > .book-desk__when {
+  grid-column: 2;
+  grid-row: 1;
+  line-height: 1.6rem;
+}
+
+.book-desk__when {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-variant-numeric: oldstyle-nums;
+  letter-spacing: 0.04em;
+}
