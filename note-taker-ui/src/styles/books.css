@@ -249,3 +249,87 @@
     transition: none;
   }
 }
+
+/* The spine: the book laid flat as one ruled strip. Each mark is a hairline
+   where it sits; quotes stand full height in the book's ink, your own words
+   half height in yours. Hairlines overlap, so a well-marked stretch darkens. */
+.books__spine {
+  margin: 0 0 var(--space-5);
+}
+
+.books__spine-strip {
+  position: relative;
+  height: 22px;
+  border-bottom: 1px solid var(--border-subtle-2);
+  cursor: pointer;
+}
+
+.books__spine-strip span {
+  position: absolute;
+  bottom: 0;
+  box-sizing: border-box;
+  /* A hairline with a wider, invisible reach, so it can be tapped. */
+  width: 11px;
+  height: 100%;
+  padding: 0 5px;
+  margin-left: -5.5px;
+  background: var(--text) content-box;
+  opacity: 0.45;
+  transition: opacity var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+.books__spine-strip span:not([data-kind="quote"]) {
+  height: 55%;
+  background-color: var(--ink-human, var(--muted));
+}
+
+.books__spine-strip span:hover {
+  opacity: 1;
+}
+
+.books .books__spine figcaption button {
+  min-height: 44px;
+  margin: -14px 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  transition: color var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+.books .books__spine figcaption button:hover,
+.books .books__spine figcaption button:focus-visible {
+  color: var(--text);
+}
+
+.books__spine figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: 6px;
+  color: var(--muted);
+  font: 0.7rem/1.4 var(--font-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-variant-numeric: oldstyle-nums;
+}
+
+/* A mark opened from the spine inks for a moment where it lands. */
+.book-desk__mark[data-found] {
+  animation: book-desk-ink 1.6s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .books__spine-strip span,
+  .books .books__spine figcaption button {
+    transition: none;
+  }
+
+  .book-desk__mark[data-found] {
+    animation: none;
+  }
+}
