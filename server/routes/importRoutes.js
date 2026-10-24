@@ -1689,7 +1689,7 @@ const buildImportRouter = ({
       let added = 0;
       source.highlights.forEach((highlight) => {
         if (!sameText(highlight.text)) return;
-        const held = absorbPassage(marksOfReading(article, highlight.createdAt || 0), { text: highlight.text, note: highlight.note, at: highlight.createdAt });
+        const held = absorbPassage(marksOfReading(article, highlight.createdAt), { text: highlight.text, note: highlight.note, at: highlight.createdAt });
         if (held) {
           held.page = held.page || highlight.page;
           if (article.isModified()) dirty.add(article);
@@ -2504,7 +2504,7 @@ const buildImportRouter = ({
           continue;
         }
         // A quote or note typed at the desk that this highlight completes.
-        const absorbed = !existingHighlight && absorbPassage(marksOfReading(article, highlightRow.highlighted_at || 0), {
+        const absorbed = !existingHighlight && absorbPassage(marksOfReading(article, highlightRow.highlighted_at), {
           text: highlightText,
           note: toTrimmedString(highlightRow.note),
           at: highlightRow.highlighted_at

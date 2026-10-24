@@ -55,4 +55,14 @@ test('a book read again keeps each reading: its marks, and its sentence coming b
   assert.deepEqual(marksOfReading(book, '2025-09-05').map(mark => mark._id), ['a'], 'an old clipping joins the reading it came from');
   assert.deepEqual(bookReturning(book, '2026-10-19'), { years: 1, days: 0, line: 'Waiting can be a choice.' });
   assert.equal(bookReturning({ ...book, readBefore: [] }, '2026-10-19'), null);
+  assert.deepEqual(marksOfReading(book, null).map(mark => mark._id), ['a', 'b'], 'an undated passage may be any reading');
+});
+
+test('the Morning Paper finds the closing whose day it is, past another closing that week', async () => {
+  const book = {
+    _id: 'b', title: 'Persuasion', finishedOn: '2025-10-20', closingLine: 'The second time.',
+    readBefore: [{ finishedOn: '2024-10-18', closingLine: 'The first time.', until: new Date('2025-01-01') }]
+  };
+  const Article = { find: () => ({ select: () => ({ sort: () => ({ lean: async () => [book] }) }) }) };
+  assert.deepEqual(await closedBookToday({ Article, userId: 'u', today: '2026-10-20' }), { articleId: 'b', title: 'Persuasion', line: 'The second time.', years: 1 });
 });

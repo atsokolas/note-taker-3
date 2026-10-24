@@ -45,9 +45,10 @@ const bookReturning = (book, today) => {
 const readingAt = (book, at) => (book.readBefore || []).filter(({ until }) => new Date(at) >= new Date(until)).length;
 
 /* The marks of the reading a moment belongs to. A passage marked again on a
-   second reading is a new mark beside the old one, never folded into it. */
+   second reading is a new mark beside the old one, never folded into it. An
+   undated passage cannot say which reading it came from, so it is any of them. */
 const marksOfReading = (book, at = new Date()) => (
-  (book.highlights || []).filter(mark => readingAt(book, mark.createdAt) === readingAt(book, at))
+  (book.highlights || []).filter(mark => !at || readingAt(book, mark.createdAt) === readingAt(book, at))
 );
 
 /* The Morning Paper carries a closed book on its anniversary only, so the
@@ -59,8 +60,10 @@ const closedBookToday = async ({ Article, userId, today }) => {
     .sort({ finishedOn: -1 })
     .lean();
   for (const book of books) {
-    const back = bookReturning(book, today);
-    if (back?.days === 0) return { articleId: String(book._id), title: book.title, line: back.line, years: back.years };
+    for (const closing of closingsOf(book)) {
+      const back = returningOf(closing, today);
+      if (back?.days === 0) return { articleId: String(book._id), title: book.title, line: closing.closingLine, years: back.years };
+    }
   }
   return null;
 };
