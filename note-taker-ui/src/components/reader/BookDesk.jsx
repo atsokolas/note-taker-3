@@ -61,7 +61,8 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
 
   const sitting = sittingOf(now);
   const last = sitting.length ? null : lastTime(now);
-  const setDown = setDownOn(article, now);
+  const [touched, setTouched] = useState(false);
+  const setDown = touched ? null : setDownOn(article, now);
   const pages = useMemo(() => pagesOf(marks), [marks]);
   const typed = readLine(line, page);
   const ghost = typed.text && !isUnfinished(typed.text) ? completionFor(typed.text, marks) : '';
@@ -76,6 +77,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       else onAdd?.(saved);
       sent.current.push({ id: saved._id, before });
       setReceipt(receiptFor(draft, saved, known, !known && markedBefore(saved.text, marks, since)));
+      setTouched(true);
       if (draft.text && saved.text !== draft.text) setInked(saved._id);
       return true;
     } catch (error) {
@@ -125,7 +127,10 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     if (quote) {
       const saved = await updateHighlight({ articleId, highlightId: quote._id, payload: { note: joinNotes(quote.note, note) } })
         .catch(() => null);
-      if (saved) onReplace?.(quote._id, { ...quote, ...saved });
+      if (saved) {
+        onReplace?.(quote._id, { ...quote, ...saved });
+        setTouched(true);
+      }
       else setLine(note);
       return;
     }

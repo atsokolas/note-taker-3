@@ -107,6 +107,16 @@ test('a book untouched for a month asks why you stopped, and the answer is a mar
   expect(screen.queryByText('Why’d you stop?')).not.toBeInTheDocument();
 });
 
+test('typing an old mark again picks a set-down book up, though the mark keeps its date', async () => {
+  const old = { ...KINDLE, createdAt: '2026-01-05T20:00:00Z' };
+  createHighlight.mockResolvedValue({ ...old, note: 'still true' });
+  render(<Desk marks={[old]} createdAt="2026-01-01T00:00:00Z" />);
+  type(`"${KINDLE.text}`);
+  await act(async () => keep());
+  expect(await screen.findByText('You marked this on your Kindle too. It is one mark now, with your note.')).toBeInTheDocument();
+  expect(screen.queryByText('Why’d you stop?')).not.toBeInTheDocument();
+});
+
 test('taking back a line that joined a Kindle mark gives the mark its own note back, never deletes it', async () => {
   const noted = { ...KINDLE, note: 'first read' };
   createHighlight.mockResolvedValue({ ...noted, page: 214 });

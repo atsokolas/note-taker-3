@@ -50,11 +50,12 @@ export const markedBefore = (text, marks = [], since = 0) => (
 );
 
 /* A book you stopped reading: not finished, and nothing written in it for a
-   month. It stays on the shelf, never moved off; the desk only asks why, and
+   month. A note added to an old mark touches the book, not the mark, so the
+   book's own last change counts too. It stays on the shelf, never moved off; the desk only asks why, and
    the answer, typed in the line, is a mark that picks it up again. */
 export const setDownOn = (book = {}, marks = [], now = Date.now()) => {
   if (book.finishedOn) return null;
-  const last = Math.max(new Date(book.createdAt || 0).getTime() || 0, readingSince(book), ...marks.map(at));
+  const last = Math.max(at(book), new Date(book.updatedAt || 0).getTime() || 0, readingSince(book), ...marks.map(at));
   return last && now - last > SET_DOWN_MS ? new Date(last) : null;
 };
 
