@@ -3,12 +3,14 @@
    A line is typed with the book open beside it, so it has no modes: a number
    in front turns to that page, a quote mark makes it the book's words, and
    anything else is the reader's own. A question is a thought ending in "?".
+   A #word anywhere files the mark under that concept.
    Everything the desk shows — the page you are on, tonight's tally, the line
    from last time — is read off the marks themselves and never stored. */
 
 const PAGE_FIRST = /^(\d{1,4})(?:\s+|$)/;
 const QUOTED = /^(?:>\s*["“„«]?|["“„«])\s*/;
 const CLOSING = /\s*["”»]$/;
+const TAG = /(^|\s)#(\p{L}[\p{L}\p{N}_-]*)/gu;
 const WORD = /[\p{L}\p{N}]+/gu;
 // Marks further apart than this were made in different sittings.
 const SITTING_GAP_MS = 90 * 60 * 1000;
@@ -16,17 +18,19 @@ const SITTING_GAP_MS = 90 * 60 * 1000;
 const SET_DOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const readLine = (raw = '', page = null) => {
-  let line = String(raw).trim();
+  const tags = [...String(raw).matchAll(TAG)].map(match => match[2]);
+  const filed = tags.length ? { tags } : {};
+  let line = String(raw).replace(TAG, '$1').replace(/\s+/g, ' ').trim();
   const turned = PAGE_FIRST.exec(line);
   if (turned) {
     page = Number(turned[1]) || page;
     line = line.slice(turned[0].length).trim();
   }
-  if (!line) return { page };
+  if (!line) return { page, ...filed };
   const quoted = QUOTED.exec(line);
   return quoted
-    ? { page, text: line.slice(quoted[0].length).replace(CLOSING, '') }
-    : { page, note: line };
+    ? { page, ...filed, text: line.slice(quoted[0].length).replace(CLOSING, '') }
+    : { page, ...filed, note: line };
 };
 
 export const isUnfinished = (text = '') => /…|\.{3}/.test(text);

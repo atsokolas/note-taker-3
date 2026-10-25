@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
+import { bookEcho, closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
 import { ArticleMargins } from '../components/margins/LibraryMargins';
+import { useSettleIntoWiki } from '../components/think/settleIntoWiki';
 import BookDesk from '../components/reader/BookDesk';
 import PassageDoor from '../components/reader/PassageDoorView';
 import useSourceWhereabouts from '../components/reader/useSourceWhereabouts';
@@ -69,6 +70,47 @@ const Questions = () => {
           </li>
         ))}
       </ol>
+    </section>
+  );
+};
+
+const MONTH_MS = 30.44 * 24 * 60 * 60 * 1000;
+const apart = (a, b) => {
+  const months = Math.round(Math.abs(new Date(a) - new Date(b)) / MONTH_MS);
+  const years = Math.floor(months / 12);
+  return years ? (years === 1 ? 'a year' : `${years} years`) : `${months} months`;
+};
+
+/* Twice: a passage from one of your books and nearly the same thought,
+   marked in another work months or years apart, the earlier first. The
+   server picks one pair a day; a day without one has no section. */
+const Twice = () => {
+  const [pair, setPair] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    bookEcho()
+      .then(found => { if (!cancelled) setPair(found); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  if (!pair) return null;
+  const { mark, echo } = pair;
+  const passages = [
+    { ...mark, href: `/library/books/${mark.bookId}?highlight=${mark._id}`, title: mark.bookTitle },
+    { ...echo, href: buildPassagePath({ articleId: echo.articleId, highlightId: echo._id }), title: echo.articleTitle }
+  ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  return (
+    <section className="books__twice" aria-labelledby="books-twice">
+      <h2 id="books-twice">Twice</h2>
+      <p className="books__asked">You marked nearly the same thought {apart(mark.createdAt, echo.createdAt)} apart.</p>
+      {passages.map(passage => (
+        <Link key={passage._id} to={passage.href} className="books__echo">
+          <q>{passage.text}</q>
+          <span className="books__asked">
+            <cite>{passage.title}</cite>{passage.page ? `, p. ${passage.page}` : ''}, {monthOf(new Date(passage.createdAt))}
+          </span>
+        </Link>
+      ))}
     </section>
   );
 };
@@ -145,6 +187,7 @@ const Shelf = () => {
           })}
         </ol>
       ) : null}
+      <Twice />
       <Questions />
     </main>
   );
@@ -177,8 +220,11 @@ const Remember = ({ label, onKeep }) => {
 /* Closing the book. While you read, it is one quiet line under the desk.
    Closed, the book gets its colophon there, where a printed book keeps one:
    when you read it, how many sittings, what you wrote, and the sentence you
-   said you would remember; and under it, each time you read it before. */
-const Closing = ({ book, marks, onChange }) => {
+   said you would remember; and under it, each time you read it before. A
+   closed book can be written up as a wiki page of what you marked in it,
+   and written up again after you mark more. */
+const Closing = ({ book, marks, saved, writeUp, onChange }) => {
+  const writing = useSettleIntoWiki('books', book._id, writeUp);
   const [asking, setAsking] = useState(false);
   const [said, setSaid] = useState('');
   const keep = async (line) => {
@@ -231,7 +277,11 @@ const Closing = ({ book, marks, onChange }) => {
         </p>
       ))}
       {said ? <p className="books__quiet" role="status">{said}</p> : null}
+      {writing.lines}
       <p className="books__again">
+        <button type="button" className="books__quiet-button" disabled={writing.settling} onClick={() => writing.settle(async () => saved)}>
+          {writing.settled ? 'Write it up again' : 'Write it up in your wiki'}
+        </button>
         <button type="button" className="books__quiet-button" onClick={open(true)}>Read it again</button>
         <button type="button" className="books__quiet-button" onClick={open(false)}>Still reading it</button>
       </p>
@@ -347,7 +397,13 @@ const Book = ({ id }) => {
           {/* Beside a mark, the closest thing you marked in another book or piece, as the reader has. */}
           <ArticleMargins articleId={id} contentRef={deskRef} frameRef={frameRef} blocks={MARK_BLOCKS} contentKey={savedMarks} />
           <Whereabouts lines={whereabouts} />
-          <Closing book={book} marks={highlights.filter(mark => !isEarlier(mark, since))} onChange={setClosed} />
+          <Closing
+            book={book}
+            marks={highlights.filter(mark => !isEarlier(mark, since))}
+            saved={highlights.every(isSaved)}
+            writeUp={pages.find(page => page.createdFrom?.label === `settled-book:${id}`)}
+            onChange={setClosed}
+          />
         </>
       ) : null}
     </main>

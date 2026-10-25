@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { createHighlight, deleteHighlight, updateHighlight } from '../../api/highlights';
+import { readBookPage } from '../../api/imports';
 import { useFinePointer } from '../../hooks/useMotionPreferences';
 import { scopedKey } from '../../utils/browserScope';
+import { buildConceptPath } from '../../utils/sourceRoutes';
+import { pagePhoto } from '../../utils/pagePhoto';
 import {
   completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastTime, markedBefore, monthOf, pageNow, pagesOf,
   readingSince, readLine, setDownOn, sittingOf, tallyLine
@@ -25,6 +29,10 @@ const joinNotes = (held = '', more = '') => (held ? `${held}\n\n${more}` : more)
 const yearOf = mark => new Date(mark.createdAt).getFullYear();
 
 /* What a sent line became, said once under the line. Nothing when it simply saved. */
+const quotes = count => (count === 1 ? 'a quote' : `${count} quotes`);
+
+const filedUnder = (tags = []) => (tags.length ? `Filed under ${tags.map(tag => `#${tag}`).join(' ')}.` : '');
+
 const receiptFor = (sent, saved, known, earlier) => {
   if (earlier) return `You marked this in ${yearOf(earlier)} too.`;
   if (known) {
@@ -41,8 +49,9 @@ const receiptFor = (sent, saved, known, earlier) => {
 /**
  * The reading desk: the book is in your lap, and this is the one line you
  * type into beside it. "212" turns to page 212, a line opening with a quote
- * mark is the book's words, anything else is yours. ⌥↩ puts the line under
- * the quote above it as its note. The page stays where you left it.
+ * mark is the book's words, anything else is yours, and a #word files it
+ * under that concept. ⌥↩ puts the line under the quote above it as its
+ * note. The page stays where you left it.
  */
 export default function BookDesk({ article, marks = [], arriving = true, onAdd, onReplace, onRemove, doorFor }) {
   const articleId = article?._id;
@@ -65,6 +74,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   const setDown = touched ? null : setDownOn(article, now);
   const pages = useMemo(() => pagesOf(marks), [marks]);
   const typed = readLine(line, page);
+  const waiting = marks.filter(mark => mark.text && isUnfinished(mark.text));
   const ghost = typed.text && !isUnfinished(typed.text) ? completionFor(typed.text, marks) : '';
 
   const send = async (draft, tempId) => {
@@ -76,7 +86,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       if (known) onReplace?.(saved._id, saved);
       else onAdd?.(saved);
       sent.current.push({ id: saved._id, before });
-      setReceipt(receiptFor(draft, saved, known, !known && markedBefore(saved.text, marks, since)));
+      setReceipt(receiptFor(draft, saved, known, !known && markedBefore(saved.text, marks, since)) || filedUnder(draft.tags));
       setTouched(true);
       if (draft.text && saved.text !== draft.text) setInked(saved._id);
       return true;
@@ -84,7 +94,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       if (error?.response) {
         onRemove?.(tempId);
         setReceipt('That line did not save. It is back in the line to try again.');
-        setLine([draft.page ? String(draft.page) : '', draft.text ? `"${draft.text}` : draft.note].filter(Boolean).join(' '));
+        setLine([draft.page ? String(draft.page) : '', draft.text ? `"${draft.text}` : draft.note, ...(draft.tags || []).map(tag => `#${tag}`)].filter(Boolean).join(' '));
         return true;
       }
       return false;
@@ -117,30 +127,61 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const keep = async ({ attach = false } = {}) => {
-    const { page: turned, text, note } = readLine(line, page);
+    const { page: turned, text, note, tags = [] } = readLine(line, page);
     setPage(turned);
     setLine('');
     setReceipt('');
-    if (!text && !note) return;
-    const quote = attach && note && [...sent.current].reverse()
-      .map(({ id }) => marks.find(mark => mark._id === id)).find(mark => mark?.text);
-    if (quote) {
-      const saved = await updateHighlight({ articleId, highlightId: quote._id, payload: { note: joinNotes(quote.note, note) } })
-        .catch(() => null);
+    /* A note sent with ⌥↩ goes under the quote above it; a line of only
+       #tags files the mark you just made. */
+    const onto = attach && note
+      ? [...sent.current].reverse().map(({ id }) => marks.find(mark => mark._id === id)).find(mark => mark?.text)
+      : !text && !note && tags.length && marks.find(mark => mark._id === sent.current[sent.current.length - 1]?.id);
+    if (onto) {
+      const payload = {
+        ...(note ? { note: joinNotes(onto.note, note) } : {}),
+        ...(tags.length ? { tags: [...new Set([...(onto.tags || []), ...tags])] } : {})
+      };
+      const saved = await updateHighlight({ articleId, highlightId: onto._id, payload }).catch(() => null);
       if (saved) {
-        onReplace?.(quote._id, { ...quote, ...saved });
+        onReplace?.(onto._id, { ...onto, ...saved });
+        setReceipt(filedUnder(tags));
         setTouched(true);
       }
-      else setLine(note);
+      else setLine(line);
       return;
     }
-    const draft = { text: text || '', note: note || '', ...(turned ? { page: turned } : {}) };
+    if (!text && !note) {
+      if (tags.length) {
+        setLine(line);
+        setReceipt('A #word files the line it is on, or the mark you just made.');
+      }
+      return;
+    }
+    const draft = { text: text || '', note: note || '', ...(tags.length ? { tags } : {}), ...(turned ? { page: turned } : {}) };
     const tempId = `desk-${Date.now()}`;
     onAdd?.({ _id: tempId, ...draft, createdAt: new Date().toISOString() });
     if (await send(draft, tempId)) return;
     keepUnsent(articleId, [...unsentLines(articleId), { tempId, ...draft, createdAt: new Date().toISOString() }]);
     onReplace?.(tempId, { _id: tempId, ...draft, createdAt: new Date().toISOString(), unsent: true });
     setReceipt('Kept on this device. It goes to Noeis when you are back online.');
+  };
+
+  /* The page in your lap, photographed, finishes the quotes typed by their ends. */
+  const photograph = async (event) => {
+    const [file] = event.target.files || [];
+    event.target.value = '';
+    if (!file) return;
+    setReceipt('Reading the page…');
+    try {
+      const filled = await readBookPage(articleId, await pagePhoto(file));
+      filled.forEach(({ _id, text }) => onReplace?.(_id, { text }));
+      if (filled.length) setInked(filled[0]._id);
+      setReceipt(filled.length
+        ? `Finished ${quotes(filled.length)} from the page.`
+        : 'Nothing on that page finishes a quote you typed by its ends.');
+    } catch (error) {
+      setReceipt(error?.response?.data?.error || 'The page could not be read. Try it again in better light.');
+    }
   };
 
   /* A line that made a mark is taken back by deleting it; one that joined a
@@ -185,7 +226,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
           : setDown ? <><span className="book-desk__label">Set down in {monthOf(setDown)}</span>Why’d you stop?</>
           : last ? <><span className="book-desk__label">Last time{last.page ? `, p. ${last.page}` : ''}</span><q className={last.own ? 'book-desk__own' : ''}>{last.words}</q></>
             : lastReading?.finishedOn ? <><span className="book-desk__label">Read before, finished {monthOf(dayOf(lastReading.finishedOn))}</span>{lastReading.closingLine ? <q>{lastReading.closingLine}</q> : 'What you marked then is here in faded ink.'}</>
-              : 'Type as you read. A number turns the page; a quote mark makes the line the book’s own words.'}
+              : 'Type as you read. A number turns the page, a quote mark makes the line the book’s own words, and a #word files it under that concept.'}
       </p>
 
       {pages.length ? <ol className="book-desk__pages">
@@ -206,6 +247,11 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
                 >
                   {mark.text ? <blockquote>{mark.text}</blockquote> : null}
                   {mark.note ? <p className="book-desk__own">{mark.note}</p> : null}
+                  {mark.tags?.length ? (
+                    <p className="book-desk__tags">
+                      {mark.tags.map(tag => <Link key={tag} to={buildConceptPath({ name: tag })}>#{tag}</Link>)}
+                    </p>
+                  ) : null}
                   {isEarlier(mark, since) ? <span className="book-desk__when">{yearOf(mark)}</span> : null}
                   {doorFor?.(mark)}
                 </li>
@@ -249,6 +295,12 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
           ? 'Tab takes the rest of the passage you marked'
           : 'Return keeps the line. Option-Return adds it to the quote above.')}
       </p>
+      {waiting.length ? (
+        <label className="book-desk__photo">
+          {waiting.length === 1 ? 'Photograph the page to finish the quote you typed by its ends' : `Photograph the page to finish the ${waiting.length} quotes you typed by their ends`}
+          <input type="file" accept="image/*" capture="environment" onChange={photograph} />
+        </label>
+      ) : null}
     </section>
   );
 }

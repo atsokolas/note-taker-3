@@ -2,15 +2,15 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as Router from 'react-router-dom';
 import Books from './Books';
-import { closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
+import { bookEcho, closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
 import useArticleDetail from '../hooks/useArticleDetail';
-import { listWikiPages } from '../api/wiki';
+import { listWikiPages, settleIntoWiki } from '../api/wiki';
 import { fetchMarginNotes } from '../api/retrieval';
 
-jest.mock('../api/imports', () => ({ closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
+jest.mock('../api/imports', () => ({ bookEcho: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
-jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn() }));
+jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn(), settleIntoWiki: jest.fn() }));
 jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn() }));
 
 const at = (id) => {
@@ -24,6 +24,7 @@ beforeEach(() => {
   listWikiPages.mockResolvedValue([]);
   fetchMarginNotes.mockResolvedValue([]);
   listBookQuestions.mockResolvedValue([]);
+  bookEcho.mockResolvedValue(null);
 });
 
 test('the shelf shows each book with what was written in it and the last line', async () => {
@@ -229,4 +230,39 @@ test('no questions, no section', async () => {
   at();
   await screen.findByText(/Name a book above/);
   expect(screen.queryByRole('region', { name: 'Open questions' })).not.toBeInTheDocument();
+});
+
+test('a finished book is written up in your wiki, and after that it is written up again', async () => {
+  const mark = { _id: 'm1', text: 'A finely touched spirit.', page: 3, createdAt: '2026-09-01T20:00:00Z' };
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch', finishedOn: '2026-10-19', closingLine: 'Nobody is only what they do.' }, highlights: [mark], error: '' });
+  settleIntoWiki.mockResolvedValue({ page: { _id: 'w9', title: 'Middlemarch', sourceRefs: [{ objectId: 'm1' }] }, resettled: false });
+  at('b2');
+  fireEvent.click(screen.getByRole('button', { name: 'Write it up in your wiki' }));
+  expect(await screen.findByRole('link', { name: 'Middlemarch' })).toHaveAttribute('href', '/wiki/read/w9');
+  expect(settleIntoWiki).toHaveBeenCalledWith('books', 'b2');
+  expect(screen.getByText(/Settled in Wiki/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Write it up again' })).toBeInTheDocument();
+});
+
+test('a book already written up says where, and offers to write it up again', async () => {
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch', finishedOn: '2026-10-19', closingLine: 'x' }, highlights: [], error: '' });
+  listWikiPages.mockResolvedValue([{ _id: 'w9', title: 'Middlemarch, read', createdFrom: { label: 'settled-book:b2' }, sourceRefs: [] }]);
+  at('b2');
+  expect(await screen.findByRole('button', { name: 'Write it up again' })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: 'Middlemarch, read' })).toHaveAttribute('href', '/wiki/read/w9');
+});
+
+test('the shelf shows a thought you marked twice, years apart, the earlier first', async () => {
+  listBooks.mockResolvedValue([{ _id: 'b1', title: 'Middlemarch', marks: [] }]);
+  bookEcho.mockResolvedValue({
+    mark: { _id: 'm1', text: 'We are all of us born in moral stupidity.', page: 211, createdAt: '2026-10-01T20:00:00Z', bookId: 'b1', bookTitle: 'Middlemarch' },
+    echo: { _id: 'h9', text: 'Every one of us starts out thinking the world is arranged around us.', createdAt: '2024-09-20T20:00:00Z', articleId: 'a2', articleTitle: 'This Is Water' }
+  });
+  at();
+  const twice = await screen.findByRole('region', { name: 'Twice' });
+  expect(twice).toHaveTextContent('You marked nearly the same thought 2 years apart.');
+  const [first, second] = twice.querySelectorAll('a');
+  expect(first).toHaveTextContent('This Is Water, September 2024');
+  expect(second).toHaveAttribute('href', '/library/books/b1?highlight=m1');
+  expect(second).toHaveTextContent('Middlemarch, p. 211, October 2026');
 });

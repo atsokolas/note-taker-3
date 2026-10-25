@@ -6,6 +6,9 @@ const { wordBoundaryTrim } = require('../lib/editorialText');
 const { loadWorthSaying, offsetMinutesFor } = require('./readingRoomService');
 const { waitingTonight } = require('./nightstand');
 const { closedBookToday } = require('./closedBooks');
+const { booksThisMorning } = require('./bookShelf');
+
+const answerTo = (...args) => require('../ai/semanticSearch').answerTo(...args);
 
 const MOVEMENT_EMAIL_LABELS = {
   claim_changed: 'A claim changed',
@@ -187,7 +190,36 @@ const renderClosedBookLine = ({ closedBook = null, appBaseUrl }) => {
   };
 };
 
-const renderMorningPaperEmail = ({ briefing = {}, movements = [], worthSaying = [], nightstand = null, closedBook = null, unsubscribeUrl, appBaseUrl = 'https://www.noeis.io' } = {}) => {
+/* Your books, brought back the morning something is true of them: a
+   question you asked that yesterday's marking speaks to, and the book you
+   stopped writing in a week ago, at the page you stopped. */
+const renderBookLines = ({ books = {}, appBaseUrl }) => {
+  const rule = 'margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8;font-size:17px;line-height:1.5';
+  const bookHref = (bookId, highlightId) => absoluteHref(`/library/books/${encodeURIComponent(bookId)}${highlightId ? `?highlight=${encodeURIComponent(highlightId)}` : ''}`, appBaseUrl);
+  const lines = [];
+  const { answered, stopped } = books || {};
+  if (answered?.question?.note && answered.answer?.text) {
+    const { question, answer } = answered;
+    const href = absoluteHref(`/library?articleId=${encodeURIComponent(answer.articleId)}&highlightId=${encodeURIComponent(answer._id)}`, appBaseUrl);
+    const where = answer.articleTitle ? `, in ${answer.articleTitle}` : '';
+    lines.push({
+      html: `<p style="${rule}">Beside <a href="${escapeHtml(bookHref(question.bookId, question._id))}" style="color:#171714">${escapeHtml(question.bookTitle)}</a> you asked: “${escapeHtml(clean(question.note, 300))}” Yesterday you marked${escapeHtml(where)}: <a href="${escapeHtml(href)}" style="color:#171714">“${escapeHtml(clean(answer.text, 400))}”</a></p>`,
+      text: `Beside ${question.bookTitle} you asked: “${clean(question.note, 300)}” Yesterday you marked${where}: “${clean(answer.text, 400)}” — ${href}`
+    });
+  }
+  if (stopped?.title && stopped.bookId) {
+    const where = stopped.page ? `at p. ${stopped.page} of` : 'in';
+    const last = clean(stopped.words, 300);
+    const href = bookHref(stopped.bookId);
+    lines.push({
+      html: `<p style="${rule}">A week ago you stopped ${where} <a href="${escapeHtml(href)}" style="color:#171714">${escapeHtml(stopped.title)}</a>.${last ? ` <span style="color:#5f5a50">The last thing you wrote: “${escapeHtml(last)}”</span>` : ''}</p>`,
+      text: `A week ago you stopped ${where} ${stopped.title}.${last ? ` The last thing you wrote: “${last}”` : ''} — ${href}`
+    });
+  }
+  return { html: lines.map(line => line.html).join(''), text: lines.map(line => line.text).join('\n\n') };
+};
+
+const renderMorningPaperEmail = ({ briefing = {}, movements = [], worthSaying = [], nightstand = null, closedBook = null, books = null, unsubscribeUrl, appBaseUrl = 'https://www.noeis.io' } = {}) => {
   const lead = Array.isArray(briefing.watcherLeads) ? briefing.watcherLeads[0] : null;
   const checkIn = briefing.claimCheckIn || null;
   const askedBack = renderAskedBackSection({ askedBack: briefing.askedBack, appBaseUrl });
@@ -195,6 +227,7 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], worthSaying = 
   const saying = renderWorthSayingSection({ worthSaying, appBaseUrl });
   const tonight = renderNightstandLine({ nightstand, appBaseUrl });
   const finished = renderClosedBookLine({ closedBook, appBaseUrl });
+  const reading = renderBookLines({ books, appBaseUrl });
   const returnPath = briefing.nextAction || null;
   const headline = lead?.title || 'Your Morning Paper';
   /* The subject is the lead's first six words, or "Quiet night." on a morning
@@ -213,7 +246,7 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], worthSaying = 
     const href = absoluteHref(movement.nextAction?.href || movement.subject?.href || '/wiki', appBaseUrl);
     return `${movementLabel(movement.kind).toUpperCase()}: ${movement.title} — ${href}`;
   });
-  const html = `<!doctype html><html><body style="margin:0;background:#f5f1e8;color:#171714;font-family:Georgia,serif"><div style="max-width:640px;margin:0 auto;padding:36px 24px"><div style="font:12px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#6d685e">Noeis · Morning Paper</div><h1 style="font-size:34px;line-height:1.08;margin:18px 0 12px">${escapeHtml(headline)}</h1><p style="font-size:18px;line-height:1.55;margin:0 0 24px">${escapeHtml(leadCopy)}</p><a href="${escapeHtml(leadHref)}" style="display:inline-block;background:#171714;color:#fff;padding:12px 18px;text-decoration:none;border-radius:999px">Open the affected page</a>${movementsHtml}${returnPath ? `<div style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">RETURN PATH</div><p style="margin:8px 0 12px">${escapeHtml(returnPath.label || 'Continue in Noeis')}</p><a href="${escapeHtml(returnHref)}" style="color:#171714">Continue →</a></div>` : ''}${checkIn ? `<div style="margin-top:28px;padding:20px;border:1px solid #cdc6b8;border-radius:14px"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">CLAIM CHECK-IN</div><p style="font-size:18px;line-height:1.45;margin:10px 0 6px">${escapeHtml(checkIn.text)}</p><p style="font:12px ui-monospace,monospace;color:#6d685e">${escapeHtml(checkIn.pageTitle)}</p><a href="${escapeHtml(checkInHref)}" style="color:#171714">Still hold · Revise · Retire →</a></div>` : ''}${askedBack.html}${anniversary.html}${finished.html}${saying.html}${tonight.html}<p style="margin-top:36px;font:11px/1.5 ui-monospace,monospace;color:#777168">No-news days send nothing. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#777168">Unsubscribe instantly</a>.</p></div></body></html>`;
+  const html = `<!doctype html><html><body style="margin:0;background:#f5f1e8;color:#171714;font-family:Georgia,serif"><div style="max-width:640px;margin:0 auto;padding:36px 24px"><div style="font:12px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#6d685e">Noeis · Morning Paper</div><h1 style="font-size:34px;line-height:1.08;margin:18px 0 12px">${escapeHtml(headline)}</h1><p style="font-size:18px;line-height:1.55;margin:0 0 24px">${escapeHtml(leadCopy)}</p><a href="${escapeHtml(leadHref)}" style="display:inline-block;background:#171714;color:#fff;padding:12px 18px;text-decoration:none;border-radius:999px">Open the affected page</a>${movementsHtml}${returnPath ? `<div style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">RETURN PATH</div><p style="margin:8px 0 12px">${escapeHtml(returnPath.label || 'Continue in Noeis')}</p><a href="${escapeHtml(returnHref)}" style="color:#171714">Continue →</a></div>` : ''}${checkIn ? `<div style="margin-top:28px;padding:20px;border:1px solid #cdc6b8;border-radius:14px"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">CLAIM CHECK-IN</div><p style="font-size:18px;line-height:1.45;margin:10px 0 6px">${escapeHtml(checkIn.text)}</p><p style="font:12px ui-monospace,monospace;color:#6d685e">${escapeHtml(checkIn.pageTitle)}</p><a href="${escapeHtml(checkInHref)}" style="color:#171714">Still hold · Revise · Retire →</a></div>` : ''}${askedBack.html}${anniversary.html}${finished.html}${reading.html}${saying.html}${tonight.html}<p style="margin-top:36px;font:11px/1.5 ui-monospace,monospace;color:#777168">No-news days send nothing. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#777168">Unsubscribe instantly</a>.</p></div></body></html>`;
   const text = [
     'NOEIS · MORNING PAPER',
     headline,
@@ -225,6 +258,7 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], worthSaying = 
     askedBack.text,
     anniversary.text,
     finished.text,
+    reading.text,
     saying.text,
     tonight.text,
     `Unsubscribe: ${unsubscribeUrl}`
@@ -350,7 +384,10 @@ const sendMorningPaperForUser = async ({ user, models = {}, env = process.env, f
   }
   /* A book coming back is news on a morning when nothing else is. */
   const closedBook = await closedBookToday({ Article: models.Article, userId: user._id, today: localDate }).catch(() => null);
-  if ((!briefing || briefingIsEmpty(briefing)) && movements.length === 0 && !closedBook) return skip('quiet day');
+  const books = models.Article
+    ? await booksThisMorning({ Article: models.Article, userId: user._id, now, answerTo }).catch(() => null)
+    : null;
+  if ((!briefing || briefingIsEmpty(briefing)) && movements.length === 0 && !closedBook && !books?.answered && !books?.stopped) return skip('quiet day');
   const token = signUnsubscribeToken({ userId: user._id, version: settings.unsubscribeTokenVersion || 1, secret: config.unsubscribeSecret });
   const unsubscribeUrl = `${config.apiBaseUrl}/api/morning-paper/unsubscribe?token=${encodeURIComponent(token)}`;
   const offset = offsetMinutesFor(now, settings.timezone || 'UTC');
@@ -362,7 +399,7 @@ const sendMorningPaperForUser = async ({ user, models = {}, env = process.env, f
   const pick = await waitingTonight({ Article: models.Article, userId: user._id }).catch(() => null);
   const askedFor = (briefing?.askedBack || []).map(row => row?.title);
   const nightstand = pick && !askedFor.includes(pick.title) ? pick : null;
-  const rendered = renderMorningPaperEmail({ briefing, movements, worthSaying, nightstand, closedBook, unsubscribeUrl, appBaseUrl: config.appBaseUrl });
+  const rendered = renderMorningPaperEmail({ briefing, movements, worthSaying, nightstand, closedBook, books, unsubscribeUrl, appBaseUrl: config.appBaseUrl });
   try {
     const response = await sendWithResend({
       apiKey: config.apiKey,

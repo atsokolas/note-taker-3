@@ -5,7 +5,7 @@ jest.mock('./embed', () => ({
 }));
 
 const { embedText, embedTexts, isEmbeddingConfigured } = require('./embed');
-const { similarToSource, marginNotes, answerTo } = require('./semanticSearch');
+const { similarToSource, marginNotes, answerTo, echoOf } = require('./semanticSearch');
 const { encodeVector, rawCosineToAtlasScore } = require('./vectorStore');
 
 const userId = '64b000000000000000000001';
@@ -167,5 +167,13 @@ describe('answerTo', () => {
 
   it('stays silent under the margin floor', async () => {
     expect(await answerTo({ userId, question, models: models([row(1, 0.6)]) })).toBeNull();
+  });
+
+  it('echoes a passage with nearly the same thought marked in another work months apart, and only that', async () => {
+    const mark = { _id: hid(11), text: passage, bookId: 'a1', createdAt: '2026-07-01T00:00:00Z' };
+    expect(await echoOf({ userId, mark, models: models([row(1, 0.9), row(2, 0.8)]) })).toMatchObject({ _id: hid(2), articleTitle: 'Earlier' });
+    expect(await echoOf({ userId, mark, models: models([row(2, 0.7)]) })).toBeNull();
+    expect(await echoOf({ userId, mark: { ...mark, createdAt: '2026-02-15T00:00:00Z' }, models: models([row(2, 0.8)]) })).toBeNull();
+    expect(await echoOf({ userId, mark: { ...mark, text: 'Roads first, then parks.' }, models: models([row(2, 0.9)]) })).toBeNull();
   });
 });

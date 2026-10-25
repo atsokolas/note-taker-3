@@ -9,6 +9,9 @@ test('a line is read by how it is typed, and the page stays where it was', () =>
   expect(readLine('> “Call me Ishmael.”', null)).toEqual({ page: null, text: 'Call me Ishmael.' });
   expect(readLine('213', 212)).toEqual({ page: 213 });
   expect(readLine('1984 was the year', 4)).toEqual({ page: 1984, note: 'was the year' });
+  expect(readLine('212 "Scale is a moat" #moats #power-laws', 4)).toEqual({ page: 212, tags: ['moats', 'power-laws'], text: 'Scale is a moat' });
+  expect(readLine('#moats', 212)).toEqual({ page: 212, tags: ['moats'] });
+  expect(readLine('the #1 reason he #lost', 9)).toEqual({ page: 9, tags: ['lost'], note: 'the #1 reason he' });
 });
 
 test('a question is a thought ending in a question mark', () => {

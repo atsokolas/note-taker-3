@@ -139,7 +139,8 @@ const getRouteContract = (route = '') => ({
 const toWireMessages = (messages = []) => (Array.isArray(messages) ? messages : [])
   .map((entry) => {
     const role = String(entry?.role || '').trim();
-    const content = String(entry?.content || '').trim();
+    // A turn may be parts, text and an image, as the chat API takes them.
+    const content = Array.isArray(entry?.content) ? entry.content : String(entry?.content || '').trim();
     const toolCalls = Array.isArray(entry?.tool_calls) && entry.tool_calls.length ? entry.tool_calls : null;
     if (role === 'tool') return { role, tool_call_id: String(entry?.tool_call_id || ''), content };
     return toolCalls ? { role, content, tool_calls: toolCalls } : { role, content };

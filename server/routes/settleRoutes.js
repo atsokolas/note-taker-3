@@ -5,7 +5,7 @@ const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionSe
 const { findWriteTimeCanonicalPage } = require('../services/wikiDedupeService');
 const { SETTLE_KINDS, settleDraftFrom, settleRefusal, settledLabel, settledPageFor } = require('../services/settlement');
 
-/* One gesture from Think: this note, or this concept, is finished; let it
+/* One gesture: this note, this concept, or this book is finished; let it
    settle into Wiki. The first time makes the page; every time after is a new
    revision of it. */
 const buildSettleRouter = ({
@@ -23,7 +23,7 @@ const buildSettleRouter = ({
   const router = express.Router();
   const models = { NotebookEntry, TagMeta, Article };
 
-  router.post('/api/:kind(notebook|concepts)/:id/settle', authenticateToken, async (req, res) => {
+  router.post('/api/:kind(notebook|concepts|books)/:id/settle', authenticateToken, async (req, res) => {
     const { kind, id } = req.params;
     const { noun, createdFrom, load, writing } = SETTLE_KINDS[kind];
     try {

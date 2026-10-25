@@ -42,7 +42,9 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
       enqueueHighlightEmbedding: async () => {},
       enqueueNotebookEmbedding: async () => {},
       fetchSourceBody: async () => '',
-      answerTo: async ({ question }) => (/pigeons/.test(question.note) ? { text: 'Breeders select, and so does nature.' } : null)
+      answerTo: async ({ question }) => (/pigeons/.test(question.note) ? { text: 'Breeders select, and so does nature.' } : null),
+      echoOf: async ({ mark }) => (/grandeur/.test(mark.text) ? { _id: 'h9', text: 'Endless forms most beautiful, said twice.', articleTitle: 'Notes, 2023' } : null),
+      readPage: async () => 'p. 41\nHow it came that so many of these forms are unknown to us, we cannot tell.'
     }));
     app.use(buildHighlightMutationRouter({
       mongoose,
@@ -97,8 +99,9 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
     assert.ok(kindle.alreadyHere >= 1);
 
     // Typed again at the desk by its ends, a passage the Kindle marked stays one mark and takes the note.
-    const again = await post(`/articles/${bookId}/highlights`, { text: 'Natural selection acts … inherited modifications', note: 'only?', page: 40 });
+    const again = await post(`/articles/${bookId}/highlights`, { text: 'Natural selection acts … inherited modifications', note: 'only?', page: 40, tags: ['selection'] });
     assert.equal(again.body.highlight._id, String(fromKindle._id));
+    assert.deepEqual(again.body.highlight.tags, ['selection'], 'a #tag typed with it files the mark already there');
     assert.equal((await Article.findById(bookId).lean()).highlights.length, book.highlights.length);
 
     // The shelf: one row per book, with its marks to read the page and the last line from.
@@ -114,6 +117,23 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
     assert.deepEqual(questions.map(({ note, page, bookTitle, answer }) => ({ note, page, bookTitle, answer })), [
       { note: 'Why open with pigeons?', page: 13, bookTitle: 'The Origin of Species', answer: { text: 'Breeders select, and so does nature.' } }
     ]);
+
+    // The shelf hands back the passage you marked twice, and the day holds it.
+    const echoed = await (await fetch(`${url}/api/books/echo?today=2026-10-19`)).json();
+    assert.match(echoed.echo.mark.text, /grandeur/);
+    assert.equal(echoed.echo.mark.bookTitle, 'The Origin of Species');
+    assert.equal(echoed.echo.echo.articleTitle, 'Notes, 2023');
+    assert.deepEqual(await (await fetch(`${url}/api/books/echo?today=2026-10-19`)).json(), echoed);
+
+    // A photograph of the page gives a quote typed by its ends its whole words; the photo is not kept.
+    const typed = await post(`/articles/${bookId}/highlights`, { text: 'How it came … unknown to us', page: 41 });
+    assert.equal(typed.body.highlight.text, 'How it came … unknown to us');
+    assert.equal((await post(`/api/books/${bookId}/page`, { image: 'not a photo' })).status, 400);
+    const photographed = await post(`/api/books/${bookId}/page`, { image: 'data:image/jpeg;base64,/9j/4AAQ' });
+    assert.deepEqual(photographed.body.filled.map(mark => mark.text), ['How it came that so many of these forms are unknown to us']);
+    const filled = (await Article.findById(bookId).lean()).highlights.find(mark => String(mark._id) === typed.body.highlight._id);
+    assert.equal(filled.text, 'How it came that so many of these forms are unknown to us');
+    assert.deepEqual((await post(`/api/books/${bookId}/page`, { image: 'data:image/jpeg;base64,/9j/4AAQ' })).body.filled, [], 'nothing left waiting for its words');
 
     // Closing it: the day and the sentence, kept on the book. Rewriting the
     // sentence keeps the day; still reading it clears both.

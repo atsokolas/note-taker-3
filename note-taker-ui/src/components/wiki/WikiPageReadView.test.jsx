@@ -313,6 +313,13 @@ describe('WikiPageReadView', () => {
     expect(screen.getByRole('link', { name: 'Open the note' })).toHaveAttribute('href', '/think?tab=notebook&entryId=note-1');
   });
 
+  it('links a written-up book back to the book', async () => {
+    getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'article', objectId: 'book-1', label: 'settled-book:book-1' } });
+    renderReadView();
+    expect(await screen.findByText('Settled from your book.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the book' })).toHaveAttribute('href', expect.stringContaining('book-1'));
+  });
+
   it('links a settled concept back to the concept, and says nothing for a page only made from one', async () => {
     getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'concept', objectId: 'concept-1', label: 'settled-concept:concept-1' } });
     const { unmount } = renderReadView();

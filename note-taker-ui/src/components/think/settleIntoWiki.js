@@ -3,15 +3,16 @@ import { Link } from 'react-router-dom';
 import { settleIntoWiki as postSettle } from '../../api/wiki';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import { wikiReadPath } from '../../utils/wikiFeatureFlags';
+import '../../styles/settle.css';
 
-const NOUN = { notebook: 'note', concepts: 'concept' };
+const NOUN = { notebook: 'note', concepts: 'concept', books: 'book' };
 
 const passages = (count) => (
   count === 0 ? 'No quoted passages to cite.'
     : `${count === 1 ? 'Its quoted passage is' : `Its ${count} quoted passages are`} cited and open where they came from.`
 );
 
-/* Settle a note or a concept into Wiki and say exactly what happened: which
+/* Settle a note, a concept or a book into Wiki and say exactly what happened: which
    page, whether it is new or a new revision, and what its quotes became. A
    refusal comes back as the one line the page shows, with what to fix. */
 export const settleIntoWiki = async (kind, id, systemStatus) => {
@@ -45,7 +46,7 @@ export const useSettleIntoWiki = (kind, id, settledFrom) => {
   useEffect(() => {
     setSettledIn(settledFrom || null);
     setLine('');
-  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, settledFrom?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const settle = async (save) => {
     setLine('');
@@ -63,6 +64,7 @@ export const useSettleIntoWiki = (kind, id, settledFrom) => {
   return {
     settle,
     settling,
+    settled: Boolean(settledIn),
     action: settledIn ? 'Settle again' : 'Settle into Wiki',
     lines: (
       <>

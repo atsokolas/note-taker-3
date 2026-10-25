@@ -111,6 +111,7 @@ const buildHighlightMutationRouter = ({
       const held = typed && !anchor ? absorbPassage(marksOfReading(article), { text: typed, note: thought }) : null;
       if (held) {
         held.page = held.page || page;
+        held.tags = normalizeTags([...(held.tags || []), ...normalizeTags(tags)]);
         await article.save();
         return res.status(200).json({
           article,

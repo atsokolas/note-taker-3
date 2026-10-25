@@ -53,6 +53,22 @@ assert.match(finished.html, /A year ago today you finished <a href="https:\/\/ww
 assert.match(finished.text, /A year ago today you finished Middlemarch and said you’d remember: “Nobody is only what they do\.” Do you\?/);
 assert.match(renderMorningPaperEmail({ briefing, closedBook: { articleId: 'b1', title: 'Middlemarch', line: 'x', years: 3 }, unsubscribeUrl: 'u' }).text, /^3 years ago today/m);
 assert.doesNotMatch(rendered.text, /you finished/, 'no book coming back is silence');
+// A question answered by yesterday's marking, and the book stopped a week ago, each once.
+const reading = renderMorningPaperEmail({
+  briefing,
+  books: {
+    answered: {
+      question: { _id: 'q1', note: 'Why does Dorothea marry him?', bookId: 'b1', bookTitle: 'Middlemarch' },
+      answer: { _id: 'h9', text: 'We mistake the shape of a life for its meaning.', articleId: 'a2', articleTitle: 'Essays' }
+    },
+    stopped: { bookId: 'b2', title: 'The Power Broker', page: 212, words: 'Why roads first?' }
+  },
+  unsubscribeUrl: 'u'
+});
+assert.match(reading.text, /Beside Middlemarch you asked: “Why does Dorothea marry him\?” Yesterday you marked, in Essays: “We mistake the shape of a life for its meaning\.” — https:\/\/www\.noeis\.io\/library\?articleId=a2&highlightId=h9/);
+assert.match(reading.html, /href="https:\/\/www\.noeis\.io\/library\/books\/b1\?highlight=q1"/);
+assert.match(reading.text, /A week ago you stopped at p\. 212 of The Power Broker\. The last thing you wrote: “Why roads first\?” — https:\/\/www\.noeis\.io\/library\/books\/b2/);
+assert.doesNotMatch(rendered.text, /you stopped|you asked/, 'books with nothing true this morning are silence');
 
 const askedBackMail = renderMorningPaperEmail({
   briefing: {
