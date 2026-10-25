@@ -11,6 +11,7 @@ const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { recordSourceCorrection } = require('../services/authoredSourceCorrection');
 const { absorbPassage } = require('../utils/passages');
+const { marksOfReading } = require('../services/closedBooks');
 
 const buildHighlightMutationRouter = ({
   mongoose,
@@ -107,7 +108,7 @@ const buildHighlightMutationRouter = ({
       /* A passage typed at the desk may be one already marked on the Kindle,
          or only its ends: the note joins the mark that is there. A selection
          in an article has its own anchor, and stays its own mark. */
-      const held = typed && !anchor ? absorbPassage(article.highlights, { text: typed, note: thought }) : null;
+      const held = typed && !anchor ? absorbPassage(marksOfReading(article), { text: typed, note: thought }) : null;
       if (held) {
         held.page = held.page || page;
         await article.save();

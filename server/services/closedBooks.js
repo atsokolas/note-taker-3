@@ -27,18 +27,45 @@ const returningOf = ({ finishedOn, closingLine } = {}, today = '') => {
   return days < RETURN_DAYS ? { years, days } : null;
 };
 
+/* Every time a book was closed, the earlier readings first. A sentence
+   still comes back after the book is read again: it was promised. */
+const closingsOf = (book = {}) => [...(book.readBefore || []), book];
+
+/* The closing of this book coming back today, with its sentence. */
+const bookReturning = (book, today) => {
+  for (const closing of closingsOf(book)) {
+    const back = returningOf(closing, today);
+    if (back) return { ...back, line: closing.closingLine };
+  }
+  return null;
+};
+
+/* Which reading a moment belongs to: 0 for the first, and one more for each
+   time the book was started again before it. */
+const readingAt = (book, at) => (book.readBefore || []).filter(({ until }) => new Date(at) >= new Date(until)).length;
+
+/* The marks of the reading a moment belongs to. A passage marked again on a
+   second reading is a new mark beside the old one, never folded into it. An
+   undated passage cannot say which reading it came from, so it is any of them. */
+const marksOfReading = (book, at = new Date()) => (
+  (book.highlights || []).filter(mark => !at || readingAt(book, mark.createdAt) === readingAt(book, at))
+);
+
 /* The Morning Paper carries a closed book on its anniversary only, so the
    sentence comes back once a year, not every morning of that week. */
 const closedBookToday = async ({ Article, userId, today }) => {
   if (!Article || !userId) return null;
-  const books = await Article.find({ userId, url: BOOK_URL, finishedOn: { $gt: '' }, closingLine: { $gt: '' } })
-    .select('title finishedOn closingLine')
+  const books = await Article.find({ userId, url: BOOK_URL, $or: [{ closingLine: { $gt: '' } }, { 'readBefore.closingLine': { $gt: '' } }] })
+    .select('title finishedOn closingLine readBefore')
     .sort({ finishedOn: -1 })
     .lean();
-  const book = books.find(item => returningOf(item, today)?.days === 0);
-  return book
-    ? { articleId: String(book._id), title: book.title, line: book.closingLine, years: returningOf(book, today).years }
-    : null;
+  for (const book of books) {
+    for (const closing of closingsOf(book)) {
+      const back = returningOf(closing, today);
+      if (back?.days === 0) return { articleId: String(book._id), title: book.title, line: closing.closingLine, years: back.years };
+    }
+  }
+  return null;
 };
 
-module.exports = { calendarDay, returningOf, closedBookToday, RETURN_DAYS };
+module.exports = { calendarDay, returningOf, bookReturning, marksOfReading, closedBookToday, RETURN_DAYS };

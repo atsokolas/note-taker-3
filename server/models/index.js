@@ -227,6 +227,15 @@ const articleSchema = new mongoose.Schema({
      sentence comes back to you on that day a year later. */
   finishedOn: { type: String, default: '' },
   closingLine: { type: String, default: '', trim: true },
+  /* Each earlier reading of a book read again: its day, its sentence, and
+     the moment you started over. Marks made before that moment belong to
+     it and stay, in fainter ink. */
+  readBefore: [{
+    _id: false,
+    finishedOn: String,
+    closingLine: String,
+    until: Date
+  }],
   /* Placement is the Hey pile. Keep is forever and orthogonal. Later is owed
      a move; set aside is at hand this week; stream is home. The agent may not
      write this. */

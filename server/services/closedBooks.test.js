@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { calendarDay, returningOf, closedBookToday } = require('./closedBooks');
+const { bookReturning, calendarDay, marksOfReading, returningOf, closedBookToday } = require('./closedBooks');
 
 const closed = (finishedOn, closingLine = 'Nobody is only what they do.') => ({ finishedOn, closingLine });
 
@@ -44,4 +44,25 @@ test('the paper carries a book only on the day itself', async () => {
     { articleId: 'b2', title: 'Persuasion', line: 'Waiting can be a choice.', years: 1 }
   );
   assert.equal(await closedBookToday({ Article, userId: 'u1', today: '2026-10-17' }), null);
+});
+
+test('a book read again keeps each reading: its marks, and its sentence coming back', () => {
+  const until = new Date('2026-03-01T12:00:00Z');
+  const first = { _id: 'a', text: 'Then.', createdAt: new Date('2025-09-01T12:00:00Z') };
+  const second = { _id: 'b', text: 'Now.', createdAt: new Date('2026-03-02T12:00:00Z') };
+  const book = { finishedOn: '', closingLine: '', readBefore: [{ finishedOn: '2025-10-19', closingLine: 'Waiting can be a choice.', until }], highlights: [first, second] };
+  assert.deepEqual(marksOfReading(book, new Date('2026-04-01')).map(mark => mark._id), ['b']);
+  assert.deepEqual(marksOfReading(book, '2025-09-05').map(mark => mark._id), ['a'], 'an old clipping joins the reading it came from');
+  assert.deepEqual(bookReturning(book, '2026-10-19'), { years: 1, days: 0, line: 'Waiting can be a choice.' });
+  assert.equal(bookReturning({ ...book, readBefore: [] }, '2026-10-19'), null);
+  assert.deepEqual(marksOfReading(book, null).map(mark => mark._id), ['a', 'b'], 'an undated passage may be any reading');
+});
+
+test('the Morning Paper finds the closing whose day it is, past another closing that week', async () => {
+  const book = {
+    _id: 'b', title: 'Persuasion', finishedOn: '2025-10-20', closingLine: 'The second time.',
+    readBefore: [{ finishedOn: '2024-10-18', closingLine: 'The first time.', until: new Date('2025-01-01') }]
+  };
+  const Article = { find: () => ({ select: () => ({ sort: () => ({ lean: async () => [book] }) }) }) };
+  assert.deepEqual(await closedBookToday({ Article, userId: 'u', today: '2026-10-20' }), { articleId: 'b', title: 'Persuasion', line: 'The second time.', years: 1 });
 });

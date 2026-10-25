@@ -34,6 +34,26 @@ export const kindOf = (mark = {}) => (
 );
 
 const at = mark => new Date(mark.createdAt || 0).getTime();
+const sameWords = (value = '') => (String(value).match(WORD) || []).join(' ').toLowerCase();
+
+/* A book read again keeps every reading. This one began when the book was
+   last started again; marks made before it are earlier ink, still on the
+   page, faded and dated. A first reading began at 0, so nothing is earlier. */
+export const readingSince = (book = {}) => Math.max(0, ...(book.readBefore || []).map(({ until }) => new Date(until).getTime()));
+export const isEarlier = (mark, since) => at(mark) < since;
+
+/* The earlier mark of the same passage, when one marked again was marked last time too. */
+export const markedBefore = (text, marks = [], since = 0) => (
+  text ? marks.find(mark => isEarlier(mark, since) && mark.text && sameWords(mark.text) === sameWords(text)) : null
+);
+
+// A book is finished on a calendar day ("2026-10-19"), read here as that day.
+export const dayOf = (day, years = 0) => {
+  const [year, month, date] = day.split('-').map(Number);
+  return new Date(year + years, month - 1, date);
+};
+export const longDate = date => date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+export const monthOf = date => date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 const locationOf = mark => Number((String(mark.location || '').match(/\d+/) || [])[0]) || 0;
 
 /* Kindle marks know a location, desk marks a page. They cannot be put in one
@@ -59,14 +79,16 @@ export const pagesOf = (marks = []) => {
    location for a book read on the Kindle. The book's length is not known,
    so it runs to the furthest mark, and says so. The thickest tenth is named,
    with the first mark in it, only when it stands out: twice its share and at
-   least three marks. */
-export const spineOf = (marks = []) => {
+   least three marks. Marks from an earlier reading are on it too, faded. */
+export const spineOf = (marks = [], since = 0) => {
   const paged = marks.filter(mark => mark.page).map(mark => [mark, mark.page]);
   const located = marks.filter(mark => !mark.page && locationOf(mark)).map(mark => [mark, locationOf(mark)]);
   const [unit, span, placed] = paged.length >= located.length ? ['p.', 'pp.', paged] : ['Loc.', 'Loc.', located];
   if (placed.length < 3) return null;
   const end = Math.max(...placed.map(([, at]) => at));
-  const ticks = placed.map(([mark, at]) => ({ id: mark._id, at: at / end, kind: kindOf(mark), label: `${unit} ${at}` }));
+  const ticks = placed.map(([mark, place]) => ({
+    id: mark._id, at: place / end, kind: kindOf(mark), label: `${unit} ${place}`, earlier: isEarlier(mark, since)
+  }));
   const tenthOf = tick => Math.min(9, Math.floor(tick.at * 10));
   const tenths = Array.from({ length: 10 }, (_, tenth) => ticks.filter(tick => tenthOf(tick) === tenth).length);
   const most = Math.max(...tenths);

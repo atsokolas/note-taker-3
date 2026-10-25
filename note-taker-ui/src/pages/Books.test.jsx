@@ -2,10 +2,10 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as Router from 'react-router-dom';
 import Books from './Books';
-import { closeBook, listBooks, reopenBook, startBook } from '../api/imports';
+import { closeBook, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
 import useArticleDetail from '../hooks/useArticleDetail';
 
-jest.mock('../api/imports', () => ({ closeBook: jest.fn(), listBooks: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
+jest.mock('../api/imports', () => ({ closeBook: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
 
@@ -60,7 +60,7 @@ test('a book has a page of its own: its name, and the desk', () => {
 test('a book closed a year ago this week comes back at the top of the shelf with its sentence', async () => {
   listBooks.mockResolvedValue([
     { _id: 'b1', title: 'Persuasion', marks: [] },
-    { _id: 'b2', title: 'Middlemarch', finishedOn: '2025-10-19', closingLine: 'Nobody is only what they do.', returning: { years: 1, days: 0 }, marks: [] }
+    { _id: 'b2', title: 'Middlemarch', finishedOn: '2025-10-19', closingLine: 'Nobody is only what they do.', returning: { years: 1, days: 0, line: 'Nobody is only what they do.' }, marks: [] }
   ]);
   at();
   const back = await screen.findByRole('link', { name: /A year ago today/ });
@@ -132,4 +132,26 @@ test('the thickest stretch is a button that opens its first mark', () => {
   mark.scrollIntoView = jest.fn();
   fireEvent.click(screen.getByRole('button', { name: 'Thickest at pp. 160–200' }));
   expect(mark.scrollIntoView).toHaveBeenCalled();
+});
+
+test('reading a book again keeps the first reading: its sentence, and its marks in faded ink', async () => {
+  const then = { _id: 'm1', text: 'A finely touched spirit.', page: 3, createdAt: '2025-09-01T20:00:00Z' };
+  useArticleDetail.mockReturnValue({
+    article: { _id: 'b2', title: 'Middlemarch', finishedOn: '2025-10-19', closingLine: 'Nobody is only what they do.' },
+    highlights: [then, { ...then, _id: 'm2', page: 9 }, { ...then, _id: 'm3', page: 40 }],
+    error: ''
+  });
+  readAgain.mockResolvedValue({
+    finishedOn: '', closingLine: '',
+    readBefore: [{ finishedOn: '2025-10-19', closingLine: 'Nobody is only what they do.', until: '2026-10-24T09:00:00Z' }]
+  });
+  const { container } = at('b2');
+  fireEvent.click(screen.getByRole('button', { name: 'Read it again' }));
+
+  expect(await screen.findByRole('button', { name: 'I’ve finished it' })).toBeInTheDocument();
+  expect(screen.getByRole('region', { name: 'Reading desk' })).toHaveTextContent('Read before, finished October 2025Nobody is only what they do.');
+  const mark = container.querySelector('[data-highlight-id="highlight-m1"]');
+  expect(mark).toHaveAttribute('data-earlier');
+  expect(mark).toHaveTextContent('2025');
+  expect(container.querySelector('[data-mark="m1"]')).toHaveAttribute('data-earlier');
 });

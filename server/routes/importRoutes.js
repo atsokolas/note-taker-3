@@ -53,7 +53,7 @@ const { recordSourceCorrection } = require('../services/authoredSourceCorrection
 const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
-const { calendarDay, returningOf } = require('../services/closedBooks');
+const { bookReturning, calendarDay, marksOfReading } = require('../services/closedBooks');
 const { fillArticleBodies } = require('../services/readableArticle');
 const {
   inboundMailConfig,
@@ -438,11 +438,11 @@ const buildImportRouter = ({
       // Today as the reader's calendar has it, for the book coming back.
       const today = calendarDay(req.query?.today);
       const books = await Article.find({ userId: req.user.id, url: BOOK_URL })
-        .select('title author createdAt finishedOn closingLine highlights._id highlights.text highlights.note highlights.page highlights.importMeta.sourcePath highlights.createdAt')
+        .select('title author createdAt finishedOn closingLine readBefore highlights._id highlights.text highlights.note highlights.page highlights.importMeta.sourcePath highlights.createdAt')
         .lean();
       const shelf = books.map(({ highlights = [], ...book }) => ({
         ...book,
-        returning: returningOf(book, today),
+        returning: bookReturning(book, today),
         marks: highlights.map(({ importMeta, ...mark }) => ({ ...mark, location: importMeta?.sourcePath || '' }))
       }));
       const lastTouched = book => Math.max(new Date(book.createdAt).getTime() || 0, ...book.marks.map(mark => new Date(mark.createdAt).getTime() || 0));
@@ -468,6 +468,24 @@ const buildImportRouter = ({
     } catch (error) {
       console.error('Error closing a book:', error);
       res.status(500).json({ error: 'The book could not be closed.' });
+    }
+  });
+
+  /* Reading it again: the reading just finished is kept, sentence and all,
+     and its marks stay where they are, in fainter ink. */
+  router.post('/api/books/:id/again', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL });
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      if (!book.finishedOn) return res.status(409).json({ error: 'That book is still being read.' });
+      book.readBefore.push({ finishedOn: book.finishedOn, closingLine: book.closingLine, until: new Date() });
+      book.finishedOn = '';
+      book.closingLine = '';
+      await book.save();
+      return res.json({ finishedOn: '', closingLine: '', readBefore: book.readBefore });
+    } catch (error) {
+      console.error('Error starting a book again:', error);
+      res.status(500).json({ error: 'The book could not be started again.' });
     }
   });
 
@@ -1671,7 +1689,7 @@ const buildImportRouter = ({
       let added = 0;
       source.highlights.forEach((highlight) => {
         if (!sameText(highlight.text)) return;
-        const held = absorbPassage(article.highlights, { text: highlight.text, note: highlight.note, at: highlight.createdAt });
+        const held = absorbPassage(marksOfReading(article, highlight.createdAt), { text: highlight.text, note: highlight.note, at: highlight.createdAt });
         if (held) {
           held.page = held.page || highlight.page;
           if (article.isModified()) dirty.add(article);
@@ -2486,7 +2504,7 @@ const buildImportRouter = ({
           continue;
         }
         // A quote or note typed at the desk that this highlight completes.
-        const absorbed = !existingHighlight && absorbPassage(article.highlights, {
+        const absorbed = !existingHighlight && absorbPassage(marksOfReading(article, highlightRow.highlighted_at), {
           text: highlightText,
           note: toTrimmedString(highlightRow.note),
           at: highlightRow.highlighted_at

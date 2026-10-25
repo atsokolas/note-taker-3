@@ -116,13 +116,30 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
     const rewritten = await close('Selection keeps what variation offers.', '2026-10-19');
     assert.equal(rewritten.finishedOn, '2025-10-18');
     const year = (await (await fetch(`${url}/api/books?today=2026-10-19`)).json()).books.find(item => String(item._id) === bookId);
-    assert.deepEqual(year.returning, { years: 1, days: 1 });
+    assert.deepEqual(year.returning, { years: 1, days: 1, line: 'Selection keeps what variation offers.' });
     assert.equal(year.closingLine, 'Selection keeps what variation offers.');
     await fetch(`${url}/api/books/${bookId}/closed`, { method: 'DELETE' });
     assert.deepEqual(
       (({ finishedOn, closingLine }) => ({ finishedOn, closingLine }))(await Article.findById(bookId).lean()),
       { finishedOn: '', closingLine: '' }
     );
+
+    // Reading it again: the first reading is kept, sentence and all, and a
+    // passage marked again is a new mark beside the old one.
+    await close('Selection keeps what variation offers.', '2025-10-18');
+    const marked = (await Article.findById(bookId).lean()).highlights.length;
+    const reread = await post(`/api/books/${bookId}/again`, {});
+    assert.deepEqual(
+      reread.body.readBefore.map(({ finishedOn, closingLine }) => ({ finishedOn, closingLine })),
+      [{ finishedOn: '2025-10-18', closingLine: 'Selection keeps what variation offers.' }]
+    );
+    assert.equal((await post(`/api/books/${bookId}/again`, {})).status, 409, 'a book being read is not started again');
+    const twice = await post(`/articles/${bookId}/highlights`, { text: 'Natural selection acts only by the preservation and accumulation of small inherited modifications', page: 40 });
+    assert.notEqual(twice.body.highlight._id, String(fromKindle._id));
+    assert.equal((await Article.findById(bookId).lean()).highlights.length, marked + 1);
+    const later = (await (await fetch(`${url}/api/books?today=2026-10-18`)).json()).books.find(item => String(item._id) === bookId);
+    assert.deepEqual(later.returning, { years: 1, days: 0, line: 'Selection keeps what variation offers.' }, 'the first sentence still comes back');
+
     const notABook = await Article.create({ userId, url: 'https://example.com/essay', title: 'An essay' });
     assert.equal((await fetch(`${url}/api/books/${notABook._id}/closed`, { method: 'PUT' })).status, 404);
   } finally {
