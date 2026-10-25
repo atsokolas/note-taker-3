@@ -75,6 +75,8 @@ const normalizeSourcePath = (value = '') => {
   }
   return toTrimmedString(value);
 };
+// The newest questions asked beside books, each looked up once per visit to the shelf.
+const OPEN_QUESTIONS = 20;
 const NOTEBOOK_IMPORT_FOLDER_OWNERSHIP = 'import_mirror';
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
 const IMPORT_ORGANIZATION_SUGGESTION_TYPE = 'organize_import';
@@ -126,7 +128,8 @@ const buildImportRouter = ({
   env = process.env,
   fetchImpl = global.fetch,
   /* Reads a bare link's body; the public-URL-guarded reader when absent. */
-  fetchSourceBody
+  fetchSourceBody,
+  answerTo = (...args) => require('../ai/semanticSearch').answerTo(...args)
 }) => {
   const router = express.Router();
 
@@ -449,6 +452,31 @@ const buildImportRouter = ({
     } catch (error) {
       console.error('Error reading the book shelf:', error);
       res.status(500).json({ error: 'The books could not be read.' });
+    }
+  });
+
+  /* The questions you typed beside your books, newest first, each with the
+     passage you marked since that answers it, when one does. A question is a
+     note of your own ending in "?", as the desk has it. */
+  router.get('/api/books/questions', authenticateToken, async (req, res) => {
+    try {
+      const books = await Article.find({ userId: req.user.id, url: BOOK_URL })
+        .select('title highlights._id highlights.text highlights.note highlights.page highlights.createdAt')
+        .lean();
+      const asked = books
+        .flatMap(book => (book.highlights || [])
+          .filter(mark => !mark.text && /\?\s*$/.test(mark.note || ''))
+          .map(({ text, ...mark }) => ({ ...mark, bookId: book._id, bookTitle: book.title })))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, OPEN_QUESTIONS);
+      const questions = await Promise.all(asked.map(async question => ({
+        ...question,
+        answer: await answerTo({ userId: req.user.id, question }).catch(() => null)
+      })));
+      return res.json({ questions });
+    } catch (error) {
+      console.error('Error reading the open questions:', error);
+      res.status(500).json({ error: 'The questions could not be read.' });
     }
   });
 

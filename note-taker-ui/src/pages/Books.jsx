@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { closeBook, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
+import { closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
 import { ArticleMargins } from '../components/margins/LibraryMargins';
 import BookDesk from '../components/reader/BookDesk';
 import PassageDoor from '../components/reader/PassageDoorView';
@@ -12,6 +12,7 @@ import { bookFrom } from '../components/library/LibraryPasteLink';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import useArticleDetail from '../hooks/useArticleDetail';
 import useDocumentTitle from '../hooks/useDocumentTitle';
+import { buildPassagePath } from '../utils/sourceRoutes';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import '../styles/books.css';
 
@@ -33,6 +34,42 @@ const Returning = ({ book }) => {
       <q>{line}</q>
       <span>Do you?</span>
     </Link>
+  );
+};
+
+/* What you asked beside your books, still open. When something you marked
+   since speaks to a question, it comes back with that passage, first.
+   Nothing at all when nothing was asked or the questions cannot be read. */
+const Questions = () => {
+  const [questions, setQuestions] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    listBookQuestions()
+      .then(found => { if (!cancelled) setQuestions(found); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  if (!questions.length) return null;
+  const answeredFirst = [...questions.filter(question => question.answer), ...questions.filter(question => !question.answer)];
+  return (
+    <section className="books__questions" aria-labelledby="books-questions">
+      <h2 id="books-questions">Open questions</h2>
+      <ol>
+        {answeredFirst.map(({ _id, note, page, bookId, bookTitle, answer }) => (
+          <li key={_id}>
+            <Link to={`/library/books/${bookId}?highlight=${_id}`} className="books__question">
+              <q className="is-own">{note}</q>
+              <span className="books__author"><cite>{bookTitle}</cite>{page ? `, p. ${page}` : ''}</span>
+            </Link>
+            {answer ? (
+              <Link to={buildPassagePath({ articleId: answer.articleId, highlightId: answer._id })} className="books__answer">
+                Since then you marked{answer.articleTitle ? <>, in <cite>{answer.articleTitle}</cite></> : null}: <q>{answer.text}</q>
+              </Link>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 };
 
@@ -108,6 +145,7 @@ const Shelf = () => {
           })}
         </ol>
       ) : null}
+      <Questions />
     </main>
   );
 };

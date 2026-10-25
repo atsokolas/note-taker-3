@@ -41,7 +41,8 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
       enqueueArticleEmbedding: async () => {},
       enqueueHighlightEmbedding: async () => {},
       enqueueNotebookEmbedding: async () => {},
-      fetchSourceBody: async () => ''
+      fetchSourceBody: async () => '',
+      answerTo: async ({ question }) => (/pigeons/.test(question.note) ? { text: 'Breeders select, and so does nature.' } : null)
     }));
     app.use(buildHighlightMutationRouter({
       mongoose,
@@ -107,6 +108,12 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
     assert.ok(row.marks.some(mark => mark.page === 40 && /Natural selection/.test(mark.text)));
     assert.ok(row.marks.every(mark => typeof mark.location === 'string' && !mark.importMeta));
     assert.equal(row.returning, null);
+
+    // The questions asked beside it, each with what answers it since: a quote's own "only?" is not one.
+    const { questions } = await (await fetch(`${url}/api/books/questions`)).json();
+    assert.deepEqual(questions.map(({ note, page, bookTitle, answer }) => ({ note, page, bookTitle, answer })), [
+      { note: 'Why open with pigeons?', page: 13, bookTitle: 'The Origin of Species', answer: { text: 'Breeders select, and so does nature.' } }
+    ]);
 
     // Closing it: the day and the sentence, kept on the book. Rewriting the
     // sentence keeps the day; still reading it clears both.

@@ -2,12 +2,12 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as Router from 'react-router-dom';
 import Books from './Books';
-import { closeBook, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
+import { closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
 import useArticleDetail from '../hooks/useArticleDetail';
 import { listWikiPages } from '../api/wiki';
 import { fetchMarginNotes } from '../api/retrieval';
 
-jest.mock('../api/imports', () => ({ closeBook: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
+jest.mock('../api/imports', () => ({ closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
 jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn() }));
@@ -23,6 +23,7 @@ beforeEach(() => {
   useArticleDetail.mockReturnValue({ article: null, highlights: [], error: '' });
   listWikiPages.mockResolvedValue([]);
   fetchMarginNotes.mockResolvedValue([]);
+  listBookQuestions.mockResolvedValue([]);
 });
 
 test('the shelf shows each book with what was written in it and the last line', async () => {
@@ -195,4 +196,25 @@ test('beside a mark, the closest thing you marked in another book', async () => 
   at('b3');
   expect(await screen.findByRole('complementary', { name: 'From your library' })).toHaveTextContent('Seeing Like a State');
   expect(fetchMarginNotes).toHaveBeenCalledWith({ articleId: 'b3', paragraphs: [quote] });
+});
+
+test('a question asked beside a book comes back first with the passage marked since that answers it', async () => {
+  listBooks.mockResolvedValue([]);
+  listBookQuestions.mockResolvedValue([
+    { _id: 'q1', note: 'Is he cherry-picking the base year?', page: 190, bookId: 'b1', bookTitle: 'The Better Angels of Our Nature', answer: null },
+    { _id: 'q2', note: 'Why roads before parks?', page: 12, bookId: 'b3', bookTitle: 'The Power Broker', answer: { _id: 'h9', text: 'The parkways carried the cars out to the parks.', articleId: 'b5', articleTitle: 'Seeing Like a State' } }
+  ]);
+  at();
+  const asked = await screen.findByRole('region', { name: 'Open questions' });
+  const lines = asked.querySelectorAll('li');
+  expect(lines[0]).toHaveTextContent('Why roads before parks?The Power Broker, p. 12Since then you marked, in Seeing Like a State: The parkways carried the cars out to the parks.');
+  expect(screen.getByRole('link', { name: /Why roads before parks/ })).toHaveAttribute('href', '/library/books/b3?highlight=q2');
+  expect(lines[1]).toHaveTextContent('Is he cherry-picking the base year?');
+});
+
+test('no questions, no section', async () => {
+  listBooks.mockResolvedValue([]);
+  at();
+  await screen.findByText(/Name a book above/);
+  expect(screen.queryByRole('region', { name: 'Open questions' })).not.toBeInTheDocument();
 });
