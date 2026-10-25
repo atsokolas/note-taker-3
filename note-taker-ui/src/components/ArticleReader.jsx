@@ -2,7 +2,6 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from './ui';
 import { createHighlight } from '../api/highlights';
-import { listWikiPages } from '../api/wiki';
 import { fileReadingProposal, getPushesAgainst } from '../api/judgmentResolution';
 import EvergreenToggle from './EvergreenToggle';
 import PlacementSwitch from './PlacementSwitch';
@@ -23,7 +22,7 @@ import ExplainItBack, { useModelReads } from './reader/ExplainItBack';
 import PassageDoor from './reader/PassageDoorView';
 import { ArticleMargins, paragraphAt } from './margins/LibraryMargins';
 import { useMarginAsk } from './margins/MarginAnswer';
-import { heldHighlightIds, sourceWhereabouts } from './reader/sourceWhereabouts';
+import useSourceWhereabouts from './reader/useSourceWhereabouts';
 import OpenedLibraryPassage, { LibraryOriginReturn } from './wiki/open-sentence/OpenedLibraryPassage';
 import { matchingReturnTicket } from './wiki/open-sentence/openSentenceJourney';
 import {
@@ -196,7 +195,6 @@ const ArticleReader = ({
   const [placement, setPlacement] = useState(() => placementOf(article));
   /* When the reader last decided what this piece is, if it was in this sitting. */
   const [closedOn, setClosedOn] = useState(null);
-  const [folioPages, setFolioPages] = useState([]);
   const [against, setAgainst] = useState(null);
   const [passageLocation, setPassageLocation] = useState(() => ({
     hash: typeof window === 'undefined' ? '' : window.location.hash,
@@ -209,25 +207,7 @@ const ArticleReader = ({
   useEffect(() => {
     setPlacement(placementOf({ placement: articlePlacement }));
   }, [articleId, articlePlacement]);
-  useEffect(() => {
-    const replacePages = (next) => {
-      setFolioPages((current) => (current.length || next.length ? next : current));
-    };
-    if (!articleId) {
-      replacePages([]);
-      return undefined;
-    }
-    let cancelled = false;
-    replacePages([]);
-    listWikiPages({ limit: 500, summary: 1 })
-      .then((pages) => {
-        if (!cancelled) replacePages(Array.isArray(pages) ? pages : []);
-      })
-      .catch(() => {
-        if (!cancelled) replacePages([]);
-      });
-    return () => { cancelled = true; };
-  }, [articleId]);
+  const { pages: folioPages, whereabouts, held: heldPassages } = useSourceWhereabouts(articleId, highlights);
   const fireTourSignal = useTourSignal();
   const inkedHighlights = usePassageOpens({ articleId, highlightId: focusedHighlightId, highlights });
   const html = useMemo(
@@ -303,11 +283,6 @@ const ArticleReader = ({
     return () => { live = false; };
   }, [articleId]);
 
-  const whereabouts = useMemo(
-    () => sourceWhereabouts(folioPages, { articleId, highlights }),
-    [articleId, folioPages, highlights]
-  );
-  const heldPassages = useMemo(() => heldHighlightIds(whereabouts), [whereabouts]);
 
   const keep = async (next) => {
     const saved = await onToggleEvergreen(article._id, next);

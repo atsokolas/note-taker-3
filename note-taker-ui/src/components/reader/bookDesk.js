@@ -12,6 +12,8 @@ const CLOSING = /\s*["”»]$/;
 const WORD = /[\p{L}\p{N}]+/gu;
 // Marks further apart than this were made in different sittings.
 const SITTING_GAP_MS = 90 * 60 * 1000;
+// A book untouched this long was set down.
+const SET_DOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const readLine = (raw = '', page = null) => {
   let line = String(raw).trim();
@@ -46,6 +48,15 @@ export const isEarlier = (mark, since) => at(mark) < since;
 export const markedBefore = (text, marks = [], since = 0) => (
   text ? marks.find(mark => isEarlier(mark, since) && mark.text && sameWords(mark.text) === sameWords(text)) : null
 );
+
+/* A book you stopped reading: not finished, and nothing written in it for a
+   month. It stays on the shelf, never moved off; the desk only asks why, and
+   the answer, typed in the line, is a mark that picks it up again. */
+export const setDownOn = (book = {}, marks = [], now = Date.now()) => {
+  if (book.finishedOn) return null;
+  const last = Math.max(new Date(book.createdAt || 0).getTime() || 0, readingSince(book), ...marks.map(at));
+  return last && now - last > SET_DOWN_MS ? new Date(last) : null;
+};
 
 // A book is finished on a calendar day ("2026-10-19"), read here as that day.
 export const dayOf = (day, years = 0) => {

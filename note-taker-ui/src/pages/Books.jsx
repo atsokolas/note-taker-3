@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { closeBook, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
 import BookDesk from '../components/reader/BookDesk';
+import PassageDoor from '../components/reader/PassageDoorView';
+import useSourceWhereabouts from '../components/reader/useSourceWhereabouts';
 import {
-  dayOf, isEarlier, lastTime, longDate, monthOf, readingSince, sittingsOf, spineOf, tallyLine
+  dayOf, isEarlier, lastTime, longDate, monthOf, readingSince, setDownOn, sittingsOf, spineOf, tallyLine
 } from '../components/reader/bookDesk';
 import { bookFrom } from '../components/library/LibraryPasteLink';
 import useArticleDetail from '../hooks/useArticleDetail';
@@ -85,13 +87,14 @@ const Shelf = () => {
         <ol className="books__shelf">
           {books.map(book => {
             const last = book.closingLine ? { words: book.closingLine, own: true } : lastTime(book.marks);
+            const setDown = setDownOn(book, book.marks);
             return (
               <li key={book._id}>
                 <Link to={`/library/books/${book._id}`} className="books__book">
                   <span className="books__title">{book.title || 'Untitled book'}</span>
                   {book.author ? <span className="books__author">{book.author}</span> : null}
                   <span className="books__tally">
-                    {[book.finishedOn ? `Finished ${monthOf(dayOf(book.finishedOn))}` : '', tallyLine(book.marks) || (book.finishedOn ? '' : 'Nothing written yet')].filter(Boolean).join(' · ')}
+                    {[book.finishedOn ? `Finished ${monthOf(dayOf(book.finishedOn))}` : '', setDown ? `Set down in ${monthOf(setDown)}` : '', tallyLine(book.marks) || (book.finishedOn ? '' : 'Nothing written yet')].filter(Boolean).join(' · ')}
                   </span>
                   {last ? <q className={last.own ? 'books__last is-own' : 'books__last'}>{last.words}</q> : null}
                 </Link>
@@ -232,6 +235,14 @@ const Spine = ({ marks, since }) => {
   );
 };
 
+/* Where the book went in your wiki: the pages that cite it or hold a view
+   on it, one line each, the way an article ends. Nothing when it went nowhere. */
+const Whereabouts = ({ lines }) => (lines.length ? (
+  <ul className="article-whereabouts books__whereabouts" aria-label="Where this book went">
+    {lines.map(line => <li key={line.id}>{line.lead} <Link to={line.href}>{line.title}</Link>.</li>)}
+  </ul>
+) : null);
+
 /* One book, at its desk. A link to a passage opens the desk at that mark. */
 const Book = ({ id }) => {
   const [searchParams] = useSearchParams();
@@ -240,6 +251,12 @@ const Book = ({ id }) => {
   const [closed, setClosed] = useState(null);
   const book = article ? { ...article, ...closed } : null;
   const since = readingSince(book || {});
+  const { pages, whereabouts, held } = useSourceWhereabouts(id, highlights, 'book');
+  /* Each mark keeps its door to the view it was filed under, or the offer to
+     file it, as it has in the reader. A mark not yet saved has no door. */
+  const doorFor = (mark) => (mark.unsent || String(mark._id).startsWith('desk-') || held.has(String(mark._id)) ? null : (
+    <PassageDoor articleId={id} highlightId={mark._id} pages={pages} text={mark.text || ''} />
+  ));
   useDocumentTitle(article?.title || 'A book', 'Library');
 
   useEffect(() => {
@@ -265,7 +282,9 @@ const Book = ({ id }) => {
             onAdd={addHighlightOptimistic}
             onReplace={replaceHighlight}
             onRemove={removeHighlight}
+            doorFor={doorFor}
           />
+          <Whereabouts lines={whereabouts} />
           <Closing book={book} marks={highlights.filter(mark => !isEarlier(mark, since))} onChange={setClosed} />
         </>
       ) : null}

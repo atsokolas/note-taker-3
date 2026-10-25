@@ -52,15 +52,15 @@ const citedPassages = (page, articleId, highlightIds) => {
   return { cited, piece };
 };
 
-const passagesPhrase = (count, first) => (
-  `${countWord(count)} ${count === 1 ? 'passage' : 'passages'}${first ? ' from this piece' : ''}`
+const passagesPhrase = (count, first, noun) => (
+  `${countWord(count)} ${count === 1 ? 'passage' : 'passages'}${first ? ` from this ${noun}` : ''}`
 );
 
 /**
  * Up to three sentences, views first, each ending in a link:
  * { id, lead, title, href, held: Set<highlightId> }. An empty list is silence.
  */
-export const sourceWhereabouts = (pages, { articleId, highlights = [] } = {}) => {
+export const sourceWhereabouts = (pages, { articleId, highlights = [], noun = 'piece' } = {}) => {
   const article = idOf(articleId);
   const highlightIds = new Set(list(highlights).map(idOf).filter((id) => id && !id.startsWith('temp-')));
   if (!article) return [];
@@ -84,10 +84,10 @@ export const sourceWhereabouts = (pages, { articleId, highlights = [] } = {}) =>
     const view = views.includes(row);
     const first = index === 0;
     const lead = view
-      ? `${passagesPhrase(row.count, first)} ${row.count === 1 ? 'sits' : 'sit'} under your view on`
+      ? `${passagesPhrase(row.count, first, noun)} ${row.count === 1 ? 'sits' : 'sit'} under your view on`
       : row.count
-        ? `${passagesPhrase(row.count, first)} ${row.count === 1 ? 'is' : 'are'} cited on your page about`
-        : 'This piece is cited on your page about';
+        ? `${passagesPhrase(row.count, first, noun)} ${row.count === 1 ? 'is' : 'are'} cited on your page about`
+        : `This ${noun} is cited on your page about`;
     return {
       id: idOf(row.page),
       lead,

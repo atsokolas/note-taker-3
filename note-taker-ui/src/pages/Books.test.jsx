@@ -4,10 +4,12 @@ import * as Router from 'react-router-dom';
 import Books from './Books';
 import { closeBook, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
 import useArticleDetail from '../hooks/useArticleDetail';
+import { listWikiPages } from '../api/wiki';
 
 jest.mock('../api/imports', () => ({ closeBook: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
+jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn() }));
 
 const at = (id) => {
   jest.spyOn(Router, 'useParams').mockReturnValue(id ? { id } : {});
@@ -17,6 +19,7 @@ const at = (id) => {
 beforeEach(() => {
   jest.clearAllMocks();
   useArticleDetail.mockReturnValue({ article: null, highlights: [], error: '' });
+  listWikiPages.mockResolvedValue([]);
 });
 
 test('the shelf shows each book with what was written in it and the last line', async () => {
@@ -154,4 +157,20 @@ test('reading a book again keeps the first reading: its sentence, and its marks 
   expect(mark).toHaveAttribute('data-earlier');
   expect(mark).toHaveTextContent('2025');
   expect(container.querySelector('[data-mark="m1"]')).toHaveAttribute('data-earlier');
+});
+
+test('the book says where it went in your wiki, one line per page', async () => {
+  const mark = { _id: 'm1', text: 'A finely touched spirit.', page: 3, createdAt: '2026-09-01T20:00:00Z' };
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch' }, highlights: [mark], error: '' });
+  listWikiPages.mockResolvedValue([{ _id: 'w1', title: 'Vocation', sourceRefs: [{ type: 'highlight', objectId: 'm1' }] }]);
+  at('b2');
+  const went = await screen.findByRole('list', { name: 'Where this book went' });
+  expect(went).toHaveTextContent('One passage from this book is cited on your page about Vocation.');
+  expect(screen.getByRole('link', { name: 'Vocation' })).toHaveAttribute('href', '/wiki/workspace?page=w1');
+});
+
+test('a book set down a month ago says so on the shelf, and stays there', async () => {
+  listBooks.mockResolvedValue([{ _id: 'b1', title: 'Leviathan', createdAt: '2026-01-01T00:00:00Z', marks: [{ _id: 'm1', note: 'Hobbes on fear', page: 40, createdAt: '2026-02-03T20:00:00Z' }] }]);
+  at();
+  expect(await screen.findByRole('link', { name: /Leviathan/ })).toHaveTextContent(/Set down in February 2026 · p\. 40 · 1 note/);
 });
