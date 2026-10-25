@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		BA0000020000000000000009 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000000A; };
 		BA000002000000000000000B /* Judgment.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000000C; };
+		BA00000200000000000000F3 /* BookDesk.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA00000200000000000000F4; };
+		BA00000200000000000000F5 /* Books.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA00000200000000000000F6; };
 		BA000002000000000000000D /* Library.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000000E; };
 		BA000002000000000000000F /* Loading.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000010; };
 		BA00000200000000000000F1 /* Notebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA00000200000000000000F2; };
@@ -87,6 +89,8 @@
 /* Begin PBXFileReference section */
 		BA000002000000000000000A /* Document.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
 		BA000002000000000000000C /* Judgment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Judgment.swift; sourceTree = "<group>"; };
+		BA00000200000000000000F4 /* BookDesk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookDesk.swift; sourceTree = "<group>"; };
+		BA00000200000000000000F6 /* Books.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Books.swift; sourceTree = "<group>"; };
 		BA000002000000000000000E /* Library.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Library.swift; sourceTree = "<group>"; };
 		BA0000020000000000000010 /* Loading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loading.swift; sourceTree = "<group>"; };
 		BA00000200000000000000F2 /* Notebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notebook.swift; sourceTree = "<group>"; };
@@ -185,6 +189,8 @@
 		BA0000020000000000000073 /* Noeis */ = {
 			isa = PBXGroup;
 			children = (
+				BA00000200000000000000F4,
+				BA00000200000000000000F6,
 				BA000002000000000000000A,
 				BA000002000000000000000C,
 				BA000002000000000000000E,
@@ -397,6 +403,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BA00000200000000000000F3,
+				BA00000200000000000000F5,
 				BA0000020000000000000009,
 				BA000002000000000000000B,
 				BA000002000000000000000D,

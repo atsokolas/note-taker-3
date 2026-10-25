@@ -248,6 +248,44 @@ struct NoeisAPI {
         return reply.at("article._id").text
     }
 
+    // MARK: Books
+
+    /// Every book on the shelf, each with its marks, newest reading first.
+    func books() async throws -> [JSON] {
+        try await send("GET", "/api/books")["books"]?.array ?? []
+    }
+
+    /// Starts a book by its title and author, or opens the one already on the
+    /// shelf by that title. Returns its id.
+    func startBook(title: String, author: String) async throws -> String {
+        try await send("POST", "/api/import/book", body: ["title": .string(title), "author": .string(author)]).at("article._id").text
+    }
+
+    /// A line typed at the desk. A passage already marked (on the Kindle, say)
+    /// takes the note instead of becoming a second mark, so the mark that
+    /// comes back may be one already on the page.
+    func write(bookId: String, text: String, note: String, page: Int?) async throws -> JSON {
+        var body: [String: JSON] = ["text": .string(text), "note": .string(note)]
+        if let page { body["page"] = .number(Double(page)) }
+        return try await send("POST", "/articles/\(bookId)/highlights", body: .object(body))["highlight"] ?? .null
+    }
+
+    /// Closes a book on a calendar day ("2026-10-19"), with the one sentence
+    /// you will remember, which may be none. Returns `{finishedOn, closingLine}`.
+    func close(bookId: String, line: String, on day: String) async throws -> JSON {
+        try await send("PUT", "/api/books/\(bookId)/closed", body: ["line": .string(line), "on": .string(day)])
+    }
+
+    /// Still reading it after all.
+    func reopen(bookId: String) async throws -> JSON {
+        try await send("DELETE", "/api/books/\(bookId)/closed")
+    }
+
+    /// Reading a finished book again: the reading just closed is kept in `readBefore`.
+    func readAgain(bookId: String) async throws -> JSON {
+        try await send("POST", "/api/books/\(bookId)/again", body: [:])
+    }
+
     // MARK: Editions
 
     /// The stand: every issue of every paper, newest first, without findings.

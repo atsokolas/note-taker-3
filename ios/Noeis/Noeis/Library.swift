@@ -22,12 +22,19 @@ struct LibraryList: View {
             // The nightstand and the newest dozen wait on the device, to read with no connection.
             let keeping = NSOrderedSet(array: (later + articles.prefix(12)).map(\.id)).array as? [String] ?? []
             RoomIndex {
-                if !later.isEmpty {
-                    WordTabs(selection: $nightstand, options: [(false, "All"), (true, "Nightstand")]).padding(.top, 12)
+                HStack(alignment: .firstTextBaseline, spacing: 22) {
+                    if !later.isEmpty {
+                        WordTabs(selection: $nightstand, options: [(false, "All"), (true, "Nightstand")])
+                    }
+                    // Books are a page of their own: each one is the desk you write at.
+                    RouteLink(route: .books) {
+                        Text("Books").font(.system(.body, design: .serif)).foregroundStyle(Ink.muted).padding(.vertical, 8)
+                    }
                 }
+                .padding(.top, 12)
                 IndexHeading(onNightstand ? nightstandLine(later.count) : shown.count == 1 ? "1 source" : "\(shown.count) sources")
                 ForEach(shown, id: \.id) { article in
-                    RouteRow(route: .article(article.id)) { ArticleRow(article: article) }
+                    RouteRow(route: article.opens) { ArticleRow(article: article) }
                 }
                 if shown.isEmpty {
                     Quiet(query.isEmpty ? "Nothing saved yet. Share a page to Noeis from Safari or any app, or tap + to paste a link." : "Nothing matches “\(query)”.")
@@ -90,6 +97,11 @@ private struct ArticleRow: View {
 }
 
 extension JSON {
+    /// A source with no text of its own, a book above all, opens at its desk, as on the web.
+    var opens: Route {
+        self["url"].text.hasPrefix("import://") && self["firstGraph"].text.isEmpty ? .book(id) : .article(id)
+    }
+
     var byline: String {
         let site = self["siteName"]?.string ?? self["url"]?.string.flatMap(URL.init(string:))?.host()?.replacingOccurrences(of: "www.", with: "")
         return [site, self["createdAt"]?.date?.shortDay].compactMap { $0 }.joined(separator: " · ")

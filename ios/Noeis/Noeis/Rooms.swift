@@ -24,6 +24,8 @@ enum Route: Hashable {
     case wikiPage(String, build: Bool = false)
     case view(String)
     case article(String, passage: String? = nil)
+    case books
+    case book(String)
     case note(String)
     case concept(String)
     case question(String)
@@ -350,6 +352,8 @@ struct RouteView: View {
         case .wikiPage(let id, let build): WikiPageView(id: id, build: build)
         case .view(let id): ViewDetail(id: id)
         case .article(let id, let passage): ArticleReader(id: id, passage: passage)
+        case .books: BookShelf()
+        case .book(let id): BookPage(id: id)
         case .note(let id): NoteView(id: id)
         case .concept(let name): ConceptView(name: name)
         case .question(let id): QuestionView(id: id)
