@@ -52,6 +52,11 @@
   text-transform: uppercase;
 }
 
+/* The frame the library's margin notes are placed in. */
+.books--one {
+  position: relative;
+}
+
 .books--one .books__head .books__author {
   margin-top: var(--space-5);
 }

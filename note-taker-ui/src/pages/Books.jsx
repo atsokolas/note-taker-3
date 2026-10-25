@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { closeBook, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
+import { ArticleMargins } from '../components/margins/LibraryMargins';
 import BookDesk from '../components/reader/BookDesk';
 import PassageDoor from '../components/reader/PassageDoorView';
 import useSourceWhereabouts from '../components/reader/useSourceWhereabouts';
@@ -8,10 +9,14 @@ import {
   dayOf, isEarlier, lastTime, longDate, monthOf, readingSince, setDownOn, sittingsOf, spineOf, tallyLine
 } from '../components/reader/bookDesk';
 import { bookFrom } from '../components/library/LibraryPasteLink';
+import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import useArticleDetail from '../hooks/useArticleDetail';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import '../styles/books.css';
+
+// A book's paragraphs are what you marked in it and wrote beside it.
+const MARK_BLOCKS = '.book-desk__mark > blockquote, .book-desk__mark > .book-desk__own';
 
 /* The books you are reading, paper or Kindle, each with a page of its own:
    the desk you type at while the book is open beside you. */
@@ -252,19 +257,29 @@ const Book = ({ id }) => {
   const book = article ? { ...article, ...closed } : null;
   const since = readingSince(book || {});
   const { pages, whereabouts, held } = useSourceWhereabouts(id, highlights, 'book');
+  const frameRef = useRef(null);
+  const deskRef = useRef(null);
   /* Each mark keeps its door to the view it was filed under, or the offer to
      file it, as it has in the reader. A mark not yet saved has no door. */
   const doorFor = (mark) => (mark.unsent || String(mark._id).startsWith('desk-') || held.has(String(mark._id)) ? null : (
     <PassageDoor articleId={id} highlightId={mark._id} pages={pages} text={mark.text || ''} />
   ));
   useDocumentTitle(article?.title || 'A book', 'Library');
+  // The Partner holds this book, its marks standing for the body it has none of.
+  useNoeisAgentSurface('agent-surface.library', {
+    room: 'library',
+    objectType: 'article',
+    objectId: id,
+    title: article?.title || 'A book',
+    orientation: 'Think with this book from what you marked in it and wrote beside it.'
+  });
 
   useEffect(() => {
     if (asked && highlights.length) showMark(asked);
   }, [asked, highlights.length]);
 
   return (
-    <main className="books books--one" aria-labelledby="book-title" aria-busy={!article && !error}>
+    <main ref={frameRef} className="books books--one" aria-labelledby="book-title" aria-busy={!article && !error}>
       <nav className="books__tools" aria-label="Book"><Link to="/library/books">← Books</Link></nav>
       {error ? <p className="books__quiet" role="alert">{error}</p> : null}
       {book ? (
@@ -274,16 +289,20 @@ const Book = ({ id }) => {
             <h1 id="book-title">{book.title || 'Untitled book'}</h1>
           </header>
           <Spine marks={highlights} since={since} />
-          <BookDesk
-            key={article._id}
-            article={book}
-            marks={highlights}
-            arriving={!asked}
-            onAdd={addHighlightOptimistic}
-            onReplace={replaceHighlight}
-            onRemove={removeHighlight}
-            doorFor={doorFor}
-          />
+          <div ref={deskRef}>
+            <BookDesk
+              key={article._id}
+              article={book}
+              marks={highlights}
+              arriving={!asked}
+              onAdd={addHighlightOptimistic}
+              onReplace={replaceHighlight}
+              onRemove={removeHighlight}
+              doorFor={doorFor}
+            />
+          </div>
+          {/* Beside a mark, the closest thing you marked in another book or piece, as the reader has. */}
+          <ArticleMargins articleId={id} contentRef={deskRef} frameRef={frameRef} blocks={MARK_BLOCKS} contentKey={highlights.length ? id : ''} />
           <Whereabouts lines={whereabouts} />
           <Closing book={book} marks={highlights.filter(mark => !isEarlier(mark, since))} onChange={setClosed} />
         </>

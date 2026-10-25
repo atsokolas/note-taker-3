@@ -5,11 +5,13 @@ import Books from './Books';
 import { closeBook, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
 import useArticleDetail from '../hooks/useArticleDetail';
 import { listWikiPages } from '../api/wiki';
+import { fetchMarginNotes } from '../api/retrieval';
 
 jest.mock('../api/imports', () => ({ closeBook: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
 jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn() }));
+jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn() }));
 
 const at = (id) => {
   jest.spyOn(Router, 'useParams').mockReturnValue(id ? { id } : {});
@@ -20,6 +22,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   useArticleDetail.mockReturnValue({ article: null, highlights: [], error: '' });
   listWikiPages.mockResolvedValue([]);
+  fetchMarginNotes.mockResolvedValue([]);
 });
 
 test('the shelf shows each book with what was written in it and the last line', async () => {
@@ -179,4 +182,17 @@ test('a book changed lately is not set down, whatever its marks’ dates', async
   listBooks.mockResolvedValue([{ _id: 'b1', title: 'Leviathan', createdAt: '2026-01-01T00:00:00Z', updatedAt: new Date().toISOString(), marks: [{ _id: 'm1', note: 'Hobbes on fear', page: 40, createdAt: '2026-02-03T20:00:00Z' }] }]);
   at();
   expect(await screen.findByRole('link', { name: /Leviathan/ })).not.toHaveTextContent(/Set down/);
+});
+
+test('beside a mark, the closest thing you marked in another book', async () => {
+  const quote = 'He built the roads first, and the parks came after, because the roads carried the votes.';
+  useArticleDetail.mockReturnValue({
+    article: { _id: 'b3', title: 'The Power Broker' },
+    highlights: [{ _id: 'm1', text: quote, page: 12, createdAt: '2026-10-20T20:00:00Z' }, { _id: 'm2', note: 'Too short to ask.' }],
+    error: ''
+  });
+  fetchMarginNotes.mockResolvedValue([{ paragraph: 0, highlight: { _id: 'h9', text: 'Infrastructure is politics poured in concrete, and it outlasts every mayor.', articleId: 'b4', articleTitle: 'Seeing Like a State' } }]);
+  at('b3');
+  expect(await screen.findByRole('complementary', { name: 'From your library' })).toHaveTextContent('Seeing Like a State');
+  expect(fetchMarginNotes).toHaveBeenCalledWith({ articleId: 'b3', paragraphs: [quote] });
 });

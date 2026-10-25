@@ -1868,15 +1868,20 @@ const resolveContextItem = async ({
   if (contextType === 'article') {
     if (!mongoose.Types.ObjectId.isValid(contextId)) return null;
     const article = await Article.findOne({ _id: contextId, userId: userObjectId })
-      .select('_id title content url updatedAt')
+      .select('_id title content url updatedAt highlights.text highlights.note highlights.page')
       .lean();
     if (!article) return null;
+    // A book has no body: what was marked in it and written beside it is the book in hand.
+    const marks = (article.highlights || [])
+      .map(mark => [mark.page ? `p. ${mark.page}` : '', mark.text ? `“${mark.text}”` : '', mark.note].filter(Boolean).join(' '))
+      .join('\n');
+    const text = article.content || marks || article.url || '';
     return {
       type: 'article',
       id: String(article._id),
       title: toSafeString(article.title) || 'Article',
-      snippet: truncate(article.content || article.url || ''),
-      fullText: truncateRaw(article.content || article.url || '', 10000),
+      snippet: truncate(text),
+      fullText: truncateRaw(text, 10000),
       updatedAt: article.updatedAt
     };
   }
