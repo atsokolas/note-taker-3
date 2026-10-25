@@ -191,7 +191,7 @@ const renderClosedBookLine = ({ closedBook = null, appBaseUrl }) => {
 };
 
 /* Your books, brought back the morning something is true of them: a
-   question you asked that yesterday's marking speaks to, and the book you
+   question you asked that something marked in the last day speaks to, and the book you
    stopped writing in a week ago, at the page you stopped. */
 const renderBookLines = ({ books = {}, appBaseUrl }) => {
   const rule = 'margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8;font-size:17px;line-height:1.5';
@@ -203,8 +203,8 @@ const renderBookLines = ({ books = {}, appBaseUrl }) => {
     const href = absoluteHref(`/library?articleId=${encodeURIComponent(answer.articleId)}&highlightId=${encodeURIComponent(answer._id)}`, appBaseUrl);
     const where = answer.articleTitle ? `, in ${answer.articleTitle}` : '';
     lines.push({
-      html: `<p style="${rule}">Beside <a href="${escapeHtml(bookHref(question.bookId, question._id))}" style="color:#171714">${escapeHtml(question.bookTitle)}</a> you asked: “${escapeHtml(clean(question.note, 300))}” Yesterday you marked${escapeHtml(where)}: <a href="${escapeHtml(href)}" style="color:#171714">“${escapeHtml(clean(answer.text, 400))}”</a></p>`,
-      text: `Beside ${question.bookTitle} you asked: “${clean(question.note, 300)}” Yesterday you marked${where}: “${clean(answer.text, 400)}” — ${href}`
+      html: `<p style="${rule}">Beside <a href="${escapeHtml(bookHref(question.bookId, question._id))}" style="color:#171714">${escapeHtml(question.bookTitle)}</a> you asked: “${escapeHtml(clean(question.note, 300))}” In the last day you marked${escapeHtml(where)}: <a href="${escapeHtml(href)}" style="color:#171714">“${escapeHtml(clean(answer.text, 400))}”</a></p>`,
+      text: `Beside ${question.bookTitle} you asked: “${clean(question.note, 300)}” In the last day you marked${where}: “${clean(answer.text, 400)}” — ${href}`
     });
   }
   if (stopped?.title && stopped.bookId) {

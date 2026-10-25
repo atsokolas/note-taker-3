@@ -185,13 +185,13 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   };
 
   /* A line that made a mark is taken back by deleting it; one that joined a
-     mark already there gives that mark back its own note. */
+     mark already there gives that mark back its own note and tags. */
   const takeBack = async () => {
     const { id, before } = sent.current.pop() || {};
     const mark = marks.find(item => item._id === id);
     if (!mark) return;
     if (before) {
-      await updateHighlight({ articleId, highlightId: id, payload: { note: before.note || '' } }).catch(() => null);
+      await updateHighlight({ articleId, highlightId: id, payload: { note: before.note || '', tags: before.tags || [] } }).catch(() => null);
       onReplace?.(id, before);
     } else {
       await deleteHighlight({ articleId, highlightId: id }).catch(() => null);

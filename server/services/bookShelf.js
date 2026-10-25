@@ -29,7 +29,7 @@ const openQuestions = books => books
 
 /* What the Morning Paper says about your books this morning, each line only
    on the one morning it is true, so nothing is said twice: a question you
-   asked that something you marked yesterday speaks to, and the book in
+   asked that something you marked in the last day (since the paper before) speaks to, and the book in
    progress you last wrote in a week ago, where you stopped in it. */
 const booksThisMorning = async ({ Article, userId, now = new Date(), answerTo }) => {
   const books = await Article.find({ userId, url: BOOK_URL }).select(BOOK_MARKS).lean();

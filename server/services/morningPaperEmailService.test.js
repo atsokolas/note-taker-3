@@ -65,7 +65,7 @@ const reading = renderMorningPaperEmail({
   },
   unsubscribeUrl: 'u'
 });
-assert.match(reading.text, /Beside Middlemarch you asked: “Why does Dorothea marry him\?” Yesterday you marked, in Essays: “We mistake the shape of a life for its meaning\.” — https:\/\/www\.noeis\.io\/library\?articleId=a2&highlightId=h9/);
+assert.match(reading.text, /Beside Middlemarch you asked: “Why does Dorothea marry him\?” In the last day you marked, in Essays: “We mistake the shape of a life for its meaning\.” — https:\/\/www\.noeis\.io\/library\?articleId=a2&highlightId=h9/);
 assert.match(reading.html, /href="https:\/\/www\.noeis\.io\/library\/books\/b1\?highlight=q1"/);
 assert.match(reading.text, /A week ago you stopped at p\. 212 of The Power Broker\. The last thing you wrote: “Why roads first\?” — https:\/\/www\.noeis\.io\/library\/books\/b2/);
 assert.doesNotMatch(rendered.text, /you stopped|you asked/, 'books with nothing true this morning are silence');

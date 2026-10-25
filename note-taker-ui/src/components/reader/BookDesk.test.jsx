@@ -124,15 +124,15 @@ test('typing an old mark again picks a set-down book up, though the mark keeps i
   expect(screen.queryByText('Why’d you stop?')).not.toBeInTheDocument();
 });
 
-test('taking back a line that joined a Kindle mark gives the mark its own note back, never deletes it', async () => {
-  const noted = { ...KINDLE, note: 'first read' };
-  createHighlight.mockResolvedValue({ ...noted, page: 214 });
+test('taking back a line that joined a Kindle mark gives the mark its own note and tags back, never deletes it', async () => {
+  const noted = { ...KINDLE, note: 'first read', tags: ['violence'] };
+  createHighlight.mockResolvedValue({ ...noted, page: 214, tags: ['violence', 'history'] });
   updateHighlight.mockResolvedValue(noted);
   render(<Desk marks={[noted]} />);
-  type(`214 "${KINDLE.text}`);
+  type(`214 "${KINDLE.text} #history`);
   await act(async () => keep());
   fireEvent.keyDown(line(), { key: 'z', metaKey: true });
-  await waitFor(() => expect(updateHighlight).toHaveBeenCalledWith({ articleId: 'book-1', highlightId: 'k1', payload: { note: 'first read' } }));
+  await waitFor(() => expect(updateHighlight).toHaveBeenCalledWith({ articleId: 'book-1', highlightId: 'k1', payload: { note: 'first read', tags: ['violence'] } }));
   expect(deleteHighlight).not.toHaveBeenCalled();
   expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(1);
 });
