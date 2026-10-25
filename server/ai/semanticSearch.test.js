@@ -5,7 +5,7 @@ jest.mock('./embed', () => ({
 }));
 
 const { embedText, embedTexts, isEmbeddingConfigured } = require('./embed');
-const { similarToSource, marginNotes } = require('./semanticSearch');
+const { similarToSource, marginNotes, answerTo } = require('./semanticSearch');
 const { encodeVector, rawCosineToAtlasScore } = require('./vectorStore');
 
 const userId = '64b000000000000000000001';
@@ -140,5 +140,32 @@ describe('marginNotes', () => {
     expect(await marginNotes({ userId, paragraphs: ['Only a few words here.'], models: vectors })).toEqual([]);
     expect(await marginNotes({ userId, paragraphs: [paragraph], excludeHighlightIds: [hid(1)], models: vectors })).toEqual([]);
     expect(embedTexts).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('answerTo', () => {
+  const hid = n => `64b0000000000000000000${String(n).padStart(2, '0')}`;
+  const question = { _id: hid(10), note: 'Why did he build the roads before the parks?', createdAt: '2026-06-01T00:00:00Z' };
+  const passage = 'The parkways were built to carry cars out of the city, and the parks were what the cars were driven to.';
+  const held = {
+    [hid(1)]: { _id: hid(1), text: passage, articleId: 'a1', articleTitle: 'The Power Broker', createdAt: '2026-07-01T00:00:00Z' },
+    [hid(2)]: { _id: hid(2), text: `${passage} Marked long before.`, articleId: 'a2', articleTitle: 'Earlier', createdAt: '2026-01-01T00:00:00Z' },
+    [hid(3)]: { _id: hid(3), text: 'Roads first.', articleId: 'a1', articleTitle: 'Too short', createdAt: '2026-07-02T00:00:00Z' }
+  };
+  const models = rows => ({
+    VectorItem: vectorsWith(rows),
+    Article: { aggregate: jest.fn(async ([match]) => match.$match['highlights._id'].$in.map(id => held[String(id)]).filter(Boolean)) }
+  });
+  const row = (n, cosine) => ({ objectType: 'highlight', objectId: hid(n), score: rawCosineToAtlasScore(cosine) });
+
+  it('answers with the closest passage marked since the question, from its own vector', async () => {
+    embedText.mockClear();
+    const answer = await answerTo({ userId, question, models: models([row(2, 0.8), row(3, 0.75), row(1, 0.7)]) });
+    expect(answer).toMatchObject({ _id: hid(1), text: passage, articleTitle: 'The Power Broker' });
+    expect(embedText).not.toHaveBeenCalled();
+  });
+
+  it('stays silent under the margin floor', async () => {
+    expect(await answerTo({ userId, question, models: models([row(1, 0.6)]) })).toBeNull();
   });
 });

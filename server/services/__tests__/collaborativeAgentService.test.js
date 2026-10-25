@@ -79,6 +79,22 @@ const run = async () => {
       };
     }
   };
+  // A book has no body: the Partner holds what was marked in it and written beside it.
+  const bookId = '64b000000000000000000001';
+  const bookContext = await resolveContextItem({
+    userObjectId: 'user-1',
+    context: { type: 'article', id: bookId },
+    Article: {
+      findOne: () => ({ select: () => ({ lean: async () => ({
+        _id: bookId,
+        title: 'The Power Broker',
+        url: 'import://book/the-power-broker-robert-caro',
+        highlights: [{ text: 'He built the roads first.', page: 12 }, { note: 'Why roads before parks?' }]
+      }) }) })
+    }
+  });
+  assert.strictEqual(bookContext.fullText, 'p. 12 “He built the roads first.”\nWhy roads before parks?');
+
   const routedWikiContext = await resolveContextItem({
     userObjectId: 'user-1',
     context: { type: 'wiki', id: routedWikiPageId, title: 'Compound Interest' },

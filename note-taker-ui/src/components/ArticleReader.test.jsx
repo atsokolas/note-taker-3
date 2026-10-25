@@ -529,6 +529,18 @@ describe('ArticleReader', () => {
     expect(screen.queryByText('Invert, always invert.')).not.toBeInTheDocument();
   });
 
+  it('sends a second copy of a book that went onto the shelf to the book it went into', () => {
+    jest.spyOn(Router, 'Navigate').mockImplementation(({ to }) => <p>{`to ${to}`}</p>);
+    render(
+      <ArticleReader
+        article={{ _id: 'stray-1', title: 'The Power Broker', content: '', url: 'https://readwise.io/bookreview/101', mergedInto: 'book-1', createdAt: '2026-06-07T00:00:00.000Z' }}
+        highlights={[]}
+        focusedHighlightId="highlight-1"
+      />
+    );
+    expect(screen.getByText('to /library/books/book-1?highlight=highlight-1')).toBeInTheDocument();
+  });
+
   it('puts a deep-linked saved passage in the reader when the imported body omits it', () => {
     const previousScrollIntoView = Element.prototype.scrollIntoView;
     Element.prototype.scrollIntoView = jest.fn();

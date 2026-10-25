@@ -209,9 +209,40 @@ const marginNotes = async ({
   return notes.sort((a, b) => a.paragraph - b.paragraph);
 };
 
+/* A question you typed beside a book, come back answered: the closest
+   passage you marked after asking it, in any book or piece.
+
+   Eligibility: the question's own stored vector (no embedding call), matched
+   against your highlights only; a passage of the book's or a piece's words,
+   not another note, of MARGIN_MIN_QUOTE_CHARS or more; marked after the
+   question was asked; at the margin's floor (raw cosine 0.62) or better.
+   Silence: no vector yet, nothing over the floor or a failed lookup is no answer. */
+const ANSWER_CANDIDATES = 6;
+
+const answerTo = async ({ userId, question, models = {} } = {}) => {
+  const rows = await similarToSource({
+    userId, objectType: 'highlight', objectId: String(question?._id || ''), limit: ANSWER_CANDIDATES, types: ['highlight'], models
+  }).catch(() => []);
+  const close = rows.filter(row => Number(row.score) >= MARGIN_FLOOR);
+  if (!close.length) return null;
+  const held = await highlightsById({ Article: models.Article || Article, userId, ids: close.map(row => String(row.objectId)) });
+  const asked = new Date(question.createdAt).getTime() || 0;
+  const answer = close.map(row => held.get(String(row.objectId))).find(mark => (
+    mark && plain(mark.text).length >= MARGIN_MIN_QUOTE_CHARS && new Date(mark.createdAt).getTime() > asked
+  ));
+  return answer ? {
+    _id: String(answer._id),
+    text: plain(answer.text),
+    createdAt: answer.createdAt || null,
+    articleId: String(answer.articleId),
+    articleTitle: answer.articleTitle || ''
+  } : null;
+};
+
 module.exports = {
   semanticSearch,
   marginNotes,
+  answerTo,
   MARGIN_MIN_WORDS,
   relatedHighlights,
   similarToSource,

@@ -52,6 +52,11 @@
   text-transform: uppercase;
 }
 
+/* The frame the library's margin notes are placed in. */
+.books--one {
+  position: relative;
+}
+
 .books--one .books__head .books__author {
   margin-top: var(--space-5);
 }
@@ -162,6 +167,65 @@
   color: var(--ink-human, var(--muted));
   font-family: var(--font-sans);
   font-size: 0.95rem;
+}
+
+/* What you asked beside your books, ruled like the shelf above it. A
+   passage that answers a question hangs under it in the book's own type. */
+.books__questions {
+  margin-top: var(--space-6);
+}
+
+.books__questions h2 {
+  margin: 0;
+  color: var(--muted);
+  font: 0.82rem/1.5 var(--font-sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.books__questions ol {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.books__questions li {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-subtle-2);
+}
+
+.books .books__question,
+.books .books__answer {
+  display: grid;
+  gap: 4px;
+  color: var(--text) !important;
+  text-decoration: none;
+}
+
+.books__asked {
+  color: var(--muted);
+  font: 0.82rem/1.5 var(--font-sans);
+}
+
+.books__question q {
+  color: var(--ink-human, var(--text));
+  font: 1rem/1.5 var(--font-sans);
+}
+
+.books .books__answer {
+  display: block;
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--border-subtle-2);
+  color: var(--muted) !important;
+  font: 0.9rem/1.5 var(--font-sans);
+}
+
+.books__answer q {
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 1rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

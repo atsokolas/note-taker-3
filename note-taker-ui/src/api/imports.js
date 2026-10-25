@@ -65,6 +65,11 @@ export const listBooks = async () => (
   (await api.get(`/api/books?today=${today()}`, getAuthHeaders())).data?.books || []
 );
 
+/* The questions typed beside books, each with the passage marked since that answers it, if one does. */
+export const listBookQuestions = async () => (
+  (await api.get('/api/books/questions', getAuthHeaders())).data?.questions || []
+);
+
 export const listImportConnections = async ({ provider = '' } = {}) => {
   const params = new URLSearchParams();
   if (provider) params.set('provider', String(provider).trim());

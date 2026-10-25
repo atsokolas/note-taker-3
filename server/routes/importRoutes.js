@@ -1,7 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { encryptSecret, decryptSecret } = require('../utils/integrationSecrets');
-const { absorbPassage, isUnfinished, passageIn, sameWords } = require('../utils/passages');
+const { absorbPassage, isUnfinished, passageIn } = require('../utils/passages');
 const {
   blockToPlainText,
   buildNotionPropertyLines,
@@ -54,6 +54,7 @@ const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../se
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
 const { bookReturning, calendarDay, marksOfReading } = require('../services/closedBooks');
+const { bookOnShelf, shelveBooks } = require('../services/bookShelf');
 const { fillArticleBodies } = require('../services/readableArticle');
 const {
   inboundMailConfig,
@@ -74,9 +75,8 @@ const normalizeSourcePath = (value = '') => {
   }
   return toTrimmedString(value);
 };
-/* A book already on the shelf, under any address an import gives it or by its title. */
-const bookOnShelf = (shelf, book) => shelf.find(item => [book.url, ...book.aliases].includes(item.url))
-  || shelf.find(item => sameWords(item.title) === sameWords(book.title));
+// The newest questions asked beside books, each looked up once per visit to the shelf.
+const OPEN_QUESTIONS = 20;
 const NOTEBOOK_IMPORT_FOLDER_OWNERSHIP = 'import_mirror';
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
 const IMPORT_ORGANIZATION_SUGGESTION_TYPE = 'organize_import';
@@ -128,7 +128,8 @@ const buildImportRouter = ({
   env = process.env,
   fetchImpl = global.fetch,
   /* Reads a bare link's body; the public-URL-guarded reader when absent. */
-  fetchSourceBody
+  fetchSourceBody,
+  answerTo = (...args) => require('../ai/semanticSearch').answerTo(...args)
 }) => {
   const router = express.Router();
 
@@ -437,6 +438,7 @@ const buildImportRouter = ({
     try {
       // Today as the reader's calendar has it, for the book coming back.
       const today = calendarDay(req.query?.today);
+      await shelveBooks({ Article, userId: req.user.id });
       const books = await Article.find({ userId: req.user.id, url: BOOK_URL })
         .select('title author createdAt updatedAt finishedOn closingLine readBefore highlights._id highlights.text highlights.note highlights.page highlights.importMeta.sourcePath highlights.createdAt')
         .lean();
@@ -450,6 +452,31 @@ const buildImportRouter = ({
     } catch (error) {
       console.error('Error reading the book shelf:', error);
       res.status(500).json({ error: 'The books could not be read.' });
+    }
+  });
+
+  /* The questions you typed beside your books, newest first, each with the
+     passage you marked since that answers it, when one does. A question is a
+     note of your own ending in "?", as the desk has it. */
+  router.get('/api/books/questions', authenticateToken, async (req, res) => {
+    try {
+      const books = await Article.find({ userId: req.user.id, url: BOOK_URL })
+        .select('title highlights._id highlights.text highlights.note highlights.page highlights.createdAt')
+        .lean();
+      const asked = books
+        .flatMap(book => (book.highlights || [])
+          .filter(mark => !mark.text && /\?\s*$/.test(mark.note || ''))
+          .map(({ text, ...mark }) => ({ ...mark, bookId: book._id, bookTitle: book.title })))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, OPEN_QUESTIONS);
+      const questions = await Promise.all(asked.map(async question => ({
+        ...question,
+        answer: await answerTo({ userId: req.user.id, question }).catch(() => null)
+      })));
+      return res.json({ questions });
+    } catch (error) {
+      console.error('Error reading the open questions:', error);
+      res.status(500).json({ error: 'The questions could not be read.' });
     }
   });
 
@@ -2426,10 +2453,12 @@ const buildImportRouter = ({
     for (const row of rows) {
       const metadataTitle = toTrimmedString(row.title);
       const author = toTrimmedString(row.author);
-      const sourceUrl = toTrimmedString(row.source_url || row.url || row.readwise_url);
+      // Readwise's own page for a book is not the book's address; a Kindle book has none.
+      const sourceUrl = toTrimmedString(row.source_url || row.url);
       const externalId = toTrimmedString(row.user_book_id || row.id);
       const sourceLabel = connection.accountLabel || 'Readwise';
-      const url = sourceUrl || `import://readwise/${externalId || slugify(metadataTitle) || crypto.randomUUID()}`;
+      const book = !sourceUrl && metadataTitle ? bookSource({ provider: 'readwise', title: metadataTitle, author }) : null;
+      const url = sourceUrl || book?.url || `import://readwise/${externalId || crypto.randomUUID()}`;
       const documentTags = Array.isArray(row.book_tags)
         ? row.book_tags.map(tag => toTrimmedString(tag?.name || tag)).filter(Boolean)
         : [];
@@ -2449,9 +2478,9 @@ const buildImportRouter = ({
       if (!article) {
         article = await Article.findOne({ userId, url });
         // A book with no web address may already be on the shelf, started at the desk or imported from a file.
-        if (!article && !sourceUrl && metadataTitle) {
+        if (!article && book) {
           shelf ||= await Article.find({ userId, url: BOOK_URL }).select('url title');
-          const known = bookOnShelf(shelf, bookSource({ provider: 'readwise', title: metadataTitle, author }));
+          const known = bookOnShelf(shelf, book);
           if (known) article = await Article.findById(known._id);
         }
         if (!article) {
@@ -2465,7 +2494,7 @@ const buildImportRouter = ({
               provider: 'readwise',
               sourceType: 'api',
               sourceLabel,
-              sourceUrl,
+              sourceUrl: sourceUrl || toTrimmedString(row.readwise_url),
               externalId,
               importSessionId: importSessionId || null,
               importedAt: new Date()

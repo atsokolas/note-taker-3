@@ -146,9 +146,9 @@ export const MarginNote = forwardRef(({ note, place, onQuote, onAsk, answer = nu
 const BLOCKS = 'p, li, blockquote';
 
 /* The reading's paragraphs, outermost only: a list item's own paragraph is
-   the list item. */
-const readingBlocks = root => [...root.querySelectorAll(BLOCKS)].filter((node) => {
-  const outer = node.parentElement?.closest(BLOCKS);
+   the list item. A book's are its marks. */
+const readingBlocks = (root, blocks = BLOCKS) => [...root.querySelectorAll(blocks)].filter((node) => {
+  const outer = node.parentElement?.closest(blocks);
   return !outer || !root.contains(outer);
 });
 
@@ -166,7 +166,7 @@ export const paragraphAt = (root, node) => {
    nothing at all when nothing you marked elsewhere is close. When the
    Partner can read the piece (`asking.available`), each note can be asked
    about, and the answer takes its place in the margin. */
-export const ArticleMargins = ({ articleId, contentRef, frameRef, contentKey = '', layoutKey = '', hidden = false, asking = null }) => {
+export const ArticleMargins = ({ articleId, contentRef, frameRef, blocks = BLOCKS, contentKey = '', layoutKey = '', hidden = false, asking = null }) => {
   const [notes, setNotes] = useState([]);
   const [places, setPlaces] = useState([]);
   const answer = asking?.answer || null;
@@ -181,7 +181,7 @@ export const ArticleMargins = ({ articleId, contentRef, frameRef, contentKey = '
     setNotes([]);
     const root = contentRef.current;
     if (!articleId || !root) return undefined;
-    const asked = readingBlocks(root)
+    const asked = readingBlocks(root, blocks)
       .map((node, beside) => ({ beside, text: plainText(node.textContent) }))
       .filter(item => wordCount(item.text) >= MARGIN_MIN_WORDS);
     if (!asked.length) return undefined;
@@ -195,7 +195,7 @@ export const ArticleMargins = ({ articleId, contentRef, frameRef, contentKey = '
       })
       .catch(() => {});
     return () => { live = false; };
-  }, [articleId, contentKey, contentRef]);
+  }, [articleId, blocks, contentKey, contentRef]);
 
   const measure = useCallback(() => {
     const root = contentRef.current;
@@ -204,11 +204,11 @@ export const ArticleMargins = ({ articleId, contentRef, frameRef, contentKey = '
       setPlaces([]);
       return;
     }
-    const blocks = readingBlocks(root);
-    setPlaces(items.map(item => (blocks[item.beside]
-      ? placeBeside(blocks[item.beside], frame, root)
+    const beside = readingBlocks(root, blocks);
+    setPlaces(items.map(item => (beside[item.beside]
+      ? placeBeside(beside[item.beside], frame, root)
       : null)));
-  }, [contentRef, frameRef, items]);
+  }, [blocks, contentRef, frameRef, items]);
 
   useLayoutEffect(() => { measure(); }, [measure, layoutKey]);
   useEffect(() => {
@@ -237,7 +237,7 @@ export const ArticleMargins = ({ articleId, contentRef, frameRef, contentKey = '
   ) : null;
   const askNote = asking?.available ? note => asking.ask({
     beside: note.beside,
-    paragraph: plainText(readingBlocks(contentRef.current)[note.beside]?.textContent),
+    paragraph: plainText(readingBlocks(contentRef.current, blocks)[note.beside]?.textContent),
     highlight: note.highlight
   }) : undefined;
   // On a narrow page an answer beside a note opens inside that note's card.
