@@ -199,6 +199,28 @@
   line-height: 1.4;
 }
 
+/* Where the book went in your wiki, in the colophon's quiet type. */
+.books__whereabouts {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font: 0.9rem/1.5 var(--font-sans);
+}
+
+.books__whereabouts a {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.books__whereabouts a:is(:hover, :focus-visible) {
+  text-decoration-color: currentColor;
+}
+
 .books__closing,
 .books__colophon {
   margin-top: var(--space-6);

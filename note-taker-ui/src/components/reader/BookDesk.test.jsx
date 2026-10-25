@@ -14,15 +14,16 @@ const KINDLE = {
   text: 'The decline of violence may be the most significant development in our history.',
   note: '',
   location: 'Location 1702–1705',
-  createdAt: '2026-10-01T20:00:00Z'
+  // A week ago: the book is being read, not set down.
+  createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 };
 
 /* The desk as the reader holds it: the marks live with the parent. */
-const Desk = ({ marks: initial, readBefore }) => {
+const Desk = ({ marks: initial, readBefore, createdAt }) => {
   const [marks, setMarks] = useState(initial);
   return (
     <BookDesk
-      article={{ _id: 'book-1', title: 'The Better Angels', url: 'import://kindle/the-better-angels-pinker', readBefore }}
+      article={{ _id: 'book-1', title: 'The Better Angels', url: 'import://kindle/the-better-angels-pinker', readBefore, createdAt }}
       marks={marks}
       onAdd={mark => setMarks(current => [...current, mark])}
       onReplace={(id, mark) => setMarks(current => current.map(item => (item._id === id ? { ...item, ...mark } : item)))}
@@ -79,16 +80,41 @@ test('the book finishes a quote you marked on the Kindle, and it stays one mark'
 });
 
 test('on a second reading a passage marked again is a new mark, and the desk says when you marked it before', async () => {
-  const readBefore = [{ finishedOn: '2026-10-10', closingLine: '', until: '2026-10-20T09:00:00Z' }];
+  const then = { ...KINDLE, createdAt: '2025-10-01T20:00:00Z' };
+  const readBefore = [{ finishedOn: '2025-10-10', closingLine: '', until: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() }];
   createHighlight.mockResolvedValue({ ...KINDLE, _id: 'k2', location: '', page: 214, createdAt: new Date().toISOString() });
-  render(<Desk marks={[KINDLE]} readBefore={readBefore} />);
+  render(<Desk marks={[then]} readBefore={readBefore} />);
   expect(screen.getByText('What you marked then is here in faded ink.')).toBeInTheDocument();
 
   type(`214 "${KINDLE.text}`);
   await act(async () => keep());
-  expect(await screen.findByText('You marked this in 2026 too.')).toBeInTheDocument();
+  expect(await screen.findByText('You marked this in 2025 too.')).toBeInTheDocument();
   expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(2);
   expect(screen.getByText('Tonight')).toBeInTheDocument();
+});
+
+test('a book untouched for a month asks why you stopped, and the answer is a mark like any other', async () => {
+  const old = { ...KINDLE, createdAt: '2026-01-05T20:00:00Z' };
+  createHighlight.mockResolvedValue({ _id: 'n1', text: '', note: 'It got repetitive after the Leviathan.', createdAt: new Date().toISOString() });
+  render(<Desk marks={[old]} createdAt="2026-01-01T00:00:00Z" />);
+  expect(screen.getByText('Set down in January 2026')).toBeInTheDocument();
+  expect(screen.getByText('Why’d you stop?')).toBeInTheDocument();
+  expect(line()).toHaveAttribute('placeholder', 'Why you stopped, or the next line');
+
+  type('It got repetitive after the Leviathan.');
+  await act(async () => keep());
+  expect(await screen.findByText('Tonight')).toBeInTheDocument();
+  expect(screen.queryByText('Why’d you stop?')).not.toBeInTheDocument();
+});
+
+test('typing an old mark again picks a set-down book up, though the mark keeps its date', async () => {
+  const old = { ...KINDLE, createdAt: '2026-01-05T20:00:00Z' };
+  createHighlight.mockResolvedValue({ ...old, note: 'still true' });
+  render(<Desk marks={[old]} createdAt="2026-01-01T00:00:00Z" />);
+  type(`"${KINDLE.text}`);
+  await act(async () => keep());
+  expect(await screen.findByText('You marked this on your Kindle too. It is one mark now, with your note.')).toBeInTheDocument();
+  expect(screen.queryByText('Why’d you stop?')).not.toBeInTheDocument();
 });
 
 test('taking back a line that joined a Kindle mark gives the mark its own note back, never deletes it', async () => {

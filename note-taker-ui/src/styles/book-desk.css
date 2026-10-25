@@ -228,6 +228,22 @@ blockquote + .book-desk__own {
   .book-desk__hint {
     padding-left: 3.25rem;
   }
+
+  /* The margin is too narrow to hang a query in beside the page number,
+     and the question already ends with its own mark. */
+  .book-desk__mark[data-kind='question']::before {
+    content: none;
+  }
+
+  /* While you type, the Partner steps out of the line's way. */
+  :root:has(.book-desk__line:focus-within) .agent-rail-drawer__trigger {
+    display: none;
+  }
+}
+
+/* Brought into view, the line stops clear of anything floating at the bottom. */
+.book-desk__line {
+  scroll-margin-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
 }
 
 @media (prefers-reduced-motion: reduce) {

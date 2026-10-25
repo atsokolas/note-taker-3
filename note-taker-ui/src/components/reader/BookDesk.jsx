@@ -4,7 +4,7 @@ import { useFinePointer } from '../../hooks/useMotionPreferences';
 import { scopedKey } from '../../utils/browserScope';
 import {
   completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastTime, markedBefore, monthOf, pageNow, pagesOf,
-  readingSince, readLine, sittingOf, tallyLine
+  readingSince, readLine, setDownOn, sittingOf, tallyLine
 } from './bookDesk';
 import '../../styles/book-desk.css';
 
@@ -61,6 +61,8 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
 
   const sitting = sittingOf(now);
   const last = sitting.length ? null : lastTime(now);
+  const [touched, setTouched] = useState(false);
+  const setDown = touched ? null : setDownOn(article, now);
   const pages = useMemo(() => pagesOf(marks), [marks]);
   const typed = readLine(line, page);
   const ghost = typed.text && !isUnfinished(typed.text) ? completionFor(typed.text, marks) : '';
@@ -75,6 +77,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       else onAdd?.(saved);
       sent.current.push({ id: saved._id, before });
       setReceipt(receiptFor(draft, saved, known, !known && markedBefore(saved.text, marks, since)));
+      setTouched(true);
       if (draft.text && saved.text !== draft.text) setInked(saved._id);
       return true;
     } catch (error) {
@@ -124,7 +127,10 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     if (quote) {
       const saved = await updateHighlight({ articleId, highlightId: quote._id, payload: { note: joinNotes(quote.note, note) } })
         .catch(() => null);
-      if (saved) onReplace?.(quote._id, { ...quote, ...saved });
+      if (saved) {
+        onReplace?.(quote._id, { ...quote, ...saved });
+        setTouched(true);
+      }
       else setLine(note);
       return;
     }
@@ -176,6 +182,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     <section className="book-desk" aria-label="Reading desk">
       <p className="book-desk__lede">
         {sitting.length ? <><span className="book-desk__label">Tonight</span>{tallyLine(sitting)}</>
+          : setDown ? <><span className="book-desk__label">Set down in {monthOf(setDown)}</span>Why’d you stop?</>
           : last ? <><span className="book-desk__label">Last time{last.page ? `, p. ${last.page}` : ''}</span><q className={last.own ? 'book-desk__own' : ''}>{last.words}</q></>
             : lastReading?.finishedOn ? <><span className="book-desk__label">Read before, finished {monthOf(dayOf(lastReading.finishedOn))}</span>{lastReading.closingLine ? <q>{lastReading.closingLine}</q> : 'What you marked then is here in faded ink.'}</>
               : 'Type as you read. A number turns the page; a quote mark makes the line the book’s own words.'}
@@ -186,7 +193,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
           <li key={`${label}-${onPage[0]._id}`} className="book-desk__page">
             {label ? <span className="book-desk__folio">{label}</span> : null}
             <ul className="book-desk__marks">
-              {onPage.map((mark, index) => (
+              {onPage.map(mark => (
                 <li
                   key={mark._id}
                   className="book-desk__mark"
@@ -200,7 +207,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
                   {mark.text ? <blockquote>{mark.text}</blockquote> : null}
                   {mark.note ? <p className="book-desk__own">{mark.note}</p> : null}
                   {isEarlier(mark, since) ? <span className="book-desk__when">{yearOf(mark)}</span> : null}
-                  {doorFor?.(mark, index)}
+                  {doorFor?.(mark)}
                 </li>
               ))}
             </ul>
@@ -231,7 +238,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
             aria-label="Type a quote, a note or a question"
             enterKeyHint="send"
             value={line}
-            placeholder="A quote, or what you think"
+            placeholder={setDown ? 'Why you stopped, or the next line' : 'A quote, or what you think'}
             onChange={(event) => setLine(event.target.value)}
             onKeyDown={press}
           />

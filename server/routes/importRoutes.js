@@ -438,7 +438,7 @@ const buildImportRouter = ({
       // Today as the reader's calendar has it, for the book coming back.
       const today = calendarDay(req.query?.today);
       const books = await Article.find({ userId: req.user.id, url: BOOK_URL })
-        .select('title author createdAt finishedOn closingLine readBefore highlights._id highlights.text highlights.note highlights.page highlights.importMeta.sourcePath highlights.createdAt')
+        .select('title author createdAt updatedAt finishedOn closingLine readBefore highlights._id highlights.text highlights.note highlights.page highlights.importMeta.sourcePath highlights.createdAt')
         .lean();
       const shelf = books.map(({ highlights = [], ...book }) => ({
         ...book,
