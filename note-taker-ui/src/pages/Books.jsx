@@ -59,7 +59,7 @@ const Questions = () => {
           <li key={_id}>
             <Link to={`/library/books/${bookId}?highlight=${_id}`} className="books__question">
               <q className="is-own">{note}</q>
-              <span className="books__author"><cite>{bookTitle}</cite>{page ? `, p. ${page}` : ''}</span>
+              <span className="books__asked"><cite>{bookTitle}</cite>{page ? `, p. ${page}` : ''}</span>
             </Link>
             {answer ? (
               <Link to={buildPassagePath({ articleId: answer.articleId, highlightId: answer._id })} className="books__answer">

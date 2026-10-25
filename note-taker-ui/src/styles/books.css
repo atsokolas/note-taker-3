@@ -204,6 +204,11 @@
   text-decoration: none;
 }
 
+.books__asked {
+  color: var(--muted);
+  font: 0.82rem/1.5 var(--font-sans);
+}
+
 .books__question q {
   color: var(--ink-human, var(--text));
   font: 1rem/1.5 var(--font-sans);
