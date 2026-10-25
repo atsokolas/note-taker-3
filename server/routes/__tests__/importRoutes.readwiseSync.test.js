@@ -469,6 +469,13 @@ const run = async () => {
     const kindle = await importRouter.syncReadwiseConnection({ connection, recordEmpty: false });
     assert.strictEqual(kindle.result.importedArticles, 0, 'A book started at the desk is not shelved twice.');
     assert.deepStrictEqual(desk.highlights.map(mark => mark.text), ['There is grandeur in this view of life.']);
+
+    // A Kindle book carries only its Readwise page, which is not its address: it is shelved as a book.
+    books.push({ id: 'book-3', user_book_id: 'book-3', title: 'Middlemarch', author: 'George Eliot', readwise_url: 'https://readwise.io/bookreview/3', highlights: [{ id: 'highlight-4', text: 'What do we live for?' }] });
+    await importRouter.syncReadwiseConnection({ connection, recordEmpty: false });
+    const shelved = await Article.findOne({ userId: 'user-1', url: 'import://readwise/middlemarch-george-eliot' });
+    assert.deepStrictEqual(shelved?.highlights.map(mark => mark.text), ['What do we live for?']);
+    assert.strictEqual(shelved.importMeta.sourceUrl, 'https://readwise.io/bookreview/3', 'The Readwise page is kept as where it came from.');
   } finally {
     axios.get = originalAxiosGet;
     global.fetch = originalFetch;

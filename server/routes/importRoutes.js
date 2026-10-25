@@ -1,7 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { encryptSecret, decryptSecret } = require('../utils/integrationSecrets');
-const { absorbPassage, isUnfinished, passageIn, sameWords } = require('../utils/passages');
+const { absorbPassage, isUnfinished, passageIn } = require('../utils/passages');
 const {
   blockToPlainText,
   buildNotionPropertyLines,
@@ -54,6 +54,7 @@ const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../se
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
 const { bookReturning, calendarDay, marksOfReading } = require('../services/closedBooks');
+const { bookOnShelf, shelveBooks } = require('../services/bookShelf');
 const { fillArticleBodies } = require('../services/readableArticle');
 const {
   inboundMailConfig,
@@ -74,9 +75,6 @@ const normalizeSourcePath = (value = '') => {
   }
   return toTrimmedString(value);
 };
-/* A book already on the shelf, under any address an import gives it or by its title. */
-const bookOnShelf = (shelf, book) => shelf.find(item => [book.url, ...book.aliases].includes(item.url))
-  || shelf.find(item => sameWords(item.title) === sameWords(book.title));
 const NOTEBOOK_IMPORT_FOLDER_OWNERSHIP = 'import_mirror';
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
 const IMPORT_ORGANIZATION_SUGGESTION_TYPE = 'organize_import';
@@ -437,6 +435,7 @@ const buildImportRouter = ({
     try {
       // Today as the reader's calendar has it, for the book coming back.
       const today = calendarDay(req.query?.today);
+      await shelveBooks({ Article, userId: req.user.id });
       const books = await Article.find({ userId: req.user.id, url: BOOK_URL })
         .select('title author createdAt updatedAt finishedOn closingLine readBefore highlights._id highlights.text highlights.note highlights.page highlights.importMeta.sourcePath highlights.createdAt')
         .lean();
@@ -2426,10 +2425,12 @@ const buildImportRouter = ({
     for (const row of rows) {
       const metadataTitle = toTrimmedString(row.title);
       const author = toTrimmedString(row.author);
-      const sourceUrl = toTrimmedString(row.source_url || row.url || row.readwise_url);
+      // Readwise's own page for a book is not the book's address; a Kindle book has none.
+      const sourceUrl = toTrimmedString(row.source_url || row.url);
       const externalId = toTrimmedString(row.user_book_id || row.id);
       const sourceLabel = connection.accountLabel || 'Readwise';
-      const url = sourceUrl || `import://readwise/${externalId || slugify(metadataTitle) || crypto.randomUUID()}`;
+      const book = !sourceUrl && metadataTitle ? bookSource({ provider: 'readwise', title: metadataTitle, author }) : null;
+      const url = sourceUrl || book?.url || `import://readwise/${externalId || crypto.randomUUID()}`;
       const documentTags = Array.isArray(row.book_tags)
         ? row.book_tags.map(tag => toTrimmedString(tag?.name || tag)).filter(Boolean)
         : [];
@@ -2449,9 +2450,9 @@ const buildImportRouter = ({
       if (!article) {
         article = await Article.findOne({ userId, url });
         // A book with no web address may already be on the shelf, started at the desk or imported from a file.
-        if (!article && !sourceUrl && metadataTitle) {
+        if (!article && book) {
           shelf ||= await Article.find({ userId, url: BOOK_URL }).select('url title');
-          const known = bookOnShelf(shelf, bookSource({ provider: 'readwise', title: metadataTitle, author }));
+          const known = bookOnShelf(shelf, book);
           if (known) article = await Article.findById(known._id);
         }
         if (!article) {
@@ -2465,7 +2466,7 @@ const buildImportRouter = ({
               provider: 'readwise',
               sourceType: 'api',
               sourceLabel,
-              sourceUrl,
+              sourceUrl: sourceUrl || toTrimmedString(row.readwise_url),
               externalId,
               importSessionId: importSessionId || null,
               importedAt: new Date()
