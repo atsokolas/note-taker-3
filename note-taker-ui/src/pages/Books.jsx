@@ -286,6 +286,9 @@ const Whereabouts = ({ lines }) => (lines.length ? (
   </ul>
 ) : null);
 
+// A mark typed at the desk is saved once the server has given it an id.
+const isSaved = mark => !mark.unsent && !String(mark._id).startsWith('desk-');
+
 /* One book, at its desk. A link to a passage opens the desk at that mark. */
 const Book = ({ id }) => {
   const [searchParams] = useSearchParams();
@@ -295,11 +298,13 @@ const Book = ({ id }) => {
   const book = article ? { ...article, ...closed } : null;
   const since = readingSince(book || {});
   const { pages, whereabouts, held } = useSourceWhereabouts(id, highlights, 'book');
+  // The margins are asked again when the saved marks change, so each note stays beside its own mark.
+  const savedMarks = highlights.filter(isSaved).map(mark => mark._id).join();
   const frameRef = useRef(null);
   const deskRef = useRef(null);
   /* Each mark keeps its door to the view it was filed under, or the offer to
      file it, as it has in the reader. A mark not yet saved has no door. */
-  const doorFor = (mark) => (mark.unsent || String(mark._id).startsWith('desk-') || held.has(String(mark._id)) ? null : (
+  const doorFor = (mark) => (!isSaved(mark) || held.has(String(mark._id)) ? null : (
     <PassageDoor articleId={id} highlightId={mark._id} pages={pages} text={mark.text || ''} />
   ));
   useDocumentTitle(article?.title || 'A book', 'Library');
@@ -340,7 +345,7 @@ const Book = ({ id }) => {
             />
           </div>
           {/* Beside a mark, the closest thing you marked in another book or piece, as the reader has. */}
-          <ArticleMargins articleId={id} contentRef={deskRef} frameRef={frameRef} blocks={MARK_BLOCKS} contentKey={highlights.length ? id : ''} />
+          <ArticleMargins articleId={id} contentRef={deskRef} frameRef={frameRef} blocks={MARK_BLOCKS} contentKey={savedMarks} />
           <Whereabouts lines={whereabouts} />
           <Closing book={book} marks={highlights.filter(mark => !isEarlier(mark, since))} onChange={setClosed} />
         </>

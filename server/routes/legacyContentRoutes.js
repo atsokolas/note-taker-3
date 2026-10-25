@@ -643,6 +643,7 @@ const buildLegacyContentRouter = ({
           'finishedOn',
           'closingLine',
           'readBefore',
+          'mergedInto',
           'placement',
           'placementAt',
           'placementReason',

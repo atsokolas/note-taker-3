@@ -256,10 +256,12 @@ const ArticleReader = ({
   const focusedPassageIsInArticle = Boolean(focusedHighlightId)
     && html.includes(`data-highlight-id="highlight-${focusedHighlightId}"`);
   /* A source with no text of its own, a book above all, is read elsewhere
-     and written about at its desk, on a page of its own. */
-  const atDesk = Boolean(article)
-    && !hasReadableContent(article.content)
-    && (highlights.length > 0 || /^import:\/\//.test(article.url || ''));
+     and written about at its desk, on a page of its own. A second copy of a
+     book that went onto the shelf opens the book it went into. */
+  const atDesk = Boolean(article) && (Boolean(article.mergedInto) || (
+    !hasReadableContent(article.content)
+    && (highlights.length > 0 || /^import:\/\//.test(article.url || ''))
+  ));
   const focusedPassage = focusedHighlight && !focusedPassageIsInArticle
     ? focusedHighlight
     : null;
@@ -546,7 +548,7 @@ const ArticleReader = ({
   };
 
   if (atDesk) {
-    return <Navigate replace to={`/library/books/${article._id}${focusedHighlightId ? `?highlight=${focusedHighlightId}` : ''}`} />;
+    return <Navigate replace to={`/library/books/${article.mergedInto || article._id}${focusedHighlightId ? `?highlight=${focusedHighlightId}` : ''}`} />;
   }
 
   return (

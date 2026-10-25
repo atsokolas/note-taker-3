@@ -198,6 +198,18 @@ test('beside a mark, the closest thing you marked in another book', async () => 
   expect(fetchMarginNotes).toHaveBeenCalledWith({ articleId: 'b3', paragraphs: [quote] });
 });
 
+test('a mark saved earlier in the book asks the margins again, so each note stays beside its own mark', async () => {
+  const later = 'He built the roads first, and the parks came after, because the roads carried the votes.';
+  const earlier = 'Robert Moses was the most powerful man in New York for forty years without ever winning an election.';
+  const book = { article: { _id: 'b3', title: 'The Power Broker' }, error: '' };
+  useArticleDetail.mockReturnValue({ ...book, highlights: [{ _id: 'm1', text: later, page: 40 }] });
+  const { rerender } = at('b3');
+  await waitFor(() => expect(fetchMarginNotes).toHaveBeenCalledTimes(1));
+  useArticleDetail.mockReturnValue({ ...book, highlights: [{ _id: 'm2', text: earlier, page: 3 }, { _id: 'm1', text: later, page: 40 }] });
+  rerender(<Books />);
+  await waitFor(() => expect(fetchMarginNotes).toHaveBeenLastCalledWith({ articleId: 'b3', paragraphs: [earlier, later] }));
+});
+
 test('a question asked beside a book comes back first with the passage marked since that answers it', async () => {
   listBooks.mockResolvedValue([]);
   listBookQuestions.mockResolvedValue([

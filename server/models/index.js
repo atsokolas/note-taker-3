@@ -245,6 +245,8 @@ const articleSchema = new mongoose.Schema({
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
   archived: { type: Boolean, default: false },
+  // A book moved onto the shelf from a second copy: where its marks went.
+  mergedInto: { type: mongoose.Schema.Types.ObjectId, default: null },
   /* Stamped by GET /articles/:id. lastOpenedAt is read by the reading loop.
      Opens within half an hour are one visit; previousVisitAt is when the
      visit before this one began, which the reader's return greeting reads. */
