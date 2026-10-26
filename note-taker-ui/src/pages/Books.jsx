@@ -305,7 +305,6 @@ const AskTheAuthor = ({ book, marks, onReplace }) => {
   const [asking, setAsking] = useState(false);
   const [said, setSaid] = useState('');
   const still = usePrefersReducedMotion();
-  if (!open.length && !answers?.length && !said) return null;
   const ask = async () => {
     setAsking(true);
     setSaid('');
@@ -332,9 +331,11 @@ const AskTheAuthor = ({ book, marks, onReplace }) => {
     }
   };
   const asked = answers?.filter(found => marks.some(mark => mark._id === found.questionId)) || [];
+  if (!open.length && !asked.length && !said) return null;
   return (
     <section className="books__ask" aria-label="Ask the book">
-      {answers ? null : (
+      {/* Asked again whenever questions are open and no answer waits on you. */}
+      {!open.length || asked.length ? null : (
         <button type="button" className="books__quiet-button" disabled={asking} onClick={ask}>
           {asking ? 'Asking the book…' : `Ask the book ${open.length === 1 ? 'your open question' : `your ${open.length} open questions`}`}
         </button>

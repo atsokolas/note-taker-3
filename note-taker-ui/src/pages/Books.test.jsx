@@ -314,6 +314,7 @@ test('a finished book is asked your open questions; an answer kept is written un
   fireEvent.click(screen.getByRole('button', { name: 'Strike it' }));
   expect(screen.queryByText(/Bulstrode/)).not.toBeInTheDocument();
   expect(updateHighlight).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('button', { name: /^Ask the book your/ })).toBeInTheDocument();
 });
 
 test('the colophon holds the book between the first and last thing you marked, and counts your own words', () => {
