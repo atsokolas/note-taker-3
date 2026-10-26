@@ -48,6 +48,7 @@ test('durable create, guarded save, exact continuation, branching and privacy', 
   const branch = await call('/' + note._id + '/continue', 'POST', { ...payload, operationId: 'branch' }); assert.notEqual(branch.body._id, next.body._id);
   const source = await call('/' + note._id); assert.deepEqual(source.body, save.body);
   const blank = await call('/' + next.body._id + '/continue', 'POST', { operationId: 'blank', expectedRevision: 0, occurredOn: '2026-10-28' }); assert.equal(blank.body.continuationBridge, null);
+  assert.equal(blank.body.continuesFromEntryId, next.body._id);
 });
 test('folder ownership, reference denial, immutable bridge and simultaneous source writes', async () => {
   const personalFolder = await NotebookFolder.create({ name: 'Personal', userId: user });
@@ -65,6 +66,9 @@ test('folder ownership, reference denial, immutable bridge and simultaneous sour
   const payload = { operationId: 'race-continue', expectedRevision: 2, occurredOn: '2026-10-27' };
   const continued = await Promise.all([call('/' + note._id + '/continue', 'POST', payload), call('/' + note._id + '/continue', 'POST', payload)]);
   assert.ok(continued.every(r => r.status === 201)); assert.equal(continued[0].body._id, continued[1].body._id);
+  assert.equal(continued[0].body.folder, folder.body._id);
+  assert.equal(continued[0].body.continuesFromEntryId, note._id);
+  assert.equal((await call('/' + note._id, 'PUT', { expectedRevision: 2, continuesFromEntryId: String(user) })).status, 400);
 });
 
 test('a racing edit never changes the confirmed continuation snapshot', async () => {

@@ -6,7 +6,7 @@ const { sanitizeNotebookWorkbench } = require('../utils/notebookWorkbench');
 const fail = (status, message, current) => Object.assign(new Error(message), { status, current });
 const revision = value => Number.isInteger(value) && value >= 0;
 const date = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
-const forbidden = new Set(['linkedArticleId', 'linkedHighlightIds', 'claimId', 'articleId', 'highlightId', 'conceptId', 'questionId', 'sourceId', 'materials', 'trials', 'looseThoughts', 'importMeta', 'continuationBridge', 'knowledgeContext']);
+const forbidden = new Set(['linkedArticleId', 'linkedHighlightIds', 'claimId', 'articleId', 'highlightId', 'conceptId', 'questionId', 'sourceId', 'materials', 'trials', 'looseThoughts', 'importMeta', 'continuationBridge', 'continuesFromEntryId', 'knowledgeContext']);
 function validateReferences(value) {
   if (!value || typeof value !== 'object') return;
   for (const [key, child] of Object.entries(value)) {
@@ -106,7 +106,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder 
         if (!source) { const current = await find(req).session(session); throw fail(current ? 409 : 404, 'The source changed. Review it before continuing.', current); }
         const line = source.workingState?.nextTimeLine;
         const continuationBridge = line?.text?.trim() ? { entryId: String(source._id), title: source.title, occurredOn: source.occurredOn, text: line.text, target: line.target?.toObject ? line.target.toObject() : line.target, revision: source.revision, workbenchRevision: source.workingState.revision } : null;
-        [entry] = await NotebookEntry.create([{ userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: sourceKey, occurredOn, continuationBridge }], { session });
+        [entry] = await NotebookEntry.create([{ userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: sourceKey, occurredOn, folder: source.folder, continuesFromEntryId: source._id, continuationBridge }], { session });
       });
     } catch (error) { if (error.code !== 11000) throw error; entry = await duplicate(req, operationId, sourceKey); }
     finally { await session.endSession(); }

@@ -502,6 +502,7 @@ notebookEntrySchema.add({
   withText: { type: String, default: '' },
   operationId: { type: String, immutable: true },
   operationSource: { type: String, immutable: true },
+  continuesFromEntryId: { type: mongoose.Schema.Types.ObjectId, default: null, immutable: true },
   continuationBridge: { type: mongoose.Schema.Types.Mixed, default: null, immutable: true }
 });
 notebookEntrySchema.index({ userId: 1, operationId: 1 }, {
