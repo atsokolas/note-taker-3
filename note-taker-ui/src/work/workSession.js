@@ -21,10 +21,14 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
   let abort = new AbortController();
   const continuations = new Map();
   const options = { skipAuthHandling: true, headers: { Authorization: `Bearer ${token}` }, signal: abort.signal };
-  let saved = {}, drafts = {}, folders = [], disposed = false, tick = 0, loadError = '', loading = true;
+  let saved = {}, drafts = {}, folders = [], disposed = false, tick = 0, loadError = '', loading = true, authNeeded = false;
   const listeners = new Set(), flights = new Map(), aliases = new Map();
   const isCurrent = () => !disposed && Boolean(account) && workAccount(storage.getItem('token') || '') === account;
   const emit = () => { tick += 1; listeners.forEach(listener => listener()); };
+  const requestError = error => {
+    if (error?.response?.status === 401) { authNeeded = true; return 'Sign in to sync.'; }
+    return message(error);
+  };
   const refreshDrafts = () => {
     try {
       for (const record of device.read()) {
@@ -99,7 +103,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
           if (!isCurrent() || request.signal.aborted) return false;
           const latest = drafts[id]; latest.saving = false;
           if (error?.response?.status === 409 && error.response.data?.current) latest.conflict = error.response.data.current;
-          latest.error = error?.response?.status === 401 ? 'Sign in to sync.' : message(error);
+          latest.error = requestError(error);
           persist(id); emit(); return false;
         }
       }
@@ -113,7 +117,8 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       if (workAccount(nextToken) !== account || workAccount(storage.getItem('token') || '') !== account) return false;
       if (disposed || options.headers.Authorization !== `Bearer ${nextToken}`) {
         abort.abort(); disposed = false; abort = new AbortController(); options.signal = abort.signal;
-        options.headers = { Authorization: `Bearer ${nextToken}` };
+        if (options.headers.Authorization !== `Bearer ${nextToken}`) authNeeded = false;
+        options.headers = { Authorization: `Bearer ${nextToken}` }; emit();
       }
       return true;
     },
@@ -126,6 +131,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     folders: () => folders,
     loading: () => loading,
     error: () => loadError,
+    authNeeded: () => authNeeded,
     async load() {
       const request = { ...options };
       loading = true; loadError = ''; emit();
@@ -133,13 +139,19 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
         const { data } = await api.get('/api/work-notes', request); if (!isCurrent() || request.signal.aborted) return;
         data.entries.forEach(note => keepSaved(note));
         folders = data.folders;
-      } catch (error) { if (isCurrent() && !request.signal.aborted) loadError = message(error); }
+      } catch (error) { if (isCurrent() && !request.signal.aborted) loadError = requestError(error); }
       finally { if (isCurrent() && !request.signal.aborted) { loading = false; emit(); } }
     },
     async addFolder(name) {
       if (!isCurrent()) return null;
-      const { data } = await api.post('/api/work-notes/folders', { name }, options);
-      if (!isCurrent()) return null; folders = [...folders, data]; emit(); return data;
+      const request = { ...options };
+      try {
+        const { data } = await api.post('/api/work-notes/folders', { name }, request);
+        if (!isCurrent() || request.signal.aborted) return null; folders = [...folders, data]; emit(); return data;
+      } catch (error) {
+        if (isCurrent() && !request.signal.aborted) { requestError(error); emit(); }
+        throw error;
+      }
     },
     continuation,
     async continueFrom(source, intent) {
@@ -160,6 +172,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
         if (!isCurrent() || request.signal.aborted) return null;
         keepSaved(confirmed); keepSaved(data); forgetContinuation(pending); emit(); return data._id;
       } catch (error) {
+        if (isCurrent() && !request.signal.aborted) { requestError(error); emit(); }
         if (error?.response?.status === 409) { forgetContinuation(pending); }
         throw error;
       }

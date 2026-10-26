@@ -74,7 +74,7 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
     const account = () => {
       session.refreshDrafts();
       const returned = resumeWorkSession(session, localStorage.getItem('token') || '');
-      setLocked(!returned); if (returned) setReauthenticate(false);
+      setLocked(!returned); if (returned && !session.authNeeded()) setReauthenticate(false);
     };
     const unload = event => { if (!session.canLeave()) { event.preventDefault(); event.returnValue = ''; } };
     window.addEventListener('online', online); window.addEventListener('storage', account); window.addEventListener('focus', account); window.addEventListener('beforeunload', unload);
@@ -104,7 +104,7 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
   }, [selected, session]);
   useEffect(() => {
     const key = event => {
-      if (locked || !session.isCurrent() || sheet || quick || event.defaultPrevented) return;
+      if (locked || reauthenticate || !session.isCurrent() || sheet || quick || event.defaultPrevented) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setSheet('commands'); return; }
       if (event.key === 'Escape' && fresh) { event.preventDefault(); dismissCapture(); }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); session.flush(selected); }
@@ -153,11 +153,12 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
   const list = notes.filter(item => (folder === 'all' || (item.folder?._id || item.folder || '') === folder) && `${item.title || ''} ${noteWords(item)}`.toLowerCase().includes(query.toLowerCase()));
   const predecessor = note?.continuesFromEntryId && notes.find(item => item._id === note.continuesFromEntryId);
   const onward = notes.filter(item => item.continuesFromEntryId === note?._id && note?._id);
-  if (locked || !session.isCurrent()) return <main className="work-locked">
-    <h1>Account changed</h1>
+  const signIn = session.authNeeded() ? <button onClick={() => { window.clearTimeout(timer.current); setNotice(''); setReauthenticate(true); }}>Sign in to sync</button> : null;
+  if (reauthenticate || locked || !session.isCurrent()) return <main className="work-locked">
+    <h1>{locked || !session.isCurrent() ? 'Account changed' : 'Sign in to sync'}</h1>
     <p>{session.canLeave() ? (session.pending().length ? 'Your pending writing is on this device. Sign in to the original account to resume.' : 'Keep this page open and sign in to the original account to resume this Work session.') : 'Your latest writing is still in this page, not saved on this device. Keep this page open and sign in to the original account to recover it.'}</p>
     {reauthenticate ? <Login recovery onLoginSuccess={() => {
-      if (resumeWorkSession(session, localStorage.getItem('token') || '')) { setLocked(false); setReauthenticate(false); setNotice(''); }
+      if (resumeWorkSession(session, localStorage.getItem('token') || '')) { setLocked(false); setReauthenticate(false); setNotice(''); session.load(); }
       else setNotice('That is a different account. Sign in to the original account to recover this writing.');
     }} /> : <button onClick={() => { setNotice(''); setReauthenticate(true); }}>Sign in to the original account</button>}
     {notice && reauthenticate ? <p role="alert">{notice}</p> : null}
@@ -176,6 +177,7 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
           {!session.loading() && !list.length ? <p>{query ? 'No notes match these words.' : 'A place for the work in progress.'}</p> : null}
         </aside>
         <main className="work-page">
+          {!sheet && !quick ? signIn : null}
           <div className="work-mobile-nav"><button onClick={() => setMobileShelf(true)}>← Notes</button><button onClick={capture}>New</button></div>
           {note && !quick ? <>
             <div className="work-page-top"><label>Notebook<select aria-label="Notebook" value={note.folder?._id || note.folder || ''} onChange={event => update({ folder: event.target.value || null })}><option value="">Work inbox</option>{folders.map(item => <option key={item._id} value={item._id}>{item.name}</option>)}</select></label><span role="status">{session.status(selected)}</span><button onClick={() => session.flush(selected)}>Sync now</button></div>
@@ -196,15 +198,15 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
       <button onClick={() => { setSheet(null); leave(() => { capture(); setQuick(true); }); }}>Quick Work note</button>
       <button disabled={!note?._id} onClick={() => { setSheet(null); prepareContinue(selected); }}>Continue this note</button>
       <button onClick={() => { setSheet(null); setMobileShelf(true); window.requestAnimationFrame(() => document.querySelector('.work-shelf input[type=search]')?.focus()); }}>Find a phrase in Work</button>
-      <button onClick={closeSheet}>Close</button>
+      {signIn}<button onClick={closeSheet}>Close</button>
     </WorkDialog> : null}
     {sheet === 'continue' ? <WorkDialog title={choosing ? 'Choose a note to continue' : 'Continue from this note'} onClose={closeSheet}>
       {choosing ? <div className="work-source-list">{notes.filter(item => item._id).map(item => <button key={item.clientId} onClick={() => prepareContinue(item.clientId)}>{noteTitle(item)} · {noteDate(item)}</button>)}</div> : <><h3>{noteTitle(source)}</h3><p>{noteDate(source)}{source?.withText ? ` · with ${source.withText}` : ''}</p>{source?.workingState?.nextTimeLine?.text?.trim() ? <blockquote>{source.workingState.nextTimeLine.text}</blockquote> : <p>No return line was left on this note.</p>}<p>A fresh dated page in {folders.find(item => item._id === (source?.folder?._id || source?.folder))?.name || 'Work inbox'}. The original stays as it is.</p><div className="work-actions"><button disabled={busy} onClick={confirm}>Continue →</button><button disabled={busy || Boolean(session.continuation())} onClick={() => setChoosing(true)}>Choose another note</button></div></>}
-      {notice ? <p role="alert">{notice}</p> : null}<button disabled={busy} onClick={closeSheet}>Cancel</button>
+      {signIn}{notice ? <p role="alert">{notice}</p> : null}<button disabled={busy} onClick={closeSheet}>Cancel</button>
     </WorkDialog> : null}
-    {sheet === 'folder' ? <WorkDialog title="New notebook" onClose={closeSheet}><form onSubmit={async event => { event.preventDefault(); if (busyRef.current || !newFolder.trim()) return; busyRef.current = true; setBusy(true); try { const created = await session.addFolder(newFolder); if (created) { if (note) update({ folder: created._id }); setFolder(created._id); setSheet(null); } } catch (error) { setNotice(error?.response?.data?.error || 'Could not create this notebook. Retry.'); } finally { busyRef.current = false; setBusy(false); } }}><label>Notebook name<input value={newFolder} onChange={event => setNewFolder(event.target.value)} /></label><button disabled={busy || !newFolder.trim()}>Create notebook</button></form>{notice ? <p role="alert">{notice}</p> : null}<button onClick={closeSheet}>Cancel</button></WorkDialog> : null}
-    {sheet === 'logout' ? <WorkDialog title="Your Work drafts" onClose={closeSheet}><p>Unsynced writing is on this device. Browser storage is not a secure vault; other people using this browser may be able to read it.</p><button disabled={!session.canLeave()} onClick={() => logout(false)}>Keep on this device</button><button onClick={() => logout(true)}>Remove from this device</button><button onClick={closeSheet}>Cancel</button>{notice ? <p role="alert">{notice}</p> : null}</WorkDialog> : null}
-    {sheet === 'recovery' ? <WorkDialog title="Keep your writing" onClose={closeSheet}><p>This device could not keep your latest writing. Stay here until it saves, or take a copy before leaving.</p><button onClick={closeSheet}>Stay</button><button onClick={copy}>Copy writing</button><button onClick={download}>Download recovery</button><button onClick={() => { session.pending().forEach(([id]) => session.discard(id)); setSheet(null); departure.current?.(); }}>Discard and leave</button>{notice ? <p role="status">{notice}</p> : null}</WorkDialog> : null}
-    {quick && note ? <WorkDialog title="Work inbox · private" onClose={dismissQuick}><WorkNoteEditor key={selected} note={note} fresh onChange={update} /><p role="status">{session.status(selected)}</p><button onClick={() => leave(() => setQuick(false))}>Open as page</button><button onClick={dismissQuick}>Close</button></WorkDialog> : null}
+    {sheet === 'folder' ? <WorkDialog title="New notebook" onClose={closeSheet}><form onSubmit={async event => { event.preventDefault(); if (busyRef.current || !newFolder.trim()) return; busyRef.current = true; setBusy(true); try { const created = await session.addFolder(newFolder); if (created) { if (note) update({ folder: created._id }); setFolder(created._id); setSheet(null); } } catch (error) { setNotice(error?.response?.data?.error || 'Could not create this notebook. Retry.'); } finally { busyRef.current = false; setBusy(false); } }}><label>Notebook name<input value={newFolder} onChange={event => setNewFolder(event.target.value)} /></label><button disabled={busy || !newFolder.trim()}>Create notebook</button></form>{signIn}{notice ? <p role="alert">{notice}</p> : null}<button onClick={closeSheet}>Cancel</button></WorkDialog> : null}
+    {sheet === 'logout' ? <WorkDialog title="Your Work drafts" onClose={closeSheet}><p>{session.canLeave() ? 'Unsynced writing is on this device.' : 'Your latest writing is still in this page, not saved on this device. Keep this page open or take a copy before leaving.'}</p><p>Browser storage is not a secure vault; other people using this browser may be able to read it.</p>{signIn}{!session.canLeave() ? <><button onClick={copy}>Copy writing</button><button onClick={download}>Download recovery</button></> : null}<button disabled={!session.canLeave()} onClick={() => logout(false)}>Keep on this device</button><button onClick={() => logout(true)}>{session.canLeave() ? 'Remove from this device' : 'Discard writing and log out'}</button><button onClick={closeSheet}>Cancel</button>{notice ? <p role="alert">{notice}</p> : null}</WorkDialog> : null}
+    {sheet === 'recovery' ? <WorkDialog title="Keep your writing" onClose={closeSheet}><p>This device could not keep your latest writing. Stay here until it saves, or take a copy before leaving.</p>{signIn}<button onClick={closeSheet}>Stay</button><button onClick={copy}>Copy writing</button><button onClick={download}>Download recovery</button><button onClick={() => { session.pending().forEach(([id]) => session.discard(id)); setSheet(null); departure.current?.(); }}>Discard and leave</button>{notice ? <p role="status">{notice}</p> : null}</WorkDialog> : null}
+    {quick && note ? <WorkDialog title="Work inbox · private" onClose={dismissQuick}><WorkNoteEditor key={selected} note={note} fresh onChange={update} /><p role="status">{session.status(selected)}</p>{signIn}<button onClick={() => session.flush(selected)}>Sync now</button><button onClick={() => leave(() => setQuick(false))}>Open as page</button><button onClick={dismissQuick}>Close</button></WorkDialog> : null}
   </div>;
 }

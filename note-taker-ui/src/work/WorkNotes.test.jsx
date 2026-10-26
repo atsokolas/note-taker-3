@@ -185,3 +185,95 @@ test('existing inline login restores original-owner memory with refreshed captur
   await waitFor(() => expect(api.put).toHaveBeenCalled());
   expect(api.put.mock.calls[0][2].headers.Authorization).toBe(`Bearer ${renewed}`);
 });
+
+const expired = { response: { status: 401, data: { error: 'Token expired' } } };
+const renewedToken = `x.${btoa(JSON.stringify({ id: 'owner', exp: 9999999999 }))}.renewed`;
+const login = async (response = { data: { token: renewedToken } }) => {
+  fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-password' } });
+  api.post.mockResolvedValueOnce(response);
+  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+};
+test.each([false, true])('same-owner expiry offers existing login and preserves exact writing (storage failure: %s)', async failedStorage => {
+  await open(); const originalSet = Storage.prototype.setItem;
+  const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function(key, value) {
+    if (failedStorage && key.startsWith(draftKey('owner'))) throw new Error('quota'); originalSet.call(this, key, value);
+  });
+  try {
+    const words = '  Exact writing.\nAnother line.  ';
+    fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: words } });
+    api.put.mockRejectedValueOnce(expired); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' }));
+    expect(screen.queryByDisplayValue(words)).toBeNull();
+    await login(); expect(await screen.findByLabelText('Work note writing')).toHaveValue(words);
+    fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
+    await waitFor(() => expect(api.put).toHaveBeenCalledTimes(2));
+    expect(api.put.mock.calls[1][1].content).toBe(words);
+    expect(api.put.mock.calls[1][2].headers.Authorization).toBe(`Bearer ${renewedToken}`);
+    await screen.findByText('Saved');
+  } finally { set.mockRestore(); }
+});
+test('failed and wrong-owner expiry logins hide retained writing until the original owner returns', async () => {
+  await open(); fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Private retained words' } });
+  api.put.mockRejectedValueOnce(expired); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' }));
+  api.post.mockRejectedValueOnce({ response: { data: { error: 'Incorrect password' } } });
+  fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-password' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Login' })); await screen.findByText('Incorrect password');
+  expect(screen.queryByDisplayValue('Private retained words')).toBeNull();
+  await login({ data: { token: `x.${btoa(JSON.stringify({ id: 'other' }))}.other` } });
+  await screen.findByText(/That is a different account/); expect(screen.queryByDisplayValue('Private retained words')).toBeNull();
+  expect(api.put).toHaveBeenCalledTimes(1);
+  await login(); expect(await screen.findByDisplayValue('Private retained words')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Sync now' })); await waitFor(() => expect(api.put).toHaveBeenCalledTimes(2));
+  expect(api.put.mock.calls[1][2].headers.Authorization).toBe(`Bearer ${renewedToken}`);
+});
+test('initial-load expiry has an actionable login and reloads the shelf after authentication', async () => {
+  api.get.mockRejectedValueOnce(expired); render(<WorkNotes />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' })); await login();
+  expect(await screen.findByRole('button', { name: /Charging windows/ })).toBeInTheDocument();
+  expect(api.get.mock.calls[1][1].headers.Authorization).toBe(`Bearer ${renewedToken}`);
+});
+test('Continue expiry opens login without a second dialog and retains the operation for retry', async () => {
+  await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note:/ }));
+  api.post.mockRejectedValueOnce(expired); fireEvent.click(await screen.findByRole('button', { name: 'Continue →' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' })); expect(screen.queryByRole('dialog')).toBeNull();
+  await login(); const dialog = await screen.findByRole('dialog', { name: 'Continue from this note' });
+  expect(screen.getAllByRole('dialog')).toHaveLength(1); fireEvent.click(within(dialog).getByRole('button', { name: 'Continue →' }));
+  await screen.findByText('Last time’s line');
+  const requests = api.post.mock.calls.filter(([path]) => path.endsWith('/continue'));
+  expect(requests[1][1].operationId).toBe(requests[0][1].operationId);
+  expect(requests[1][2].headers.Authorization).toBe(`Bearer ${renewedToken}`);
+});
+test('quick-capture create expiry recovers through one surface with the same writing and operation', async () => {
+  window.history.replaceState({}, '', '/think?context=work&capture=1'); render(<WorkNotes />);
+  await screen.findByRole('dialog', { name: 'Work inbox · private' });
+  fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: 'Quick exact words' } });
+  api.post.mockRejectedValueOnce(expired);
+  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' }, { timeout: 2000 }));
+  expect(screen.queryByRole('dialog')).toBeNull(); await login();
+  const dialog = await screen.findByRole('dialog', { name: 'Work inbox · private' });
+  expect(screen.getAllByRole('dialog')).toHaveLength(1); expect(screen.getByLabelText('Work note writing')).toHaveValue('Quick exact words');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Sync now' }));
+  await waitFor(() => expect(api.post.mock.calls.filter(([path]) => path === '/api/work-notes')).toHaveLength(2));
+  const requests = api.post.mock.calls.filter(([path]) => path === '/api/work-notes');
+  expect(requests[1][1].operationId).toBe(requests[0][1].operationId);
+  expect(requests[1][2].headers.Authorization).toBe(`Bearer ${renewedToken}`);
+});
+test('logout under storage failure tells the truth and offers copy and cancel before discard', async () => {
+  await open(); const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: jest.fn().mockResolvedValue() } });
+  try {
+    fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: 'Only memory words' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+    const dialog = screen.getByRole('dialog', { name: 'Your Work drafts' });
+    expect(dialog).toHaveTextContent('still in this page, not saved on this device');
+    expect(dialog).not.toHaveTextContent('Unsynced writing is on this device');
+    expect(within(dialog).getByRole('button', { name: 'Keep on this device' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Download recovery' })).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy writing' })); await screen.findByText('Writing copied.');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Only memory words'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' })); expect(screen.getByLabelText('Work note writing')).toHaveValue('Only memory words');
+  } finally { set.mockRestore(); }
+});
