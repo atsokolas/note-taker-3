@@ -45,7 +45,7 @@ export default function WorkNoteEditor({ note, onChange, fresh = false }) {
   });
   useLayoutEffect(() => {
     if (!editor) return;
-    const accepted = createDocument(content, editor.schema);
+    const accepted = createDocument(content, editor.schema, { preserveWhitespace: 'full' });
     // Publish an accepted replacement before typing can use its new revision.
     // Local edits and their receipts already match, so their selection stays put.
     if (!editor.state.doc.eq(accepted)) editor.commands.setContent(accepted, false);

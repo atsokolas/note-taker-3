@@ -32,3 +32,21 @@ test('the shared editor remains editable through development StrictMode remounts
   act(() => writing.editor.commands.insertContent('New '));
   expect(writing).toHaveTextContent('New Keep writing');
 });
+
+test('controlled local updates preserve repeated spaces, paragraph breaks and the typed caret', () => {
+  function Writing() {
+    const [note, setNote] = React.useState({ content: '<p><strong>Recorded words</strong></p>' });
+    return <WorkNoteEditor note={note} onChange={patch => setNote(current => ({ ...current, ...patch }))} />;
+  }
+  render(<Writing />);
+  const writing = screen.getByRole('textbox', { name: 'Work note writing' });
+  const editor = writing.editor;
+  act(() => editor.view.dispatch(editor.state.tr.insertText('Two  spaces ')));
+  expect(editor.getText()).toBe('Two  spaces Recorded words');
+  expect(editor.state.selection.from).toBe(13);
+  act(() => editor.commands.splitBlock());
+  act(() => editor.view.dispatch(editor.state.tr.insertText('Next  line ')));
+  expect(editor.getText()).toBe('Two  spaces \n\nNext  line Recorded words');
+  expect(editor.state.selection.from).toBe(26);
+  expect(writing.querySelector('p:last-child strong')).toHaveTextContent('Recorded words');
+});
