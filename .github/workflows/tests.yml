@@ -11,7 +11,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  scope:
+    name: Test scope
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.scope.outputs.server }}
+      ui: ${{ steps.scope.outputs.ui }}
+      extension: ${{ steps.scope.outputs.extension }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Classifier regression tests
+        run: node --test scripts/ci_test_scope.test.js
+      - id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            BASE=$(git merge-base "$BASE" "$HEAD") || BASE=""
+          fi
+          node scripts/ci_test_scope.js "$BASE" "$HEAD"
   server:
+    needs: scope
+    if: needs.scope.outputs.server == 'true'
     name: Server
     runs-on: ubuntu-latest
     env:
@@ -32,10 +60,18 @@ jobs:
         run: node scripts/boot_check.js
       - name: Server tests (every node-style file and jest suite)
         run: npm run test:server
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: server-test-receipts
+          path: tmp/test-receipts/**
+          if-no-files-found: ignore
       - name: Offline harnesses
         run: npm run harness:offline
 
   ui:
+    needs: scope
+    if: needs.scope.outputs.ui == 'true'
     name: UI
     runs-on: ubuntu-latest
     defaults:
@@ -52,7 +88,13 @@ jobs:
       - name: UI tests
         env:
           CI: true
-        run: npx react-scripts test --watchAll=false --maxWorkers=2
+        run: node ../scripts/test_receipt.js ui --maxWorkers=2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-test-receipts
+          path: tmp/test-receipts/**
+          if-no-files-found: ignore
       - name: UI build
         env:
           # CI=true turns every lint warning into a build failure; the build gate is that it compiles.
@@ -60,6 +102,8 @@ jobs:
         run: npm run build
 
   extension:
+    needs: scope
+    if: needs.scope.outputs.extension == 'true'
     name: Chrome extension
     runs-on: ubuntu-latest
     steps:
@@ -74,3 +118,30 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/pw/node_modules
         run: npm run extension:smoke
+
+  gate:
+    name: Tests complete
+    if: always()
+    needs: [scope, server, ui, extension]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify every selected gate passed
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          SERVER_SELECTED: ${{ needs.scope.outputs.server }}
+          UI_SELECTED: ${{ needs.scope.outputs.ui }}
+          EXTENSION_SELECTED: ${{ needs.scope.outputs.extension }}
+          SERVER_RESULT: ${{ needs.server.result }}
+          UI_RESULT: ${{ needs.ui.result }}
+          EXTENSION_RESULT: ${{ needs.extension.result }}
+        run: |
+          test "$SCOPE_RESULT" = success
+          for component in SERVER UI EXTENSION; do
+            selected="${component}_SELECTED"
+            result="${component}_RESULT"
+            if [ "${!selected}" = true ]; then
+              test "${!result}" = success || exit 1
+            else
+              test "${!selected}" = false && test "${!result}" = skipped || exit 1
+            fi
+          done
