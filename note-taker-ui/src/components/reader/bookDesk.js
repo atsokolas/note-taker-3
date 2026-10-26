@@ -48,6 +48,17 @@ const sameWords = (value = '') => (String(value).match(WORD) || []).join(' ').to
 export const readingSince = (book = {}) => Math.max(0, ...(book.readBefore || []).map(({ until }) => new Date(until).getTime()));
 export const isEarlier = (mark, since) => at(mark) < since;
 
+/* Every reading of a book that was finished, oldest first, each with the
+   marks made in it: an earlier reading runs to the moment it was started
+   again, the last one from there on. */
+export const readingsOf = (book = {}, marks = []) => {
+  const earlier = book.readBefore || [];
+  const bounds = [0, ...earlier.map(({ until }) => new Date(until).getTime()), Infinity];
+  return [...earlier, { finishedOn: book.finishedOn, closingLine: book.closingLine }]
+    .map((reading, index) => ({ ...reading, marks: marks.filter(mark => at(mark) >= bounds[index] && at(mark) < bounds[index + 1]) }))
+    .filter(reading => reading.finishedOn);
+};
+
 /* The earlier mark of the same passage, when one marked again was marked last time too. */
 export const markedBefore = (text, marks = [], since = 0) => (
   text ? marks.find(mark => isEarlier(mark, since) && mark.text && sameWords(mark.text) === sameWords(text)) : null

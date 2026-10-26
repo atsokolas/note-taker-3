@@ -85,6 +85,18 @@ export const beforeBook = async (id) => (
   (await api.get(`/api/books/${encodeURIComponent(id)}/before`, getAuthHeaders())).data?.passages || []
 );
 
+/* Lending a book: the address a friend reads your copy at; taking it back ends it. */
+export const lendBook = async (id) => (
+  (await api.put(`/api/books/${encodeURIComponent(id)}/lent`, {}, getAuthHeaders())).data
+);
+export const takeBookBack = async (id) => (
+  (await api.delete(`/api/books/${encodeURIComponent(id)}/lent`, getAuthHeaders())).data
+);
+/* A copy lent to you, read without an account. */
+export const getLentBook = async (slug) => (
+  (await api.get(`/api/public/books/${encodeURIComponent(slug)}`, { skipAuthHandling: true })).data?.book || null
+);
+
 /* The questions still open beside a book, answered only from the passages marked in it. */
 export const askBook = async (id) => (
   (await api.post(`/api/books/${encodeURIComponent(id)}/ask`, {}, getAuthHeaders())).data?.answers || []

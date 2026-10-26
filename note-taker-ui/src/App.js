@@ -112,6 +112,7 @@ const Support = lazy(() => import('./pages/Support'));
 const OpenSentenceStoryboard = lazy(() => import('./pages/OpenSentenceStoryboard'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
 const SharedEdition = lazy(() => import('./pages/SharedEdition'));
+const LentBook = lazy(() => import('./pages/LentBook'));
 const RetiredShare = lazy(() => import('./pages/RetiredShare'));
 const QuestionSharePreview = lazy(() => import('./pages/QuestionSharePreview'));
 const SharedWikiPage = lazy(() => import('./pages/SharedWikiPage'));
@@ -300,6 +301,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
           <Route path="/share/concepts/:slug" element={<RetiredShare kind="concepts" />} />
           <Route path="/share/questions/:slug" element={<SharedQuestion />} />
           <Route path="/share/editions/:slug" element={<SharedEdition />} />
+          <Route path="/share/books/:slug" element={<LentBook />} />
           <Route path="/share/notebooks/:slug" element={<RetiredShare kind="notebooks" />} />
           <Route path="/share/volumes/:slug" element={<RetiredShare kind="volumes" />} />
           <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />

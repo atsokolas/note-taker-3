@@ -183,6 +183,20 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
     const later = (await (await fetch(`${url}/api/books?today=2026-10-18`)).json()).books.find(item => String(item._id) === bookId);
     assert.deepEqual(later.returning, { years: 1, days: 0, line: 'Selection keeps what variation offers.' }, 'the first sentence still comes back');
 
+    // Lending it: a friend reads the copy as it stands, with nothing of the account, until it is taken back.
+    const put = route => fetch(`${url}${route}`, { method: 'PUT' }).then(r => r.json());
+    const { lentAs } = await put(`/api/books/${bookId}/lent`);
+    assert.equal((await put(`/api/books/${bookId}/lent`)).lentAs, lentAs, 'lending again keeps the link');
+    const lent = await (await fetch(`${url}/api/public/books/${lentAs}`)).json();
+    assert.equal(lent.book.title, 'The Origin of Species');
+    assert.equal(lent.book.readBefore[0].closingLine, 'Selection keeps what variation offers.', 'with the reading before this one');
+    assert.ok(lent.book.marks.some(mark => mark.note === 'the last line, read first\n\nThe last line of the book, read first.'));
+    assert.ok(lent.book.marks.every(mark => typeof mark.location === 'string' && !mark.importMeta), 'placed as the shelf places them');
+    assert.ok(!JSON.stringify(lent).includes(String(userId)), 'no account in a lent copy');
+    await fetch(`${url}/api/books/${bookId}/lent`, { method: 'DELETE' });
+    assert.equal((await fetch(`${url}/api/public/books/${lentAs}`)).status, 404, 'taken back');
+    assert.notEqual((await put(`/api/books/${bookId}/lent`)).lentAs, lentAs, 'a book lent again gets a new link');
+
     const notABook = await Article.create({ userId, url: 'https://example.com/essay', title: 'An essay' });
     assert.equal((await fetch(`${url}/api/books/${notABook._id}/closed`, { method: 'PUT' })).status, 404);
   } finally {

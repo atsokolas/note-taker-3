@@ -1,4 +1,4 @@
-import { BOOK_SAYS, bookendsOf, completionFor, kindOf, lastTime, pageNow, pagesOf, readLine, sittingLabel, sittingOf, spineOf, tallyLine } from './bookDesk';
+import { BOOK_SAYS, bookendsOf, readingsOf, completionFor, kindOf, lastTime, pageNow, pagesOf, readLine, sittingLabel, sittingOf, spineOf, tallyLine } from './bookDesk';
 
 const at = minutes => new Date(Date.UTC(2026, 9, 19, 21, minutes)).toISOString();
 const NOW = Date.UTC(2026, 9, 19, 22, 0);
@@ -106,3 +106,14 @@ test('a Kindle book runs by location, and too few marks make no spine', () => {
   expect(spineOf(kindle.slice(0, 2))).toBeNull();
   expect(spineOf([{ _id: 'r', text: 'no place' }, ...kindle.slice(0, 2)])).toBeNull();
 });
+
+test('each finished reading of a book holds the marks made in it', () => {
+  const book = { finishedOn: '2026-10-19', closingLine: 'now', readBefore: [{ finishedOn: '2025-03-02', closingLine: 'then', until: '2025-03-03T00:00:00Z' }] };
+  const marks = [{ _id: 'a', createdAt: '2025-02-01T00:00:00Z' }, { _id: 'b', createdAt: '2026-10-01T00:00:00Z' }];
+  expect(readingsOf(book, marks).map(reading => [reading.finishedOn, reading.closingLine, reading.marks.map(mark => mark._id)])).toEqual([
+    ['2025-03-02', 'then', ['a']],
+    ['2026-10-19', 'now', ['b']]
+  ]);
+  expect(readingsOf({ ...book, finishedOn: '' }, marks).map(reading => reading.finishedOn)).toEqual(['2025-03-02']);
+});
+

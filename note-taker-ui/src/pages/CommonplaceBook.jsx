@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getCommonplaceBook } from '../api/library';
 import useDocumentTitle from '../hooks/useDocumentTitle';
+import { YearShelf } from './Books';
 import { buildCanonicalArticlePath, buildPassagePath } from '../utils/sourceRoutes';
 import '../styles/commonplace-book.css';
 
@@ -88,6 +89,8 @@ const CommonplaceBook = () => {
               </figure>
             ) : null}
           </header>
+
+          <YearShelf year={book.year} />
 
           {chapters.length > 1 ? (
             <nav className="commonplace-book__contents" aria-label="Contents">
