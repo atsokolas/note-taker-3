@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { updateHighlight } from '../api/highlights';
-import { askBook, beforeBook, bookEcho, closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
+import {
+  askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook, takeBookBack
+} from '../api/imports';
 import { ArticleMargins } from '../components/margins/LibraryMargins';
 import { useSettleIntoWiki } from '../components/think/settleIntoWiki';
 import BookDesk from '../components/reader/BookDesk';
 import PassageDoor from '../components/reader/PassageDoorView';
 import useSourceWhereabouts from '../components/reader/useSourceWhereabouts';
 import {
-  BOOK_SAYS, bookendsOf, dayOf, isEarlier, kindOf, lastTime, longDate, monthOf, readingSince, setDownOn, sittingsOf, spineOf, tallyLine
+  BOOK_SAYS, bookendsOf, dayOf, isEarlier, kindOf, lastTime, longDate, monthOf, readingSince, readingsOf, setDownOn, sittingsOf, spineOf, tallyLine
 } from '../components/reader/bookDesk';
 import { bookFrom } from '../components/library/LibraryPasteLink';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
@@ -218,6 +220,35 @@ const Remember = ({ label, onKeep }) => {
   );
 };
 
+/* A finished book's colophon, where a printed book keeps one: when it was
+   read, how many sittings, what was written, the sentence kept, and each time
+   it was read before. Yours under your desk, or a friend's copy lent to you. */
+export const Colophon = ({ book, marks, line, whose = 'your', children }) => {
+  const sittings = sittingsOf(marks);
+  const { first, last, words } = bookendsOf(marks);
+  const before = (book.readBefore || []).filter(reading => reading.finishedOn);
+  const facts = [
+    sittings.length && longDate(new Date(sittings[0][0].createdAt)) !== longDate(dayOf(book.finishedOn)) ? `Read from ${longDate(new Date(sittings[0][0].createdAt))}` : '',
+    sittings.length > 1 ? `${sittings.length} sittings` : '',
+    tallyLine(marks),
+    words ? `${words.toLocaleString()} ${words === 1 ? 'word' : 'words'} of ${whose} own` : ''
+  ].filter(Boolean).join(' · ');
+  return (
+    <section className="books__colophon" aria-label="Colophon">
+      <p className="books__author">Finished {longDate(dayOf(book.finishedOn))}</p>
+      {line}
+      {facts ? <p className="books__tally">{facts}</p> : null}
+      {first ? <p className="books__tally books__bookends">It began with <q>{first}</q> and ended with <q>{last}</q></p> : null}
+      {before.map(reading => (
+        <p key={reading.until} className="books__tally books__before">
+          Also finished {longDate(dayOf(reading.finishedOn))}{reading.closingLine ? <>, and said: <q>{reading.closingLine}</q></> : null}
+        </p>
+      ))}
+      {children}
+    </section>
+  );
+};
+
 /* Closing the book. While you read, it is one quiet line under the desk.
    Closed, the book gets its colophon there, where a printed book keeps one:
    when you read it, how many sittings, what you wrote, and the sentence you
@@ -250,8 +281,6 @@ const Closing = ({ book, marks, saved, writeUp, onChange, children }) => {
       setSaid('The book is still closed. Try it again.');
     }
   };
-  const before = (book.readBefore || []).filter(reading => reading.finishedOn);
-
   if (!book.finishedOn) {
     return (
       <section className="books__closing" aria-label="Closing the book">
@@ -261,25 +290,8 @@ const Closing = ({ book, marks, saved, writeUp, onChange, children }) => {
       </section>
     );
   }
-  const sittings = sittingsOf(marks);
-  const { first, last, words } = bookendsOf(marks);
-  const colophon = [
-    sittings.length && longDate(new Date(sittings[0][0].createdAt)) !== longDate(dayOf(book.finishedOn)) ? `Read from ${longDate(new Date(sittings[0][0].createdAt))}` : '',
-    sittings.length > 1 ? `${sittings.length} sittings` : '',
-    tallyLine(marks),
-    words ? `${words.toLocaleString()} ${words === 1 ? 'word' : 'words'} of your own` : ''
-  ].filter(Boolean).join(' · ');
   return (
-    <section className="books__colophon" aria-label="Colophon">
-      <p className="books__author">Finished {longDate(dayOf(book.finishedOn))}</p>
-      {book.closingLine ? <blockquote>{book.closingLine}</blockquote> : <Remember label="Keep" onKeep={keep} />}
-      {colophon ? <p className="books__tally">{colophon}</p> : null}
-      {first ? <p className="books__tally books__bookends">It began with <q>{first}</q> and ended with <q>{last}</q></p> : null}
-      {before.map(reading => (
-        <p key={reading.until} className="books__tally books__before">
-          Also finished {longDate(dayOf(reading.finishedOn))}{reading.closingLine ? <>, and said: <q>{reading.closingLine}</q></> : null}
-        </p>
-      ))}
+    <Colophon book={book} marks={marks} line={book.closingLine ? <blockquote>{book.closingLine}</blockquote> : <Remember label="Keep" onKeep={keep} />}>
       {said ? <p className="books__quiet" role="status">{said}</p> : null}
       {children}
       {writing.lines}
@@ -290,7 +302,7 @@ const Closing = ({ book, marks, saved, writeUp, onChange, children }) => {
         <button type="button" className="books__quiet-button" onClick={open(true)}>Read it again</button>
         <button type="button" className="books__quiet-button" onClick={open(false)}>Still reading it</button>
       </p>
-    </section>
+    </Colophon>
   );
 };
 
@@ -395,6 +407,94 @@ const BeforeYouStart = ({ id }) => {
   );
 };
 
+/* Lending the book: a link a friend reads your copy at, your marks and your
+   sentence as they stand whenever they open it. On a phone or an iPad it
+   goes through the share sheet; elsewhere it is copied. Taking it back ends
+   the link for good. */
+export const lentLink = slug => `${window.location.origin}/share/books/${slug}`;
+
+const Lend = ({ book, onChange }) => {
+  const [said, setSaid] = useState('');
+  const hand = async (link) => {
+    if (navigator.share) {
+      await navigator.share({ title: book.title, url: link }).catch(() => {});
+      return '';
+    }
+    return navigator.clipboard?.writeText(link).then(() => 'Link copied. Anyone with it can read your copy.', () => '') || '';
+  };
+  const lend = async () => {
+    try {
+      const { lentAs } = book.lentAs ? book : await lendBook(book._id);
+      onChange({ lentAs });
+      setSaid(await hand(lentLink(lentAs)));
+    } catch (_) {
+      setSaid('The book could not be lent. Try it again.');
+    }
+  };
+  const takeBack = async () => {
+    try {
+      onChange(await takeBookBack(book._id));
+      setSaid('Taken back. That link no longer opens.');
+    } catch (_) {
+      setSaid('The book is still lent. Try it again.');
+    }
+  };
+  return (
+    <p className="books__lend">
+      {book.lentAs ? (
+        <>
+          <a href={lentLink(book.lentAs)}>Lent</a>
+          <button type="button" className="books__quiet-button" onClick={lend}>Pass the link on</button>
+          <button type="button" className="books__quiet-button" onClick={takeBack}>Take it back</button>
+        </>
+      ) : <button type="button" className="books__quiet-button" onClick={lend}>Lend it</button>}
+      {said ? <span role="status">{said}</span> : null}
+    </p>
+  );
+};
+
+/* A year of books as a shelf of spines: each book finished that year, laid
+   flat as its strip of marks, so where each one got you shows across the
+   year at a glance. A book read twice that year stands twice. Nothing when
+   no book was finished in it. */
+export const YearShelf = ({ year }) => {
+  const [books, setBooks] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    listBooks()
+      .then(found => { if (!cancelled) setBooks(found); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const read = books.flatMap(book => readingsOf(book, book.marks)
+    .filter(reading => reading.finishedOn.startsWith(String(year)))
+    .map(reading => ({ ...reading, book, spine: spineOf(reading.marks) })))
+    .sort((a, b) => a.finishedOn.localeCompare(b.finishedOn));
+  if (!read.length) return null;
+  return (
+    <section className="books__year" aria-labelledby="books-year">
+      <h2 id="books-year">The books you finished</h2>
+      <ol>
+        {read.map(({ book, finishedOn, marks, spine }) => (
+          <li key={`${book._id}-${finishedOn}`}>
+            <Link to={`/library/books/${book._id}`}>
+              <span className="books__year-title"><cite>{book.title}</cite>{book.author ? `, ${book.author}` : ''}</span>
+              {spine ? (
+                <span className="books__spine-strip" aria-hidden="true">
+                  {spine.ticks.map(tick => <span key={tick.id} data-kind={tick.kind} style={{ left: `${tick.at * 100}%` }} />)}
+                </span>
+              ) : null}
+              <span className="books__asked">
+                {[monthOf(dayOf(finishedOn)), tallyLine(marks), spine?.thickest ? `thickest at ${spine.thickest.label}` : ''].filter(Boolean).join(' · ')}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+};
+
 /* Bring one mark into view and ink it for a moment, so the eye lands on it. */
 const showMark = (id, smooth = false) => {
   const mark = document.querySelector(`[data-highlight-id="highlight-${id}"]`);
@@ -409,7 +509,7 @@ const showMark = (id, smooth = false) => {
    reads as ink before anything is said about it. A tick opens its mark; the
    ticks are a picture of the marks listed below, so they stay out of the tab
    order, and the thickest stretch is a link anyone can follow. */
-const Spine = ({ marks, since }) => {
+export const Spine = ({ marks, since }) => {
   const spine = useMemo(() => spineOf(marks, since), [marks, since]);
   const still = usePrefersReducedMotion();
   if (!spine) return null;
@@ -450,8 +550,10 @@ const Book = ({ id }) => {
   const [searchParams] = useSearchParams();
   const asked = searchParams.get('highlight') || '';
   const { article, highlights, error, addHighlightOptimistic, replaceHighlight, removeHighlight } = useArticleDetail(id);
-  const [closed, setClosed] = useState(null);
-  const book = article ? { ...article, ...closed } : null;
+  // What changes on the book while it is open: closing it, lending it.
+  const [changed, setChanged] = useState(null);
+  const change = more => setChanged(held => ({ ...held, ...more }));
+  const book = article ? { ...article, ...changed } : null;
   const since = readingSince(book || {});
   const { pages, whereabouts, held } = useSourceWhereabouts(id, highlights, 'book');
   // The margins are asked again when the saved marks change, so each note stays beside its own mark.
@@ -479,7 +581,10 @@ const Book = ({ id }) => {
 
   return (
     <main ref={frameRef} className="books books--one" aria-labelledby="book-title" aria-busy={!article && !error}>
-      <nav className="books__tools" aria-label="Book"><Link to="/library/books">← Books</Link></nav>
+      <nav className="books__tools" aria-label="Book">
+        <Link to="/library/books">← Books</Link>
+        {book ? <Lend book={book} onChange={change} /> : null}
+      </nav>
       {error ? <p className="books__quiet" role="alert">{error}</p> : null}
       {book ? (
         <>
@@ -509,7 +614,7 @@ const Book = ({ id }) => {
             marks={highlights.filter(mark => !isEarlier(mark, since))}
             saved={highlights.every(isSaved)}
             writeUp={pages.find(page => page.createdFrom?.label === `settled-book:${id}`)}
-            onChange={setClosed}
+            onChange={change}
           >
             <AskTheAuthor book={book} marks={highlights} onReplace={replaceHighlight} />
           </Closing>

@@ -10,7 +10,30 @@
 }
 
 .books__tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0 var(--space-4);
   font: 13px/1.6 var(--font-sans);
+}
+
+/* Lending sits opposite the way back, in the same quiet type. */
+.books__lend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  margin-left: auto;
+  gap: 0 var(--space-4);
+  margin-top: 0;
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.books__lend [role="status"] {
+  flex-basis: 100%;
+  text-align: right;
 }
 
 .books__tools a {
@@ -179,7 +202,8 @@
 
 .books__questions h2,
 .books__twice h2,
-.books__beforehand h2 {
+.books__beforehand h2,
+.books__year h2 {
   margin: 0;
   color: var(--muted);
   font: 0.82rem/1.5 var(--font-sans);
@@ -367,6 +391,43 @@
   .books .books__quiet-button {
     transition: none;
   }
+}
+
+/* The year's books as a shelf of spines, one ruled row each. */
+.books__year {
+  margin: var(--space-6) 0;
+}
+
+.books__year ol {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.books__year li a {
+  display: grid;
+  gap: 6px;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle-2);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.books__year-title {
+  font: 1.05rem/1.4 var(--font-serif);
+}
+
+.books__year-title cite {
+  font-style: normal;
+}
+
+.books__year .books__spine-strip {
+  height: 16px;
+  cursor: inherit;
+}
+
+.books__year li a:is(:hover, :focus-visible) .books__spine-strip span {
+  opacity: 0.8;
 }
 
 /* The spine: the book laid flat as one ruled strip. Each mark is a hairline

@@ -2,13 +2,13 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as Router from 'react-router-dom';
 import Books from './Books';
-import { askBook, beforeBook, bookEcho, closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
+import { askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook, takeBookBack } from '../api/imports';
 import { updateHighlight } from '../api/highlights';
 import useArticleDetail from '../hooks/useArticleDetail';
 import { listWikiPages, settleIntoWiki } from '../api/wiki';
 import { fetchMarginNotes } from '../api/retrieval';
 
-jest.mock('../api/imports', () => ({ askBook: jest.fn(), beforeBook: jest.fn(), bookEcho: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
+jest.mock('../api/imports', () => ({ askBook: jest.fn(), beforeBook: jest.fn(), bookEcho: jest.fn(), lendBook: jest.fn(), takeBookBack: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
 jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn(), settleIntoWiki: jest.fn() }));
@@ -341,5 +341,23 @@ test('a book whose marks answer none of its questions says so and keeps them ope
   at('b2');
   fireEvent.click(screen.getByRole('button', { name: 'Ask the book your open question' }));
   expect(await screen.findByText('Nothing you marked answers them, so they stay open.')).toBeInTheDocument();
+});
+
+test('a book is lent by a link a friend reads it at, copied here, and taken back', async () => {
+  const writeText = jest.fn(() => Promise.resolve());
+  Object.assign(navigator, { clipboard: { writeText } });
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch' }, highlights: [], error: '' });
+  lendBook.mockResolvedValue({ lentAs: 'slug9' });
+  takeBookBack.mockResolvedValue({ lentAs: '' });
+  at('b2');
+  fireEvent.click(screen.getByRole('button', { name: 'Lend it' }));
+  expect(await screen.findByText('Link copied. Anyone with it can read your copy.')).toBeInTheDocument();
+  expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/share/books/slug9`);
+  expect(screen.getByRole('link', { name: 'Lent' })).toHaveAttribute('href', `${window.location.origin}/share/books/slug9`);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Take it back' }));
+  expect(await screen.findByText('Taken back. That link no longer opens.')).toBeInTheDocument();
+  expect(takeBookBack).toHaveBeenCalledWith('b2');
+  expect(screen.getByRole('button', { name: 'Lend it' })).toBeInTheDocument();
 });
 

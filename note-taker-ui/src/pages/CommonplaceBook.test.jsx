@@ -2,8 +2,12 @@ import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import CommonplaceBook from './CommonplaceBook';
 import { getCommonplaceBook } from '../api/library';
+import { listBooks } from '../api/imports';
 
 jest.mock('../api/library', () => ({ getCommonplaceBook: jest.fn() }));
+jest.mock('../api/imports', () => ({ listBooks: jest.fn() }));
+
+beforeEach(() => listBooks.mockResolvedValue([]));
 
 const BOOK = {
   year: 2026,
@@ -68,4 +72,25 @@ describe('CommonplaceBook', () => {
     expect(await screen.findByText('Nothing was marked in 2019.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Print/ })).not.toBeInTheDocument();
   });
+
+  it('the year’s finished books stand as a shelf of spines, a book read twice that year twice', async () => {
+    getCommonplaceBook.mockResolvedValue(BOOK);
+    const mark = (id, page, createdAt) => ({ _id: id, text: `Passage ${id}.`, page, createdAt });
+    listBooks.mockResolvedValue([
+      {
+        _id: 'b1', title: 'Middlemarch', author: 'George Eliot', finishedOn: '2026-10-19',
+        readBefore: [{ finishedOn: '2026-03-02', closingLine: '', until: '2026-03-03T00:00:00Z' }],
+        marks: [mark('a', 10, '2026-02-01T20:00:00Z'), mark('b', 20, '2026-02-02T20:00:00Z'), mark('c', 30, '2026-02-03T20:00:00Z'), mark('d', 211, '2026-10-01T20:00:00Z')]
+      },
+      { _id: 'b2', title: 'Persuasion', finishedOn: '2025-12-30', marks: [] },
+      { _id: 'b3', title: 'The Power Broker', finishedOn: '', marks: [] }
+    ]);
+    render(<CommonplaceBook />);
+    const shelf = await screen.findByRole('region', { name: 'The books you finished' });
+    const rows = within(shelf).getAllByRole('link');
+    expect(rows.map(row => row.getAttribute('href'))).toEqual(['/library/books/b1', '/library/books/b1']);
+    expect(rows[0]).toHaveTextContent('Middlemarch, George EliotMarch 2026 · pp. 10–30 · 3 quotes');
+    expect(rows[1]).toHaveTextContent('October 2026 · p. 211 · 1 quote');
+  });
 });
+

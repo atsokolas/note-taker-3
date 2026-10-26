@@ -46,6 +46,45 @@ const receiptFor = (sent, saved, known, earlier) => {
     : 'Filled in from the book.';
 };
 
+/* The book's pages as you marked them, each mark under its page, earlier
+   readings in fainter ink. The desk writes into it; a lent copy only reads it. */
+export function BookPages({ marks = [], since = 0, inked = '', doorFor }) {
+  const pages = useMemo(() => pagesOf(marks), [marks]);
+  return pages.length ? (
+    <ol className="book-desk__pages">
+      {pages.map(({ label, marks: onPage }) => (
+        <li key={`${label}-${onPage[0]._id}`} className="book-desk__page">
+          {label ? <span className="book-desk__folio">{label}</span> : null}
+          <ul className="book-desk__marks">
+            {onPage.map(mark => (
+              <li
+                key={mark._id}
+                className="book-desk__mark"
+                data-highlight-id={`highlight-${mark._id}`}
+                data-kind={kindOf(mark)}
+                data-unfinished={(mark.text && isUnfinished(mark.text)) || undefined}
+                data-unsent={mark.unsent || undefined}
+                data-inked={mark._id === inked || undefined}
+                data-earlier={isEarlier(mark, since) || undefined}
+              >
+                {mark.text ? <blockquote>{mark.text}</blockquote> : null}
+                {mark.note ? <p className="book-desk__own">{mark.note}</p> : null}
+                {mark.tags?.length ? (
+                  <p className="book-desk__tags">
+                    {mark.tags.map(tag => <Link key={tag} to={buildConceptPath({ name: tag })}>#{tag}</Link>)}
+                  </p>
+                ) : null}
+                {isEarlier(mark, since) ? <span className="book-desk__when">{yearOf(mark)}</span> : null}
+                {doorFor?.(mark)}
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))}
+    </ol>
+  ) : null;
+}
+
 /**
  * The reading desk: the book is in your lap, and this is the one line you
  * type into beside it. "212" turns to page 212, a line opening with a quote
@@ -72,7 +111,6 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   const last = sitting.length ? null : lastTime(now);
   const [touched, setTouched] = useState(false);
   const setDown = touched ? null : setDownOn(article, now);
-  const pages = useMemo(() => pagesOf(marks), [marks]);
   const typed = readLine(line, page);
   const waiting = marks.filter(mark => mark.text && isUnfinished(mark.text));
   const ghost = typed.text && !isUnfinished(typed.text) ? completionFor(typed.text, marks) : '';
@@ -231,37 +269,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
               : 'Type as you read. A number turns the page, a quote mark makes the line the book’s own words, and a #word files it under that concept.'}
       </p>
 
-      {pages.length ? <ol className="book-desk__pages">
-        {pages.map(({ label, marks: onPage }) => (
-          <li key={`${label}-${onPage[0]._id}`} className="book-desk__page">
-            {label ? <span className="book-desk__folio">{label}</span> : null}
-            <ul className="book-desk__marks">
-              {onPage.map(mark => (
-                <li
-                  key={mark._id}
-                  className="book-desk__mark"
-                  data-highlight-id={`highlight-${mark._id}`}
-                  data-kind={kindOf(mark)}
-                  data-unfinished={(mark.text && isUnfinished(mark.text)) || undefined}
-                  data-unsent={mark.unsent || undefined}
-                  data-inked={mark._id === inked || undefined}
-                  data-earlier={isEarlier(mark, since) || undefined}
-                >
-                  {mark.text ? <blockquote>{mark.text}</blockquote> : null}
-                  {mark.note ? <p className="book-desk__own">{mark.note}</p> : null}
-                  {mark.tags?.length ? (
-                    <p className="book-desk__tags">
-                      {mark.tags.map(tag => <Link key={tag} to={buildConceptPath({ name: tag })}>#{tag}</Link>)}
-                    </p>
-                  ) : null}
-                  {isEarlier(mark, since) ? <span className="book-desk__when">{yearOf(mark)}</span> : null}
-                  {doorFor?.(mark)}
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ol> : null}
+      <BookPages marks={marks} since={since} inked={inked} doorFor={doorFor} />
 
       <form className="book-desk__line" onSubmit={(event) => { event.preventDefault(); keep(); }}>
         <label className="book-desk__turn">

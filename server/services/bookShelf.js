@@ -105,4 +105,17 @@ const shelveBooks = async ({ Article, userId }) => {
   return strays.length;
 };
 
-module.exports = { BOOK_MARKS, READWISE_BOOK_PAGE, bookOnShelf, booksThisMorning, echoToday, isQuestion, openQuestions, shelveBooks };
+/* A lent copy: the book as a friend reads it, its marks, your words beside
+   them and the sentence you kept, with nothing of your account. */
+const LENT_COPY = `${BOOK_MARKS} author closingLine readBefore lentAs`;
+
+const lentCopy = book => ({
+  title: book.title,
+  author: book.author || '',
+  finishedOn: book.finishedOn || '',
+  closingLine: book.closingLine || '',
+  readBefore: book.readBefore || [],
+  marks: (book.highlights || []).map(({ _id, text, note, page, createdAt }) => ({ _id, text, note, page, createdAt }))
+});
+
+module.exports = { BOOK_MARKS, LENT_COPY, READWISE_BOOK_PAGE, bookOnShelf, booksThisMorning, echoToday, isQuestion, lentCopy, openQuestions, shelveBooks };

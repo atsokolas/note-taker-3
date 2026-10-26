@@ -54,7 +54,7 @@ const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../se
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
 const { bookReturning, calendarDay, marksOfReading } = require('../services/closedBooks');
-const { BOOK_MARKS, bookOnShelf, echoToday, isQuestion, openQuestions, shelveBooks } = require('../services/bookShelf');
+const { BOOK_MARKS, LENT_COPY, bookOnShelf, echoToday, isQuestion, lentCopy, openQuestions, shelveBooks } = require('../services/bookShelf');
 const { fillArticleBodies } = require('../services/readableArticle');
 const {
   inboundMailConfig,
@@ -581,6 +581,44 @@ const buildImportRouter = ({
     } catch (error) {
       console.error('Error asking a book:', error);
       res.status(502).json({ error: 'The book could not be asked just now. Try it again.' });
+    }
+  });
+
+  /* Lending a book: a link a friend reads your copy at, as it stands each
+     time they open it, until you take it back. Lending it again after that
+     is a new link; the old one stays dead. */
+  router.put('/api/books/:id/lent', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL });
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      book.lentAs ||= crypto.randomBytes(12).toString('base64url');
+      await book.save();
+      return res.json({ lentAs: book.lentAs });
+    } catch (error) {
+      console.error('Error lending a book:', error);
+      res.status(500).json({ error: 'The book could not be lent.' });
+    }
+  });
+
+  router.delete('/api/books/:id/lent', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOneAndUpdate({ _id: req.params.id, userId: req.user.id, url: BOOK_URL }, { $set: { lentAs: '' } });
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      return res.json({ lentAs: '' });
+    } catch (error) {
+      console.error('Error taking a book back:', error);
+      res.status(500).json({ error: 'The book could not be taken back.' });
+    }
+  });
+
+  router.get('/api/public/books/:slug', async (req, res) => {
+    try {
+      const book = await Article.findOne({ lentAs: { $eq: String(req.params.slug) }, url: BOOK_URL }).select(LENT_COPY).lean();
+      if (!book) return res.status(404).json({ error: 'This book is not lent any more.' });
+      return res.json({ book: lentCopy(book) });
+    } catch (error) {
+      console.error('Error reading a lent book:', error);
+      res.status(500).json({ error: 'The book could not be read.' });
     }
   });
 

@@ -236,6 +236,9 @@ const articleSchema = new mongoose.Schema({
     closingLine: String,
     until: Date
   }],
+  /* Lending a book: the address a friend reads your copy at, your marks and
+     your sentence as they stand, until you take it back. Empty when not lent. */
+  lentAs: { type: String, default: '' },
   /* Placement is the Hey pile. Keep is forever and orthogonal. Later is owed
      a move; set aside is at hand this week; stream is home. The agent may not
      write this. */
@@ -260,6 +263,7 @@ const articleSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });
+articleSchema.index({ lentAs: 1 }, { unique: true, partialFilterExpression: { lentAs: { $gt: '' } } });
 articleSchema.index({ userId: 1, evergreen: 1, updatedAt: -1 });
 articleSchema.index({ userId: 1, placement: 1, placementAt: -1 });
 articleSchema.index({ userId: 1, createdAt: -1 });
