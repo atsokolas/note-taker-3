@@ -1,0 +1,9 @@
+/* Where finished thinking now lives in Wiki, said once and quietly. */
+.think-notebook-settled,
+.think-notebook-settle-line {
+  margin: 4px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+}
+.think-notebook-settled a { color: inherit; text-underline-offset: 3px; }

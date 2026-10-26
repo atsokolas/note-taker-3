@@ -15,7 +15,7 @@ const listen = (app) => new Promise((resolve) => {
   server.listen(0, '127.0.0.1', () => resolve({ server, url: `http://127.0.0.1:${server.address().port}` }));
 });
 
-test('real Mongo: a note or a concept settles into one wiki page, quotes cited, and settling again is a revision', async () => {
+test('real Mongo: a note, a concept or a book settles into one wiki page, quotes cited, and settling again is a revision', async () => {
   const mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 }, instanceOpts: [{ launchTimeout: 60000 }] });
   let server;
   try {
@@ -146,7 +146,21 @@ test('real Mongo: a note or a concept settles into one wiki page, quotes cited, 
     assert.equal(emptyRefusal.status, 422);
     assert.match(emptyRefusal.body.error, /Nothing is written here yet/);
     assert.equal((await settle(concept._id, stranger, 'concepts')).status, 404);
-    assert.equal((await fetch(`${url}/api/questions/${concept._id}/settle`, { method: 'POST' })).status, 404, 'only notes and concepts settle');
+
+    // A book you read settles as a write-up of what you marked in it; an article is not a book.
+    const book = await Article.create({
+      userId, title: 'Middlemarch', url: 'import://book/middlemarch-george-eliot', closingLine: 'Nobody is as finished as they think.',
+      highlights: [{ text: 'What do we live for, if it is not to make life less difficult?', note: 'The whole book.', page: 212 }, { text: '', note: 'Why Casaubon?', page: 40 }]
+    });
+    const written = await settle(book._id, userId, 'books');
+    assert.equal(written.status, 201);
+    const bookPage = await WikiPage.findById(written.body.page._id).lean();
+    assert.equal(bookPage.createdFrom.label, `settled-book:${book._id}`);
+    assert.ok(isHumanOnlyWikiArtifact(bookPage), 'maintenance never rewrites a written-up book');
+    assert.deepEqual(bookPage.sourceRefs.map(ref => [String(ref.objectId), String(ref.parentObjectId)]), [[String(book.highlights[0]._id), String(book._id)]], 'each quote opens at its mark in the book');
+    assert.match(bookPage.plainText, /Nobody is as finished[\s\S]*Questions it left[\s\S]*Why Casaubon\?/);
+    assert.equal((await settle(source._id, userId, 'books')).status, 404, 'an article is not a book');
+    assert.equal((await fetch(`${url}/api/questions/${concept._id}/settle`, { method: 'POST' })).status, 404, 'only notes, concepts and books settle');
   } finally {
     server?.close();
     await mongoose.disconnect();

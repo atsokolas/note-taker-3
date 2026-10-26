@@ -1,9 +1,11 @@
 const { classifyWikiPageQuality } = require('./wikiPageQualityGuard');
 const { normalizeWikiTitleForPresentation } = require('./wikiPresentationGuard');
 const { plainNotebookText } = require('./authoredWorkDiscovery');
+const { BOOK_URL } = require('./import/exportFiles');
+const { isQuestion } = require('./bookShelf');
 
-/* Settling turns finished thinking in Think, a note or a concept, into the
-   wiki page it was becoming. The page is a projection of what was written:
+/* Settling turns finished thinking, a note or a concept in Think or a book
+   you read, into the wiki page it was becoming. The page is a projection of what was written:
    settle again and the page follows as a new revision. Its createdFrom names
    the note or concept, and the label `settled-<noun>:<id>` is the link both
    ways (and what keeps maintenance from rewriting it). */
@@ -37,7 +39,10 @@ const blocksFromHtml = (source) => [...String(source || '').matchAll(ELEMENT)].m
 
 /* What each kind of thinking settles from: who it is, and its writing as
    blocks. A concept is its description, its working draft, then the passages
-   it holds that the draft does not already quote. */
+   it holds that the draft does not already quote. A book is the sentence you
+   said you would remember, then its marks the way the book runs, each quote
+   cited to where you marked it and your note under it, and last the
+   questions it left you with. */
 const SETTLE_KINDS = {
   notebook: {
     noun: 'note',
@@ -67,6 +72,27 @@ const SETTLE_KINDS = {
           { id: 'description', type: 'paragraph', text: concept.description },
           ...draft,
           ...heldIds.filter(id => held.has(id)).map(id => ({ id: `held-${id}`, type: 'highlight_embed', ...held.get(id) }))
+        ]
+      };
+    }
+  },
+  books: {
+    noun: 'book',
+    createdFrom: 'article',
+    load: ({ Article }, userId, id) => Article.findOne({ _id: id, userId, url: BOOK_URL }),
+    writing: async (_models, book) => {
+      const marks = [...book.highlights].sort((a, b) => (a.page || 0) - (b.page || 0) || new Date(a.createdAt) - new Date(b.createdAt));
+      const asked = marks.filter(isQuestion);
+      return {
+        title: book.title,
+        blocks: [
+          { id: 'remember', type: 'paragraph', text: book.closingLine },
+          ...marks.filter(mark => !asked.includes(mark)).flatMap(mark => (mark.text ? [
+            { id: String(mark._id), type: 'highlight_embed', highlightId: mark._id, articleId: book._id, articleTitle: book.title, text: mark.text },
+            { id: `note-${mark._id}`, type: 'paragraph', text: mark.note }
+          ] : [{ id: String(mark._id), type: 'paragraph', text: mark.note }])),
+          ...(asked.length ? [{ id: 'asked', type: 'heading', level: 1, text: 'Questions it left' }] : []),
+          ...asked.map(mark => ({ id: String(mark._id), type: 'bullet', text: mark.note }))
         ]
       };
     }

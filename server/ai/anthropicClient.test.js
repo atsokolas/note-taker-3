@@ -112,6 +112,21 @@ test('a tool round goes to Claude as tool_use and tool_result, and its call come
   assert.strictEqual(seen.router.length, 0);
 });
 
+test('a photographed page goes to Claude as an image, and to OpenRouter as it came', async () => {
+  claudeReply = { blocks: [{ type: 'text', text: 'The decline of violence may be the most significant development.' }] };
+  const page = [{ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,/9j/4AAQ' } }, { type: 'text', text: 'Read the page.' }];
+  const completion = await client.chatComplete({ maxTokens: 2400, messages: [{ role: 'user', content: page }] });
+  assert.deepStrictEqual(seen.claude[0].body.messages, [{
+    role: 'user',
+    content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: '/9j/4AAQ' } }, { type: 'text', text: 'Read the page.' }]
+  }]);
+  assert.strictEqual(completion.text, 'The decline of violence may be the most significant development.');
+
+  claudeReply = { status: 400, message: 'credit balance is too low' };
+  await client.chatComplete({ messages: [{ role: 'user', content: page }] });
+  assert.deepStrictEqual(seen.router[0].messages, [{ role: 'user', content: page }]);
+});
+
 test('an answer cut at the token cap reads as cut off', async () => {
   claudeReply = { blocks: [{ type: 'text', text: 'Half an' }], stopReason: 'max_tokens' };
   const completion = await client.chatComplete({ messages: [{ role: 'user', content: 'Go on.' }] });

@@ -65,6 +65,16 @@ export const listBooks = async () => (
   (await api.get(`/api/books?today=${today()}`, getAuthHeaders())).data?.books || []
 );
 
+/* A photograph of the page gives quotes typed by their ends their whole words. */
+export const readBookPage = async (id, image) => (
+  (await api.post(`/api/books/${encodeURIComponent(id)}/page`, { image }, getAuthHeaders())).data?.filled || []
+);
+
+/* Today's passage from a book and its echo, marked in another work long before or after; null on a day with none. */
+export const bookEcho = async () => (
+  (await api.get(`/api/books/echo?today=${today()}`, getAuthHeaders())).data?.echo || null
+);
+
 /* The questions typed beside books, each with the passage marked since that answers it, if one does. */
 export const listBookQuestions = async () => (
   (await api.get('/api/books/questions', getAuthHeaders())).data?.questions || []

@@ -72,3 +72,24 @@ test('a note that would fail the wiki bar says what to fix', () => {
   assert.equal(settleRefusal(settleDraftFrom({ title: '', blocks: body }), 'concept'), 'Give this concept a title before it settles.');
   assert.equal(settleRefusal(settleDraftFrom({ title: 'Untitled', blocks: body }), 'note'), '“Untitled” reads as a placeholder. Give the note its real title, then settle it.');
 });
+
+test('a book settles as the line you kept, its marks in page order with quotes cited, then the questions it left', async () => {
+  const book = {
+    _id: article,
+    title: 'Middlemarch',
+    closingLine: 'Nobody is as finished as they think.',
+    highlights: [
+      { _id: '64b000000000000000000013', text: '', note: 'Why does Dorothea marry him?', page: 40, createdAt: '2026-10-02' },
+      { _id: highlight, text: 'What do we live for, if it is not to make life less difficult?', note: 'The whole book in a line.', page: 212, createdAt: '2026-10-03' },
+      { _id: '64b000000000000000000014', text: '', note: 'Lydgate is me at thirty.', page: 9, createdAt: '2026-10-01' }
+    ]
+  };
+  const draft = settleDraftFrom(await SETTLE_KINDS.books.writing({}, book));
+  assert.equal(draft.title, 'Middlemarch');
+  assert.deepEqual(draft.body.content.map(node => node.type), ['paragraph', 'paragraph', 'pullquote', 'paragraph', 'heading', 'bulletList']);
+  assert.equal(draft.body.content[1].content[0].text, 'Lydgate is me at thirty.', 'p. 9 before p. 212');
+  assert.equal(draft.body.content[3].content[0].text, 'The whole book in a line.', 'a note sits under its quote');
+  assert.equal(draft.body.content[5].content[0].content[0].content[0].text, 'Why does Dorothea marry him?');
+  assert.deepEqual(draft.sourceRefs.map(ref => [ref.type, ref.objectId, ref.parentObjectId]), [['highlight', highlight, article]]);
+  assert.equal(settleRefusal(draft, 'book'), '');
+});

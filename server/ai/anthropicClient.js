@@ -20,6 +20,14 @@ const parseArguments = (value) => {
   }
 };
 
+// An image travels in the chat completions shape as a data URL; Claude takes
+// the same bytes as base64 with their media type.
+const DATA_URL = /^data:([^;,]+);base64,(.+)$/s;
+const contentFor = content => (Array.isArray(content) ? content.map((part) => {
+  const image = part?.type === 'image_url' && DATA_URL.exec(part.image_url?.url || '');
+  return image ? { type: 'image', source: { type: 'base64', media_type: image[1], data: image[2] } } : part;
+}) : content);
+
 // System turns become the system prompt; an assistant turn's tool calls become
 // tool_use blocks; a tool turn becomes the tool_result that answers it by id.
 const toMessagesRequest = (messages = []) => ({
@@ -42,7 +50,7 @@ const toMessagesRequest = (messages = []) => ({
         ]
       };
     }
-    return { role: message.role, content: message.content };
+    return { role: message.role, content: contentFor(message.content) };
   })
 });
 

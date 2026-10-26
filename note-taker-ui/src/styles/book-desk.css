@@ -84,6 +84,27 @@ blockquote + .book-desk__own {
   border-left: 1px solid var(--border-subtle-2);
 }
 
+/* The concepts a mark is filed under, in the margin's small type. */
+.book-desk__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  font: 0.8rem/1.5 var(--font-sans);
+}
+
+.book-desk__tags a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.book-desk__tags a:hover,
+.book-desk__tags a:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* A question hangs its mark in the margin, the way a pencilled query does. */
 .book-desk__mark[data-kind='question']::before {
   content: '?';
@@ -219,7 +240,35 @@ blockquote + .book-desk__own {
   opacity: 1;
 }
 
+/* The camera, offered only while a quote waits for its middle. */
+.book-desk__photo {
+  display: block;
+  margin: var(--space-3) 0 0;
+  padding-left: 4.5rem;
+  color: var(--muted);
+  font: 0.8rem/1.5 var(--font-sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.book-desk__photo:hover,
+.book-desk__photo:focus-within {
+  color: var(--text);
+}
+
+.book-desk__photo input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
 @media (max-width: 560px) {
+  .book-desk__photo {
+    padding-left: 3.25rem;
+  }
+
   .book-desk__page,
   .book-desk__line {
     grid-template-columns: 3.25rem minmax(0, 1fr);

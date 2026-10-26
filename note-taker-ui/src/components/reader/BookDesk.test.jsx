@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import BookDesk from './BookDesk';
 import { createHighlight, deleteHighlight, updateHighlight } from '../../api/highlights';
+import { readBookPage } from '../../api/imports';
+import { pagePhoto } from '../../utils/pagePhoto';
 
+jest.mock('../../api/imports', () => ({ readBookPage: jest.fn() }));
+jest.mock('../../utils/pagePhoto', () => ({ pagePhoto: jest.fn() }));
 jest.mock('../../api/highlights', () => ({
   createHighlight: jest.fn(),
   deleteHighlight: jest.fn(),
@@ -22,13 +27,15 @@ const KINDLE = {
 const Desk = ({ marks: initial, readBefore, createdAt }) => {
   const [marks, setMarks] = useState(initial);
   return (
-    <BookDesk
-      article={{ _id: 'book-1', title: 'The Better Angels', url: 'import://kindle/the-better-angels-pinker', readBefore, createdAt }}
-      marks={marks}
-      onAdd={mark => setMarks(current => [...current, mark])}
-      onReplace={(id, mark) => setMarks(current => current.map(item => (item._id === id ? { ...item, ...mark } : item)))}
-      onRemove={id => setMarks(current => current.filter(item => item._id !== id))}
-    />
+    <MemoryRouter>
+      <BookDesk
+        article={{ _id: 'book-1', title: 'The Better Angels', url: 'import://kindle/the-better-angels-pinker', readBefore, createdAt }}
+        marks={marks}
+        onAdd={mark => setMarks(current => [...current, mark])}
+        onReplace={(id, mark) => setMarks(current => current.map(item => (item._id === id ? { ...item, ...mark } : item)))}
+        onRemove={id => setMarks(current => current.filter(item => item._id !== id))}
+      />
+    </MemoryRouter>
   );
 };
 
@@ -117,15 +124,15 @@ test('typing an old mark again picks a set-down book up, though the mark keeps i
   expect(screen.queryByText('Why’d you stop?')).not.toBeInTheDocument();
 });
 
-test('taking back a line that joined a Kindle mark gives the mark its own note back, never deletes it', async () => {
-  const noted = { ...KINDLE, note: 'first read' };
-  createHighlight.mockResolvedValue({ ...noted, page: 214 });
+test('taking back a line that joined a Kindle mark gives the mark its own note and tags back, never deletes it', async () => {
+  const noted = { ...KINDLE, note: 'first read', tags: ['violence'] };
+  createHighlight.mockResolvedValue({ ...noted, page: 214, tags: ['violence', 'history'] });
   updateHighlight.mockResolvedValue(noted);
   render(<Desk marks={[noted]} />);
-  type(`214 "${KINDLE.text}`);
+  type(`214 "${KINDLE.text} #history`);
   await act(async () => keep());
   fireEvent.keyDown(line(), { key: 'z', metaKey: true });
-  await waitFor(() => expect(updateHighlight).toHaveBeenCalledWith({ articleId: 'book-1', highlightId: 'k1', payload: { note: 'first read' } }));
+  await waitFor(() => expect(updateHighlight).toHaveBeenCalledWith({ articleId: 'book-1', highlightId: 'k1', payload: { note: 'first read', tags: ['violence'] } }));
   expect(deleteHighlight).not.toHaveBeenCalled();
   expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(1);
 });
@@ -164,4 +171,38 @@ test('a line typed with no connection waits on this device and goes when it is b
   await act(async () => { window.dispatchEvent(new Event('online')); });
   await waitFor(() => expect(screen.getByText('a thought on a plane').closest('li')).not.toHaveAttribute('data-unsent'));
   expect(createHighlight).toHaveBeenLastCalledWith(expect.objectContaining({ note: 'a thought on a plane', page: 12 }));
+});
+
+test('a #word files the line under that concept, and a line of only #words files the mark just made', async () => {
+  createHighlight.mockResolvedValueOnce({ _id: 'q1', text: 'Scale is a moat until it is not.', note: '', tags: ['moats'], page: 40, createdAt: new Date().toISOString() });
+  updateHighlight.mockResolvedValueOnce({ _id: 'q1', tags: ['moats', 'scale'] });
+  render(<Desk marks={[]} />);
+
+  type('40 "Scale is a moat until it is not." #moats');
+  await act(async () => keep());
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: 'Scale is a moat until it is not.', note: '', tags: ['moats'], page: 40 });
+  expect(await screen.findByText('Filed under #moats.')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '#moats' })).toHaveAttribute('href', '/think?tab=concepts&concept=moats');
+
+  type('#scale');
+  await act(async () => keep());
+  expect(updateHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', highlightId: 'q1', payload: { tags: ['moats', 'scale'] } });
+  expect(createHighlight).toHaveBeenCalledTimes(1);
+  expect(await screen.findByRole('link', { name: '#scale' })).toBeInTheDocument();
+  expect(screen.getByText('Filed under #scale.')).toBeInTheDocument();
+});
+
+test('a photograph of the page finishes the quotes typed by their ends, and the camera goes when none wait', async () => {
+  const typed = { _id: 'u1', text: 'The decline of violence … our history.', note: '', page: 214, createdAt: new Date().toISOString() };
+  pagePhoto.mockResolvedValueOnce('data:image/jpeg;base64,/9j/');
+  readBookPage.mockResolvedValueOnce([{ _id: 'u1', text: KINDLE.text }]);
+  render(<Desk marks={[typed]} />);
+  const camera = screen.getByLabelText('Photograph the page to finish the quote you typed by its ends');
+  expect(camera).toHaveAttribute('capture', 'environment');
+
+  await act(async () => fireEvent.change(camera, { target: { files: [new File(['page'], 'page.jpg', { type: 'image/jpeg' })] } }));
+  expect(readBookPage).toHaveBeenCalledWith('book-1', 'data:image/jpeg;base64,/9j/');
+  expect(await screen.findByText('Finished a quote from the page.')).toBeInTheDocument();
+  expect(screen.getByText(KINDLE.text, { selector: 'blockquote' })).toBeInTheDocument();
+  expect(screen.queryByLabelText(/Photograph the page/)).not.toBeInTheDocument();
 });

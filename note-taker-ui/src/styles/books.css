@@ -171,11 +171,13 @@
 
 /* What you asked beside your books, ruled like the shelf above it. A
    passage that answers a question hangs under it in the book's own type. */
-.books__questions {
+.books__questions,
+.books__twice {
   margin-top: var(--space-6);
 }
 
-.books__questions h2 {
+.books__questions h2,
+.books__twice h2 {
   margin: 0;
   color: var(--muted);
   font: 0.82rem/1.5 var(--font-sans);
@@ -197,7 +199,8 @@
 }
 
 .books .books__question,
-.books .books__answer {
+.books .books__answer,
+.books .books__echo {
   display: grid;
   gap: 4px;
   color: var(--text) !important;
@@ -207,6 +210,25 @@
 .books__asked {
   color: var(--muted);
   font: 0.82rem/1.5 var(--font-sans);
+}
+
+/* The two passages hang on one rule, the earlier above, like a passage and
+   the one it answers in a commonplace book. */
+.books .books__echo {
+  padding: var(--space-3) 0 var(--space-3) var(--space-4);
+  border-left: 1px solid var(--border-subtle-2);
+}
+
+.books__echo + .books__echo {
+  padding-top: 0;
+}
+
+.books__echo q {
+  font: 1.05rem/1.55 var(--font-serif);
+}
+
+.books__twice > .books__asked {
+  margin: var(--space-2) 0 var(--space-3);
 }
 
 .books__question q {
