@@ -13,6 +13,7 @@ export const noteTitle = note => note?.title?.trim() || noteWords(note).split('\
 export const noteDate = note => note?.occurredOn || '';
 export const noteWords = note => note?.blocks?.length ? note.blocks.map(block => block.text || '').join('\n') : plainTextFrom(note?.content);
 const body = (note, creating = false) => ({ ...(creating ? { capturedAt: note.capturedAt, timeZone: note.timeZone } : {}), ...(note.workItem ? { workItem: itemMetadata(note.workItem) } : {}), ...(note.workActions?.length ? { workActions: note.workActions } : {}), title: note.title || '', content: note.content || '', blocks: note.blocks || [], folder: note.folder?._id || note.folder || null, occurredOn: note.occurredOn, withText: note.withText || '' });
+const MATCHING_SERVER = 'Work needs its matching server before it can save. Retry shortly.';
 const message = error => error?.response?.data?.error || 'Sync paused. Retry when you are connected.';
 
 // The server owns notes. This session holds only unacknowledged edits beside them.
@@ -22,11 +23,12 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
   let abort = new AbortController();
   const continuations = new Map();
   const options = { skipAuthHandling: true, headers: { Authorization: `Bearer ${token}` }, signal: abort.signal };
-  let saved = {}, drafts = {}, folders = [], disposed = false, tick = 0, loadError = '', loading = true, authNeeded = false;
+  let saved = {}, drafts = {}, folders = [], disposed = false, tick = 0, loadError = '', loading = true, authNeeded = false, compatible = null;
   const listeners = new Set(), flights = new Map(), aliases = new Map();
   const isCurrent = () => !disposed && Boolean(account) && workAccount(storage.getItem('token') || '') === account;
   const emit = () => { tick += 1; listeners.forEach(listener => listener()); };
   const requestError = error => {
+    if (error?.code === 'work_server_updating') return error.message;
     if (error?.response?.status === 401) { authNeeded = true; return 'Sign in to sync.'; }
     return message(error);
   };
@@ -82,6 +84,19 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     drafts[id] = { note: saved[id], operationId: operationId(), version: 0, dirty: false, durable: false };
     emit(); return id;
   };
+  const load = async () => {
+    const request = { ...options };
+    loading = true; loadError = ''; emit();
+    try {
+      const { data } = await api.get('/api/work-notes', request); if (!isCurrent() || request.signal.aborted) return;
+      compatible = Array.isArray(data.items);
+      if (!compatible) { loadError = MATCHING_SERVER; return; }
+      [...data.entries, ...data.items].forEach(note => keepSaved(note));
+      mergeFolders(data.folders);
+    } catch (error) { if (isCurrent() && !request.signal.aborted) loadError = requestError(error); }
+    finally { if (isCurrent() && !request.signal.aborted) { loading = false; emit(); } }
+  };
+  const requireServer = async () => { if (compatible !== true) await load(); if (compatible !== true) throw Object.assign(new Error(loadError || MATCHING_SERVER), { code: 'work_server_updating' }); };
   const flush = id => {
     if (flights.has(id)) return flights.get(id);
     const run = async () => {
@@ -94,6 +109,8 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
         const draft = drafts[id], version = draft.version, sent = draft.note, request = { ...options };
         draft.saving = true; draft.error = ''; emit();
         try {
+          await requireServer();
+          if (!isCurrent() || request.signal.aborted) return false;
           const creating = !sent._id;
           if (creating && !draft.createBody) { draft.createBody = body(sent, true); persist(id); }
           const { data } = creating
@@ -156,17 +173,11 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     loading: () => loading,
     error: () => loadError,
     authNeeded: () => authNeeded,
-    async load() {
-      const request = { ...options };
-      loading = true; loadError = ''; emit();
-      try {
-        const { data } = await api.get('/api/work-notes', request); if (!isCurrent() || request.signal.aborted) return;
-        [...data.entries, ...(data.items || [])].forEach(note => keepSaved(note));
-        mergeFolders(data.folders);
-      } catch (error) { if (isCurrent() && !request.signal.aborted) loadError = requestError(error); }
-      finally { if (isCurrent() && !request.signal.aborted) { loading = false; emit(); } }
-    },
+    load,
+    compatible: () => compatible,
     async addFolder(name, intent = operationId()) {
+      if (!isCurrent()) return null;
+      await requireServer();
       if (!isCurrent()) return null;
       const request = { ...options };
       try {
@@ -191,6 +202,8 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     },
     async updateFolder(folder, patch, intent = operationId()) {
       if (!isCurrent()) return null;
+      await requireServer();
+      if (!isCurrent()) return null;
       const request = { ...options };
       try {
         const { data } = await api.put(`/api/work-notes/folders/${folder._id}`, { ...patch, expectedRevision: folder.revision || 0, operationId: intent }, request);
@@ -198,6 +211,8 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       } catch (error) { if (isCurrent()) { requestError(error); emit(); } throw error; }
     },
     async reorderFolders(ids, intent = operationId()) {
+      if (!isCurrent()) return null;
+      await requireServer();
       if (!isCurrent()) return null;
       const request = { ...options };
       try {
@@ -207,6 +222,8 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     },
     continuation,
     async continueFrom(source, intent, { timeZone = deviceTimeZone() } = {}) {
+      if (!isCurrent()) throw new Error('The account changed.');
+      await requireServer();
       if (!isCurrent()) throw new Error('The account changed.');
       const held = continuation();
       if (held && (held.operationId !== intent || held.source._id !== source._id)) throw new Error('Recover the earlier continuation receipt before starting another.');

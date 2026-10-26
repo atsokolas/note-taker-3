@@ -22,7 +22,7 @@ const older = { ...source, _id: 'b', title: 'Smaller depot', occurredOn: '2026-1
 const open = async () => { render(<WorkNotes />); await within(screen.getByRole('complementary')).findByRole('button', { name: /Charging windows/ }); fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Charging windows/ })); };
 beforeEach(() => {
   forgetWorkSession('owner'); forgetWorkSession('other'); jest.clearAllMocks(); window.history.replaceState({}, '', '/think?context=work'); localStorage.clear(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.x`);
-  api.get.mockResolvedValue({ data: { entries: [source, older], folders: [{ _id: 'f', name: 'Pilot' }] } });
+  api.get.mockResolvedValue({ data: { entries: [source, older], items: [], folders: [{ _id: 'f', name: 'Pilot' }] } });
   api.put.mockImplementation(async (_, body) => ({ data: { ...source, ...body, revision: body.expectedRevision + 1 } }));
   api.post.mockImplementation(async (path, body) => ({ data: path.endsWith('/continue') ? { _id: 'c', title: '', content: '', folder: 'f', occurredOn: '2026-11-02', revision: 0, continuesFromEntryId: 'a', continuationBridge: { entryId: 'a', title: source.title, occurredOn: source.occurredOn, text: source.workingState.nextTimeLine.text } } : { _id: 'new', ...body, revision: 0 } }));
 });

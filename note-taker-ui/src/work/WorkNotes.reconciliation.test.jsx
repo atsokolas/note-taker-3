@@ -16,7 +16,7 @@ let server;
 beforeEach(() => {
   forgetWorkSession('owner'); forgetWorkSession('other'); localStorage.clear(); jest.clearAllMocks();
   localStorage.setItem('token', token('owner')); server = { ...original };
-  api.get.mockImplementation(async () => ({ data: { entries: [server], folders: [] } }));
+  api.get.mockImplementation(async () => ({ data: { entries: [server], items: [], folders: [] } }));
   api.post.mockResolvedValue({ data: { token: token('owner', 'renewed') } });
   api.put.mockImplementation(async (_, body) => {
     if (body.expectedRevision !== server.revision) throw { response: { status: 409, data: { current: server } } };
@@ -46,7 +46,7 @@ test('reauth refresh makes the accepted remote document visible before the next 
   await open(); const refresh = await reauthenticate();
   const writing = screen.getByRole('textbox', { name: 'Work note writing' });
   expect(writing).toHaveTextContent('Cached words');
-  server = { ...remote }; await act(async () => refresh.resolve({ data: { entries: [server], folders: [] } }));
+  server = { ...remote }; await act(async () => refresh.resolve({ data: { entries: [server], items: [], folders: [] } }));
   const visibleBeforeTyping = writing.innerHTML;
   expect(api.put).not.toHaveBeenCalled();
   typeAt(writing, 1, 'Next '); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
@@ -61,7 +61,7 @@ test('typing before deferred refresh retains its old base and conflicts instead 
   await open(); const refresh = await reauthenticate();
   const writing = screen.getByRole('textbox', { name: 'Work note writing' });
   typeAt(writing, 1, 'Local '); const selection = writing.editor.state.selection.from;
-  server = { ...remote }; await act(async () => refresh.resolve({ data: { entries: [server], folders: [] } }));
+  server = { ...remote }; await act(async () => refresh.resolve({ data: { entries: [server], items: [], folders: [] } }));
   expect(writing).toHaveTextContent('Local Cached words'); expect(writing.editor.state.selection.from).toBe(selection);
   fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
   await screen.findByText('Both versions are kept. Your version remains in the editor.');
@@ -103,7 +103,7 @@ test.each(['none', 'insert', 'delete', 'mark', 'split'])('Undo/Redo after remote
   }
   const acceptedRevision = server.revision + 1;
   server = { ...remote, revision: acceptedRevision };
-  await act(async () => refresh.resolve({ data: { entries: [server], folders: [] } }));
+  await act(async () => refresh.resolve({ data: { entries: [server], items: [], folders: [] } }));
   expect(writing.editor).toBe(editor); expect(writing).toHaveTextContent('Other device words task');
   typeAt(writing, 1, 'Next ');
   act(() => editor.commands.undo());

@@ -148,6 +148,16 @@ test('review resolution stays locked while its accepted change is being acknowle
   expect(within(review).getByRole('button', { name: 'Use saved version' })).toBeDisabled();
   expect(within(review).getByRole('button', { name: 'Keep both for now' })).toBeDisabled();
   fireEvent.keyDown(document, { key: 'Escape' }); expect(review).toBeInTheDocument();
+  await waitFor(() => expect(acknowledge).toEqual(expect.any(Function)));
   await act(async () => acknowledge());
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+});
+test('a previous API version pauses Work and Retry opens the same note once its matching server arrives', async () => {
+  api.get.mockResolvedValueOnce({ data: { entries: records.filter(x => !x.workItem), folders } });
+  render(<MemoryRouter initialEntries={['/think?context=work&note=note']}><WorkNotes /></MemoryRouter>);
+  expect(await screen.findByRole('heading', { name: 'Work is updating', exact: true })).toBeInTheDocument();
+  expect(screen.queryByRole('textbox', { name: 'Work note writing' })).toBeNull(); expect(api.post).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry Work', exact: true }));
+  expect(await screen.findByRole('textbox', { name: 'Work note writing' })).toHaveTextContent('Keep these authored words.');
+  expect(records.find(x => x._id === 'note').content).toBe(original);
 });

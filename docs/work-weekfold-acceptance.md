@@ -27,6 +27,7 @@ Approved build: 26 October 2026. Reference: Library `libfile_6c3a50ebef1881919e7
 - Filing a note and optionally its linked follow-ups is a set of independently revision-checked saves, not an atomic multi-record transaction. The UI waits for all acknowledgements; a partial result explicitly names sync/review, and Undo restores each previous folder through the same guards. Reordering folders itself is atomic.
 - A separate device may concurrently choose the same priority position. The first three are emphasized; additional tasks stay visible, rather than disappearing or being silently demoted in stored data.
 - Device drafts retain the pre-existing local-storage privacy limit. Work is a retrieval/access boundary, not encrypted local storage. Recovery/logout states say this plainly.
+- The frontend verifies the new Work response shape before any Work write. During an independently rolling frontend/API deployment, unsupported server responses pause saves and keep device drafts; Retry resumes against the matching server.
 - No dependency or hosting configuration changes. Official Feather icons replace handwritten icon chrome; one MIT asset source is retained.
 
 ## Code craft

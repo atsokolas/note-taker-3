@@ -100,3 +100,13 @@ test('continuation records the chosen timezone and first intent instant through 
     for (const [, body] of api.post.mock.calls) expect(body).toMatchObject({ capturedAt: '2026-10-27T02:30:00.000Z', timeZone: 'America/Chicago', occurredOn: '2026-10-26' });
   } finally { jest.useRealTimers(); }
 });
+test('a new frontend never sends planning or continuation writes to the previous API during rollout', async () => {
+  api.get.mockResolvedValue({ data: { entries: [], folders: [] } }); await session.load();
+  const id = session.capture({ title: 'Keep my pending follow-up', workItem: { kind: 'task' } }); session.edit(id, { title: 'Keep my pending follow-up' });
+  api.post = jest.fn(); expect(await session.flush(id)).toBe(false); expect(api.post).not.toHaveBeenCalled(); expect(session.pending()).toHaveLength(1); expect(session.canLeave()).toBe(true);
+  await expect(session.continueFrom({ _id: 'note' }, 'rollout-intent')).rejects.toThrow(/matching server/); expect(api.post).not.toHaveBeenCalled();
+  api.get.mockResolvedValue({ data: { entries: [], items: [], folders: [] } }); await session.load();
+  api.post.mockImplementation(async (_, body) => ({ data: { ...body, _id: 'saved-task', revision: 0 } }));
+  api.put.mockImplementation(async (_, body) => ({ data: { ...body, _id: 'saved-task', revision: 1 } }));
+  expect(await session.flush(id)).toBe(true); expect(session.items().filter(item => item._id === 'saved-task')).toHaveLength(1);
+});

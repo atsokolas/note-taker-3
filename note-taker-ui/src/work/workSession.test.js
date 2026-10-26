@@ -6,7 +6,7 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
 let api, session;
 beforeEach(() => {
   localStorage.clear(); localStorage.setItem('token', token('owner'));
-  api = { get: jest.fn().mockResolvedValue({ data: { entries: [note()], folders: [] } }), post: jest.fn(), put: jest.fn(async (path, data) => ({ data: note({ ...data, _id: path.split('/').pop(), revision: data.expectedRevision + 1 }) })) };
+  api = { get: jest.fn().mockResolvedValue({ data: { entries: [note()], items: [], folders: [] } }), post: jest.fn(), put: jest.fn(async (path, data) => ({ data: note({ ...data, _id: path.split('/').pop(), revision: data.expectedRevision + 1 }) })) };
   session = createWorkSession({ token: token('owner'), api });
 });
 afterEach(() => session.dispose());
@@ -79,7 +79,7 @@ test('account switch prevents queued writes and stale responses', async () => {
 });
 test('dispose aborts pending requests and ignores their response', async () => {
   const pending = deferred(); api.get.mockReturnValue(pending.promise); const loading = session.load(); session.dispose();
-  pending.resolve({ data: { entries: [note()], folders: [] } }); await loading; expect(session.entries()).toEqual([]);
+  pending.resolve({ data: { entries: [note()], items: [], folders: [] } }); await loading; expect(session.entries()).toEqual([]);
   expect(api.get.mock.calls[0][1].signal.aborted).toBe(true);
 });
 test('readiness failure retains local writing and shows retryable unavailability', async () => {
@@ -140,10 +140,11 @@ test('persisting another edit does not retain an untouched capture after reload'
   expect(session.entries()).toHaveLength(1); expect(session.entry('a').title).toBe('Actual words');
 });
 test('an older list receipt cannot remove a note created while loading', async () => {
+  await session.load();
   const pending = deferred(); api.get.mockReturnValue(pending.promise); const loading = session.load();
   const id = session.capture(); session.edit(id, { content: '<p>New note</p>' });
   api.post.mockResolvedValue({ data: note({ _id: 'created', content: '<p>New note</p>', revision: 0 }) }); await session.flush(id);
-  pending.resolve({ data: { entries: [note()], folders: [] } }); await loading;
+  pending.resolve({ data: { entries: [note()], items: [], folders: [] } }); await loading;
   expect(session.entry(id).content).toBe('<p>New note</p>'); expect(session.entries()).toHaveLength(2);
 });
 test('unknown Continue outcome rejects replacement intents until the original receipt is recovered', async () => {
@@ -166,7 +167,7 @@ test('capture then Continue keeps one canonical source in the shelf', async () =
   expect(session.entries().filter(item => item._id === 'created')).toHaveLength(1);
 });
 test('two tabs keep independent durable drafts when the other tab edits or saves', async () => {
-  api.get.mockResolvedValue({ data: { entries: [note(), note({ _id: 'b' })], folders: [] } });
+  api.get.mockResolvedValue({ data: { entries: [note(), note({ _id: 'b' })], items: [], folders: [] } });
   const second = createWorkSession({ token: token('owner'), api });
   await session.load(); await second.load();
   session.edit('a', { content: 'Tab A offline words' }); second.edit('b', { content: 'Tab B offline words' });
