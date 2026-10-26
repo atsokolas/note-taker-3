@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { clearStoredTokens } from '../api';
 import WorkNoteEditor from './WorkNoteEditor';
-import { createWorkSession, noteTitle, noteDate, noteWords, operationId } from './workSession';
+import Login from '../components/Login';
+import { workSessionFor, resumeWorkSession, releaseWorkSession, forgetWorkSession } from './workSessions';
+import { noteTitle, noteDate, noteWords, operationId } from './workSession';
 import './work-notes.css';
 
 export function WorkDialog({ title, children, onClose }) {
@@ -30,7 +32,7 @@ const defaultLogout = () => { clearStoredTokens(); window.location.assign('/logi
 
 export default function WorkNotes({ onLogout = defaultLogout }) {
   const navigate = useNavigate(), [params, setParams] = useSearchParams();
-  const [session] = useState(() => createWorkSession({ token: localStorage.getItem('token') || '' }));
+  const [session] = useState(() => workSessionFor(localStorage.getItem('token') || ''));
   const version = useSyncExternalStore(session.subscribe, session.snapshot);
   const [selected, setSelected] = useState(params.get('note') || '');
   const [fresh, setFresh] = useState('');
@@ -45,6 +47,7 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
   const [notice, setNotice] = useState('');
   const [newFolder, setNewFolder] = useState('');
   const [locked, setLocked] = useState(false);
+  const [reauthenticate, setReauthenticate] = useState(false);
   const [quick, setQuick] = useState(false);
   const departure = useRef(null), initialized = useRef(false);
   const notes = session.entries(), note = session.entry(selected), conflict = session.conflict(selected);
@@ -66,12 +69,16 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
     setParams({ context: 'work' }, { replace: true });
   };
   useEffect(() => {
-    session.resume(); session.load();
+    resumeWorkSession(session, localStorage.getItem('token') || ''); session.load();
     const online = () => { if (!session.isCurrent()) { setLocked(true); return; } session.pending().forEach(([id]) => session.flush(id)); };
-    const account = () => { if (!session.isCurrent()) setLocked(true); };
+    const account = () => {
+      session.refreshDrafts();
+      const returned = resumeWorkSession(session, localStorage.getItem('token') || '');
+      setLocked(!returned); if (returned) setReauthenticate(false);
+    };
     const unload = event => { if (!session.canLeave()) { event.preventDefault(); event.returnValue = ''; } };
     window.addEventListener('online', online); window.addEventListener('storage', account); window.addEventListener('focus', account); window.addEventListener('beforeunload', unload);
-    return () => { window.clearTimeout(timer.current); session.dispose(); window.removeEventListener('online', online); window.removeEventListener('storage', account); window.removeEventListener('focus', account); window.removeEventListener('beforeunload', unload); };
+    return () => { window.clearTimeout(timer.current); releaseWorkSession(session); window.removeEventListener('online', online); window.removeEventListener('storage', account); window.removeEventListener('focus', account); window.removeEventListener('beforeunload', unload); };
   }, [session]);
   useEffect(() => {
     if (initialized.current || session.loading()) return;
@@ -97,7 +104,7 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
   }, [selected, session]);
   useEffect(() => {
     const key = event => {
-      if (sheet || quick || event.defaultPrevented) return;
+      if (locked || !session.isCurrent() || sheet || quick || event.defaultPrevented) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setSheet('commands'); return; }
       if (event.key === 'Escape' && fresh) { event.preventDefault(); dismissCapture(); }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); session.flush(selected); }
@@ -106,6 +113,11 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
   });
   const prepareContinue = async id => {
     if (busyRef.current) return;
+    const pending = session.continuation();
+    if (pending) {
+      setSource(pending.source); intent.current = pending.operationId; setChoosing(false); setSheet('continue');
+      setNotice('Recover the earlier continuation receipt before starting another.'); return;
+    }
     busyRef.current = true; setBusy(true); setNotice('');
     const ok = await session.flush(id);
     busyRef.current = false; setBusy(false);
@@ -135,13 +147,21 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
     catch (_) { setNotice('Copy was unavailable. Download your recovery file or select your writing.'); }
   };
   const logout = remove => {
-    try { if (remove) session.removeDrafts(); session.dispose(); onLogout(); }
+    try { if (remove) session.removeDrafts(); forgetWorkSession(session.account); onLogout(); }
     catch (_) { setNotice('Device drafts could not be removed. Stay here or keep them on this device.'); }
   };
   const list = notes.filter(item => (folder === 'all' || (item.folder?._id || item.folder || '') === folder) && `${item.title || ''} ${noteWords(item)}`.toLowerCase().includes(query.toLowerCase()));
   const predecessor = note?.continuesFromEntryId && notes.find(item => item._id === note.continuesFromEntryId);
   const onward = notes.filter(item => item.continuesFromEntryId === note?._id && note?._id);
-  if (locked || !session.isCurrent()) return <main className="work-locked"><h1>Account changed</h1><p>Your previous account’s drafts remain on this device. Sign in to that account to resume.</p><a href="/think?context=work">Open the current account</a></main>;
+  if (locked || !session.isCurrent()) return <main className="work-locked">
+    <h1>Account changed</h1>
+    <p>{session.canLeave() ? (session.pending().length ? 'Your pending writing is on this device. Sign in to the original account to resume.' : 'Keep this page open and sign in to the original account to resume this Work session.') : 'Your latest writing is still in this page, not saved on this device. Keep this page open and sign in to the original account to recover it.'}</p>
+    {reauthenticate ? <Login recovery onLoginSuccess={() => {
+      if (resumeWorkSession(session, localStorage.getItem('token') || '')) { setLocked(false); setReauthenticate(false); setNotice(''); }
+      else setNotice('That is a different account. Sign in to the original account to recover this writing.');
+    }} /> : <button onClick={() => { setNotice(''); setReauthenticate(true); }}>Sign in to the original account</button>}
+    {notice && reauthenticate ? <p role="alert">{notice}</p> : null}
+  </main>;
   return <div className="work-notes">
     <div inert={sheet || quick ? true : undefined}>
       <header className="work-masthead"><a href="/think?context=work" onClick={event => { event.preventDefault(); leave(() => { setSelected(''); setMobileShelf(true); }); }}>NOEIS</a><span>Think</span><nav aria-label="Work context"><span>Work · private</span><a href="/think" onClick={event => { event.preventDefault(); leave(() => navigate('/think')); }}>Personal</a><button onClick={() => setSheet('commands')}>Commands</button><button onClick={() => (session.pending().length || session.continuation()) ? setSheet('logout') : logout(false)}>Log out</button></nav></header>
@@ -152,7 +172,7 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
           <label className="work-filter">Filter by notebook<select value={folder} onChange={event => setFolder(event.target.value)}><option value="all">All notebooks</option><option value="">Inbox</option>{folders.map(item => <option key={item._id} value={item._id}>{item.name}</option>)}</select></label>
           <button className="work-new-notebook" onClick={() => { setNewFolder(''); setSheet('folder'); }}>New notebook</button>
           {session.loading() ? <p role="status">Opening Work notes…</p> : session.error() ? <div role="alert"><p>{session.error()}</p><button onClick={() => session.load()}>Retry</button></div> : null}
-          <div className="work-note-list">{list.map(item => <button key={item.clientId} aria-current={item.clientId === selected ? 'page' : undefined} onClick={() => open(item.clientId)}><span>{noteTitle(item)}</span><small>{noteDate(item)}{query && item.content ? <span className="work-match">{noteWords(item)}</span> : null}</small></button>)}</div>
+          <div className="work-note-list">{list.map(item => <button key={item.clientId} aria-current={session.entry(item.clientId) === note ? 'page' : undefined} onClick={() => open(item.clientId)}><span>{noteTitle(item)}</span><small>{noteDate(item)}{item.localVersion ? ' · Local version' : ''}{(query || item.localVersion) && item.content ? <span className="work-match">{noteWords(item)}</span> : null}</small></button>)}</div>
           {!session.loading() && !list.length ? <p>{query ? 'No notes match these words.' : 'A place for the work in progress.'}</p> : null}
         </aside>
         <main className="work-page">
@@ -179,7 +199,7 @@ export default function WorkNotes({ onLogout = defaultLogout }) {
       <button onClick={closeSheet}>Close</button>
     </WorkDialog> : null}
     {sheet === 'continue' ? <WorkDialog title={choosing ? 'Choose a note to continue' : 'Continue from this note'} onClose={closeSheet}>
-      {choosing ? <div className="work-source-list">{notes.filter(item => item._id).map(item => <button key={item.clientId} onClick={() => prepareContinue(item.clientId)}>{noteTitle(item)} · {noteDate(item)}</button>)}</div> : <><h3>{noteTitle(source)}</h3><p>{noteDate(source)}{source?.withText ? ` · with ${source.withText}` : ''}</p>{source?.workingState?.nextTimeLine?.text?.trim() ? <blockquote>{source.workingState.nextTimeLine.text}</blockquote> : <p>No return line was left on this note.</p>}<p>A fresh dated page in {folders.find(item => item._id === (source?.folder?._id || source?.folder))?.name || 'Work inbox'}. The original stays as it is.</p><div className="work-actions"><button disabled={busy} onClick={confirm}>Continue →</button><button disabled={busy} onClick={() => setChoosing(true)}>Choose another note</button></div></>}
+      {choosing ? <div className="work-source-list">{notes.filter(item => item._id).map(item => <button key={item.clientId} onClick={() => prepareContinue(item.clientId)}>{noteTitle(item)} · {noteDate(item)}</button>)}</div> : <><h3>{noteTitle(source)}</h3><p>{noteDate(source)}{source?.withText ? ` · with ${source.withText}` : ''}</p>{source?.workingState?.nextTimeLine?.text?.trim() ? <blockquote>{source.workingState.nextTimeLine.text}</blockquote> : <p>No return line was left on this note.</p>}<p>A fresh dated page in {folders.find(item => item._id === (source?.folder?._id || source?.folder))?.name || 'Work inbox'}. The original stays as it is.</p><div className="work-actions"><button disabled={busy} onClick={confirm}>Continue →</button><button disabled={busy || Boolean(session.continuation())} onClick={() => setChoosing(true)}>Choose another note</button></div></>}
       {notice ? <p role="alert">{notice}</p> : null}<button disabled={busy} onClick={closeSheet}>Cancel</button>
     </WorkDialog> : null}
     {sheet === 'folder' ? <WorkDialog title="New notebook" onClose={closeSheet}><form onSubmit={async event => { event.preventDefault(); if (busyRef.current || !newFolder.trim()) return; busyRef.current = true; setBusy(true); try { const created = await session.addFolder(newFolder); if (created) { if (note) update({ folder: created._id }); setFolder(created._id); setSheet(null); } } catch (error) { setNotice(error?.response?.data?.error || 'Could not create this notebook. Retry.'); } finally { busyRef.current = false; setBusy(false); } }}><label>Notebook name<input value={newFolder} onChange={event => setNewFolder(event.target.value)} /></label><button disabled={busy || !newFolder.trim()}>Create notebook</button></form>{notice ? <p role="alert">{notice}</p> : null}<button onClick={closeSheet}>Cancel</button></WorkDialog> : null}

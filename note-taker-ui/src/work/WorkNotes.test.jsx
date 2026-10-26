@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import WorkNotes from './WorkNotes';
 import api from '../api';
+import { forgetWorkSession } from './workSessions';
 import { draftKey } from './workSession';
 
 jest.mock('react-router-dom', () => {
@@ -12,13 +13,14 @@ jest.mock('react-router-dom', () => {
     return [new URLSearchParams(search), set];
   } };
 });
-jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() } }));
+jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn(() => global.localStorage.removeItem('token')) }));
 jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh }) => <textarea aria-label="Work note writing" autoFocus={fresh} value={note.content || ''} onChange={e => onChange({ content: e.target.value })} />);
+const deviceWords = () => JSON.stringify(Object.entries(localStorage).filter(([key]) => key.startsWith(draftKey('owner'))));
 const source = { _id: 'a', title: 'Charging windows', content: 'Original account', folder: 'f', revision: 2, occurredOn: '2026-10-26', withText: 'Mira', workingState: { revision: 2, nextTimeLine: { text: '  Check the window.\n', target: null } } };
 const older = { ...source, _id: 'b', title: 'Smaller depot', occurredOn: '2026-10-12', workingState: { revision: 1, nextTimeLine: { text: '' } } };
 const open = async () => { render(<WorkNotes />); await screen.findByRole('button', { name: /Charging windows/ }); fireEvent.click(screen.getByRole('button', { name: /Charging windows/ })); };
 beforeEach(() => {
-  jest.clearAllMocks(); window.history.replaceState({}, '', '/think?context=work'); localStorage.clear(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.x`);
+  forgetWorkSession('owner'); forgetWorkSession('other'); jest.clearAllMocks(); window.history.replaceState({}, '', '/think?context=work'); localStorage.clear(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.x`);
   api.get.mockResolvedValue({ data: { entries: [source, older], folders: [{ _id: 'f', name: 'Pilot' }] } });
   api.put.mockImplementation(async (_, body) => ({ data: { ...source, ...body, revision: body.expectedRevision + 1 } }));
   api.post.mockImplementation(async (path, body) => ({ data: path.endsWith('/continue') ? { _id: 'c', title: '', content: '', folder: 'f', occurredOn: '2026-11-02', revision: 0, continuesFromEntryId: 'a', continuationBridge: { entryId: 'a', title: source.title, occurredOn: source.occurredOn, text: source.workingState.nextTimeLine.text } } : { _id: 'new', ...body, revision: 0 } }));
@@ -75,7 +77,7 @@ test('logout exposes keep, remove and cancel with honest device disclosure', asy
   fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
   expect(screen.getByRole('dialog', { name: 'Your Work drafts' })).toHaveTextContent('not a secure vault');
   expect(screen.getByRole('button', { name: 'Keep on this device' })).toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Remove from this device' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel' })); expect(localStorage.getItem(draftKey('owner'))).toContain('Local draft');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' })); expect(deviceWords()).toContain('Local draft');
 });
 test('storage failure keeps page open with copy and recovery choices', async () => {
   await open(); const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
@@ -112,7 +114,7 @@ test.each(['Keep on this device', 'Remove from this device'])('logout choice: %s
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Pending words' } });
   fireEvent.click(screen.getByRole('button', { name: 'Log out' })); fireEvent.click(screen.getByRole('button', { name: choice }));
   expect(logout).toHaveBeenCalledTimes(1);
-  if (choice.startsWith('Keep')) expect(localStorage.getItem(draftKey('owner'))).toContain('Pending words');
+  if (choice.startsWith('Keep')) expect(deviceWords()).toContain('Pending words');
   else expect(localStorage.getItem(draftKey('owner'))).toBeNull();
 });
 test('conflict review presents server prose without exposing stored HTML markup', async () => {
@@ -131,4 +133,55 @@ test('pending continuation recovery takes priority over a quick-capture arrival'
   await screen.findByRole('dialog', { name: 'Continue from this note' });
   expect(screen.getAllByRole('dialog')).toHaveLength(1);
   expect(screen.queryByRole('dialog', { name: 'Work inbox · private' })).toBeNull(); expect(api.post).not.toHaveBeenCalled();
+});
+test('Cancel and reopening Continue restore the uncertain request and prevent choosing a new source', async () => {
+  api.post.mockRejectedValueOnce(new Error('lost reply'));
+  await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note:/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Continue →' })); await screen.findByText('lost reply');
+  const original = api.post.mock.calls[0][1].operationId;
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Continue this note:/ }));
+  const dialog = await screen.findByRole('dialog', { name: 'Continue from this note' });
+  expect(within(dialog).getByText('Charging windows')).toBeInTheDocument();
+  expect(within(dialog).getByRole('button', { name: 'Choose another note' })).toBeDisabled();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Continue →' }));
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
+  expect(api.post.mock.calls[1][1].operationId).toBe(original);
+});
+test('account lock truthfully retains memory-only writing and unlocks when its original owner returns', async () => {
+  await open(); const originalSet = Storage.prototype.setItem;
+  const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function(key, value) {
+    if (key.startsWith(draftKey('owner'))) throw new Error('quota'); originalSet.call(this, key, value);
+  });
+  fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Only in this page' } });
+  localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'other' }))}.x`);
+  fireEvent(window, new StorageEvent('storage', { key: 'token' }));
+  expect(screen.getByText(/not saved on this device/i)).toBeInTheDocument();
+  expect(screen.queryByDisplayValue('Only in this page')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Sign in to the original account' })).toBeInTheDocument();
+  set.mockRestore(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.renewed`);
+  fireEvent(window, new StorageEvent('storage', { key: 'token' }));
+  expect(await screen.findByDisplayValue('Only in this page')).toBeInTheDocument();
+});
+
+test('existing inline login restores original-owner memory with refreshed captured credentials', async () => {
+  await open(); const originalSet = Storage.prototype.setItem;
+  const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function(key, value) {
+    if (key.startsWith(draftKey('owner'))) throw new Error('quota'); originalSet.call(this, key, value);
+  });
+  fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Recover these words' } });
+  localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'other' }))}.x`);
+  fireEvent(window, new StorageEvent('storage', { key: 'token' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in to the original account' }));
+  expect(screen.queryByDisplayValue('Recover these words')).toBeNull(); expect(screen.queryByText('Register here')).toBeNull();
+  fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-test-password' } });
+  const renewed = `x.${btoa(JSON.stringify({ id: 'owner', exp: 9999999999 }))}.renewed`;
+  api.post.mockResolvedValueOnce({ data: { token: renewed } });
+  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+  expect(await screen.findByDisplayValue('Recover these words')).toBeInTheDocument();
+  set.mockRestore(); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
+  await waitFor(() => expect(api.put).toHaveBeenCalled());
+  expect(api.put.mock.calls[0][2].headers.Authorization).toBe(`Bearer ${renewed}`);
 });

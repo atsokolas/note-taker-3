@@ -18,7 +18,8 @@ test('account identity comes from the JWT id and local date uses calendar fields
 test('untouched capture makes no note; first words persist a stable untitled inbox draft', async () => {
   const id = session.capture(); expect(api.post).not.toHaveBeenCalled();
   session.edit(id, { content: '<p>First words</p>' });
-  const draft = JSON.parse(localStorage.getItem(draftKey('owner')))[id];
+  const reload = createWorkSession({ token: token('owner'), api });
+  const draft = reload.pending()[0][1]; reload.dispose();
   expect(draft.note).toMatchObject({ title: '', folder: null, content: '<p>First words</p>' });
   expect(draft.operationId).toBeTruthy(); expect(session.status(id)).toBe('On this device');
 });
@@ -69,7 +70,7 @@ test('expired authentication keeps the durable draft and never invokes shared au
   await session.load(); session.edit('a', { title: 'Keep' }); api.put.mockRejectedValue({ response: { status: 401 } });
   await session.flush('a'); expect(session.status('a')).toMatch(/Sign in to sync/);
   expect(api.put.mock.calls[0][2]).toMatchObject({ skipAuthHandling: true, headers: { Authorization: `Bearer ${token('owner')}` } });
-  expect(localStorage.getItem(draftKey('owner'))).toContain('Keep');
+  const reload = createWorkSession({ token: token('owner'), api }); expect(reload.entry('a').title).toBe('Keep'); reload.dispose();
 });
 test('account switch prevents queued writes and stale responses', async () => {
   await session.load(); session.edit('a', { title: 'Private' }); localStorage.setItem('token', token('other'));
@@ -144,4 +145,96 @@ test('an older list receipt cannot remove a note created while loading', async (
   api.post.mockResolvedValue({ data: note({ _id: 'created', content: '<p>New note</p>', revision: 0 }) }); await session.flush(id);
   pending.resolve({ data: { entries: [note()], folders: [] } }); await loading;
   expect(session.entry(id).content).toBe('<p>New note</p>'); expect(session.entries()).toHaveLength(2);
+});
+test('unknown Continue outcome rejects replacement intents until the original receipt is recovered', async () => {
+  const children = new Map(); let loseReply = true;
+  api.post.mockImplementation(async (_path, payload) => {
+    if (!children.has(payload.operationId)) children.set(payload.operationId, note({ _id: `child-${children.size}`, revision: 0 }));
+    if (loseReply) { loseReply = false; throw new Error('lost reply'); }
+    return { data: children.get(payload.operationId) };
+  });
+  await expect(session.continueFrom(note(), 'first')).rejects.toThrow('lost reply');
+  await expect(session.continueFrom(note({ _id: 'other' }), 'replacement')).rejects.toThrow(/recover/i);
+  expect(session.continuation().operationId).toBe('first');
+  await session.continueFrom(session.continuation().source, 'first'); expect(children.size).toBe(1);
+});
+test('capture then Continue keeps one canonical source in the shelf', async () => {
+  const id = session.capture(); session.edit(id, { content: 'New words' });
+  api.post.mockResolvedValueOnce({ data: note({ _id: 'created', revision: 0 }) }); await session.flush(id);
+  api.post.mockResolvedValueOnce({ data: note({ _id: 'child', revision: 0 }) });
+  await session.continueFrom(session.entry(id), 'next');
+  expect(session.entries().filter(item => item._id === 'created')).toHaveLength(1);
+});
+test('two tabs keep independent durable drafts when the other tab edits or saves', async () => {
+  api.get.mockResolvedValue({ data: { entries: [note(), note({ _id: 'b' })], folders: [] } });
+  const second = createWorkSession({ token: token('owner'), api });
+  await session.load(); await second.load();
+  session.edit('a', { content: 'Tab A offline words' }); second.edit('b', { content: 'Tab B offline words' });
+  let reload = createWorkSession({ token: token('owner'), api });
+  expect(reload.entry('a').content).toBe('Tab A offline words'); expect(reload.entry('b').content).toBe('Tab B offline words'); reload.dispose();
+  await second.flush('b'); reload = createWorkSession({ token: token('owner'), api });
+  expect(reload.entry('a').content).toBe('Tab A offline words'); expect(session.status('a')).toBe('On this device');
+  reload.dispose(); second.dispose();
+});
+test('two tabs editing the same note retain both versions across reload and one successful save', async () => {
+  const second = createWorkSession({ token: token('owner'), api }); await session.load(); await second.load();
+  session.edit('a', { content: 'First tab version' }); second.edit('a', { content: 'Second tab version' });
+  let reload = createWorkSession({ token: token('owner'), api });
+  expect(reload.entries().map(item => item.content).sort()).toEqual(['First tab version', 'Second tab version']); reload.dispose();
+  await second.flush('a'); reload = createWorkSession({ token: token('owner'), api });
+  expect(reload.entries().map(item => item.content)).toEqual(['First tab version']);
+  session.edit('a', { content: 'First tab newer version' }); reload.dispose(); reload = createWorkSession({ token: token('owner'), api });
+  expect(reload.entries().map(item => item.content)).toEqual(['First tab newer version']);
+  reload.dispose(); second.dispose();
+});
+test('editing a recovered version forks it without overwriting the still-open writer', async () => {
+  await session.load(); session.edit('a', { content: 'Original tab version' });
+  const recovered = createWorkSession({ token: token('owner'), api }); recovered.edit('a', { content: 'Recovered tab revision' });
+  session.edit('a', { content: 'Original tab later words' });
+  const reload = createWorkSession({ token: token('owner'), api });
+  expect(reload.entries().map(item => item.content).sort()).toEqual(['Original tab later words', 'Recovered tab revision']);
+  recovered.dispose(); reload.dispose();
+});
+test('storage removal updates durability instead of repeating a stale device receipt', async () => {
+  await session.load(); session.edit('a', { content: 'Memory remains' }); localStorage.clear(); localStorage.setItem('token', token('owner'));
+  session.refreshDrafts(); expect(session.status('a')).toMatch(/Not saved/); expect(session.canLeave()).toBe(false);
+  expect(session.entry('a').content).toBe('Memory remains');
+});
+test('legacy drafts survive failed new-format persistence and remain readable after recovery', async () => {
+  const legacy = { a: { note: note({ content: 'Legacy durable words' }), version: 1, dirty: true } };
+  localStorage.setItem(draftKey('owner'), JSON.stringify(legacy)); session.dispose(); session = createWorkSession({ token: token('owner'), api });
+  const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  session.edit('a', { content: 'New memory words' });
+  expect(session.canLeave()).toBe(false); expect(localStorage.getItem(draftKey('owner'))).toBe(JSON.stringify(legacy)); set.mockRestore();
+  const reload = createWorkSession({ token: token('owner'), api }); expect(reload.entry('a').content).toBe('Legacy durable words'); reload.dispose();
+  session.edit('a', { content: 'New durable words' });
+  const recovered = createWorkSession({ token: token('owner'), api });
+  expect(recovered.entries().map(item => item.content).sort()).toEqual(['Legacy durable words', 'New durable words']); recovered.dispose();
+});
+test('separate pending continuation receipts survive reload and recovery removes only one', async () => {
+  const prefix = `${draftKey('owner')}:continuation:`;
+  localStorage.setItem(`${prefix}first`, JSON.stringify({ source: note(), operationId: 'first', occurredOn: '2026-10-26' }));
+  localStorage.setItem(`${prefix}second`, JSON.stringify({ source: note({ _id: 'b' }), operationId: 'second', occurredOn: '2026-10-26' }));
+  session.dispose(); session = createWorkSession({ token: token('owner'), api });
+  expect(session.continuation().operationId).toBe('first');
+  api.post.mockResolvedValue({ data: note({ _id: 'child', revision: 0 }) });
+  await session.continueFrom(session.continuation().source, 'first');
+  expect(session.continuation().operationId).toBe('second');
+  const reload = createWorkSession({ token: token('owner'), api }); expect(reload.continuation().operationId).toBe('second'); reload.dispose();
+});
+test('failed continuation receipt cleanup retains the same recoverable identity in memory', async () => {
+  api.post.mockResolvedValue({ data: note({ _id: 'child', revision: 0 }) });
+  const remove = jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('storage blocked'); });
+  await expect(session.continueFrom(note(), 'first')).rejects.toThrow();
+  expect(session.continuation().operationId).toBe('first'); remove.mockRestore();
+  await session.continueFrom(note(), 'first'); expect(session.continuation()).toBeNull();
+});
+test('original account returning refreshes captured credentials without losing a memory-only draft', async () => {
+  await session.load(); const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  session.edit('a', { content: 'Memory-only writing' }); set.mockRestore();
+  localStorage.setItem('token', token('other')); expect(session.isCurrent()).toBe(false);
+  const renewed = `x.${btoa(JSON.stringify({ id: 'owner', exp: 9999999999 }))}.renewed`;
+  localStorage.setItem('token', renewed); session.resume(renewed); await session.flush('a');
+  expect(api.put.mock.calls[0][2].headers.Authorization).toBe(`Bearer ${renewed}`);
+  expect(session.entry('a').content).toBe('Memory-only writing');
 });
