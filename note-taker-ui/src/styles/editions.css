@@ -113,29 +113,6 @@
   justify-self: start;
 }
 
-.front__actions,
-.edition__actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 10px 0 0;
-}
-
-/* Share's panel is not an action. contents lets the summary sit with the
-   jump, and the preview take the next full row instead of stretching the bar. */
-.front__actions .edition-share,
-.edition__actions .edition-share {
-  display: contents;
-}
-
-.front__actions .edition-share__panel,
-.edition__actions .edition-share__panel {
-  flex: 1 0 100%;
-  order: 2;
-}
-
 .edition-share > summary {
   display: inline-flex;
   align-items: baseline;

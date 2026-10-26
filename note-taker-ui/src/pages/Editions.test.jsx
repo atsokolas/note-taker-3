@@ -155,7 +155,8 @@ it('opens Issue 5 headline first, in short, and narrows it to one hand from a qu
   expect(await screen.findByText(five.items[0].finding)).toBeVisible();
   expect(screen.getByRole('heading', { level: 1, name: 'This Week in AI' })).toBeVisible();
   expect(screen.getByText(five.standfirst)).toBeVisible();
-  expect(screen.getByText('Issue 5 · covers Sep 28 – Oct 4')).toBeVisible();
+  /* The week it covers, and apart from it the day an agent last filed. */
+  expect(screen.getByText(/^Issue 5 · covers Sep 28 – Oct 4 · Updated Tue, Oct 6\b/)).toBeVisible();
   expect(screen.getByText(/^3 findings · about (a minute|\d minutes)$/)).toBeVisible();
   const short = screen.getByRole('region', { name: 'In short' });
   expect(within(short).getAllByRole('link').map(link => link.textContent)).toEqual([
@@ -182,7 +183,8 @@ const twoPapers = () => {
   mockId = undefined;
   const lead = {
     ...item, itemId: 'x', title: 'Agents finish the task', plain: 'Few recover when a step fails.',
-    figures: [{ label: 'recover from a failed step', value: '46.7%' }], passage: 'recovered 46.7%', passageCheck: 'found', confidence: 'moderate'
+    figures: [{ label: 'recover from a failed step', value: '46.7%' }], passage: 'recovered 46.7%', passageCheck: 'found', confidence: 'moderate',
+    why: 'It tests the view you hold on agents.', filedBy: 'Codex job', filedByRuntime: 'codex', filedAt: '2026-10-06T09:00:00Z'
   };
   const ai = { ...edition, _id: 'ai', profile: 'ai', profileLabel: 'This Week in AI', headline: 'Competence is not recovery', items: [lead] };
   api.listEditions.mockResolvedValue([
@@ -196,14 +198,15 @@ it('sets every paper as one front page, led by the finding with the most you can
   twoPapers();
   render(<Editions />);
   expect(await screen.findByRole('heading', { name: 'The Noeis Edition' })).toBeVisible();
-  /* Led by what it means; the source's own title sits under it. */
+  /* Led by what it means, then why the agent picked it, then the source one click away. */
   const lead = await screen.findByRole('link', { name: 'Few recover when a step fails.' });
   expect(lead).toHaveAttribute('href', '/editions/ai?item=x');
-  expect(screen.getByText(/^Agents finish the task\. /)).toHaveClass('front__source');
+  expect(screen.getByText('It tests the view you hold on agents.')).toHaveTextContent('It tests the view you hold on agents.Codex');
+  expect(screen.getByRole('link', { name: 'Agents finish the task ↗' })).toHaveAttribute('href', 'https://example.com/source#:~:text=recovered%2046.7%25');
+  expect(screen.getAllByText('Updated Tue, Oct 6', { exact: false })[0]).toBeVisible();
   expect(screen.getByText('recovered 46.7%').tagName).toBe('BLOCKQUOTE');
   expect(screen.getByRole('link', { name: 'A useful distinction' })).toHaveAttribute('href', '/editions/e1?item=one');
   expect(screen.getByText(/2 new findings across 1 paper/)).toBeVisible();
-  expect(screen.getByRole('link', { name: /Codex filed 1 to This Week in AI/ })).toHaveAttribute('href', '/editions/ai');
   expect(screen.getByRole('link', { name: /Back to where you stopped/ })).toHaveAttribute('href', '/editions/e1?item=one');
   expect(screen.getByRole('link', { name: /Power through/ })).toHaveAttribute('href', '/editions?power=1');
   fireEvent.keyDown(document, { key: ']' });
@@ -384,7 +387,7 @@ it('prints the reader’s layer: the plain line, the figures, a checked passage,
   expect(await screen.findByRole('heading', { level: 2, name: 'Debate gets better when each agent picks how closely to look.' })).toBeVisible();
   expect(screen.getByRole('heading', { level: 1, name: 'Debate gains; recovery lags.' })).toBeVisible();
   const margin = within(document.getElementById('edition-item-one')).getByRole('complementary', { name: 'About this finding' });
-  expect(within(margin).getByText(item.title)).toBeVisible();
+  expect(within(margin).getByRole('link', { name: `${item.title} ↗` })).toHaveAttribute('target', '_blank');
   expect(within(margin).getByText('Research preprint. Not yet peer reviewed.')).toBeVisible();
   expect(within(margin).getByText('A real signal, not a settled fact.')).toBeVisible();
   expect(screen.getByText('1.5–3.2%')).toBeVisible();

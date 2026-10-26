@@ -1927,8 +1927,10 @@ const editionItemSchema = new mongoose.Schema({
   note: { type: String, default: '', trim: true },
   /* The reader's layer, written by the agent: the finding in one plain
      sentence, the source's own words it rests on, what kind of source it is,
-     how sure to be, and the numbers it turns on. All optional. */
+     how sure to be, the numbers it turns on, and why the agent picked it for
+     this reader. All optional. */
   plain: { type: String, default: '', trim: true },
+  why: { type: String, default: '', trim: true },
   passage: { type: String, default: '', trim: true },
   /* Set by the server when the reader saves the source: whether the passage
      is there, word for word. Empty until then. */

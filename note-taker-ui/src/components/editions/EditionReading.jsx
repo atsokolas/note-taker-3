@@ -11,6 +11,7 @@ import {
   WATCH_STATUS,
   standLayout,
   stateOf,
+  updatedLine,
   windowLine
 } from '../../pages/editionModel';
 import EditionShare from './EditionShare';
@@ -278,7 +279,7 @@ export default function EditionReading({
         <>
           <header className="edition-issue__head">
             <p className="edition-issue__dateline">
-              {[issueLine({ ...row, issueLabel }), windowLine(row) ? `covers ${windowLine(row)}` : ''].filter(Boolean).join(' · ')}
+              {[issueLine({ ...row, issueLabel }), windowLine(row) ? `covers ${windowLine(row)}` : '', updatedLine(row)].filter(Boolean).join(' · ')}
             </p>
             <h1>{row.headline || paperTitle || name}</h1>
             {row.standfirst ? <p className="edition-issue__deck">{row.standfirst}</p> : null}

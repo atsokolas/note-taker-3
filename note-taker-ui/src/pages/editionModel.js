@@ -76,7 +76,7 @@ const timestampOf = (value) => {
 
 const newestFilingAt = (edition = {}) => Math.max(
   0,
-  ...(edition?.items || edition?.filings || []).map(item => timestampOf(item?.filedAt))
+  ...filingsOf(edition).flatMap(item => [item, ...(item.readings || [])]).map(row => timestampOf(row?.filedAt))
 );
 
 const editionRecency = (edition = {}) => [
@@ -86,24 +86,15 @@ const editionRecency = (edition = {}) => [
   edition.windowStart
 ].map(timestampOf).find(Boolean) || 0;
 
-/* A filing has its own time, separate from the week the paper covers. That
-   distinction matters when an agent finishes a retrospective issue today. */
-export const latestFilingLine = (edition = {}, now = new Date()) => {
-  const filedAt = newestFilingAt(edition);
-  if (!filedAt) return '';
-  const filed = new Date(filedAt);
-  const today = now instanceof Date ? now : new Date(now);
-  if (Number.isNaN(today.getTime())) return '';
-  const sameDay = (left, right) => (
-    left.getFullYear() === right.getFullYear()
-    && left.getMonth() === right.getMonth()
-    && left.getDate() === right.getDate()
-  );
-  if (sameDay(filed, today)) return 'Filed today';
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (sameDay(filed, yesterday)) return 'Filed yesterday';
-  return `Filed ${filed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+/* The day an agent last filed into an issue, which is the day the paper was
+   last updated; the week it covers is a different fact. A reader's own
+   marks do not count. */
+export const updatedLine = (edition = {}, now = new Date()) => {
+  const filed = newestFilingAt(edition);
+  if (!filed) return '';
+  const date = new Date(filed);
+  const year = date.getFullYear() === now.getFullYear() ? undefined : 'numeric';
+  return `Updated ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year })}`;
 };
 
 /**
@@ -456,11 +447,9 @@ const byLead = (left, right) => leadWeight(right.item) - leadWeight(left.item)
  * stand with nothing filed has no lead; nothing is promoted to fill space.
  */
 export const frontPage = (papers = [], opened = {}) => {
-  const newest = papers
+  const columns = papers
     .map(paper => ({ paper, issue: opened[latestOf(paper)?._id] }))
-    .filter(({ issue }) => issue);
-  const columns = newest
-    .filter(({ issue }) => issue.items?.length)
+    .filter(({ issue }) => issue?.items?.length)
     .map(({ paper, issue }) => ({
       paper,
       issue,
@@ -469,35 +458,13 @@ export const frontPage = (papers = [], opened = {}) => {
   const lead = columns.flatMap(column => column.stories).sort(byLead)[0] || null;
   return {
     lead,
-    /* The rest of the lead's issue runs under it, so the columns beside it
+    /* The rest of the lead's issue runs beside it, so the columns below
        belong to the other papers. */
     alsoIn: lead ? columns.find(column => column.paper === lead.paper).stories.filter(story => story !== lead) : [],
     columns: columns.filter(column => column.paper !== lead?.paper),
-    /* A paper that filed nothing can still say where it looked. */
-    quiet: newest.flatMap(({ paper, issue }) => (issue.silences || [])
-      .filter(silence => silence.state === 'checked')
-      .map(silence => ({ paper, silence }))),
     watching: papers.flatMap(paper => watchThreads(paper.issues).open.map(thread => ({ paper, ...thread })))
   };
 };
-
-/**
- * The wire: who filed what into each paper's newest issue, newest first.
- * Read off the stand's rows, so it costs nothing to print.
- */
-export const wireOf = (papers = []) => papers
-  .flatMap((paper) => {
-    const issue = latestOf(paper);
-    const hands = new Map();
-    filingsOf(issue).forEach((filing) => {
-      const agent = filerOf(filing);
-      if (!agent) return;
-      const held = hands.get(agent.key) || { agent, count: 0, at: 0 };
-      hands.set(agent.key, { ...held, count: held.count + 1, at: Math.max(held.at, timestampOf(filing.filedAt)) });
-    });
-    return [...hands.values()].map(hand => ({ paper, issue, ...hand }));
-  })
-  .sort((left, right) => right.at - left.at);
 
 /** What a paper's cover leads with: its strongest finding's first figure. */
 export const coverFigure = (issue = null) => (issue?.items || [])

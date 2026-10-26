@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { publicSourceHref, sourceNote, sureLine } from '../../pages/editionModel';
+import { publicSourceHref, sureLine } from '../../pages/editionModel';
 import { findingAnchor } from './editionReadingState';
 import AgentMark from './AgentMark';
 import EditionReadings from './EditionReadings';
-import { Figures, Held, Passage } from './EditionLayer';
+import { Figures, Held, Passage, SourceLink, Why } from './EditionLayer';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
 export const EditionBoundary = ({ children }) => (
@@ -45,7 +45,6 @@ export default function EditionFinding({ editionId, item, number, section = '', 
     </div>
   );
   const readings = Boolean(item.readings?.length);
-  const note = sourceNote(item);
   const sure = sureLine(item);
   return (
     <article
@@ -62,6 +61,7 @@ export default function EditionFinding({ editionId, item, number, section = '', 
           </p>
         ) : null}
         <h2>{heading}</h2>
+        <Why item={item} />
         <Figures figures={item.figures} />
         {readings ? (
           <EditionReadings item={item} finding={prose} Boundary={EditionBoundary} />
@@ -115,13 +115,10 @@ export default function EditionFinding({ editionId, item, number, section = '', 
         ) : null}
       </div>
       <aside className="edition-finding__margin" aria-label="About this finding">
-        {item.plain || note ? (
-          <div>
-            <h3>Source</h3>
-            {item.plain ? <p>{item.title}</p> : null}
-            {note ? <p className="edition-finding__quiet">{note}</p> : null}
-          </div>
-        ) : null}
+        <div>
+          <h3>Source</h3>
+          <SourceLink item={item} />
+        </div>
         {sure ? (
           <div>
             <h3>How sure to be</h3>
@@ -131,7 +128,7 @@ export default function EditionFinding({ editionId, item, number, section = '', 
         {zoomed ? <Held editionId={editionId} itemId={item.itemId} /> : null}
         {readings ? (
           <p className="edition-finding__quiet">Read on their own by {HANDS[item.readings.length + 1] || item.readings.length + 1} hands</p>
-        ) : item.filedBy ? (
+        ) : item.filedBy && !item.why ? (
           <p className="edition-finding__quiet">
             Picked by <AgentMark runtime={item.filedByRuntime} label={item.filedBy} />
           </p>

@@ -240,6 +240,8 @@ const normalizeItem = (raw = {}, index = 0, profile) => {
     note,
     /* The finding for someone outside the field, in one sentence. */
     plain: clean(raw.plain, 280),
+    /* Why the agent picked it for this reader, in its own words. */
+    why: clean(raw.why, 280),
     /* The source's own words the finding rests on. Checked against the source
        when the reader saves it, and never shown as a quotation until it holds. */
     passage,
@@ -482,6 +484,7 @@ const plainLayerOf = (item = {}) => {
   }));
   return Object.fromEntries(Object.entries({
     plain: publicText(item.plain, 280),
+    why: publicText(item.why, 280),
     passage: item.passageCheck === 'found' ? publicText(item.passage, 1200) : '',
     sourceKind: publicText(item.sourceKind, 40),
     confidence: publicText(item.confidence, 40),
@@ -660,6 +663,7 @@ const PASSAGE_CHECKS = Object.freeze(['found', 'missing']);
 
 const readerLayerOf = (item = {}) => ({
   plain: item.plain || '',
+  why: item.why || '',
   passage: item.passage || '',
   passageCheck: PASSAGE_CHECKS.includes(item.passageCheck) ? item.passageCheck : (item.passage ? 'unchecked' : ''),
   sourceKind: item.sourceKind || '',
