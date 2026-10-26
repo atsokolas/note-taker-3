@@ -141,7 +141,8 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     const current = await find(req); if (!current) throw fail(404, 'Work note not found.');
     if (replayedActions(current.workItem, req.body.workActions)) return res.json({ ...current.toObject(), _actionReplay: true });
     if (current.revision !== expected) throw fail(409, 'This note changed elsewhere.', current);
-    const values = await fields(req, current);
+    let values;
+    try { values = await fields(req, current); } catch (error) { if (error.status === 409) error.current = current; throw error; }
     if (req.body.workingState !== undefined) {
       const text = req.body.workingState?.nextTimeLine?.text ?? '';
       if (typeof text !== 'string' || text.length > LIMITS.nextLine) throw fail(400, `The return line must be text of at most ${LIMITS.nextLine} characters. Your note was not saved.`);

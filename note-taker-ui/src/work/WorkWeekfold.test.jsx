@@ -120,3 +120,18 @@ test('concurrent day margins remain discoverable, and a conflicting margin offer
   fireEvent.click(await within(margin).findByRole('button', { name: 'Review both versions' }));
   const review = await screen.findByRole('dialog', { name: 'Review both item versions' }); expect(review).toHaveTextContent('Remote margin version'); expect(review).toHaveTextContent('Local margin version');
 });
+test('a semantically rejected action stays in review and can use the saved version', async () => {
+  await open(); const section = screen.getByRole('region', { name: 'Follow-ups & open questions' });
+  fireEvent.click(within(section).getByRole('checkbox', { name: 'Confirm service-training dates' }));
+  const complete = await screen.findByRole('region', { name: 'Completed follow-ups' });
+  await waitFor(() => expect(records.find(x => x._id === 'task').revision).toBe(1));
+  const remote = { ...records.find(x => x._id === 'task'), revision: 2 };
+  api.put.mockRejectedValue({ response: { status: 409, data: { error: 'This item changed. Review its latest history before undoing.', current: remote } } });
+  fireEvent.click(within(complete).getByRole('button', { name: 'Undo', exact: true }));
+  fireEvent.click(await within(section).findByRole('button', { name: 'Review both versions' }));
+  const review = await screen.findByRole('dialog', { name: 'Review both item versions' });
+  fireEvent.click(within(review).getByRole('button', { name: 'Apply my changes after review' }));
+  await waitFor(() => expect(within(review).getByRole('alert')).toHaveTextContent('Review its latest history'));
+  fireEvent.click(within(review).getByRole('button', { name: 'Use saved version' })); expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.getByRole('region', { name: 'Completed follow-ups' })).toHaveTextContent('Confirm service-training dates');
+});

@@ -238,7 +238,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       if (!draft?.dirty) return entry(id)?._id ? 'Saved' : 'Start writing';
       draft.durable = device.durable(draft);
       if (!draft.durable) return 'Not saved on this device. Keep this page open.';
-      if (draft.conflict) return 'This note changed elsewhere. Both versions are kept.';
+      if (draft.conflict) return draft.note.workItem && draft.error ? `${draft.error} Both versions are kept.` : 'This note changed elsewhere. Both versions are kept.';
       if (draft.error) return `${draft.error} On this device.`;
       return draft.saving ? 'Saving…' : 'On this device';
     },

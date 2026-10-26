@@ -118,4 +118,6 @@ test('stale action validation returns the current version so an invalid old Undo
   assert.equal(complete.status, 200);
   const stale = await call('/' + task._id, 'PUT', { expectedRevision: 0, workActions: [{ ...operation('stale-undo'), type: 'undo', undoOf: 'different-old-action' }] });
   assert.equal(stale.status, 409); assert.equal(stale.body.current.revision, 1); assert.equal(stale.body.current.workItem.history[0].operationId, 'device-completed');
+  const reviewed = await call('/' + task._id, 'PUT', { expectedRevision: 1, workActions: [{ ...operation('reviewed-undo'), type: 'undo', undoOf: 'different-old-action' }] });
+  assert.equal(reviewed.status, 409); assert.equal(reviewed.body.current.revision, 1);
 });
