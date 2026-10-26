@@ -4,14 +4,17 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const { NotebookEntry, NotebookFolder } = require('../models');
+const { createWorkNoteReadiness } = require('../services/workNoteReadiness');
 const { buildWorkNoteRouter } = require('./workNoteRoutes');
-let mongo, server, base;
+let mongo, server, base, readiness;
 const user = new mongoose.Types.ObjectId();
 before(async () => {
   mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  await mongoose.connect(mongo.getUri()); await NotebookEntry.init();
+  await mongoose.connect(mongo.getUri(), { autoIndex: false, monitorCommands: true });
+  readiness = createWorkNoteReadiness({ NotebookEntry });
+  assert.equal(await readiness.settled, true);
   const app = express(); app.use(express.json());
-  app.use(buildWorkNoteRouter({ NotebookEntry, NotebookFolder, authenticateToken(req, res, next) {
+  app.use(buildWorkNoteRouter({ NotebookEntry, NotebookFolder, readiness, authenticateToken(req, res, next) {
     req.user = { id: req.headers['x-user'] || String(user) }; req.agentToken = req.headers['x-agent']; next();
   } }));
   server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
@@ -86,4 +89,74 @@ test('a racing edit never changes the confirmed continuation snapshot', async ()
     const reloaded = await call('/' + continued.body._id);
     assert.deepEqual(reloaded.body.continuationBridge, continued.body.continuationBridge);
   }
+});
+
+test('all Work operations stay unavailable while initialization is pending or failed', async () => {
+  const isReady = readiness.isReady;
+  readiness.isReady = () => false;
+  try {
+    for (const [path, method, body] of [
+      ['', 'GET'], ['', 'POST', { operationId: 'not-ready' }],
+      ['/folders', 'POST', { name: 'Unavailable' }],
+      ['/' + user, 'GET'], ['/' + user, 'PUT', { expectedRevision: 0 }],
+      ['/' + user + '/continue', 'POST', { operationId: 'not-ready-next', expectedRevision: 0, occurredOn: '2026-10-28' }]
+    ]) {
+      const response = await call(path, method, body);
+      assert.equal(response.status, 503); assert.equal(response.body.code, 'work_unavailable');
+    }
+  } finally { readiness.isReady = isReady; }
+});
+test('Continue protects the source until its snapshot commits', async () => {
+  const note = (await call('', 'POST', { operationId: 'fence-source', title: 'Confirmed' })).body;
+  const before = (await call('/' + note._id)).body;
+  let acquired, release;
+  const acquisition = new Promise(resolve => { acquired = resolve; });
+  const protectedInterval = new Promise(resolve => { release = resolve; });
+  const create = NotebookEntry.create;
+  NotebookEntry.create = async function (docs, ...args) {
+    if (Array.isArray(docs) && docs[0].operationId === 'fenced-next') {
+      acquired(); await protectedInterval;
+    }
+    return create.call(this, docs, ...args);
+  };
+  let continuing, editing, editCompleted = false, editSent;
+  const editStarted = new Promise(resolve => { editSent = resolve; });
+  const client = mongoose.connection.getClient();
+  const commandStarted = event => {
+    if (event.command.findAndModify && event.command.update?.$set?.title === 'Changed') editSent();
+  };
+  client.on('commandStarted', commandStarted);
+  try {
+    continuing = call('/' + note._id + '/continue', 'POST', { operationId: 'fenced-next', expectedRevision: 0, occurredOn: '2026-10-28' });
+    await Promise.race([acquisition, continuing.then(() => { throw new Error('Continue ended before acquiring the source.'); })]);
+    editing = call('/' + note._id, 'PUT', { expectedRevision: 0, title: 'Changed' }).then(result => { editCompleted = true; return result; });
+    await editStarted;
+    await Promise.race([editing, new Promise(resolve => setTimeout(resolve, 250))]);
+    assert.equal(editCompleted, false, 'an edit must not commit inside Continue’s protected interval');
+  } finally {
+    release();
+    if (continuing) assert.equal((await continuing).status, 201);
+    if (editing) assert.equal((await editing).status, 200);
+    NotebookEntry.create = create;
+    client.off('commandStarted', commandStarted);
+  }
+  const after = (await call('/' + note._id)).body;
+  assert.equal(after.revision, before.revision + 1);
+  assert.equal(after.continuationFence, undefined);
+});
+test('return lines preserve accepted words exactly and reject over-limit input without saving any fields', async () => {
+  const note = (await call('', 'POST', { operationId: 'exact-line', content: 'Original body' })).body;
+  const text = '  The exact words.\n\t';
+  const saved = await call('/' + note._id, 'PUT', { expectedRevision: 0, workingState: { nextTimeLine: { text } } });
+  assert.equal(saved.status, 200); assert.equal(saved.body.workingState.nextTimeLine.text, text);
+  const continued = await call('/' + note._id + '/continue', 'POST', { operationId: 'exact-line-next', expectedRevision: 1, occurredOn: '2026-10-28' });
+  assert.equal(continued.body.continuationBridge.text, text);
+  const before = (await call('/' + note._id)).body;
+  const oversized = await call('/' + note._id, 'PUT', { expectedRevision: 1, content: 'Must not persist', workingState: { nextTimeLine: { text: 'x'.repeat(4001) } } });
+  assert.equal(oversized.status, 400);
+  assert.match(oversized.body.error, /4000/);
+  assert.deepEqual((await call('/' + note._id)).body, before);
+  const maximum = ' ' + 'x'.repeat(3998) + '\n';
+  const boundary = await call('/' + note._id, 'PUT', { expectedRevision: 1, workingState: { nextTimeLine: { text: maximum } } });
+  assert.equal(boundary.status, 200); assert.equal(boundary.body.workingState.nextTimeLine.text, maximum);
 });

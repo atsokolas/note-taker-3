@@ -1,4 +1,8 @@
 // Capability stays in server memory; a JSON option or filter cannot grant Work access.
+const workOperationIndex = {
+  keys: { userId: 1, operationId: 1 },
+  options: { unique: true, partialFilterExpression: { knowledgeContext: 'work', operationId: { $type: 'string' } } }
+};
 const workQueries = new WeakSet();
 const personalContext = () => ({ $or: [{ knowledgeContext: 'personal' }, { knowledgeContext: { $exists: false } }] });
 const inWork = query => { workQueries.add(query); return query; };
@@ -39,4 +43,4 @@ function knowledgeContext(schema) {
     scopePipeline(this.pipeline(), workQueries.has(this) ? { knowledgeContext: 'work' } : personalContext());
   });
 }
-module.exports = { knowledgeContext, inWork, personalContext };
+module.exports = { knowledgeContext, inWork, personalContext, workOperationIndex };

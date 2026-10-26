@@ -1,12 +1,13 @@
+const { createWorkNoteReadiness } = require('../services/workNoteReadiness');
 const express = require('express');
 const mongoose = require('mongoose');
 const { inWork } = require('../models/knowledgeContext');
 const { sanitizeNotebookBlocks } = require('../utils/notebookIdentity');
-const { sanitizeNotebookWorkbench } = require('../utils/notebookWorkbench');
+const { sanitizeNotebookWorkbench, LIMITS } = require('../utils/notebookWorkbench');
 const fail = (status, message, current) => Object.assign(new Error(message), { status, current });
 const revision = value => Number.isInteger(value) && value >= 0;
 const date = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
-const forbidden = new Set(['linkedArticleId', 'linkedHighlightIds', 'claimId', 'articleId', 'highlightId', 'conceptId', 'questionId', 'sourceId', 'materials', 'trials', 'looseThoughts', 'importMeta', 'continuationBridge', 'continuesFromEntryId', 'knowledgeContext']);
+const forbidden = new Set(['linkedArticleId', 'linkedHighlightIds', 'claimId', 'articleId', 'highlightId', 'conceptId', 'questionId', 'sourceId', 'materials', 'trials', 'looseThoughts', 'importMeta', 'continuationBridge', 'continuesFromEntryId', 'continuationFence', 'knowledgeContext']);
 function validateReferences(value) {
   if (!value || typeof value !== 'object') return;
   for (const [key, child] of Object.entries(value)) {
@@ -16,11 +17,12 @@ function validateReferences(value) {
     validateReferences(child);
   }
 }
-function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder }) {
+function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder, readiness = createWorkNoteReadiness({ NotebookEntry }) }) {
   const router = express.Router();
   router.use('/api/work-notes', authenticateToken, (req, res, next) => {
     res.set('Cache-Control', 'no-store, private');
     if (req.agentToken || req.personalAgent || req.authInfo?.tokenSource === 'agent-token') return res.status(403).json({ error: 'Only the human owner can do this.' });
+    if (!readiness.isReady()) return res.status(503).json({ code: 'work_unavailable', error: 'Work notes are not ready. Please retry shortly.' });
     next();
   });
   const handle = fn => async (req, res) => {
@@ -87,7 +89,13 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder 
     const expected = req.body?.expectedRevision;
     if (!revision(expected)) throw fail(400, 'expectedRevision is required.');
     const values = await fields(req);
-    if (req.body.workingState !== undefined) values.workingState = sanitizeNotebookWorkbench(req.body.workingState, { revision: expected + 1 });
+    if (req.body.workingState !== undefined) {
+      const text = req.body.workingState?.nextTimeLine?.text ?? '';
+      if (typeof text !== 'string' || text.length > LIMITS.nextLine) throw fail(400, `The return line must be text of at most ${LIMITS.nextLine} characters. Your note was not saved.`);
+      values.workingState = sanitizeNotebookWorkbench(req.body.workingState, { revision: expected + 1 });
+      // Personal workbench normalization trims text; Work preserves the accepted words exactly.
+      values.workingState.nextTimeLine.text = text;
+    }
     const entry = await inWork(NotebookEntry.findOneAndUpdate({ _id: req.params.id, userId: req.user.id, revision: expected }, { $set: values, $inc: { revision: 1 } }, { new: true, runValidators: true }));
     if (!entry) { const current = await find(req); throw fail(current ? 409 : 404, current ? 'This note changed elsewhere.' : 'Work note not found.', current); }
     res.json(entry);
@@ -101,8 +109,8 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder 
     const session = await NotebookEntry.db.startSession();
     try {
       await session.withTransaction(async () => {
-        // A conditional no-op write locks the source against concurrent edits, while preserving every source field.
-        const source = await inWork(NotebookEntry.findOneAndUpdate({ _id: req.params.id, userId: req.user.id, revision: expectedRevision, ...(expectedWorkbenchRevision === undefined ? {} : { 'workingState.revision': expectedWorkbenchRevision }) }, { $set: { revision: expectedRevision } }, { new: true, timestamps: false, session }));
+        // A real internal write holds the source lock through commit without changing its writing, revisions, or timestamps.
+        const source = await inWork(NotebookEntry.findOneAndUpdate({ _id: req.params.id, userId: req.user.id, revision: expectedRevision, ...(expectedWorkbenchRevision === undefined ? {} : { 'workingState.revision': expectedWorkbenchRevision }) }, { $inc: { continuationFence: 1 } }, { new: true, timestamps: false, session }));
         if (!source) { const current = await find(req).session(session); throw fail(current ? 409 : 404, 'The source changed. Review it before continuing.', current); }
         const line = source.workingState?.nextTimeLine;
         const continuationBridge = line?.text?.trim() ? { entryId: String(source._id), title: source.title, occurredOn: source.occurredOn, text: line.text, target: line.target?.toObject ? line.target.toObject() : line.target, revision: source.revision, workbenchRevision: source.workingState.revision } : null;

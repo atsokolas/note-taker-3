@@ -1,4 +1,4 @@
-const { knowledgeContext } = require('./knowledgeContext');
+const { knowledgeContext, workOperationIndex } = require('./knowledgeContext');
 const mongoose = require('mongoose');
 const {
   WIKI_PAGE_TYPES
@@ -503,11 +503,10 @@ notebookEntrySchema.add({
   operationId: { type: String, immutable: true },
   operationSource: { type: String, immutable: true },
   continuesFromEntryId: { type: mongoose.Schema.Types.ObjectId, default: null, immutable: true },
+  continuationFence: { type: Number, select: false },
   continuationBridge: { type: mongoose.Schema.Types.Mixed, default: null, immutable: true }
 });
-notebookEntrySchema.index({ userId: 1, operationId: 1 }, {
-  unique: true, partialFilterExpression: { knowledgeContext: 'work', operationId: { $type: 'string' } }
-});
+notebookEntrySchema.index(workOperationIndex.keys, workOperationIndex.options);
 const NotebookEntry = mongoose.model('NotebookEntry', notebookEntrySchema);
 
 const notebookFolderSchema = new mongoose.Schema({
