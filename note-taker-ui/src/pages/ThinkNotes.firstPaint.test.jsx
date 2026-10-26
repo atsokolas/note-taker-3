@@ -351,4 +351,11 @@ describe('ThinkNotes first paint', () => {
     await waitFor(() => expect(screen.getByRole('searchbox')).toHaveValue(''));
   });
 
+ it('offers Work from the context selector without creating a Personal note', async () => {
+   render(<ThinkNotes />);
+   fireEvent.change(screen.getByLabelText('Knowledge context'), { target: { value: 'work' } });
+   await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/think?context=work'));
+   expect(api.post).not.toHaveBeenCalled();
+ });
+
 });
