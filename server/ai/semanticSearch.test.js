@@ -5,7 +5,7 @@ jest.mock('./embed', () => ({
 }));
 
 const { embedText, embedTexts, isEmbeddingConfigured } = require('./embed');
-const { similarToSource, marginNotes, answerTo, echoOf } = require('./semanticSearch');
+const { similarToSource, marginNotes, answerTo, beforeYouStart, echoOf } = require('./semanticSearch');
 const { encodeVector, rawCosineToAtlasScore } = require('./vectorStore');
 
 const userId = '64b000000000000000000001';
@@ -150,7 +150,8 @@ describe('answerTo', () => {
   const held = {
     [hid(1)]: { _id: hid(1), text: passage, articleId: 'a1', articleTitle: 'The Power Broker', createdAt: '2026-07-01T00:00:00Z' },
     [hid(2)]: { _id: hid(2), text: `${passage} Marked long before.`, articleId: 'a2', articleTitle: 'Earlier', createdAt: '2026-01-01T00:00:00Z' },
-    [hid(3)]: { _id: hid(3), text: 'Roads first.', articleId: 'a1', articleTitle: 'Too short', createdAt: '2026-07-02T00:00:00Z' }
+    [hid(3)]: { _id: hid(3), text: 'Roads first.', articleId: 'a1', articleTitle: 'Too short', createdAt: '2026-07-02T00:00:00Z' },
+    [hid(4)]: { _id: hid(4), text: `${passage} Saved again.`, articleId: 'a3', articleTitle: 'The Power Broker (Full Article)', createdAt: '2026-01-01T00:00:00Z' }
   };
   const models = rows => ({
     VectorItem: vectorsWith(rows),
@@ -175,5 +176,15 @@ describe('answerTo', () => {
     expect(await echoOf({ userId, mark, models: models([row(2, 0.7)]) })).toBeNull();
     expect(await echoOf({ userId, mark: { ...mark, createdAt: '2026-02-15T00:00:00Z' }, models: models([row(2, 0.8)]) })).toBeNull();
     expect(await echoOf({ userId, mark: { ...mark, text: 'Roads first, then parks.' }, models: models([row(2, 0.9)]) })).toBeNull();
+  });
+
+  it('before you start a book, finds what you marked in other works by its title and author', async () => {
+    embedText.mockClear();
+    isEmbeddingConfigured.mockReturnValue(true);
+    const book = { _id: 'a1', title: 'The Power Broker', author: 'Robert Caro' };
+    const found = await beforeYouStart({ userId, book, models: models([row(1, 0.9), row(4, 0.8), row(3, 0.7), row(2, 0.6)]) });
+    expect(embedText).toHaveBeenCalledWith('The Power Broker, by Robert Caro');
+    expect(found.map(passage => passage.articleTitle)).toEqual(['Earlier']);
+    expect(await beforeYouStart({ userId, book: { ...book, _id: 'a9' }, models: models([row(2, 0.5)]) })).toEqual([]);
   });
 });

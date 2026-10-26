@@ -8,7 +8,7 @@ import { buildConceptPath } from '../../utils/sourceRoutes';
 import { pagePhoto } from '../../utils/pagePhoto';
 import {
   completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastTime, markedBefore, monthOf, pageNow, pagesOf,
-  readingSince, readLine, setDownOn, sittingOf, tallyLine
+  readingSince, readLine, setDownOn, sittingLabel, sittingOf, tallyLine
 } from './bookDesk';
 import '../../styles/book-desk.css';
 
@@ -76,6 +76,8 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   const typed = readLine(line, page);
   const waiting = marks.filter(mark => mark.text && isUnfinished(mark.text));
   const ghost = typed.text && !isUnfinished(typed.text) ? completionFor(typed.text, marks) : '';
+  // Reading it again, the page you turn to says what you marked on it then.
+  const then = since && page && !line ? marks.find(mark => isEarlier(mark, since) && mark.page === page) : null;
 
   const send = async (draft, tempId) => {
     try {
@@ -222,7 +224,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   return (
     <section className="book-desk" aria-label="Reading desk">
       <p className="book-desk__lede">
-        {sitting.length ? <><span className="book-desk__label">Tonight</span>{tallyLine(sitting)}</>
+        {sitting.length ? <><span className="book-desk__label">{sittingLabel(new Date(sitting[sitting.length - 1].createdAt))}</span>{tallyLine(sitting)}</>
           : setDown ? <><span className="book-desk__label">Set down in {monthOf(setDown)}</span>Why’d you stop?</>
           : last ? <><span className="book-desk__label">Last time{last.page ? `, p. ${last.page}` : ''}</span><q className={last.own ? 'book-desk__own' : ''}>{last.words}</q></>
             : lastReading?.finishedOn ? <><span className="book-desk__label">Read before, finished {monthOf(dayOf(lastReading.finishedOn))}</span>{lastReading.closingLine ? <q>{lastReading.closingLine}</q> : 'What you marked then is here in faded ink.'}</>
@@ -290,10 +292,10 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
           />
         </div>
       </form>
-      <p className="book-desk__hint" aria-live="polite" data-said={receipt || ghost ? true : undefined}>
-        {receipt || (ghost
-          ? 'Tab takes the rest of the passage you marked'
-          : 'Return keeps the line. Option-Return adds it to the quote above.')}
+      <p className="book-desk__hint" aria-live="polite" data-said={receipt || ghost || then ? true : undefined}>
+        {receipt || (ghost ? 'Tab takes the rest of the passage you marked'
+          : then ? <>In {yearOf(then)}, on this page: <q>{then.text || then.note}</q></>
+            : 'Return keeps the line. Option-Return adds it to the quote above.')}
       </p>
       {waiting.length ? (
         <label className="book-desk__photo">

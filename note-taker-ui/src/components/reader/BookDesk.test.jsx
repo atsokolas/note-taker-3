@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import BookDesk from './BookDesk';
+import { sittingLabel } from './bookDesk';
 import { createHighlight, deleteHighlight, updateHighlight } from '../../api/highlights';
 import { readBookPage } from '../../api/imports';
 import { pagePhoto } from '../../utils/pagePhoto';
@@ -63,7 +64,7 @@ test('a number turns the page, and the page stays for the lines after it', async
   type('or is he?');
   await act(async () => keep());
   expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: 'or is he?', page: 212 });
-  expect(await screen.findByText('Tonight')).toBeInTheDocument();
+  expect(await screen.findByText(sittingLabel(new Date()))).toBeInTheDocument();
   expect(screen.getByText('p. 212 · 1 note, 1 question')).toBeInTheDocument();
   expect(screen.getByText('p. 212')).toBeInTheDocument();
 });
@@ -97,7 +98,17 @@ test('on a second reading a passage marked again is a new mark, and the desk say
   await act(async () => keep());
   expect(await screen.findByText('You marked this in 2025 too.')).toBeInTheDocument();
   expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(2);
-  expect(screen.getByText('Tonight')).toBeInTheDocument();
+  expect(screen.getByText(sittingLabel(new Date()))).toBeInTheDocument();
+});
+
+test('reading it again, the page you turn to says what you marked on it then', () => {
+  const then = { ...KINDLE, page: 214, createdAt: '2024-10-01T20:00:00Z' };
+  const readBefore = [{ finishedOn: '2024-10-10', closingLine: '', until: '2024-10-11T00:00:00Z' }];
+  render(<Desk marks={[then]} readBefore={readBefore} />);
+  fireEvent.change(screen.getByLabelText('Page you are on'), { target: { value: '214' } });
+  expect(screen.getByText(/In 2024, on this page:/)).toHaveTextContent(KINDLE.text);
+  type('a new thought');
+  expect(screen.queryByText(/on this page:/)).not.toBeInTheDocument();
 });
 
 test('a book untouched for a month asks why you stopped, and the answer is a mark like any other', async () => {
@@ -110,7 +121,7 @@ test('a book untouched for a month asks why you stopped, and the answer is a mar
 
   type('It got repetitive after the Leviathan.');
   await act(async () => keep());
-  expect(await screen.findByText('Tonight')).toBeInTheDocument();
+  expect(await screen.findByText(sittingLabel(new Date()))).toBeInTheDocument();
   expect(screen.queryByText('Why’d you stop?')).not.toBeInTheDocument();
 });
 

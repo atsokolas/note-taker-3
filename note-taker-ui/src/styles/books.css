@@ -172,12 +172,14 @@
 /* What you asked beside your books, ruled like the shelf above it. A
    passage that answers a question hangs under it in the book's own type. */
 .books__questions,
-.books__twice {
+.books__twice,
+.books__beforehand {
   margin-top: var(--space-6);
 }
 
 .books__questions h2,
-.books__twice h2 {
+.books__twice h2,
+.books__beforehand h2 {
   margin: 0;
   color: var(--muted);
   font: 0.82rem/1.5 var(--font-sans);
@@ -185,13 +187,15 @@
   text-transform: uppercase;
 }
 
-.books__questions ol {
+.books__questions ol,
+.books__ask ol {
   margin: var(--space-2) 0 0;
   padding: 0;
   list-style: none;
 }
 
-.books__questions li {
+.books__questions li,
+.books__ask li {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4) 0;
@@ -227,11 +231,18 @@
   font: 1.05rem/1.55 var(--font-serif);
 }
 
-.books__twice > .books__asked {
+/* Before you start sits between the book's name and the desk. */
+.books__beforehand {
+  margin-bottom: var(--space-6);
+}
+
+.books__twice > .books__asked,
+.books__beforehand > .books__asked {
   margin: var(--space-2) 0 var(--space-3);
 }
 
-.books__question q {
+.books__question q,
+.books__ask q {
   color: var(--ink-human, var(--text));
   font: 1rem/1.5 var(--font-sans);
 }
@@ -399,7 +410,31 @@
   opacity: 0.18;
 }
 
-.books__colophon .books__before q {
+/* The book's answer to a question of yours, in the book's type, and the
+   pages it leans on as plain words that open their marks. */
+.books__reply {
+  margin: 0;
+  font: 1.05rem/1.55 var(--font-serif);
+}
+
+.books .books__cite {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.books .books__cite:is(:hover, :focus-visible) {
+  text-decoration-color: currentColor;
+}
+
+.books__colophon .books__before q,
+.books__colophon .books__bookends q {
   font-style: italic;
 }
 

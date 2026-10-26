@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { bookEcho, closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
+import { updateHighlight } from '../api/highlights';
+import { askBook, beforeBook, bookEcho, closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
 import { ArticleMargins } from '../components/margins/LibraryMargins';
 import { useSettleIntoWiki } from '../components/think/settleIntoWiki';
 import BookDesk from '../components/reader/BookDesk';
 import PassageDoor from '../components/reader/PassageDoorView';
 import useSourceWhereabouts from '../components/reader/useSourceWhereabouts';
 import {
-  dayOf, isEarlier, lastTime, longDate, monthOf, readingSince, setDownOn, sittingsOf, spineOf, tallyLine
+  BOOK_SAYS, bookendsOf, dayOf, isEarlier, kindOf, lastTime, longDate, monthOf, readingSince, setDownOn, sittingsOf, spineOf, tallyLine
 } from '../components/reader/bookDesk';
 import { bookFrom } from '../components/library/LibraryPasteLink';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
@@ -223,7 +224,7 @@ const Remember = ({ label, onKeep }) => {
    said you would remember; and under it, each time you read it before. A
    closed book can be written up as a wiki page of what you marked in it,
    and written up again after you mark more. */
-const Closing = ({ book, marks, saved, writeUp, onChange }) => {
+const Closing = ({ book, marks, saved, writeUp, onChange, children }) => {
   const writing = useSettleIntoWiki('books', book._id, writeUp);
   const [asking, setAsking] = useState(false);
   const [said, setSaid] = useState('');
@@ -261,22 +262,26 @@ const Closing = ({ book, marks, saved, writeUp, onChange }) => {
     );
   }
   const sittings = sittingsOf(marks);
+  const { first, last, words } = bookendsOf(marks);
   const colophon = [
     sittings.length && longDate(new Date(sittings[0][0].createdAt)) !== longDate(dayOf(book.finishedOn)) ? `Read from ${longDate(new Date(sittings[0][0].createdAt))}` : '',
     sittings.length > 1 ? `${sittings.length} sittings` : '',
-    tallyLine(marks)
+    tallyLine(marks),
+    words ? `${words.toLocaleString()} ${words === 1 ? 'word' : 'words'} of your own` : ''
   ].filter(Boolean).join(' · ');
   return (
     <section className="books__colophon" aria-label="Colophon">
       <p className="books__author">Finished {longDate(dayOf(book.finishedOn))}</p>
       {book.closingLine ? <blockquote>{book.closingLine}</blockquote> : <Remember label="Keep" onKeep={keep} />}
       {colophon ? <p className="books__tally">{colophon}</p> : null}
+      {first ? <p className="books__tally books__bookends">It began with <q>{first}</q> and ended with <q>{last}</q></p> : null}
       {before.map(reading => (
         <p key={reading.until} className="books__tally books__before">
           Also finished {longDate(dayOf(reading.finishedOn))}{reading.closingLine ? <>, and said: <q>{reading.closingLine}</q></> : null}
         </p>
       ))}
       {said ? <p className="books__quiet" role="status">{said}</p> : null}
+      {children}
       {writing.lines}
       <p className="books__again">
         <button type="button" className="books__quiet-button" disabled={writing.settling} onClick={() => writing.settle(async () => saved)}>
@@ -285,6 +290,106 @@ const Closing = ({ book, marks, saved, writeUp, onChange }) => {
         <button type="button" className="books__quiet-button" onClick={open(true)}>Read it again</button>
         <button type="button" className="books__quiet-button" onClick={open(false)}>Still reading it</button>
       </p>
+    </section>
+  );
+};
+
+/* Asking the author: when the book is done, the questions you left open
+   beside it are put to it, and each comes back argued only from what you
+   marked in it, with the pages it leans on. Keep an answer and it is written
+   under your question, which closes it; strike it and nothing is kept. A
+   question the marks cannot reach gets no answer. */
+const AskTheAuthor = ({ book, marks, onReplace }) => {
+  const open = marks.filter(mark => kindOf(mark) === 'question');
+  const [answers, setAnswers] = useState(null);
+  const [asking, setAsking] = useState(false);
+  const [said, setSaid] = useState('');
+  const still = usePrefersReducedMotion();
+  if (!open.length && !answers?.length && !said) return null;
+  const ask = async () => {
+    setAsking(true);
+    setSaid('');
+    try {
+      const found = await askBook(book._id);
+      setAnswers(found);
+      if (!found.length) setSaid('Nothing you marked answers them, so they stay open.');
+    } catch (_) {
+      setSaid('The book could not be asked just now. Try it again.');
+    }
+    setAsking(false);
+  };
+  const settle = (questionId) => setAnswers(left => left.filter(found => found.questionId !== questionId));
+  const keep = async ({ questionId, answer }) => {
+    const question = marks.find(mark => mark._id === questionId);
+    const note = `${question.note}\n\n${BOOK_SAYS}${answer}`;
+    try {
+      await updateHighlight({ articleId: book._id, highlightId: questionId, payload: { note } });
+      onReplace(questionId, { ...question, note });
+      settle(questionId);
+      setSaid('Kept under your question.');
+    } catch (_) {
+      setSaid('That answer did not keep. Try it again.');
+    }
+  };
+  const asked = answers?.filter(found => marks.some(mark => mark._id === found.questionId)) || [];
+  return (
+    <section className="books__ask" aria-label="Ask the book">
+      {answers ? null : (
+        <button type="button" className="books__quiet-button" disabled={asking} onClick={ask}>
+          {asking ? 'Asking the book…' : `Ask the book ${open.length === 1 ? 'your open question' : `your ${open.length} open questions`}`}
+        </button>
+      )}
+      {asked.length ? (
+        <ol>
+          {asked.map(found => (
+            <li key={found.questionId}>
+              <q>{marks.find(mark => mark._id === found.questionId).note}</q>
+              <p className="books__reply">{found.answer}</p>
+              <p className="books__asked">
+                From what you marked at{' '}
+                {found.marks.map((mark, at) => (
+                  <React.Fragment key={mark._id}>
+                    {at ? ', ' : ''}
+                    <button type="button" className="books__cite" onClick={() => showMark(mark._id, !still)}>{mark.page ? `p. ${mark.page}` : 'a passage'}</button>
+                  </React.Fragment>
+                ))}
+              </p>
+              <p className="books__again">
+                <button type="button" className="books__quiet-button" onClick={() => keep(found)}>Keep it</button>
+                <button type="button" className="books__quiet-button" onClick={() => settle(found.questionId)}>Strike it</button>
+              </p>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      {said ? <p className="books__quiet" role="status">{said}</p> : null}
+    </section>
+  );
+};
+
+/* Before you start: a book with nothing marked in it yet opens with what you
+   already marked elsewhere that touches it. The first line you type puts it
+   away; a book none of it touches opens as it always has. */
+const BeforeYouStart = ({ id }) => {
+  const [passages, setPassages] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    beforeBook(id)
+      .then(found => { if (!cancelled) setPassages(found); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [id]);
+  if (!passages.length) return null;
+  return (
+    <section className="books__beforehand" aria-labelledby="books-before">
+      <h2 id="books-before">Before you start</h2>
+      <p className="books__asked">You have marked {passages.length === 1 ? 'this' : 'these'} elsewhere, and {passages.length === 1 ? 'it touches' : 'they touch'} this book.</p>
+      {passages.map(passage => (
+        <Link key={passage._id} to={buildPassagePath({ articleId: passage.articleId, highlightId: passage._id })} className="books__echo">
+          <q>{passage.text}</q>
+          <span className="books__asked"><cite>{passage.articleTitle}</cite>{passage.createdAt ? `, ${monthOf(new Date(passage.createdAt))}` : ''}</span>
+        </Link>
+      ))}
     </section>
   );
 };
@@ -382,6 +487,7 @@ const Book = ({ id }) => {
             <h1 id="book-title">{book.title || 'Untitled book'}</h1>
           </header>
           <Spine marks={highlights} since={since} />
+          {highlights.length ? null : <BeforeYouStart id={id} />}
           <div ref={deskRef}>
             <BookDesk
               key={article._id}
@@ -403,7 +509,9 @@ const Book = ({ id }) => {
             saved={highlights.every(isSaved)}
             writeUp={pages.find(page => page.createdFrom?.label === `settled-book:${id}`)}
             onChange={setClosed}
-          />
+          >
+            <AskTheAuthor book={book} marks={highlights} onReplace={replaceHighlight} />
+          </Closing>
         </>
       ) : null}
     </main>

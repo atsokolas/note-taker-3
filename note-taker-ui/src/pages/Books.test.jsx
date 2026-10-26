@@ -2,12 +2,13 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as Router from 'react-router-dom';
 import Books from './Books';
-import { bookEcho, closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
+import { askBook, beforeBook, bookEcho, closeBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook } from '../api/imports';
+import { updateHighlight } from '../api/highlights';
 import useArticleDetail from '../hooks/useArticleDetail';
 import { listWikiPages, settleIntoWiki } from '../api/wiki';
 import { fetchMarginNotes } from '../api/retrieval';
 
-jest.mock('../api/imports', () => ({ bookEcho: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
+jest.mock('../api/imports', () => ({ askBook: jest.fn(), beforeBook: jest.fn(), bookEcho: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
 jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn(), settleIntoWiki: jest.fn() }));
@@ -25,6 +26,7 @@ beforeEach(() => {
   fetchMarginNotes.mockResolvedValue([]);
   listBookQuestions.mockResolvedValue([]);
   bookEcho.mockResolvedValue(null);
+  beforeBook.mockResolvedValue([]);
 });
 
 test('the shelf shows each book with what was written in it and the last line', async () => {
@@ -266,3 +268,77 @@ test('the shelf shows a thought you marked twice, years apart, the earlier first
   expect(second).toHaveAttribute('href', '/library/books/b1?highlight=m1');
   expect(second).toHaveTextContent('Middlemarch, p. 211, October 2026');
 });
+
+test('a new book opens with what you marked elsewhere that touches it, and a marked one does not', async () => {
+  beforeBook.mockResolvedValue([{ _id: 'h4', text: 'Marriage is the beginning of the story, not its end.', articleId: 'a7', articleTitle: 'On Marriage', createdAt: '2025-03-02T20:00:00Z' }]);
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch' }, highlights: [], error: '' });
+  const { unmount } = at('b2');
+  const before = await screen.findByRole('region', { name: 'Before you start' });
+  expect(before).toHaveTextContent('You have marked this elsewhere, and it touches this book.');
+  expect(before.querySelector('a')).toHaveTextContent('On Marriage, March 2025');
+  expect(beforeBook).toHaveBeenCalledWith('b2');
+  unmount();
+
+  beforeBook.mockClear();
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch' }, highlights: [{ _id: 'm1', text: 'A finely touched spirit.', createdAt: '2026-09-01T20:00:00Z' }], error: '' });
+  at('b2');
+  expect(beforeBook).not.toHaveBeenCalled();
+  expect(screen.queryByRole('region', { name: 'Before you start' })).not.toBeInTheDocument();
+});
+
+test('a finished book is asked your open questions; an answer kept is written under its question, one struck is gone', async () => {
+  const replaceHighlight = jest.fn();
+  const question = { _id: 'q1', note: 'Why does Dorothea marry him?', page: 20, createdAt: '2026-09-01T20:00:00Z' };
+  const other = { _id: 'q2', note: 'Who pays for the hospital?', createdAt: '2026-09-02T20:00:00Z' };
+  const quote = { _id: 'm1', text: 'Mr. Casaubon seemed to her a living Bossuet.', page: 22, createdAt: '2026-09-01T20:10:00Z' };
+  useArticleDetail.mockReturnValue({
+    article: { _id: 'b2', title: 'Middlemarch', finishedOn: '2026-10-19', closingLine: 'x' }, highlights: [question, other, quote], error: '', replaceHighlight
+  });
+  askBook.mockResolvedValue([
+    { questionId: 'q1', answer: 'She mistook his learning for a life.', marks: [{ _id: 'm1', page: 22 }] },
+    { questionId: 'q2', answer: 'Bulstrode, with money he should not have.', marks: [{ _id: 'm1', page: 22 }] }
+  ]);
+  updateHighlight.mockResolvedValue({});
+  at('b2');
+  fireEvent.click(screen.getByRole('button', { name: 'Ask the book your 2 open questions' }));
+  await screen.findByText('She mistook his learning for a life.');
+  const asked = screen.getByRole('region', { name: 'Ask the book' });
+  expect(askBook).toHaveBeenCalledWith('b2');
+  expect(asked).toHaveTextContent('Why does Dorothea marry him?She mistook his learning for a life.From what you marked at p. 22');
+
+  fireEvent.click(screen.getAllByRole('button', { name: 'Keep it' })[0]);
+  await waitFor(() => expect(replaceHighlight).toHaveBeenCalledWith('q1', { ...question, note: 'Why does Dorothea marry him?\n\nThe book: She mistook his learning for a life.' }));
+  expect(updateHighlight).toHaveBeenCalledWith({ articleId: 'b2', highlightId: 'q1', payload: { note: 'Why does Dorothea marry him?\n\nThe book: She mistook his learning for a life.' } });
+  expect(screen.getByRole('status')).toHaveTextContent('Kept under your question.');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Strike it' }));
+  expect(screen.queryByText(/Bulstrode/)).not.toBeInTheDocument();
+  expect(updateHighlight).toHaveBeenCalledTimes(1);
+});
+
+test('the colophon holds the book between the first and last thing you marked, and counts your own words', () => {
+  useArticleDetail.mockReturnValue({
+    article: { _id: 'b2', title: 'Middlemarch', finishedOn: '2026-10-19', closingLine: 'x' },
+    highlights: [
+      { _id: 'm1', text: 'A finely touched spirit.', note: 'yes, exactly this', createdAt: '2026-10-19T20:00:00Z' },
+      { _id: 'm2', text: 'Who can quit young lives?', createdAt: '2026-10-19T20:30:00Z' }
+    ],
+    error: ''
+  });
+  at('b2');
+  expect(screen.getByText(/2 quotes · 3 words of your own/)).toBeInTheDocument();
+  expect(screen.getByText(/It began with/)).toHaveTextContent('It began with A finely touched spirit. and ended with Who can quit young lives?');
+});
+
+test('a book whose marks answer none of its questions says so and keeps them open', async () => {
+  useArticleDetail.mockReturnValue({
+    article: { _id: 'b2', title: 'Middlemarch', finishedOn: '2026-10-19', closingLine: 'x' },
+    highlights: [{ _id: 'q1', note: 'Why does Dorothea marry him?', createdAt: '2026-09-01T20:00:00Z' }],
+    error: ''
+  });
+  askBook.mockResolvedValue([]);
+  at('b2');
+  fireEvent.click(screen.getByRole('button', { name: 'Ask the book your open question' }));
+  expect(await screen.findByText('Nothing you marked answers them, so they stay open.')).toBeInTheDocument();
+});
+

@@ -44,6 +44,10 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
       fetchSourceBody: async () => '',
       answerTo: async ({ question }) => (/pigeons/.test(question.note) ? { text: 'Breeders select, and so does nature.' } : null),
       echoOf: async ({ mark }) => (/grandeur/.test(mark.text) ? { _id: 'h9', text: 'Endless forms most beautiful, said twice.', articleTitle: 'Notes, 2023' } : null),
+      beforeYouStart: async ({ book }) => [{ _id: 'h7', text: `What ${book.author} would call variation, marked in another book.`, articleTitle: 'Notes, 2023' }],
+      askTheBook: async ({ title, questions, passages }) => questions.map(question => ({
+        questionId: String(question._id), answer: `${title} answers from ${passages.length} passages.`, marks: [{ _id: String(passages[0]._id), page: passages[0].page }]
+      })),
       readPage: async () => 'p. 41\nHow it came that so many of these forms are unknown to us, we cannot tell.'
     }));
     app.use(buildHighlightMutationRouter({
@@ -75,11 +79,23 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
     const bookId = started.body.article._id;
     assert.equal((await post('/api/import/book', { title: 'the origin of species' })).body.article._id, bookId, 'the title alone finds it again');
 
+    // Before you start: a book with nothing marked yet brings back what you marked elsewhere; once marked, it has its own.
+    const before = async () => (await (await fetch(`${url}/api/books/${bookId}/before`)).json()).passages;
+    assert.deepEqual((await before()).map(passage => passage.articleTitle), ['Notes, 2023']);
+
     const quote = await post(`/articles/${bookId}/highlights`, { text: 'There is grandeur … of life', note: 'the last line, read first', page: 12 });
     assert.equal(quote.body.highlight.page, 12);
     assert.equal(quote.body.highlight.text, 'There is grandeur … of life', 'kept as typed while the book has none of its words');
     const thought = await post(`/articles/${bookId}/highlights`, { text: '', note: 'Why open with pigeons?', page: 13 });
     assert.equal(thought.status, 200);
+    assert.deepEqual(await before(), []);
+
+    // Asking the author: only the open questions go, answered from the quotes alone, and nothing is kept.
+    const asked = await post(`/api/books/${bookId}/ask`, {});
+    assert.deepEqual(asked.body.answers, [{
+      questionId: thought.body.highlight._id, answer: 'The Origin of Species answers from 1 passages.', marks: [{ _id: quote.body.highlight._id, page: 12 }]
+    }]);
+    assert.equal((await Article.findById(bookId).lean()).highlights.find(mark => mark.note === 'Why open with pigeons?').note, 'Why open with pigeons?');
 
     // The EPUB arrives: the book gains its text and the typed quote its words.
     await bring('origin-of-species.epub');

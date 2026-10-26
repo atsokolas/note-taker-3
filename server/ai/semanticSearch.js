@@ -226,13 +226,51 @@ const closestPassage = async ({ userId, mark, floor = MARGIN_FLOOR, fits = () =>
   const found = close.map(row => held.get(String(row.objectId))).find(passage => (
     passage && plain(passage.text).length >= MARGIN_MIN_QUOTE_CHARS && fits(passage)
   ));
-  return found ? {
-    _id: String(found._id),
-    text: plain(found.text),
-    createdAt: found.createdAt || null,
-    articleId: String(found.articleId),
-    articleTitle: found.articleTitle || ''
-  } : null;
+  return found ? passageOf(found) : null;
+};
+
+const passageOf = found => ({
+  _id: String(found._id),
+  text: plain(found.text),
+  createdAt: found.createdAt || null,
+  articleId: String(found.articleId),
+  articleTitle: found.articleTitle || ''
+});
+
+/* Before you start a book: the passages you already marked elsewhere that
+   touch it, found by its title and author, from your highlights only, in
+   another work, at BEFORE_FLOOR or better, at most BEFORE_PASSAGES. A title
+   is a thinner question than a paragraph, so its floor sits lower than the
+   margin's (raw cosine 0.55, untuned). Silence: no provider, a failed call
+   or nothing close enough is an empty list. */
+const BEFORE_FLOOR = rawCosineToAtlasScore(0.55);
+const BEFORE_PASSAGES = 3;
+
+const beforeYouStart = async ({ userId, book, models = {} } = {}) => {
+  const query = [book?.title, book?.author].map(plain).filter(Boolean).join(', by ');
+  if (!userId || !plain(book?.title) || !isEmbeddingConfigured()) return [];
+  const rows = await searchVectorItems({
+    VectorItem: models.VectorItem || VectorItem,
+    userId,
+    vector: await embedText(query),
+    limit: BEFORE_PASSAGES * 3,
+    objectTypes: ['highlight']
+  });
+  const close = rows.filter(row => Number(row.score) >= BEFORE_FLOOR);
+  if (!close.length) return [];
+  const held = await highlightsById({ Article: models.Article || Article, userId, ids: close.map(row => String(row.objectId)) });
+  const work = workOf(book.title);
+  return close
+    .map(row => held.get(String(row.objectId)))
+    .filter(passage => (
+      passage
+      && plain(passage.text).length >= MARGIN_MIN_QUOTE_CHARS
+      && String(passage.articleId) !== String(book._id)
+      && workOf(passage.articleTitle) !== work
+    ))
+    .filter((passage, at, all) => all.findIndex(other => sameWords(other.text) === sameWords(passage.text)) === at)
+    .slice(0, BEFORE_PASSAGES)
+    .map(passageOf);
 };
 
 const timeOf = value => new Date(value).getTime() || 0;
@@ -268,6 +306,7 @@ module.exports = {
   semanticSearch,
   marginNotes,
   answerTo,
+  beforeYouStart,
   echoOf,
   MARGIN_MIN_WORDS,
   relatedHighlights,
