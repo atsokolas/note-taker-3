@@ -85,3 +85,35 @@ test('typing during an in-flight save keeps the newest prose, formatting and car
   expect(writing.editor).toBe(editor); expect(editor.state.selection.from).toBe(selection); expect(server.content).toContain('CaXYched');
   expect(api.put.mock.calls[1][1].expectedRevision).toBe(3);
 });
+
+test.each(['none', 'insert', 'delete', 'mark', 'split'])('Undo/Redo after remote acceptance cannot revive cached prose (prior acknowledged edit: %s)', async prior => {
+  await open(); const refresh = await reauthenticate();
+  const writing = screen.getByRole('textbox', { name: 'Work note writing' });
+  const editor = writing.editor;
+  if (prior !== 'none') {
+    act(() => {
+      const view = editor.view;
+      if (prior === 'insert') view.dispatch(view.state.tr.insertText('Earlier '));
+      if (prior === 'delete') view.dispatch(view.state.tr.delete(1, 4));
+      if (prior === 'mark') view.dispatch(view.state.tr.addMark(1, 7, editor.schema.marks.italic.create()));
+      if (prior === 'split') editor.chain().setTextSelection(4).splitBlock().run();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Sync now' })); await screen.findByText('Saved');
+  }
+  const acceptedRevision = server.revision + 1;
+  server = { ...remote, revision: acceptedRevision };
+  await act(async () => refresh.resolve({ data: { entries: [server], folders: [] } }));
+  expect(writing.editor).toBe(editor); expect(writing).toHaveTextContent('Other device words task');
+  typeAt(writing, 1, 'Next ');
+  act(() => editor.commands.undo());
+  // Follow Undo through the real session save, not only the editor's document.
+  fireEvent.click(screen.getByRole('button', { name: 'Sync now' })); await screen.findByText('Saved');
+  expect(server.content).toContain('Other device'); expect(server.content).not.toContain('Cached'); expect(server.content).not.toContain('Next');
+  expect(api.put.mock.calls.at(-1)[1].expectedRevision).toBe(acceptedRevision);
+  act(() => editor.commands.redo()); expect(writing).toHaveTextContent('Next Other device words task');
+  act(() => editor.commands.undo()); expect(writing).toHaveTextContent('Other device words task');
+  // Mapped older history may contain an empty event, but it must never restore a stale document.
+  act(() => editor.commands.undo()); expect(writing).toHaveTextContent('Other device words task');
+  expect(writing.querySelector('a')).toHaveAttribute('href', 'https://tasks.example.test/42');
+  expect(writing.querySelector('strong')).toHaveTextContent('words');
+});

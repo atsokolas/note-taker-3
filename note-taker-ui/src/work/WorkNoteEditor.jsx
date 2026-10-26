@@ -38,7 +38,7 @@ export default function WorkNoteEditor({ note, onChange, fresh = false }) {
         current.schema.nodeFromJSON(node).descendants((block, position) => {
           if (block.attrs.blockId && block.attrs.blockId !== current.state.doc.nodeAt(position)?.attrs.blockId) transaction.setNodeMarkup(position, undefined, block.attrs);
         });
-        current.view.dispatch(transaction.setMeta('preventUpdate', true));
+        current.view.dispatch(transaction.setMeta('preventUpdate', true).setMeta('addToHistory', false));
       }
       change.current({ content: current.getHTML(), blocks: serializeBlocksFromDoc(node) });
     }
@@ -48,7 +48,7 @@ export default function WorkNoteEditor({ note, onChange, fresh = false }) {
     const accepted = createDocument(content, editor.schema, { preserveWhitespace: 'full' });
     // Publish an accepted replacement before typing can use its new revision.
     // Local edits and their receipts already match, so their selection stays put.
-    if (!editor.state.doc.eq(accepted)) editor.commands.setContent(accepted, false);
+    if (!editor.state.doc.eq(accepted)) editor.chain().setMeta('addToHistory', false).setContent(accepted, false).run();
   }, [editor, content]);
   const slash = useSlashCommands({ editor, containerRef: surface });
   slashKey.current = slash.onKeyDown;
