@@ -161,3 +161,13 @@ test('a previous API version pauses Work and Retry opens the same note once its 
   expect(await screen.findByRole('textbox', { name: 'Work note writing' })).toHaveTextContent('Keep these authored words.');
   expect(records.find(x => x._id === 'note').content).toBe(original);
 });
+test('authentication recovery remains available if the matching server arrives after the token expires', async () => {
+  api.get.mockResolvedValueOnce({ data: { entries: [], folders: [] } });
+  render(<MemoryRouter initialEntries={['/think?context=work']}><WorkNotes /></MemoryRouter>);
+  await screen.findByRole('heading', { name: 'Work is updating', exact: true });
+  api.get.mockRejectedValueOnce({ response: { status: 401, data: { error: 'Token expired' } } });
+  fireEvent.click(screen.getByRole('button', { name: 'Retry Work', exact: true }));
+  const signIn = await screen.findByRole('button', { name: 'Sign in to sync', exact: true });
+  expect(screen.getByRole('button', { name: 'Retry Work', exact: true })).toBeDisabled();
+  fireEvent.click(signIn); expect(await screen.findByRole('textbox', { name: /username/i })).toBeVisible();
+});
