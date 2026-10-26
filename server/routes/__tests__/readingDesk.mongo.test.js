@@ -191,6 +191,7 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
     assert.equal(lent.book.title, 'The Origin of Species');
     assert.equal(lent.book.readBefore[0].closingLine, 'Selection keeps what variation offers.', 'with the reading before this one');
     assert.ok(lent.book.marks.some(mark => mark.note === 'the last line, read first\n\nThe last line of the book, read first.'));
+    assert.ok(lent.book.marks.every(mark => typeof mark.location === 'string' && !mark.importMeta), 'placed as the shelf places them');
     assert.ok(!JSON.stringify(lent).includes(String(userId)), 'no account in a lent copy');
     await fetch(`${url}/api/books/${bookId}/lent`, { method: 'DELETE' });
     assert.equal((await fetch(`${url}/api/public/books/${lentAs}`)).status, 404, 'taken back');

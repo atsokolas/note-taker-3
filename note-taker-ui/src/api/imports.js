@@ -94,7 +94,7 @@ export const takeBookBack = async (id) => (
 );
 /* A copy lent to you, read without an account. */
 export const getLentBook = async (slug) => (
-  (await api.get(`/api/public/books/${encodeURIComponent(slug)}`)).data?.book || null
+  (await api.get(`/api/public/books/${encodeURIComponent(slug)}`, { skipAuthHandling: true })).data?.book || null
 );
 
 /* The questions still open beside a book, answered only from the passages marked in it. */

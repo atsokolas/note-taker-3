@@ -11,6 +11,9 @@ const OPEN_QUESTIONS = 20;
 // A book in progress you have not written in for a week is brought back, once.
 const STOPPED_DAYS = 7;
 const BOOK_MARKS = 'title finishedOn highlights._id highlights.text highlights.note highlights.page highlights.createdAt';
+// A book as its page shows it: its marks placed by page, or by the location an import gave.
+const SHELF_BOOK = `${BOOK_MARKS} highlights.importMeta.sourcePath author createdAt updatedAt closingLine readBefore`;
+const shelfMark = ({ importMeta, ...mark }) => ({ ...mark, location: importMeta?.sourcePath || '' });
 
 /* A book already on the shelf, under any address an import gives it or by its title. */
 const bookOnShelf = (shelf, book) => shelf.find(item => [book.url, ...book.aliases].includes(item.url))
@@ -107,15 +110,13 @@ const shelveBooks = async ({ Article, userId }) => {
 
 /* A lent copy: the book as a friend reads it, its marks, your words beside
    them and the sentence you kept, with nothing of your account. */
-const LENT_COPY = `${BOOK_MARKS} author closingLine readBefore lentAs`;
-
 const lentCopy = book => ({
   title: book.title,
   author: book.author || '',
   finishedOn: book.finishedOn || '',
   closingLine: book.closingLine || '',
   readBefore: book.readBefore || [],
-  marks: (book.highlights || []).map(({ _id, text, note, page, createdAt }) => ({ _id, text, note, page, createdAt }))
+  marks: (book.highlights || []).map(shelfMark)
 });
 
-module.exports = { BOOK_MARKS, LENT_COPY, READWISE_BOOK_PAGE, bookOnShelf, booksThisMorning, echoToday, isQuestion, lentCopy, openQuestions, shelveBooks };
+module.exports = { BOOK_MARKS, READWISE_BOOK_PAGE, SHELF_BOOK, bookOnShelf, booksThisMorning, echoToday, isQuestion, lentCopy, openQuestions, shelfMark, shelveBooks };
