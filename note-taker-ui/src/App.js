@@ -462,6 +462,7 @@ const AuthenticatedAppRuntime = ({ renderLayout, openPalette, setShortcutOverlay
 const AppRouterContent = ({
   isAuthenticated,
   publicRouteProps,
+  workAppearance,
   renderLayout,
   openPalette,
   setShortcutOverlayOpen
@@ -471,7 +472,7 @@ const AppRouterContent = ({
 
   if (shouldUsePublicRoutes) return <PublicRoutes {...publicRouteProps} />;
   if (location.pathname === '/think' && new URLSearchParams(location.search).get('context') === 'work') {
-    return <Suspense fallback={<RouteLoadingFallback />}><WorkNotes /></Suspense>;
+    return <Suspense fallback={<RouteLoadingFallback />}><WorkNotes appearance={workAppearance} /></Suspense>;
   }
   return (
     <AuthenticatedAppRuntime
@@ -492,6 +493,8 @@ function App() {
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
   const [productFeedbackOpen, setProductFeedbackOpen] = useState(false);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const themeOwner = useRef(null);
+  const openThemePicker = () => { themeOwner.current = localStorage.getItem('token'); setThemePickerOpen(true); };
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
   const systemStatus = useSystemStatus();
   const {
@@ -603,24 +606,27 @@ function App() {
   }, [uiSettings]);
 
   useEffect(() => {
-    if (!isAuthenticated || (window.location.pathname === '/think' && new URLSearchParams(window.location.search).get('context') === 'work')) return;
+    if (!isAuthenticated) return;
     let cancelled = false;
+    const ownerToken = localStorage.getItem('token');
+    const work = window.location.pathname === '/think' && new URLSearchParams(window.location.search).get('context') === 'work';
     const syncUiSettings = async () => {
       try {
-        const remote = await fetchUiSettings();
-        if (cancelled) return;
+        const remote = await fetchUiSettings({}, work ? { skipAuthHandling: true, headers: { Authorization: `Bearer ${ownerToken}` } } : {});
+        if (cancelled || localStorage.getItem('token') !== ownerToken) return;
         const normalized = normalizeUiSettings(remote);
         setUiSettings(normalized);
         persistUiSettingsToStorage(normalized);
       } catch (error) {
-        console.error('Failed to fetch UI settings:', error);
+        if (work) { if (!cancelled && localStorage.getItem('token') === ownerToken && error?.response?.status !== 401) setSystemRecoverableFailure({ stage: 'Theme', message: 'Appearance could not sync. The theme on this device stays in place.' }); }
+        else console.error('Failed to fetch UI settings:', error);
       }
     };
     syncUiSettings();
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, setSystemRecoverableFailure]);
 
   const handleLogout = () => {
     clearStoredTokens();
@@ -635,30 +641,35 @@ function App() {
 
   const handleAppearanceCommit = async (patch, nextDraft) => {
     const optimistic = normalizeUiSettings({ ...uiSettings, ...patch });
+    const ownerToken = localStorage.getItem('token');
+    const work = window.location.pathname === '/think' && new URLSearchParams(window.location.search).get('context') === 'work';
     try {
-      const saved = await saveUiSettings(optimistic);
+      const saved = await saveUiSettings(optimistic, {}, work ? { skipAuthHandling: true, headers: { Authorization: `Bearer ${ownerToken}` } } : {});
+      if (localStorage.getItem('token') !== ownerToken) return { ok: false, stale: true };
       const normalized = normalizeUiSettings(saved);
       setUiSettings(normalized);
       persistUiSettingsToStorage(normalized);
       return { ok: true, settings: normalized };
     } catch (error) {
-      console.error('Failed to save appearance settings:', error);
+      if (localStorage.getItem('token') !== ownerToken) return { ok: false, stale: true };
+      if (!work) console.error('Failed to save appearance settings:', error);
       applyUiSettingsToRoot(document.documentElement, uiSettings);
       return { ok: false };
     }
   };
 
-  const previewTheme = (theme) => applyUiSettingsToRoot(document.documentElement, { ...uiSettings, theme });
+  const previewTheme = (theme) => { if (themeOwner.current === localStorage.getItem('token')) applyUiSettingsToRoot(document.documentElement, { ...uiSettings, theme }); };
 
   const closeThemePicker = async (theme) => {
     setThemePickerOpen(false);
+    if (themeOwner.current !== localStorage.getItem('token')) return;
     if (theme === uiSettings.theme) {
       applyUiSettingsToRoot(document.documentElement, uiSettings);
       return;
     }
     systemStatus.clearRecoverableFailure();
     const result = await handleAppearanceCommit({ theme });
-    if (!result.ok) {
+    if (!result.ok && !result.stale) {
       systemStatus.setRecoverableFailure({
         stage: 'Theme',
         message: `${formatAppearanceValue('theme', theme)} did not save, so the theme you had is back.`,
@@ -766,13 +777,7 @@ function App() {
         <CommandPalette open={paletteOpen} onClose={closePalette} />
         <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
         <ProductFeedbackModal open={productFeedbackOpen} onClose={() => setProductFeedbackOpen(false)} />
-        <ThemePicker
-          open={themePickerOpen}
-          value={uiSettings.theme}
-          onPreview={previewTheme}
-          onConfirm={closeThemePicker}
-          onCancel={closeThemePicker}
-        />
+
         <TourManager />
         {/* A new account starts at the beginning, wherever it enters. */}
         <FirstRunGate />
@@ -833,7 +838,7 @@ function App() {
                   uiSettings={uiSettings}
                   onAppearanceCommit={handleAppearanceCommit}
                   onAppearanceUndo={handleAppearanceUndo}
-                  onOpenThemePicker={() => setThemePickerOpen(true)}
+                  onOpenThemePicker={openThemePicker}
                 />
               )}
             />
@@ -903,7 +908,7 @@ function App() {
             theme={{
               id: uiSettings.theme,
               label: formatAppearanceValue('theme', uiSettings.theme),
-              onOpen: () => setThemePickerOpen(true)
+              onOpen: openThemePicker
             }}
             systemStatus={{
               backgroundWork: systemStatus.backgroundWork,
@@ -932,10 +937,12 @@ function App() {
 
   return (
     <SystemStatusProvider value={systemStatusContextValue}>
+      <ThemePicker open={themePickerOpen} value={uiSettings.theme} onPreview={previewTheme} onConfirm={closeThemePicker} onCancel={closeThemePicker} />
       <Router>
         <Analytics />
         <AppRouterContent
           isAuthenticated={isAuthenticated}
+          workAppearance={{ theme: uiSettings.theme, onOpen: openThemePicker, error: systemStatus.recoverableFailure?.stage === 'Theme' ? systemStatus.recoverableFailure.message : '', retry: systemStatus.recoverableFailure?.stage === 'Theme' ? systemStatus.recoverableFailure.retry : null }}
           publicRouteProps={{ chromeStoreLink, handleLoginSuccess }}
           renderLayout={renderAppLayout}
           openPalette={openPalette}

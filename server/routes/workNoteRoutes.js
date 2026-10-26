@@ -2,12 +2,12 @@ const { createWorkNoteReadiness } = require('../services/workNoteReadiness');
 const express = require('express');
 const mongoose = require('mongoose');
 const { inWork, workOperationIndex } = require('../models/knowledgeContext');
-const { captureFields, workItemFields, replayedActions, applyWorkActions } = require('../services/workPlanner');
+const { captureFields, workItemFields, replayedActions, applyWorkActions, validDay: date } = require('../services/workPlanner');
 const { sanitizeNotebookBlocks } = require('../utils/notebookIdentity');
 const { sanitizeNotebookWorkbench, LIMITS } = require('../utils/notebookWorkbench');
 const fail = (status, message, current) => Object.assign(new Error(message), { status, current });
 const revision = value => Number.isInteger(value) && value >= 0;
-const date = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
+const folderRevision = value => value === 0 ? { $or: [{ revision: 0 }, { revision: { $exists: false } }] } : { revision: value };
 const forbidden = new Set(['linkedArticleId', 'linkedHighlightIds', 'claimId', 'articleId', 'highlightId', 'conceptId', 'questionId', 'sourceId', 'materials', 'trials', 'looseThoughts', 'importMeta', 'continuationBridge', 'continuesFromEntryId', 'continuationFence', 'knowledgeContext']);
 function validateReferences(value, inBlocks = false) {
   if (!value || typeof value !== 'object') return;
@@ -94,12 +94,15 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (!revision(req.body.expectedRevision)) throw fail(400, 'Confirm the folder revision.');
     const current = await inWork(NotebookFolder.findOne({ _id: req.params.id, userId: req.user.id }));
     if (!current) throw fail(404, 'Work folder not found.');
-    if (req.body.operationId && current.lastMutationId === req.body.operationId) return res.json(current);
+    if (req.body.operationId && current.lastMutationId === req.body.operationId) {
+      if ((req.body.name !== undefined && req.body.name !== current.name) || (req.body.archived !== undefined && req.body.archived !== Boolean(current.archivedAt))) throw fail(409, 'This request was used for a different folder change.', current);
+      return res.json(current);
+    }
     const values = {};
     if (req.body.name !== undefined) { if (typeof req.body.name !== 'string' || !req.body.name.trim()) throw fail(400, 'Folder name is required.'); values.name = req.body.name; }
     if (req.body.archived !== undefined) { if (typeof req.body.archived !== 'boolean') throw fail(400, 'Choose archive or restore.'); values.archivedAt = req.body.archived ? new Date() : null; }
     if (req.body.operationId) values.lastMutationId = req.body.operationId;
-    const folder = await inWork(NotebookFolder.findOneAndUpdate({ _id: current._id, userId: req.user.id, revision: req.body.expectedRevision }, { $set: values, $inc: { revision: 1 } }, { new: true, runValidators: true }));
+    const folder = await inWork(NotebookFolder.findOneAndUpdate({ _id: current._id, userId: req.user.id, ...folderRevision(req.body.expectedRevision) }, { $set: values, $inc: { revision: 1 } }, { new: true, runValidators: true }));
     if (!folder) throw fail(409, 'This folder changed. Reload it before trying again.', current);
     res.json(folder);
   }));
@@ -110,10 +113,10 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     try { await session.withTransaction(async () => {
       const current = await inWork(NotebookFolder.find({ userId: req.user.id, archivedAt: null })).session(session);
       if (current.length !== order.length || current.some(folder => !order.some(row => row.id === String(folder._id)))) throw fail(409, 'The active folders changed. Reload before reordering.');
-      if (current.every(folder => folder.lastMutationId === operationId)) { folders = current.sort((a, b) => a.sortOrder - b.sortOrder); return; }
+      if (current.every(folder => folder.lastMutationId === operationId)) { folders = current.sort((a, b) => a.sortOrder - b.sortOrder); if (folders.some((folder, index) => String(folder._id) !== order[index].id)) throw fail(409, 'This request was used for a different order.'); return; }
       folders = [];
       for (const [index, row] of order.entries()) {
-        const folder = await inWork(NotebookFolder.findOneAndUpdate({ _id: row.id, userId: req.user.id, revision: row.revision }, { $set: { sortOrder: index, lastMutationId: operationId }, $inc: { revision: 1 } }, { session, new: true }));
+        const folder = await inWork(NotebookFolder.findOneAndUpdate({ _id: row.id, userId: req.user.id, ...folderRevision(row.revision) }, { $set: { sortOrder: index, lastMutationId: operationId }, $inc: { revision: 1 } }, { session, new: true }));
         if (!folder) throw fail(409, 'This folder changed. Reload before reordering.'); folders.push(folder);
       }
     }); } finally { await session.endSession(); }

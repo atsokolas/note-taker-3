@@ -95,3 +95,20 @@ test('manual appointments and daily jots are Work-only records; invalid dates, t
   const task = await create('bad-time-task', { workItem: { kind: 'task' } });
   assert.equal((await call('/' + task._id, 'PUT', { expectedRevision: 0, workActions: [{ ...operation('bad-time'), type: 'complete', actionAt: 'wrong' }] })).status, 400);
 });
+
+test('a folder request cannot acknowledge a different mutation under the same identity', async () => {
+  const folder = (await call('/folders', 'POST', { name: 'Reviewed folder', operationId: 'folder-replay-owner' })).body;
+  const saved = await call('/folders/' + folder._id, 'PUT', { expectedRevision: 0, name: 'Confirmed name', operationId: 'rename-identity' });
+  assert.equal(saved.status, 200);
+  assert.equal((await call('/folders/' + folder._id, 'PUT', { expectedRevision: 0, name: 'Different name', operationId: 'rename-identity' })).status, 409);
+  assert.equal((await call('/folders/' + folder._id, 'PUT', { expectedRevision: 0, name: 'Confirmed name', operationId: 'rename-identity' })).status, 200);
+});
+test('folders created before Weekfold can be renamed and reordered without a migration', async () => {
+  const _id = new mongoose.Types.ObjectId(); await NotebookFolder.collection.insertOne({ _id, userId: user, knowledgeContext: 'work', name: 'Earlier Work folder' });
+  const renamed = await call('/folders/' + _id, 'PUT', { expectedRevision: 0, name: 'Earlier folder kept', operationId: 'legacy-folder-rename' });
+  assert.equal(renamed.status, 200); assert.equal(renamed.body.revision, 1);
+  const _id2 = new mongoose.Types.ObjectId(); await NotebookFolder.collection.insertOne({ _id: _id2, userId: user, knowledgeContext: 'work', name: 'Other earlier folder' });
+  const all = (await call()).body.folders.filter(folder => !folder.archivedAt);
+  const order = all.map(folder => ({ id: folder._id, revision: folder.revision || 0 }));
+  assert.equal((await call('/folders/order', 'POST', { operationId: 'legacy-folder-order', order })).status, 200);
+});

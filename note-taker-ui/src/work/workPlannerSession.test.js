@@ -60,3 +60,23 @@ test('newer action during a save retains its identity and follows the acknowledg
   expect(new Set(server.workItem.history.map(event => event.operationId)).size).toBe(2);
   expect(projectItem(session.items()[0])).toMatchObject({ completed: false, pending: false });
 });
+test('a follow-up captured beside an unsynced note waits for that same note identity before posting', async () => {
+  session.dispose(); const saved = new Map(); let number = 0;
+  const client = { get: async () => ({ data: { entries: [], items: [], folders: [] } }), post: jest.fn(async (_, body) => {
+    if (body.workItem?.noteId?.startsWith('local-')) throw { response: { status: 400, data: { error: 'Link a saved Work note.' } } };
+    const data = { ...body, _id: String(++number), revision: 0 }; saved.set(data._id, data); return { data };
+  }), put: async (path, body) => { const id = path.split('/').pop(); const data = { ...saved.get(id), ...body, revision: body.expectedRevision + 1 }; saved.set(id, data); return { data }; } };
+  session = createWorkSession({ token: token('owner'), api: client }); await session.load();
+  const note = session.capture({ title: 'Local meeting' }); session.edit(note, { content: 'Words captured offline' });
+  const task = session.capture({ title: 'Follow through', workItem: { kind: 'task', noteId: note } }); session.edit(task, { title: 'Follow through' });
+  expect(await session.flush(task)).toBe(true);
+  expect(client.post).toHaveBeenCalledTimes(2); expect(session.items()[0].workItem.noteId).toBe(session.entry(note)._id); expect(session.entries()).toHaveLength(1);
+});
+test('folder editing uses the revision the author actually reviewed, even after a refresh', async () => {
+  const reviewed = { _id: 'folder', name: 'Reviewed name', revision: 2 };
+  api.get.mockResolvedValue({ data: { entries: [], items: [], folders: [reviewed] } }); await session.load();
+  api.get.mockResolvedValue({ data: { entries: [], items: [], folders: [{ ...reviewed, name: 'Other device renamed', revision: 3 }] } }); await session.load();
+  api.put.mockResolvedValue({ data: { ...reviewed, name: 'My rename', revision: 3 } });
+  await session.updateFolder(reviewed, { name: 'My rename' }, 'reviewed-intent');
+  expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/folders/folder', expect.objectContaining({ expectedRevision: 2 }), expect.anything());
+});

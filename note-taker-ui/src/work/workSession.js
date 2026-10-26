@@ -86,6 +86,11 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     if (flights.has(id)) return flights.get(id);
     const run = async () => {
       while (isCurrent() && drafts[id]?.dirty && !drafts[id].conflict) {
+        const linked = drafts[id].note.workItem?.noteId;
+        if (typeof linked === 'string' && linked.startsWith('local-')) {
+          if (!await flush(linked) || !entry(linked)?._id) { drafts[id].error = 'This linked note is waiting to sync. Both remain on this device.'; persist(id); emit(); return false; }
+          drafts[id].note = { ...drafts[id].note, workItem: { ...drafts[id].note.workItem, noteId: entry(linked)._id } }; persist(id);
+        }
         const draft = drafts[id], version = draft.version, sent = draft.note, request = { ...options };
         draft.saving = true; draft.error = ''; emit();
         try {
@@ -182,11 +187,11 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       const note = { ...draft.note, revision: current.revision, workItem: { ...current.workItem, ...itemMetadata(draft.note.workItem), history: current.workItem.history }, workActions: (draft.note.workActions || []).filter(action => !acknowledged.has(action.operationId)) };
       drafts[id] = { ...draft, note, conflict: null, version: draft.version + 1, error: '' }; keepSaved(current, id); persist(id); emit();
     },
-    async updateFolder(id, patch, intent = operationId()) {
+    async updateFolder(folder, patch, intent = operationId()) {
       if (!isCurrent()) return null;
-      const request = { ...options }, folder = folders.find(item => item._id === id);
+      const request = { ...options };
       try {
-        const { data } = await api.put(`/api/work-notes/folders/${id}`, { ...patch, expectedRevision: folder?.revision || 0, operationId: intent }, request);
+        const { data } = await api.put(`/api/work-notes/folders/${folder._id}`, { ...patch, expectedRevision: folder.revision || 0, operationId: intent }, request);
         if (!isCurrent() || request.signal.aborted) return null; mergeFolders([data]); emit(); return data;
       } catch (error) { if (isCurrent()) { requestError(error); emit(); } throw error; }
     },
