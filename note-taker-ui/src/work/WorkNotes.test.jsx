@@ -15,13 +15,14 @@ jest.mock('react-router-dom', () => {
 });
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn(() => global.localStorage.removeItem('token')) }));
 jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh }) => <textarea aria-label="Work note writing" autoFocus={fresh} value={note.content || ''} onChange={e => onChange({ content: e.target.value })} />);
+const logOutButton = () => { fireEvent.click(screen.getByLabelText('Work menu')); return screen.getByRole('button', { name: 'Log out' }); };
 const deviceWords = () => JSON.stringify(Object.entries(localStorage).filter(([key]) => key.startsWith(draftKey('owner'))));
 const source = { _id: 'a', title: 'Charging windows', content: 'Original account', folder: 'f', revision: 2, occurredOn: '2026-10-26', withText: 'Mira', workingState: { revision: 2, nextTimeLine: { text: '  Check the window.\n', target: null } } };
 const older = { ...source, _id: 'b', title: 'Smaller depot', occurredOn: '2026-10-12', workingState: { revision: 1, nextTimeLine: { text: '' } } };
-const open = async () => { render(<WorkNotes />); await screen.findByRole('button', { name: /Charging windows/ }); fireEvent.click(screen.getByRole('button', { name: /Charging windows/ })); };
+const open = async () => { render(<WorkNotes />); await within(screen.getByRole('complementary')).findByRole('button', { name: /Charging windows/ }); fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Charging windows/ })); };
 beforeEach(() => {
   forgetWorkSession('owner'); forgetWorkSession('other'); jest.clearAllMocks(); window.history.replaceState({}, '', '/think?context=work'); localStorage.clear(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.x`);
-  api.get.mockResolvedValue({ data: { entries: [source, older], folders: [{ _id: 'f', name: 'Pilot' }] } });
+  api.get.mockResolvedValue({ data: { entries: [source, older], items: [], folders: [{ _id: 'f', name: 'Pilot' }] } });
   api.put.mockImplementation(async (_, body) => ({ data: { ...source, ...body, revision: body.expectedRevision + 1 } }));
   api.post.mockImplementation(async (path, body) => ({ data: path.endsWith('/continue') ? { _id: 'c', title: '', content: '', folder: 'f', occurredOn: '2026-11-02', revision: 0, continuesFromEntryId: 'a', continuationBridge: { entryId: 'a', title: source.title, occurredOn: source.occurredOn, text: source.workingState.nextTimeLine.text } } : { _id: 'new', ...body, revision: 0 } }));
 });
@@ -57,7 +58,7 @@ test('confirm creates one fresh page with immutable line outside editable prose 
   await screen.findByText('Last time’s line'); expect(api.post).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('');
   expect(screen.getByText('Check the window.')).toBeInTheDocument();
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Charging windows.*2026-10-26/ }));
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Charging windows.*26 Oct/ }));
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('Original account');
 });
 test('changed source asks for re-review and a new explicit confirmation', async () => {
@@ -74,7 +75,7 @@ test('filing changes only metadata and leaves occurrence date intact', async () 
 });
 test('logout exposes keep, remove and cancel with honest device disclosure', async () => {
   await open(); fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Local draft' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+  fireEvent.click(logOutButton());
   expect(screen.getByRole('dialog', { name: 'Your Work drafts' })).toHaveTextContent('not a secure vault');
   expect(screen.getByRole('button', { name: 'Keep on this device' })).toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Remove from this device' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' })); expect(deviceWords()).toContain('Local draft');
@@ -112,7 +113,7 @@ test.each(['Keep on this device', 'Remove from this device'])('logout choice: %s
   const logout = jest.fn(); render(<WorkNotes onLogout={logout} />);
   fireEvent.click(await screen.findByRole('button', { name: /Charging windows/ }));
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Pending words' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Log out' })); fireEvent.click(screen.getByRole('button', { name: choice }));
+  fireEvent.click(logOutButton()); fireEvent.click(screen.getByRole('button', { name: choice }));
   expect(logout).toHaveBeenCalledTimes(1);
   if (choice.startsWith('Keep')) expect(deviceWords()).toContain('Pending words');
   else expect(localStorage.getItem(draftKey('owner'))).toBeNull();
@@ -140,6 +141,7 @@ test('Cancel and reopening Continue restore the uncertain request and prevent ch
   fireEvent.click(await screen.findByRole('button', { name: 'Continue →' })); await screen.findByText('lost reply');
   const original = api.post.mock.calls[0][1].operationId;
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'smaller' } });
   fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
   fireEvent.click(screen.getByRole('button', { name: /Continue this note:/ }));
   const dialog = await screen.findByRole('dialog', { name: 'Continue from this note' });
@@ -266,7 +268,7 @@ test('logout under storage failure tells the truth and offers copy and cancel be
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: jest.fn().mockResolvedValue() } });
   try {
     fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: 'Only memory words' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+    fireEvent.click(logOutButton());
     const dialog = screen.getByRole('dialog', { name: 'Your Work drafts' });
     expect(dialog).toHaveTextContent('still in this page, not saved on this device');
     expect(dialog).not.toHaveTextContent('Unsynced writing is on this device');

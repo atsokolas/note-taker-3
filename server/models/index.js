@@ -500,6 +500,10 @@ notebookEntrySchema.add({
   revision: { type: Number, default: 0, min: 0 },
   occurredOn: { type: String, default: '' },
   withText: { type: String, default: '' },
+  capturedAt: { type: Date, immutable: true },
+  takenOn: { type: String, immutable: true },
+  timeZone: { type: String, immutable: true },
+  workItem: { type: mongoose.Schema.Types.Mixed, default: undefined },
   operationId: { type: String, immutable: true },
   operationSource: { type: String, immutable: true },
   continuesFromEntryId: { type: mongoose.Schema.Types.ObjectId, default: null, immutable: true },
@@ -514,12 +518,17 @@ const notebookFolderSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   parentFolderId: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
   sortOrder: { type: Number, default: 0 },
+  revision: { type: Number, default: 0, min: 0 },
+  archivedAt: { type: Date, default: null },
+  operationId: { type: String, immutable: true },
+  lastMutationId: { type: String },
   importMeta: { type: importMetaSchema, default: () => ({}) }
 }, { timestamps: true });
 
 notebookFolderSchema.index({ userId: 1, parentFolderId: 1, sortOrder: 1, name: 1 });
 
 notebookFolderSchema.plugin(knowledgeContext);
+notebookFolderSchema.index(workOperationIndex.keys, workOperationIndex.options);
 const NotebookFolder = mongoose.model('NotebookFolder', notebookFolderSchema);
 
 /* What a note, concept or question said at a moment, kept so its history can

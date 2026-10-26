@@ -736,3 +736,55 @@ html:is([data-ui-family='palette'], [data-ui-scheme='dark']) :is(
     transform: none !important;
   }
 }
+
+/* A choice owns both its paper and ink. Native popups do not reliably inherit
+   a transparent select's surface; menus must not mix room ink with OS grey. */
+:root {
+  --noeis-choice-surface: var(--noeis-paper);
+  --noeis-choice-hover: var(--noeis-paper-sunken);
+  --noeis-choice-ink: color-mix(in srgb, var(--noeis-ink) 90%, black);
+  --noeis-choice-focus: var(--noeis-choice-ink);
+}
+html[data-ui-scheme='dark'] {
+  --noeis-choice-ink: color-mix(in srgb, var(--noeis-ink) 90%, white);
+}
+body.noeis-editorial select {
+  color: var(--noeis-choice-ink) !important;
+  color-scheme: inherit;
+}
+body.noeis-editorial select :is(option, optgroup) {
+  color: var(--noeis-choice-ink) !important;
+  background-color: var(--noeis-choice-surface) !important;
+  opacity: 1;
+}
+body.noeis-editorial select option:is(:checked, :hover) {
+  color: var(--noeis-choice-ink) !important;
+  background-color: var(--noeis-choice-hover) !important;
+  font-weight: 600;
+}
+body.noeis-editorial :is([role='menu'], [role='listbox'], .topbar__menu-popover, .work-utility > div) {
+  color: var(--noeis-choice-ink);
+  background: var(--noeis-choice-surface) !important;
+}
+body.noeis-editorial :is([role='menu'], [role='listbox'], .topbar__menu-popover, .work-utility > div) :is(button, a, [role='option'], [role='menuitem'], .think-slash-menu__item-description) {
+  color: var(--noeis-choice-ink) !important;
+}
+body.noeis-editorial :is([role='menu'], [role='listbox'], .topbar__menu-popover, .work-utility > div) :is(button, a, [role='option'], [role='menuitem']):not(.selection-menu__ink) { background: transparent !important; }
+body.noeis-editorial :is([role='menu'], [role='listbox'], .topbar__menu-popover, .work-utility > div) :is(button, a, [role='option'], [role='menuitem']):not(.selection-menu__ink):is(:hover, [aria-selected='true'], [aria-current='page'], .is-active) {
+  background: var(--noeis-choice-hover) !important;
+  box-shadow: inset 2px 0 0 var(--noeis-choice-focus);
+}
+body.noeis-editorial :is(select, [role='menu'], [role='listbox'], [role='menu'] button, [role='menu'] a, [role='listbox'] [role='option'], .topbar__menu-popover button, .work-utility button):focus-visible {
+  outline: 2px solid var(--noeis-choice-focus) !important;
+  outline-offset: 2px;
+}
+body.noeis-editorial :is(select, option, [role='menu'] button, [role='listbox'] [role='option'], .topbar__menu-popover button, .work-utility button):is(:disabled, [aria-disabled='true']) {
+  color: var(--noeis-choice-ink) !important;
+  opacity: 1 !important;
+  font-style: italic;
+  cursor: not-allowed;
+}
+@media (forced-colors: active) {
+  body.noeis-editorial :is(select, option, [role='menu'], [role='menu'] button, [role='listbox'], [role='option']) { color: CanvasText !important; background: Canvas !important; }
+  body.noeis-editorial option:checked { color: HighlightText !important; background: Highlight !important; }
+}

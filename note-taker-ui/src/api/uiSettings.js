@@ -10,23 +10,17 @@ const normalizeScope = (scope = {}) => {
   return { workspaceType, workspaceId };
 };
 
-export const fetchUiSettings = async (scope = {}) => {
+export const fetchUiSettings = async (scope = {}, requestOptions = {}) => {
   const normalizedScope = normalizeScope(scope);
   const cacheKey = `ui-settings:${normalizedScope.workspaceType}:${normalizedScope.workspaceId}`;
-  return fetchWithCache(
-    cacheKey,
-    async () => {
-      const response = await api.get('/api/ui-settings', {
-        ...getAuthHeaders(),
-        params: normalizedScope
-      });
-      return response.data;
-    },
-    { ttlMs: 30_000 }
-  );
+  const read = async () => {
+    const response = await api.get('/api/ui-settings', { ...getAuthHeaders(), ...requestOptions, params: normalizedScope });
+    return response.data;
+  };
+  return requestOptions.skipAuthHandling ? read() : fetchWithCache(cacheKey, read, { ttlMs: 30_000 });
 };
 
-export const saveUiSettings = async (settings, scope = {}) => {
+export const saveUiSettings = async (settings, scope = {}, requestOptions = {}) => {
   const normalizedScope = normalizeScope(scope);
   const response = await api.put(
     '/api/ui-settings',
@@ -34,7 +28,7 @@ export const saveUiSettings = async (settings, scope = {}) => {
       ...settings,
       ...normalizedScope
     },
-    getAuthHeaders()
+    { ...getAuthHeaders(), ...requestOptions }
   );
   clearCached(`ui-settings:${normalizedScope.workspaceType}:${normalizedScope.workspaceId}`);
   return response.data;
