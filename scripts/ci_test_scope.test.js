@@ -83,3 +83,52 @@ test('local dependency traversal follows transitive imports and fails on unresol
     assert.throws(() => localDependencies(['entry.js'], root), /Unresolved dependency/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('retained component checks fail on bad scope decisions and skip only explicit successful exclusions', () => {
+  const workflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/tests.yml'), 'utf8');
+  const sections = workflow.split(/^  ([a-z]+):\n/m);
+  const jobs = new Map();
+  for (let i = 1; i < sections.length; i += 2) jobs.set(sections[i], sections[i + 1]);
+  const matrix = [
+    ['success', 'true', true, 0],
+    ['success', 'false', false, null],
+    ['failure', 'false', true, 1],
+    ['failure', '', true, 1],
+    ['cancelled', 'false', true, 1],
+    ['skipped', 'false', true, 1],
+    ['success', '', true, 1],
+    ['success', 'invalid', true, 1],
+    ['success', 'FALSE', true, 1],
+    ['success', 'False', true, 1],
+    ['success', 'TRUE', true, 1],
+  ];
+  const validation = jobs.get('scope').split('- name: Validate test scope')[1];
+  const validate = validation.match(/        run: \|\n([\s\S]*)/)[1].replace(/^          /gm, '');
+  for (const component of ['server', 'ui', 'extension']) {
+    assert.ok(validation.includes(`SCOPE_${component.toUpperCase()}: \${{ steps.scope.outputs.${component} }}`));
+    const block = jobs.get(component);
+    const condition = block.match(/^    if: (.+)$/m)[1];
+    // GitHub expression equality ignores string case; JavaScript does not.
+    const expression = condition.replace(/([\w.]+) != ('[^']*')/g, '!same($1, $2)');
+    const shouldRun = new Function('needs', 'always', 'same', `return ${expression};`);
+    const same = (left, right) => String(left).toLowerCase() === String(right).toLowerCase();
+    assert.match(block, /SCOPE_RESULT: \$\{\{ needs\.scope\.result \}\}/);
+    assert.ok(block.includes(`SELECTED: \${{ needs.scope.outputs.${component} }}`));
+    assert.ok(block.indexOf('- name: Verify test scope') < block.indexOf('- uses: actions/checkout'));
+    const guard = block.match(/^        run: (.+)$/m)[1];
+    // UI defaults to a directory that does not exist until checkout. The guard
+    // must run from the workspace before checkout or dependency installation.
+    if (component === 'ui') assert.match(block.split('- uses: actions/checkout')[0], /working-directory: \./);
+    for (const [result, selected, runs, status] of matrix) {
+      const validationEnv = { ...process.env, SCOPE_SERVER: 'true', SCOPE_UI: 'true', SCOPE_EXTENSION: 'true', [`SCOPE_${component.toUpperCase()}`]: selected };
+      const validated = require('child_process').spawnSync('bash', ['-c', validate], { env: validationEnv });
+      assert.equal(validated.status, ['true', 'false'].includes(selected) ? 0 : 1);
+      const effectiveResult = result === 'success' && validated.status !== 0 ? 'failure' : result;
+      assert.equal(shouldRun({ scope: { result: effectiveResult, outputs: { [component]: selected } } }, () => true, same), runs, `${component}: ${result}/${selected}`);
+      if (runs) {
+        const child = require('child_process').spawnSync('bash', ['-c', guard], { env: { ...process.env, SCOPE_RESULT: effectiveResult, SELECTED: selected } });
+        assert.equal(child.status, status, `${component} guard: ${result}/${selected}`);
+      }
+    }
+  }
+});
