@@ -1,5 +1,6 @@
 import apiClient from '../api';
 import { operationId, workDraftStorage, workContinuationStorage } from './workDrafts';
+import { dayInZone, deviceTimeZone, itemMetadata } from './workPlannerModel';
 import { plainTextFrom } from '../utils/editorialText';
 export { draftKey, operationId } from './workDrafts';
 
@@ -8,10 +9,10 @@ export const workAccount = token => {
   catch (_) { return ''; }
 };
 export const localDay = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-export const noteTitle = note => note?.title?.trim() || 'Untitled note';
+export const noteTitle = note => note?.title?.trim() || noteWords(note).split('\n').find(line => line.trim())?.trim().slice(0, 80) || 'Untitled note';
 export const noteDate = note => note?.occurredOn || '';
 export const noteWords = note => note?.blocks?.length ? note.blocks.map(block => block.text || '').join('\n') : plainTextFrom(note?.content);
-const body = note => ({ title: note.title || '', content: note.content || '', blocks: note.blocks || [], folder: note.folder?._id || note.folder || null, occurredOn: note.occurredOn, withText: note.withText || '' });
+const body = (note, creating = false) => ({ ...(creating ? { capturedAt: note.capturedAt, timeZone: note.timeZone } : {}), ...(note.workItem ? { workItem: itemMetadata(note.workItem) } : {}), ...(note.workActions?.length ? { workActions: note.workActions } : {}), title: note.title || '', content: note.content || '', blocks: note.blocks || [], folder: note.folder?._id || note.folder || null, occurredOn: note.occurredOn, withText: note.withText || '' });
 const message = error => error?.response?.data?.error || 'Sync paused. Retry when you are connected.';
 
 // The server owns notes. This session holds only unacknowledged edits beside them.
@@ -69,12 +70,15 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     if (!isCurrent()) return;
     const current = entry(id); if (!current) return;
     const previous = drafts[id];
-    drafts[id] = { ...previous, note: { ...current, ...patch }, version: (previous?.version || 0) + 1, dirty: true, error: '' };
+    const changedFields = [...new Set([...(previous?.changedFields || []), ...Object.keys(patch).filter(key => key !== 'workActions')])];
+    drafts[id] = { ...previous, changedFields, note: { ...current, ...patch }, version: (previous?.version || 0) + 1, dirty: true, error: '' };
     persist(id); emit();
   };
   const capture = (values = {}) => {
     const id = `local-${operationId()}`;
-    saved[id] = { title: '', content: '', blocks: [], folder: null, occurredOn: localDay(), withText: '', ...values };
+    const capturedAt = values.capturedAt || new Date().toISOString(), timeZone = values.timeZone || deviceTimeZone();
+    const takenOn = dayInZone(capturedAt, timeZone);
+    saved[id] = { title: '', content: '', blocks: [], folder: null, occurredOn: takenOn, withText: '', ...values, capturedAt, takenOn, timeZone };
     drafts[id] = { note: saved[id], operationId: operationId(), version: 0, dirty: false, durable: false };
     emit(); return id;
   };
@@ -86,7 +90,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
         draft.saving = true; draft.error = ''; emit();
         try {
           const creating = !sent._id;
-          if (creating && !draft.createBody) { draft.createBody = body(sent); persist(id); }
+          if (creating && !draft.createBody) { draft.createBody = body(sent, true); persist(id); }
           const { data } = creating
             ? await api.post('/api/work-notes', { ...draft.createBody, operationId: draft.operationId }, request)
             : await api.put(`/api/work-notes/${sent._id}`, { ...body(sent), expectedRevision: sent.revision, ...(sent.workingState ? { workingState: { nextTimeLine: sent.workingState.nextTimeLine } } : {}) }, request);
@@ -95,9 +99,15 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
           if (creating && data.revision > 0) {
             latest.conflict = data; latest.saving = false; persist(id); emit(); return false;
           }
+          if (data._actionReplay && (latest.changedFields || []).some(key => JSON.stringify(key === 'workItem' ? itemMetadata(sent.workItem) : sent[key]) !== JSON.stringify(key === 'workItem' ? itemMetadata(data.workItem) : data[key]))) {
+            latest.conflict = data; latest.saving = false; persist(id); emit(); return false;
+          }
           keepSaved(data, id);
           if (latest.version === version && !creating) { if (!forget(id)) { emit(); return false; } }
-          else { latest.note = { ...data, ...latest.note, _id: data._id, revision: data.revision }; persist(id); }
+          else {
+            const acknowledged = new Set((data.workItem?.history || []).map(event => event.operationId));
+            latest.note = { ...data, ...latest.note, ...(data.workItem ? { workItem: { ...data.workItem, ...latest.note.workItem, history: data.workItem.history }, workActions: (latest.note.workActions || []).filter(action => !acknowledged.has(action.operationId)) } : {}), _id: data._id, revision: data.revision }; persist(id);
+          }
           emit();
         } catch (error) {
           if (!isCurrent() || request.signal.aborted) return false;
@@ -110,6 +120,15 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       return !drafts[id]?.dirty;
     };
     const promise = run().finally(() => flights.delete(id)); flights.set(id, promise); return promise;
+  };
+  const records = () => [
+    ...Object.entries(saved).filter(([id]) => !drafts[id] && !Object.values(drafts).some(draft => draft.note._id === id)).map(([id, note]) => ({ ...note, clientId: id })),
+    ...Object.entries(drafts).map(([id, draft]) => ({ ...draft.note, clientId: id, localVersion: Object.values(drafts).some(other => other !== draft && draft.note._id && other.note._id === draft.note._id) }))
+  ];
+  const mergeFolders = incoming => {
+    const all = new Map(folders.map(folder => [folder._id, folder]));
+    incoming.forEach(folder => { if (!all.has(folder._id) || (all.get(folder._id).revision || 0) <= (folder.revision || 0)) all.set(folder._id, folder); });
+    folders = [...all.values()].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.name.localeCompare(b.name));
   };
   return {
     account, entry, edit, capture, flush, isCurrent, refreshDrafts,
@@ -124,10 +143,8 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     },
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
     snapshot: () => tick,
-    entries: () => [
-      ...Object.entries(saved).filter(([id]) => !drafts[id] && !Object.values(drafts).some(draft => draft.note._id === id)).map(([id, note]) => ({ ...note, clientId: id })),
-      ...Object.entries(drafts).map(([id, draft]) => ({ ...draft.note, clientId: id, localVersion: Object.values(drafts).some(other => other !== draft && draft.note._id && other.note._id === draft.note._id) }))
-    ],
+    entries: () => records().filter(note => !note.workItem),
+    items: () => records().filter(note => note.workItem),
     folders: () => folders,
     loading: () => loading,
     error: () => loadError,
@@ -137,21 +154,49 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       loading = true; loadError = ''; emit();
       try {
         const { data } = await api.get('/api/work-notes', request); if (!isCurrent() || request.signal.aborted) return;
-        data.entries.forEach(note => keepSaved(note));
-        folders = data.folders;
+        [...data.entries, ...(data.items || [])].forEach(note => keepSaved(note));
+        mergeFolders(data.folders);
       } catch (error) { if (isCurrent() && !request.signal.aborted) loadError = requestError(error); }
       finally { if (isCurrent() && !request.signal.aborted) { loading = false; emit(); } }
     },
-    async addFolder(name) {
+    async addFolder(name, intent = operationId()) {
       if (!isCurrent()) return null;
       const request = { ...options };
       try {
-        const { data } = await api.post('/api/work-notes/folders', { name }, request);
-        if (!isCurrent() || request.signal.aborted) return null; folders = [...folders, data]; emit(); return data;
+        const { data } = await api.post('/api/work-notes/folders', { name, operationId: intent }, request);
+        if (!isCurrent() || request.signal.aborted) return null; mergeFolders([data]); emit(); return data;
       } catch (error) {
         if (isCurrent() && !request.signal.aborted) { requestError(error); emit(); }
         throw error;
       }
+    },
+    action(id, action) {
+      const note = entry(id); if (!isCurrent() || !note?.workItem) return null;
+      const next = { operationId: operationId(), actionAt: new Date().toISOString(), timeZone: note.timeZone || deviceTimeZone(), ...action };
+      edit(id, { workActions: [...(note.workActions || []), next] }); return next.operationId;
+    },
+    rebaseItem(id) {
+      const draft = drafts[id], current = draft?.conflict;
+      if (!current?.workItem || !isCurrent()) return;
+      const acknowledged = new Set((current.workItem.history || []).map(action => action.operationId));
+      const note = { ...draft.note, revision: current.revision, workItem: { ...current.workItem, ...itemMetadata(draft.note.workItem), history: current.workItem.history }, workActions: (draft.note.workActions || []).filter(action => !acknowledged.has(action.operationId)) };
+      drafts[id] = { ...draft, note, conflict: null, version: draft.version + 1, error: '' }; keepSaved(current, id); persist(id); emit();
+    },
+    async updateFolder(id, patch, intent = operationId()) {
+      if (!isCurrent()) return null;
+      const request = { ...options }, folder = folders.find(item => item._id === id);
+      try {
+        const { data } = await api.put(`/api/work-notes/folders/${id}`, { ...patch, expectedRevision: folder?.revision || 0, operationId: intent }, request);
+        if (!isCurrent() || request.signal.aborted) return null; mergeFolders([data]); emit(); return data;
+      } catch (error) { if (isCurrent()) { requestError(error); emit(); } throw error; }
+    },
+    async reorderFolders(ids, intent = operationId()) {
+      if (!isCurrent()) return null;
+      const request = { ...options };
+      try {
+        const { data } = await api.post('/api/work-notes/folders/order', { operationId: intent, order: ids.map(id => ({ id, revision: folders.find(folder => folder._id === id)?.revision || 0 })) }, request);
+        if (!isCurrent() || request.signal.aborted) return null; mergeFolders(data.folders); emit(); return data.folders;
+      } catch (error) { if (isCurrent()) { requestError(error); emit(); } throw error; }
     },
     continuation,
     async continueFrom(source, intent) {
