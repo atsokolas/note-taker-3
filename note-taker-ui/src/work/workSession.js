@@ -111,7 +111,9 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
           if (latest.version === version && !creating) { if (!forget(id)) { emit(); return false; } }
           else {
             const acknowledged = new Set((data.workItem?.history || []).map(event => event.operationId));
-            latest.note = { ...data, ...latest.note, ...(data.workItem ? { workItem: { ...data.workItem, ...latest.note.workItem, history: data.workItem.history }, workActions: (latest.note.workActions || []).filter(action => !acknowledged.has(action.operationId)) } : {}), _id: data._id, revision: data.revision }; persist(id);
+            // A replay can return newer remote metadata. Carry only actual local edits into it.
+            const pending = data._actionReplay ? Object.fromEntries((latest.changedFields || []).map(key => [key, latest.note[key]])) : latest.note;
+            latest.note = { ...data, ...pending, ...(data.workItem ? { workItem: { ...data.workItem, ...pending.workItem, history: data.workItem.history }, workActions: (latest.note.workActions || []).filter(action => !acknowledged.has(action.operationId)) } : {}), _id: data._id, revision: data.revision }; persist(id);
           }
           emit();
         } catch (error) {
@@ -204,12 +206,13 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       } catch (error) { if (isCurrent()) { requestError(error); emit(); } throw error; }
     },
     continuation,
-    async continueFrom(source, intent) {
+    async continueFrom(source, intent, { timeZone = deviceTimeZone() } = {}) {
       if (!isCurrent()) throw new Error('The account changed.');
       const held = continuation();
       if (held && (held.operationId !== intent || held.source._id !== source._id)) throw new Error('Recover the earlier continuation receipt before starting another.');
       const request = { ...options };
-      const pending = held || { source, operationId: intent, occurredOn: localDay() };
+      const capturedAt = new Date().toISOString();
+      const pending = held || { source, operationId: intent, capturedAt, timeZone, occurredOn: dayInZone(capturedAt, timeZone) };
       try { receipts.write(pending); }
       catch (_) { throw new Error('This device could not keep the continuation request. Free storage and retry.'); }
       continuations.set(pending.operationId, pending);
@@ -217,7 +220,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       try {
         const { data } = await api.post(`/api/work-notes/${confirmed._id}/continue`, {
           operationId: pending.operationId, expectedRevision: confirmed.revision,
-          ...(Number.isInteger(confirmed.workingState?.revision) ? { expectedWorkbenchRevision: confirmed.workingState.revision } : {}), occurredOn: pending.occurredOn
+          ...(Number.isInteger(confirmed.workingState?.revision) ? { expectedWorkbenchRevision: confirmed.workingState.revision } : {}), occurredOn: pending.occurredOn, ...(pending.capturedAt ? { capturedAt: pending.capturedAt, timeZone: pending.timeZone } : {})
         }, request);
         if (!isCurrent() || request.signal.aborted) return null;
         keepSaved(confirmed); keepSaved(data); forgetContinuation(pending); emit(); return data._id;

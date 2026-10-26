@@ -92,3 +92,31 @@ test('date-arrow navigation is confined to the calendar and commands open an exp
   await waitFor(() => expect(screen.getByRole('button', { name: 'Friday 23 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true'));
   expect(records.find(x => x._id === 'note').content).toBe(original);
 });
+test('returning to a day keeps the selected folder even when another folder was used last', async () => {
+  records.push({ _id: 'elsewhere', revision: 0, folder: 'g', title: 'Another line of work', content: '<p>Other folder</p>', takenOn: '2026-10-26' });
+  localStorage.setItem('noeis:work-view:owner', JSON.stringify({ lastNotes: { '2026-10-26': 'elsewhere' } }));
+  render(<MemoryRouter initialEntries={['/think?context=work&date=2026-10-26&note=note&view=folder&folder=f']}><WorkNotes /></MemoryRouter>); await screen.findByRole('textbox', { name: 'Work note writing' }); fireEvent.click(screen.getByRole('button', { name: 'Monday 26 Oct', exact: true }));
+  expect(screen.getByRole('textbox', { name: 'Note title' })).toHaveValue('Fieldwell · pilot follow-up');
+});
+test.each(['task', 'appointment'])('standalone %s conflicts open both versions rather than a save dead end', async kind => {
+  records.push({ _id: 'standalone', revision: 0, title: 'Standalone work', content: '', workItem: { kind, plannedOn: '2026-10-26', startTime: '15:00', endTime: '15:30', history: [] } });
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Week', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: kind === 'appointment' ? 'Edit appointment Standalone work' : 'Edit Standalone work', exact: true }));
+  const form = await screen.findByRole('dialog', { name: 'New Work item' });
+  api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'standalone'), revision: 1, title: 'Other device version' } } } });
+  fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My version' } }); fireEvent.click(within(form).getByRole('button', { name: 'Save item' }));
+  const review = await screen.findByRole('dialog', { name: 'Review both item versions' }); expect(review).toHaveTextContent('Other device version'); expect(review).toHaveTextContent('My version');
+  fireEvent.click(within(review).getByRole('button', { name: 'Use saved version' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+});
+test('concurrent day margins remain discoverable, and a conflicting margin offers both versions', async () => {
+  records.push(...['First margin', 'Second margin'].map((content, index) => ({ _id: 'margin-' + index, revision: 0, title: '', content, workItem: { kind: 'jot', plannedOn: '2026-10-26', history: [] } })));
+  await open(); fireEvent.click(screen.getByLabelText('Work menu')); fireEvent.click(screen.getByRole('button', { name: 'Day margin', exact: true }));
+  const margin = await screen.findByRole('dialog', { name: /Day margin ·/ });
+  expect(within(margin).getByLabelText('Notes for this day')).toHaveValue('First margin');
+  fireEvent.click(within(margin).getByRole('button', { name: 'Margin 2', exact: true })); expect(within(margin).getByLabelText('Notes for this day')).toHaveValue('Second margin');
+  api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'margin-1'), revision: 1, content: 'Remote margin version' } } } });
+  fireEvent.change(within(margin).getByLabelText('Notes for this day'), { target: { value: 'Local margin version' } }); fireEvent.click(within(margin).getByRole('button', { name: 'Sync margin', exact: true }));
+  fireEvent.click(await within(margin).findByRole('button', { name: 'Review both versions' }));
+  const review = await screen.findByRole('dialog', { name: 'Review both item versions' }); expect(review).toHaveTextContent('Remote margin version'); expect(review).toHaveTextContent('Local margin version');
+});

@@ -21,6 +21,7 @@ Approved build: 26 October 2026. Reference: Library `libfile_6c3a50ebef1881919e7
 
 ## Deliberate boundaries
 
+- Concurrent first day-margin edits are kept as separately identified versions, accessible through the margin chooser and the Work index; no saved writing is silently hidden or merged. Item conflicts of every kind open the same explicit review path.
 - No external calendar, AI, CRM, provider calls or automatic task generation. Planning is explicit.
 - Completion uses the author's captured device instant/timezone and keeps server recordedAt separately. It does not claim a trusted device clock. Original history remains visible on reopening/Undo.
 - Filing a note and optionally its linked follow-ups is a set of independently revision-checked saves, not an atomic multi-record transaction. The UI waits for all acknowledgements; a partial result explicitly names sync/review, and Undo restores each previous folder through the same guards. Reordering folders itself is atomic.

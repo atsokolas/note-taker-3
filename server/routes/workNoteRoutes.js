@@ -140,6 +140,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (!revision(expected)) throw fail(400, 'expectedRevision is required.');
     const current = await find(req); if (!current) throw fail(404, 'Work note not found.');
     if (replayedActions(current.workItem, req.body.workActions)) return res.json({ ...current.toObject(), _actionReplay: true });
+    if (current.revision !== expected) throw fail(409, 'This note changed elsewhere.', current);
     const values = await fields(req, current);
     if (req.body.workingState !== undefined) {
       const text = req.body.workingState?.nextTimeLine?.text ?? '';

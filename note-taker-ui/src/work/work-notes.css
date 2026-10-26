@@ -295,3 +295,12 @@ body.noeis-editorial .work-notes .work-metadata input:focus { border-bottom-colo
   .mode-compact .work-summary-appointment { display: none; }
   .mode-compact .work-mobile-appointments { display: inline-flex; align-items: center; }
 }
+
+.work-margin-writing textarea { width: 100%; min-height: 120px; resize: vertical; color: var(--noeis-ink); font: 18px/1.6 var(--font-serif); }
+.work-margin-writing nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.work-margin-writing nav button { display: flex; flex-direction: column; border: 1px solid var(--noeis-rule); }
+.work-margin-writing nav [aria-pressed=true] { background: var(--noeis-paper-muted); }
+.work-margin-writing p, .work-margin-writing small { font-size: 12px; color: var(--noeis-ink-muted); }
+
+.work-page-top > [role=status] { display: inline-flex; align-items: center; gap: 8px; }
+.work-page-top > [role=status] .work-icon { width: 14px; height: 14px; }

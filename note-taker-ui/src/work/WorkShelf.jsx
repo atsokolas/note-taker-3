@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import WorkIcon from './WorkIcon';
-import { noteDate, noteTitle } from './workSession';
-import { writtenDay } from './workPlannerModel';
+import { noteTitle } from './workSession';
+import { displayDay, writtenDay } from './workPlannerModel';
 
 export default function WorkShelf({ notes, folders, selected, day, view, folder, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, loading, error, onRetry, onClose }) {
   const [expanded, setExpanded] = useState(new Set());
@@ -10,7 +10,7 @@ export default function WorkShelf({ notes, folders, selected, day, view, folder,
   useEffect(() => { const id = selectedFolder || folders.find(item => !item.archivedAt)?._id; if (id) setExpanded(current => new Set([...current, id])); }, [selectedFolder, folders]);
   const folderId = note => note.folder?._id || note.folder || '';
   const matches = note => !query || `${noteTitle(note)} ${note.content || ''}`.toLowerCase().includes(query.toLowerCase());
-  const leaf = note => <button className="work-shelf-note" key={note.clientId} aria-current={note.clientId === selected || note._id === selected ? 'page' : undefined} onClick={() => onOpen(note.clientId)}><WorkIcon name="file" /><span>{noteTitle(note)}<small>{noteDate(note)}{note.localVersion ? ' · Local version' : ''}</small></span></button>;
+  const leaf = note => <button className="work-shelf-note" key={note.clientId} aria-current={note.clientId === selected || note._id === selected ? 'page' : undefined} onClick={() => onOpen(note.clientId)}><WorkIcon name="file" /><span>{noteTitle(note)}<small>{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}{note.localVersion ? ' · Local version' : ''}</small></span></button>;
   const activeFolders = folders.filter(item => !item.archivedAt), archived = folders.filter(item => item.archivedAt);
   return <aside className="work-shelf" aria-label="Work notes"><button className="work-mobile-close" onClick={onClose}>Back to writing</button>
     <nav aria-label="Work places" className="work-places">

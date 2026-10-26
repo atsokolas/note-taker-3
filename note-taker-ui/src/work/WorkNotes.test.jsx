@@ -58,7 +58,7 @@ test('confirm creates one fresh page with immutable line outside editable prose 
   await screen.findByText('Last time’s line'); expect(api.post).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('');
   expect(screen.getByText('Check the window.')).toBeInTheDocument();
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Charging windows.*2026-10-26/ }));
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Charging windows.*26 Oct/ }));
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('Original account');
 });
 test('changed source asks for re-review and a new explicit confirmation', async () => {

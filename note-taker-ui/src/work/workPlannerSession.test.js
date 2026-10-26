@@ -80,3 +80,23 @@ test('folder editing uses the revision the author actually reviewed, even after 
   await session.updateFolder(reviewed, { name: 'My rename' }, 'reviewed-intent');
   expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/folders/folder', expect.objectContaining({ expectedRevision: 2 }), expect.anything());
 });
+test('a later action during a replayed receipt keeps remote metadata instead of resaving the stale snapshot', async () => {
+  session.action('task', { type: 'complete' }); loseReply = true; await session.flush('task');
+  server = { ...server, title: 'Remote title must survive', revision: server.revision + 1 };
+  let release; const gate = new Promise(resolve => { release = resolve; }); const put = api.put.getMockImplementation();
+  api.put.mockImplementationOnce(async (...args) => { const response = await put(...args); await gate; return response; });
+  const retry = session.flush('task'); session.action('task', { type: 'reopen' }); release();
+  expect(await retry).toBe(true); expect(server.title).toBe('Remote title must survive');
+  expect(server.workItem.history.map(event => event.type)).toEqual(['complete', 'reopen']);
+  expect(session.entry('task').title).toBe('Remote title must survive'); expect(session.conflict('task')).toBeFalsy();
+});
+test('continuation records the chosen timezone and first intent instant through a delayed retry', async () => {
+  jest.useFakeTimers('modern'); jest.setSystemTime(new Date('2026-10-27T02:30:00Z'));
+  try {
+    api.post = jest.fn().mockRejectedValueOnce(Error('offline')).mockResolvedValueOnce({ data: { _id: 'continued', revision: 0 } });
+    await expect(session.continueFrom(session.entry('note'), 'continue-zoned', { timeZone: 'America/Chicago' })).rejects.toThrow('offline');
+    jest.setSystemTime(new Date('2026-10-28T06:00:00Z'));
+    await session.continueFrom(session.entry('note'), 'continue-zoned', { timeZone: 'Asia/Tokyo' });
+    for (const [, body] of api.post.mock.calls) expect(body).toMatchObject({ capturedAt: '2026-10-27T02:30:00.000Z', timeZone: 'America/Chicago', occurredOn: '2026-10-26' });
+  } finally { jest.useRealTimers(); }
+});
