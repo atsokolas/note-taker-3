@@ -162,13 +162,14 @@ const run = async () => {
     assert.strictEqual(schema.safeParse({ profile: 'this_week_in_ai', followUps: [{ watch: 'x', status: 'maybe' }] }).success, false);
   }
 
-  /* The reader's layer of an item: a plain line, the passage, what kind of
-     source, how sure, and at most three key figures. */
+  /* The reader's layer of an item: a plain line, why it was picked, the
+     passage, what kind of source, how sure, and at most three key figures. */
   {
     const items = z.object(writeTools.find(tool => tool.name === 'create_edition').inputSchema).shape.items;
     const item = {
       title: 'UndoBench', url: 'https://arxiv.org/abs/1', section: 'evaluation_counterevidence', finding: 'f', boundary: 'b',
       plain: 'Finishing a job and cleaning up after a mistake are different skills.',
+      why: 'You hold that agents are ready to run unattended; this tests it.',
       passage: 'conditional recovery of 46.72%',
       sourceKind: 'preprint',
       confidence: 'moderate',
@@ -176,6 +177,7 @@ const run = async () => {
     };
     assert.strictEqual(items.safeParse([item]).success, true);
     assert.strictEqual(items.safeParse([{ ...item, sourceKind: 'blog' }]).success, false);
+    assert.strictEqual(items.safeParse([{ ...item, why: 'x'.repeat(281) }]).success, false);
     assert.strictEqual(items.safeParse([{ ...item, figures: Array(4).fill(item.figures[0]) }]).success, false);
   }
 };

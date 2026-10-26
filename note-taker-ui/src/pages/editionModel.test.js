@@ -1,7 +1,7 @@
 import {
   aheadLine, barsOf, byHand, byPaper, bySection, costLine, datelineLine, handsOf,
-  issueLine, latestFilingLine, newCountOf, passageHref, publicSourceHref, sourceLine, sourceNote, sureLine, watchThreads,
-  runGrid, sectionTones, standLayout, stateOf, windowLine, frontPage, wireOf, coverFigure
+  issueLine, newCountOf, passageHref, publicSourceHref, sourceLine, sourceNote, sureLine, watchThreads,
+  runGrid, sectionTones, standLayout, stateOf, windowLine, frontPage, coverFigure, updatedLine
 } from './editionModel';
 
 describe('the window a paper covers', () => {
@@ -33,17 +33,20 @@ describe('the issue line', () => {
   });
 });
 
-describe('the filing line', () => {
-  it('separates when an agent filed from the issue window it covered', () => {
-    const now = new Date('2026-09-27T18:00:00Z');
-    expect(latestFilingLine({ items: [{ filedAt: '2026-09-27T10:02:38.987Z' }] }, now))
-      .toBe('Filed today');
-    expect(latestFilingLine({ items: [{ filedAt: '2026-09-26T10:02:38.987Z' }] }, now))
-      .toBe('Filed yesterday');
+describe('the updated line', () => {
+  const now = new Date('2026-10-26T18:00:00Z');
+
+  it('prints the day an agent last filed, counting second readings, apart from the week it covers', () => {
+    const issue = { windowStart: '2026-10-12', items: [{ filedAt: '2026-10-21T14:00:00Z', readings: [{ filedAt: '2026-10-25T14:00:00Z' }] }, { filedAt: '2026-10-23T09:00:00Z' }] };
+    expect(updatedLine(issue, now)).toBe('Updated Sun, Oct 25');
   });
 
-  it('stays quiet when an edition has no filing time', () => {
-    expect(latestFilingLine({ items: [{}] }, new Date('2026-09-27T18:00:00Z'))).toBe('');
+  it('reads a stand row by its filings, and names the year only when it is not this one', () => {
+    expect(updatedLine({ filings: [{ filedAt: '2025-12-30T12:00:00Z' }] }, now)).toBe('Updated Tue, Dec 30, 2025');
+  });
+
+  it('stays quiet when nothing says when it was filed', () => {
+    expect(updatedLine({ items: [{}] }, now)).toBe('');
   });
 });
 
@@ -339,12 +342,7 @@ describe('the stand as a front page and a newsstand', () => {
     expect(page.lead.item.itemId).toBe('checked');
     expect(page.alsoIn.map(story => story.item.itemId)).toEqual(['plain']);
     expect(page.columns.map(column => [column.paper.profile, column.stories.map(story => story.item.itemId)])).toEqual([['wr', ['reading']]]);
-    expect(page.quiet.map(entry => entry.silence.label)).toEqual(['Infrastructure', 'Policy']);
-    expect(frontPage(papers, {})).toEqual({ lead: null, alsoIn: [], columns: [], quiet: [], watching: [] });
-  });
-
-  it('puts the newest filing on the wire first, one line per hand per paper', () => {
-    expect(wireOf(papers).map(entry => [entry.paper.profile, entry.agent.name, entry.count])).toEqual([['wr', 'Codex', 1], ['ai', 'Codex', 1], ['ai', 'OpenClaw', 1]]);
+    expect(frontPage(papers, {})).toEqual({ lead: null, alsoIn: [], columns: [], watching: [] });
   });
 
   it('fronts a cover with its strongest figure, or nothing', () => {

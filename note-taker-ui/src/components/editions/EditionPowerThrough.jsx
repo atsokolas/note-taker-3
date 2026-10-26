@@ -4,7 +4,7 @@ import { handsOf, issueLine, passageHref, sourceLine } from '../../pages/edition
 import AgentMark from './AgentMark';
 import { handOf } from './editionAgent';
 import { EditionBoundary } from './EditionFinding';
-import { Figures, Passage } from './EditionLayer';
+import { Figures, Passage, Why } from './EditionLayer';
 import EditionReadings from './EditionReadings';
 import SourcePeek from './SourcePeek';
 import { useEditionThoughts } from './ThoughtComposer';
@@ -147,6 +147,7 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
           <p className="power-item__meta">{metaLine(row)}</p>
           <h2>{row.title}</h2>
           {row.plain ? <p className="reading-plain">{row.plain}</p> : null}
+          <Why item={row} />
           <Figures figures={row.figures} />
           {row.readings?.length ? (
             <EditionReadings item={row} finding={finding} Boundary={EditionBoundary} />

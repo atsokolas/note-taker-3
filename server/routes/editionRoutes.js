@@ -181,7 +181,7 @@ const serializeEdition = (edition = {}, { withItems = true, profiles = null, rec
         filedAt: item.filedAt,
         saved: Boolean(item.savedArticleId),
         ...(item.readings.length ? {
-          readings: item.readings.map(({ filedBy, filedByRuntime }) => ({ filedBy, filedByRuntime }))
+          readings: item.readings.map(({ filedBy, filedByRuntime, filedAt }) => ({ filedBy, filedByRuntime, filedAt }))
         } : {})
       }))
     })

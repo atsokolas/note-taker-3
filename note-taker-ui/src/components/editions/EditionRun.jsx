@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-  issueLine, newCountOf, plural, runGrid, sectionTones, stateOf, WATCH_STATUS, watchThreads, windowLine
+  issueLine, newCountOf, plural, runGrid, sectionTones, stateOf, updatedLine, WATCH_STATUS, watchThreads, windowLine
 } from '../../pages/editionModel';
 
 const SAID = {
@@ -69,7 +69,7 @@ export default function EditionRun({ paper }) {
               </span>
               <span className="edition-run__body">
                 <span className="edition-run__when">
-                  {[issueLine(issue) ? windowLine(issue) : '', stateOf(issue) === 'filling' ? 'still filling' : ''].filter(Boolean).join(' · ')}
+                  {[issueLine(issue) ? windowLine(issue) : '', stateOf(issue) === 'filling' ? 'still filling' : '', updatedLine(issue)].filter(Boolean).join(' · ')}
                 </span>
                 {issue.headline || issue.standfirst
                   ? <span className="edition-run__standfirst">{issue.headline || issue.standfirst}</span>

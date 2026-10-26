@@ -126,8 +126,9 @@ Noeis refuses an item without a boundary.
    When you looked at a section and nothing met your bar, say so in `checked`;
    a section you leave silent reads to the reader as "not reported".
    Help the reader weigh each finding: a `plain` line someone outside the field
-   would say, the `passage` it rests on (copied exactly; Noeis checks it word for
-   word when the reader saves the source), its `sourceKind`, your `confidence`,
+   would say, a `why` (a sentence or two on why you picked it for this reader),
+   the `passage` it rests on (copied exactly; Noeis checks it word for word
+   when the reader saves the source), its `sourceKind`, your `confidence`,
    and up to three `figures` it turns on, each written in the finding, passage
    or note. Say in `followUps` what became of the last issue's `watchNext`, and
    set the week's `headline` once you have seen enough of it.

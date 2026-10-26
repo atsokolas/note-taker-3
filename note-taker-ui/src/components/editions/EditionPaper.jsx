@@ -2,6 +2,7 @@ import React from 'react';
 import { issueLine, publicSourceHref, standLayout, windowLine } from '../../pages/editionModel';
 import AgentMark from './AgentMark';
 import EditionReadings from './EditionReadings';
+import { Why } from './EditionLayer';
 import SectionSilence from './SectionSilence';
 
 /**
@@ -32,6 +33,7 @@ const EditionItemView = ({ item }) => {
       {item.sourceLabel || item.sourceDate ? (
         <p className="edition-item__source">{[item.sourceLabel, item.sourceDate].filter(Boolean).join(' · ')}</p>
       ) : null}
+      <Why item={item} />
       {item.readings?.length ? (
         <EditionReadings item={item} finding={paperFinding} Boundary={PaperBoundary} plain />
       ) : (
