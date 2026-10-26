@@ -1,3 +1,4 @@
+const { knowledgeContext, workOperationIndex } = require('./knowledgeContext');
 const mongoose = require('mongoose');
 const {
   WIKI_PAGE_TYPES
@@ -494,6 +495,18 @@ notebookEntrySchema.index({ userId: 1, type: 1, updatedAt: -1 });
 notebookEntrySchema.index({ userId: 1, tags: 1, updatedAt: -1 });
 notebookEntrySchema.index({ userId: 1, linkedHighlightIds: 1 });
 
+notebookEntrySchema.plugin(knowledgeContext);
+notebookEntrySchema.add({
+  revision: { type: Number, default: 0, min: 0 },
+  occurredOn: { type: String, default: '' },
+  withText: { type: String, default: '' },
+  operationId: { type: String, immutable: true },
+  operationSource: { type: String, immutable: true },
+  continuesFromEntryId: { type: mongoose.Schema.Types.ObjectId, default: null, immutable: true },
+  continuationFence: { type: Number, select: false },
+  continuationBridge: { type: mongoose.Schema.Types.Mixed, default: null, immutable: true }
+});
+notebookEntrySchema.index(workOperationIndex.keys, workOperationIndex.options);
 const NotebookEntry = mongoose.model('NotebookEntry', notebookEntrySchema);
 
 const notebookFolderSchema = new mongoose.Schema({
@@ -506,6 +519,7 @@ const notebookFolderSchema = new mongoose.Schema({
 
 notebookFolderSchema.index({ userId: 1, parentFolderId: 1, sortOrder: 1, name: 1 });
 
+notebookFolderSchema.plugin(knowledgeContext);
 const NotebookFolder = mongoose.model('NotebookFolder', notebookFolderSchema);
 
 /* What a note, concept or question said at a moment, kept so its history can

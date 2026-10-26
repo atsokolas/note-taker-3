@@ -73,6 +73,7 @@ const Editions = lazy(() => import('./pages/Editions'));
 const EditionRead = lazy(() => import('./pages/EditionRead'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
 const ThinkNotes = lazy(() => import('./pages/ThinkNotes'));
+const WorkNotes = lazy(() => import('./work/WorkNotes'));
 const AuthoredRecovery = lazy(() => import('./components/think/AuthoredRecovery'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
@@ -436,7 +437,8 @@ const AuthenticatedLayoutRuntime = ({ renderLayout, openPalette, setShortcutOver
     };
   }, [navigate, openPalette, setShortcutOverlayOpen]);
 
-  return renderLayout({ shellLocation, navigate, surface });
+  const storageFailure = useStorageStatus(true);
+  return renderLayout({ shellLocation, navigate, surface, storageFailure });
 };
 
 const AuthenticatedAppRuntime = ({ renderLayout, openPalette, setShortcutOverlayOpen }) => (
@@ -468,6 +470,9 @@ const AppRouterContent = ({
   const shouldUsePublicRoutes = !isAuthenticated || isPublicPage(location.pathname);
 
   if (shouldUsePublicRoutes) return <PublicRoutes {...publicRouteProps} />;
+  if (location.pathname === '/think' && new URLSearchParams(location.search).get('context') === 'work') {
+    return <Suspense fallback={<RouteLoadingFallback />}><WorkNotes /></Suspense>;
+  }
   return (
     <AuthenticatedAppRuntime
       renderLayout={renderLayout}
@@ -489,8 +494,6 @@ function App() {
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
   const systemStatus = useSystemStatus();
-  const storageFailure = useStorageStatus(isAuthenticated);
-  const recoverableFailure = systemStatus.recoverableFailure || storageFailure;
   const {
     setBackgroundWork: setSystemBackgroundWork,
     setLatestReceipt: setSystemLatestReceipt,
@@ -520,14 +523,14 @@ function App() {
       backgroundWork: systemStatus.backgroundWork,
       latestReceipt: systemStatus.latestReceipt,
       recentReceipts: systemStatus.recentReceipts,
-      recoverableFailure
+      recoverableFailure: systemStatus.recoverableFailure
     }
   }), [
     systemStatusControls,
     systemStatus.backgroundWork,
     systemStatus.latestReceipt,
     systemStatus.recentReceipts,
-    recoverableFailure
+    systemStatus.recoverableFailure
   ]);
 
   // Your existing Chrome Store link
@@ -600,7 +603,7 @@ function App() {
   }, [uiSettings]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || (window.location.pathname === '/think' && new URLSearchParams(window.location.search).get('context') === 'work')) return;
     let cancelled = false;
     const syncUiSettings = async () => {
       try {
@@ -738,7 +741,8 @@ function App() {
 
   if (isLoading) return <RouteLoadingFallback />;
 
-  const renderAppLayout = ({ shellLocation, surface }) => {
+  const renderAppLayout = ({ shellLocation, surface, storageFailure }) => {
+    const recoverableFailure = systemStatus.recoverableFailure || storageFailure;
     const topBarAccountMenuItems = [
       {
         label: 'Feedback',

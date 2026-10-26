@@ -4,7 +4,7 @@ import api, { clearStoredTokens } from '../api';
 import { Button } from './ui';
 import { forgetReturnPath, readReturnPath } from '../navigation/appRoutes';
 
-const Login = ({ onLoginSuccess, chromeStoreLink }) => {
+const Login = ({ onLoginSuccess, chromeStoreLink, recovery = false }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -91,7 +91,7 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
   return (
     <div className="auth-shell auth-shell--editorial">
       <div className="auth-editorial auth-editorial--login">
-        <section className="auth-editorial__lead">
+        {!recovery && <section className="auth-editorial__lead">
           <Link to="/" className="auth-editorial__brand">Noeis</Link>
           <div className="auth-editorial__eyebrow">Reading room access</div>
           <h1>Return to your notebook.</h1>
@@ -112,12 +112,12 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
               </p>
             </div>
           </div>
-        </section>
+        </section>}
 
         <section className="auth-editorial__panel">
           <div className="auth-editorial__panel-head">
             <div className="auth-editorial__eyebrow">Login</div>
-            <h2>Enter Noeis</h2>
+            <h2>{recovery ? 'Resume your Work writing' : 'Enter Noeis'}</h2>
             <p>Use your existing account details to reopen the workspace.</p>
           </div>
 
@@ -155,12 +155,12 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
             <p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>
           )}
 
-          <div className="auth-editorial__switch">
+          {!recovery && <div className="auth-editorial__switch">
             <span>Don&apos;t have an account?</span>
             <button type="button" className="auth-editorial__switch-button" onClick={() => navigate('/register')}>
               Register here
             </button>
-          </div>
+          </div>}
         </section>
       </div>
     </div>

@@ -2,13 +2,11 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
-import { Extension, Node, mergeAttributes } from '@tiptap/core';
+import { Node, mergeAttributes } from '@tiptap/core';
 import { Button, buttonClass } from '../../ui';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
-import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
+import { EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
 import EntryHistory from '../editor/EntryHistory';
 import { passageSlashItems } from '../editor/slashCommands';
 import { begunLine, countWords } from '../../../pages/thinkNotesModel';
@@ -77,7 +75,7 @@ import {
   notebookTrialKey
 } from '../../../utils/notebookWorkbench';
 import { readTighterSupport, rescueReadTighterPhrase } from '../../../utils/notebookReadTighter';
-import { UniqueBlockIds } from './uniqueBlockIds';
+import { notebookWritingExtensions } from '../editor/notebookWriting';
 import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../../utils/sourceRoutes';
 import '../../../styles/think-writing.css';
 
@@ -102,25 +100,6 @@ const ITEM_TYPES = [
 
 const EMPTY_CLAIM_CANDIDATES = [];
 
-const ListIndentExtension = Extension.create({
-  name: 'listIndent',
-  addKeyboardShortcuts() {
-    return {
-      Tab: () => {
-        if (this.editor.isActive('bulletList') || this.editor.isActive('orderedList')) {
-          return this.editor.commands.sinkListItem('listItem');
-        }
-        return false;
-      },
-      'Shift-Tab': () => {
-        if (this.editor.isActive('bulletList') || this.editor.isActive('orderedList')) {
-          return this.editor.commands.liftListItem('listItem');
-        }
-        return false;
-      }
-    };
-  }
-});
 
 const ReferenceCard = ({ label, title, meta, href }) => (
   <div className="notebook-ref-card">
@@ -455,11 +434,7 @@ const NotebookEditor = ({
   const editor = useEditor({
     editable: false,
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-      Placeholder.configure({ placeholder: 'Start writing…', showOnlyWhenEditable: false }),
-      ListIndentExtension,
-      BlockIdExtension,
-      UniqueBlockIds,
+      ...notebookWritingExtensions(),
       NotebookWorkbenchDecorations,
       highlightExtension,
       ArticleRefNode,
