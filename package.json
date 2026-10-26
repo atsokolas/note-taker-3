@@ -31,12 +31,14 @@
     "wiki:storage": "node scripts/run_wiki_storage_governor.js",
     "smoke:server": "node scripts/run_server_smoke.js",
     "smoke:imports": "node scripts/test_import_integrations_smoke.js",
-    "test:server": "node scripts/run_server_tests.js",
+    "test:server": "node scripts/test_receipt.js server",
     "harness:offline": "npm run judgment:evidence-harness && npm run judgment:semantic-evidence-harness && npm run judgment:ledger-acceptance && npm run wiki:proposal-harness && npm run wiki:intelligence-harness && npm run wiki:maintenance-harness",
     "seo:gsc": "node scripts/seo/search_console_opportunities.js",
     "extension:pack": "node scripts/pack_extension.js",
     "extension:smoke": "node scripts/extension_smoke.js",
-    "chatgpt:plugin": "node scripts/validate_noeis_plugin_schema.cjs && python3 scripts/package_noeis_plugin.py"
+    "chatgpt:plugin": "node scripts/validate_noeis_plugin_schema.cjs && python3 scripts/package_noeis_plugin.py",
+    "test:ui": "node scripts/test_receipt.js ui",
+    "test:workflow": "node --test scripts/run_server_tests.test.js scripts/ci_test_scope.test.js scripts/test_receipt.test.js"
   },
   "repository": {
     "type": "git",
