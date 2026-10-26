@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { useEditor } from '@tiptap/react';
-import { Mark, mergeAttributes, markPasteRule } from '@tiptap/core';
+import { createDocument, Mark, mergeAttributes, markPasteRule } from '@tiptap/core';
 import EditorDraftShell from '../components/think/editor/EditorDraftShell';
 import { notebookWritingExtensions } from '../components/think/editor/notebookWriting';
 import { handleEditorStructureShortcut } from '../components/think/editor/editorShortcuts';
@@ -22,9 +22,10 @@ export default function WorkNoteEditor({ note, onChange, fresh = false }) {
   const surface = useRef(null), change = useRef(onChange), slashKey = useRef(null);
   change.current = onChange;
   const [url, setUrl] = useState('');
+  const content = note.content || (note.blocks?.length ? buildDocFromBlocks(note.blocks) : '<p></p>');
   const editor = useEditor({
     extensions: [...notebookWritingExtensions(), WorkLink],
-    content: note.content || (note.blocks?.length ? buildDocFromBlocks(note.blocks) : '<p></p>'),
+    content,
     autofocus: fresh ? 'end' : false,
     editorProps: {
       attributes: { class: 'think-notebook-editor-body', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Work note writing' },
@@ -42,6 +43,13 @@ export default function WorkNoteEditor({ note, onChange, fresh = false }) {
       change.current({ content: current.getHTML(), blocks: serializeBlocksFromDoc(node) });
     }
   });
+  useLayoutEffect(() => {
+    if (!editor) return;
+    const accepted = createDocument(content, editor.schema);
+    // Publish an accepted replacement before typing can use its new revision.
+    // Local edits and their receipts already match, so their selection stays put.
+    if (!editor.state.doc.eq(accepted)) editor.commands.setContent(accepted, false);
+  }, [editor, content]);
   const slash = useSlashCommands({ editor, containerRef: surface });
   slashKey.current = slash.onKeyDown;
   return <div className="work-writing">
