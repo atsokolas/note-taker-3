@@ -29,7 +29,8 @@ const preview = {
     section: 'models_methods',
     finding: 'Loss keeps falling.',
     boundary: 'One lab.',
-    note: 'Editorial aside.'
+    note: 'Editorial aside.',
+    why: 'You follow scaling.'
   }]
 };
 
@@ -53,6 +54,7 @@ describe('sharing an edition', () => {
     expect(await screen.findByText(/Anyone with the link can read the version you share/)).toBeInTheDocument();
     expect(await screen.findByText('Kept by Athan')).toBeInTheDocument();
     expect(screen.getByText('Editorial aside.')).toBeInTheDocument();
+    expect(screen.getByText('You follow scaling.')).toBeInTheDocument();
     expect(screen.getByTestId('edition-publish')).toHaveTextContent('Create share link');
   });
 

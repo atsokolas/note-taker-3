@@ -339,4 +339,7 @@
 .edition-readings__by { font: 13px/1.6 var(--noeis-font-ui, system-ui); margin: 0 0 8px; }
 
 /* The limit's label sits above it, not run into its first word. */
+.edition-paper .reading-why { margin: 0 0 10px; font: italic 17px/1.5 var(--noeis-font-editorial, Georgia, serif); opacity: .8; }
+.edition-paper .reading-why cite { margin-left: .5em; font: normal 12px/1.4 var(--noeis-font-ui, system-ui); }
+.edition-paper .reading-why cite::before { content: '— '; }
 .edition-item__label { display: block; font: 500 10px/1.5 var(--noeis-font-ui, system-ui); letter-spacing: .1em; text-transform: uppercase; opacity: 0.72; margin-bottom: 4px; }
