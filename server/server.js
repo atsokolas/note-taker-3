@@ -570,6 +570,7 @@ if (mongoose.connection.readyState === 1) {
 }
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
+const { buildWorkNoteRouter } = require('./routes/workNoteRoutes');
 const { buildNotebookRouter } = require('./routes/notebookRoutes');
 const { buildEntryHistoryRouter } = require('./routes/entryHistoryRoutes');
 const { buildRetiredShareRouter } = require('./routes/retiredShareRoutes');
@@ -4831,6 +4832,7 @@ app.use(buildLibraryFilingRouter({
   })
 }));
 app.use(buildEntryHistoryRouter({ authenticateToken, EntryRevision }));
+app.use(buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder }));
 app.use(buildNotebookRouter({
   authenticateToken: authenticateUserOrAgentToken,
   NotebookEntry,

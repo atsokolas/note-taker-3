@@ -1,3 +1,4 @@
+const { personalContext } = require('../models/knowledgeContext');
 const OBJECT_ID_RE = /^[a-fA-F0-9]{24}$/;
 const BLOCK_OBJECT_ID_KEYS = ['highlightId', 'articleId', 'conceptId', 'questionId'];
 
@@ -82,7 +83,7 @@ const attachPersistedIdentity = async (entry) => {
   const findOne = entry.constructor?.collection?.findOne;
   if (typeof findOne !== 'function') return entry;
   try {
-    const raw = await findOne.call(entry.constructor.collection, { _id: entry._id }, {
+    const raw = await findOne.call(entry.constructor.collection, { _id: entry._id, ...personalContext() }, {
       projection: PERSISTED_IDENTITY_PROJECTION
     });
     if (raw) {
