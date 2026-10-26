@@ -135,3 +135,19 @@ test('a semantically rejected action stays in review and can use the saved versi
   fireEvent.click(within(review).getByRole('button', { name: 'Use saved version' })); expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByRole('region', { name: 'Completed follow-ups' })).toHaveTextContent('Confirm service-training dates');
 });
+test('review resolution stays locked while its accepted change is being acknowledged', async () => {
+  await open(); const current = records.find(x => x._id === 'task'), remote = { ...current, revision: 1, title: 'Other device wording' };
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Confirm service-training dates', exact: true }));
+  const form = await screen.findByRole('dialog', { name: 'New Work item' });
+  fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My reviewed wording' } });
+  api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: remote } } });
+  fireEvent.click(within(form).getByRole('button', { name: 'Save item', exact: true }));
+  const review = await screen.findByRole('dialog', { name: 'Review both item versions' });
+  let acknowledge; api.put.mockImplementationOnce((_, body) => new Promise(resolve => { acknowledge = () => { const data = { ...current, revision: 2, workItem: { ...current.workItem, history: (body.workActions || []).map(action => ({ ...action, recordedAt: new Date().toISOString() })) } }; records[records.findIndex(x => x._id === 'task')] = data; resolve({ data }); }; }));
+  fireEvent.click(within(review).getByRole('button', { name: 'Apply my changes after review' }));
+  expect(within(review).getByRole('button', { name: 'Use saved version' })).toBeDisabled();
+  expect(within(review).getByRole('button', { name: 'Keep both for now' })).toBeDisabled();
+  fireEvent.keyDown(document, { key: 'Escape' }); expect(review).toBeInTheDocument();
+  await act(async () => acknowledge());
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+});
