@@ -54,7 +54,7 @@ const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../se
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
 const { bookReturning, calendarDay, marksOfReading } = require('../services/closedBooks');
-const { BOOK_MARKS, bookOnShelf, echoToday, openQuestions, shelveBooks } = require('../services/bookShelf');
+const { BOOK_MARKS, bookOnShelf, echoToday, isQuestion, openQuestions, shelveBooks } = require('../services/bookShelf');
 const { fillArticleBodies } = require('../services/readableArticle');
 const {
   inboundMailConfig,
@@ -128,8 +128,10 @@ const buildImportRouter = ({
   /* Reads a bare link's body; the public-URL-guarded reader when absent. */
   fetchSourceBody,
   answerTo = (...args) => require('../ai/semanticSearch').answerTo(...args),
-  readPage = (...args) => require('../ai/bookPage').readPage(...args),
-  echoOf = (...args) => require('../ai/semanticSearch').echoOf(...args)
+  readPage = (...args) => require('../ai/books').readPage(...args),
+  askTheBook = (...args) => require('../ai/books').askTheBook(...args),
+  echoOf = (...args) => require('../ai/semanticSearch').echoOf(...args),
+  beforeYouStart = (...args) => require('../ai/semanticSearch').beforeYouStart(...args)
 }) => {
   const router = express.Router();
 
@@ -547,6 +549,38 @@ const buildImportRouter = ({
     } catch (error) {
       console.error('Error reading a page of a book:', error);
       res.status(502).json({ error: 'The page could not be read. Try it again in better light.' });
+    }
+  });
+
+  /* Before you start: a book with nothing marked in it yet gets the passages
+     you marked elsewhere that touch it. Once you mark one, it has its own. */
+  router.get('/api/books/:id/before', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL }).select('title author highlights._id').lean();
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      const passages = book.highlights?.length ? [] : await beforeYouStart({ userId: req.user.id, book }).catch(() => []);
+      return res.json({ passages });
+    } catch (error) {
+      console.error('Error finding what you marked before a book:', error);
+      res.status(500).json({ error: 'Nothing could be found for this book.' });
+    }
+  });
+
+  /* Asking the author: the questions still open beside a book, each answered
+     only from the passages marked in it. Nothing is kept until you keep it. */
+  router.post('/api/books/:id/ask', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL }).select(BOOK_MARKS).lean();
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      const answers = await askTheBook({
+        title: book.title,
+        questions: book.highlights.filter(isQuestion),
+        passages: book.highlights.filter(mark => mark.text)
+      });
+      return res.json({ answers });
+    } catch (error) {
+      console.error('Error asking a book:', error);
+      res.status(502).json({ error: 'The book could not be asked just now. Try it again.' });
     }
   });
 

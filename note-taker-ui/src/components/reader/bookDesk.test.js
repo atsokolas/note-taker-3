@@ -1,4 +1,4 @@
-import { completionFor, kindOf, lastTime, pageNow, pagesOf, readLine, sittingOf, spineOf, tallyLine } from './bookDesk';
+import { BOOK_SAYS, bookendsOf, completionFor, kindOf, lastTime, pageNow, pagesOf, readLine, sittingLabel, sittingOf, spineOf, tallyLine } from './bookDesk';
 
 const at = minutes => new Date(Date.UTC(2026, 9, 19, 21, minutes)).toISOString();
 const NOW = Date.UTC(2026, 9, 19, 22, 0);
@@ -58,6 +58,25 @@ test('last time is the last thing you wrote in your own words, or the last passa
   ])).toEqual({ page: 186, words: 'is this just survivorship?', own: true });
   expect(lastTime([{ text: 'Only a passage.', createdAt: at(1) }])).toEqual({ page: null, words: 'Only a passage.', own: false });
   expect(lastTime([{ page: 12, text: 'There is grandeur.', note: 'read first\n\nwhy end on grandeur?', createdAt: at(1) }]).words).toBe('why end on grandeur?');
+  expect(lastTime([
+    { page: 186, note: 'what you thought', createdAt: at(1) },
+    { page: 190, note: `why stop here?\n\n${BOOK_SAYS}Because the war ends.`, createdAt: at(2) }
+  ]).words).toBe('why stop here?');
+});
+
+test('a sitting is named by the hour of its newest mark', () => {
+  const hour = h => new Date(2026, 9, 25, h, 30);
+  expect([2, 9, 15, 21].map(h => sittingLabel(hour(h)))).toEqual(['Past midnight', 'This morning', 'This afternoon', 'Tonight']);
+});
+
+test('a finished book’s bookends are the first and last thing you marked, and the words of your own are counted', () => {
+  const marks = [
+    { note: `Why marry him?\n\n${BOOK_SAYS}She wanted a life of meaning.`, createdAt: at(5) },
+    { text: 'A finely touched spirit.', note: 'yes, this', createdAt: at(1) },
+    { text: 'Who can quit young lives after being long in company with them?', createdAt: at(9) }
+  ];
+  expect(bookendsOf(marks)).toEqual({ first: 'A finely touched spirit.', last: 'Who can quit young lives after being long in company with them?', words: 5 });
+  expect(bookendsOf(marks.slice(1, 2))).toEqual({ first: '', last: '', words: 2 });
 });
 
 test('the book finishes a quote you already marked, from its first words', () => {

@@ -80,6 +80,16 @@ export const listBookQuestions = async () => (
   (await api.get('/api/books/questions', getAuthHeaders())).data?.questions || []
 );
 
+/* What you marked elsewhere that touches a book with nothing marked in it yet. */
+export const beforeBook = async (id) => (
+  (await api.get(`/api/books/${encodeURIComponent(id)}/before`, getAuthHeaders())).data?.passages || []
+);
+
+/* The questions still open beside a book, answered only from the passages marked in it. */
+export const askBook = async (id) => (
+  (await api.post(`/api/books/${encodeURIComponent(id)}/ask`, {}, getAuthHeaders())).data?.answers || []
+);
+
 export const listImportConnections = async ({ provider = '' } = {}) => {
   const params = new URLSearchParams();
   if (provider) params.set('provider', String(provider).trim());

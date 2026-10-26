@@ -335,3 +335,9 @@ blockquote + .book-desk__own {
   font-variant-numeric: oldstyle-nums;
   letter-spacing: 0.04em;
 }
+
+/* What you marked on this page when you read it before, in its faded ink. */
+.book-desk__hint q {
+  font-family: var(--font-serif);
+  font-style: italic;
+}

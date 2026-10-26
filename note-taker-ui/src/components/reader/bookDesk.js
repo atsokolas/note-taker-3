@@ -153,14 +153,39 @@ export const tallyLine = (marks = []) => {
   return [span, tally].filter(Boolean).join(' · ');
 };
 
+/* What a sitting is called, by the hour of its newest mark on your clock. */
+export const sittingLabel = (date) => {
+  const hour = date.getHours();
+  return hour < 5 ? 'Past midnight' : hour < 12 ? 'This morning' : hour < 18 ? 'This afternoon' : 'Tonight';
+};
+
+/* An answer you kept from the book sits under your question as a paragraph
+   of its own, opening with these words, and is never counted as yours. */
+export const BOOK_SAYS = 'The book: ';
+const ownParagraphs = (note = '') => String(note).split(/\n\n/).filter(part => part.trim() && !part.startsWith(BOOK_SAYS));
+const ownWords = mark => ownParagraphs(mark.note).join(' ').match(WORD)?.length || 0;
+
 /* Where you left off: the last thing you wrote in your own words, or the last
    passage you marked. Nothing when nothing was marked. */
 export const lastTime = (marks = []) => {
   const newest = [...marks].sort((a, b) => at(b) - at(a));
-  const mark = newest.find(item => item.note) || newest[0];
+  const mark = newest.find(ownWords) || newest[0];
   if (!mark) return null;
   // A note written to over several sittings ends with the newest of them.
-  return { page: mark.page || null, words: mark.note ? mark.note.split(/\n\n/).pop() : mark.text, own: Boolean(mark.note) };
+  const own = Boolean(ownWords(mark));
+  return { page: mark.page || null, words: own ? ownParagraphs(mark.note).pop() : mark.text, own };
+};
+
+/* A finished book's bookends: the first thing you marked in it and the last,
+   in its words or yours, and how many words of your own you wrote beside it. */
+export const bookendsOf = (marks = []) => {
+  const read = [...marks].sort((a, b) => at(a) - at(b));
+  const wordsOf = mark => mark.text || ownParagraphs(mark.note)[0] || '';
+  return {
+    first: read.length > 1 ? wordsOf(read[0]) : '',
+    last: read.length > 1 ? wordsOf(read[read.length - 1]) : '',
+    words: read.reduce((sum, mark) => sum + ownWords(mark), 0)
+  };
 };
 
 /* The book finishing a quote as you type it: the rest of a passage already
