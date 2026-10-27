@@ -24,7 +24,7 @@ beforeEach(() => {
   });
 });
 const open = async () => {
-  render(<MemoryRouter initialEntries={['/think?context=work']}><WorkNotes /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/think?context=work&date=2026-10-26']}><WorkNotes /></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name: /Field notes/ }));
   return screen.getByRole('textbox', { name: 'Work note writing' });
 };
