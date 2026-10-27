@@ -361,3 +361,30 @@ test('a book is lent by a link a friend reads it at, copied here, and taken back
   expect(screen.getByRole('button', { name: 'Lend it' })).toBeInTheDocument();
 });
 
+
+test('a book prints as index cards of its quotes, in page order, with the book and page on each', () => {
+  window.print = jest.fn();
+  useArticleDetail.mockReturnValue({
+    article: { _id: 'b2', title: 'Middlemarch', author: 'George Eliot' },
+    highlights: [
+      { _id: 'h2', text: 'the growing good of the world is partly dependent on unhistoric acts', note: '', page: 838, createdAt: '2026-10-02T20:00:00Z' },
+      { _id: 'h1', text: 'a man’s mind has always the advantage of being masculine', note: '', page: 19, createdAt: '2026-10-01T20:00:00Z' },
+      { _id: 'n1', text: '', note: 'Dorothea again', page: 20, createdAt: '2026-10-01T20:05:00Z' }
+    ],
+    error: ''
+  });
+  const { container } = at('b2');
+  fireEvent.click(screen.getByRole('button', { name: 'Print as cards' }));
+  expect(window.print).toHaveBeenCalled();
+  const cards = [...container.querySelectorAll('.book-cards li')].map(card => card.textContent);
+  expect(cards).toEqual([
+    'a man’s mind has always the advantage of being masculineMiddlemarch · George Eliot · p. 19',
+    'the growing good of the world is partly dependent on unhistoric actsMiddlemarch · George Eliot · p. 838'
+  ]);
+});
+
+test('a book with no quotes has no cards to print', () => {
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch' }, highlights: [{ _id: 'n1', text: '', note: 'a thought', createdAt: '2026-10-01T20:05:00Z' }], error: '' });
+  at('b2');
+  expect(screen.queryByRole('button', { name: 'Print as cards' })).not.toBeInTheDocument();
+});

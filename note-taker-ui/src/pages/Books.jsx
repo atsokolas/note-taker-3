@@ -542,6 +542,20 @@ const Whereabouts = ({ lines }) => (lines.length ? (
   </ul>
 ) : null);
 
+/* The book's quotes set for a box of index cards, one to a card in page
+   order, with the book and page under each. Only paper shows them. */
+const byPage = mark => mark.page || Number.MAX_SAFE_INTEGER;
+const QuoteCards = ({ book, marks }) => (
+  <ol className="book-cards" aria-hidden="true">
+    {marks.filter(mark => mark.text).sort((a, b) => byPage(a) - byPage(b)).map(mark => (
+      <li key={mark._id}>
+        <blockquote>{mark.text}</blockquote>
+        <p>{[book.title, book.author, mark.page && `p. ${mark.page}`].filter(Boolean).join(' · ')}</p>
+      </li>
+    ))}
+  </ol>
+);
+
 // A mark typed at the desk is saved once the server has given it an id.
 const isSaved = mark => !mark.unsent && !String(mark._id).startsWith('desk-');
 
@@ -584,6 +598,7 @@ const Book = ({ id }) => {
       <nav className="books__tools" aria-label="Book">
         <Link to="/library/books">← Books</Link>
         {book ? <Lend book={book} onChange={change} /> : null}
+        {highlights.some(mark => mark.text) ? <button type="button" className="books__quiet-button" onClick={() => window.print()}>Print as cards</button> : null}
       </nav>
       {error ? <p className="books__quiet" role="alert">{error}</p> : null}
       {book ? (
@@ -618,6 +633,7 @@ const Book = ({ id }) => {
           >
             <AskTheAuthor book={book} marks={highlights} onReplace={replaceHighlight} />
           </Closing>
+          <QuoteCards book={book} marks={highlights} />
         </>
       ) : null}
     </main>

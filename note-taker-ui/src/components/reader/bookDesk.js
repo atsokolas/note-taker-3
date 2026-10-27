@@ -16,6 +16,10 @@ const WORD = /[\p{L}\p{N}]+/gu;
 const SITTING_GAP_MS = 90 * 60 * 1000;
 // A book untouched this long was set down.
 const SET_DOWN_MS = 30 * 24 * 60 * 60 * 1000;
+// Before this hour on your clock, it is still last night.
+const MORNING = 5;
+// A thought that ends here was finished.
+const ENDED = /[.!?…"”»)]\s*$/;
 
 export const readLine = (raw = '', page = null) => {
   const tags = [...String(raw).matchAll(TAG)].map(match => match[2]);
@@ -167,7 +171,7 @@ export const tallyLine = (marks = []) => {
 /* What a sitting is called, by the hour of its newest mark on your clock. */
 export const sittingLabel = (date) => {
   const hour = date.getHours();
-  return hour < 5 ? 'Past midnight' : hour < 12 ? 'This morning' : hour < 18 ? 'This afternoon' : 'Tonight';
+  return hour < MORNING ? 'Past midnight' : hour < 12 ? 'This morning' : hour < 18 ? 'This afternoon' : 'Tonight';
 };
 
 /* An answer you kept from the book sits under your question as a paragraph
@@ -185,6 +189,16 @@ export const lastTime = (marks = []) => {
   // A note written to over several sittings ends with the newest of them.
   const own = Boolean(ownWords(mark));
   return { page: mark.page || null, words: own ? ownParagraphs(mark.note).pop() : mark.text, own };
+};
+
+/* The thought you fell asleep on: the last line of a sitting that ran past
+   midnight, in your own words and with no end to it yet. */
+export const midThought = (marks = []) => {
+  const run = sittingsOf(marks).pop() || [];
+  const mark = run[run.length - 1];
+  if (!mark || mark.text || !ownWords(mark) || new Date(mark.createdAt).getHours() >= MORNING) return null;
+  const words = ownParagraphs(mark.note).pop();
+  return ENDED.test(words) ? null : { mark, words };
 };
 
 /* A finished book's bookends: the first thing you marked in it and the last,
