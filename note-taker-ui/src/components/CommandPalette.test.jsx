@@ -480,7 +480,7 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Think notebook')).toBeInTheDocument();
     expect(screen.getByText('New Think note')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Quick Work note'));
-    expect(mockNavigate).toHaveBeenCalledWith('/think?context=work&capture=1');
+    expect(mockNavigate).toHaveBeenCalledWith('/work?capture=1');
     // A blank page is writing; writing starts in Think, so Wiki offers no blank page.
     expect(screen.queryByText('New Wiki page')).not.toBeInTheDocument();
     expect(screen.queryByText('Concepts')).not.toBeInTheDocument();

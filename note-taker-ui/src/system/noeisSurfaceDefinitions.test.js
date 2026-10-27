@@ -11,7 +11,7 @@ describe('Noeis surface definitions', () => {
        next to the wiki that received it, which is why it sits between Wiki
        and Judgment rather than at the end. */
     expect(getNoeisNavigationDefinitions('primary').map(item => item.id)).toEqual([
-      'surface.library', 'surface.books', 'surface.think', 'surface.wiki', 'surface.editions', 'surface.judgment'
+      'surface.library', 'surface.books', 'surface.think', 'surface.wiki', 'surface.editions', 'surface.judgment', 'surface.work'
     ]);
     expect(getNoeisNavigationDefinitions('utility').map(item => item.id)).toEqual([
       'surface.connections', 'surface.settings'

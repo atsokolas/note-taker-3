@@ -30,7 +30,7 @@ describe('appNavigation', () => {
        rather than a room of your own work. It was in the More menu, which was
        honest about that and meant nobody found it. Named in the bar until it
        has earned or lost the place. */
-    expect(primaryLabels).toEqual(['Library', 'Books', 'Think', 'Wiki', 'Editions', 'Judgment']);
+    expect(primaryLabels).toEqual(['Library', 'Books', 'Think', 'Wiki', 'Editions', 'Judgment', 'Work']);
     expect(primaryLabels.indexOf('Editions')).toBe(primaryLabels.indexOf('Wiki') + 1);
     expect(primaryLabels).not.toContain('Paper');
     expect(primaryLabels).not.toContain('Notebook');
@@ -301,11 +301,12 @@ describe('moving around the app', () => {
   it('steps along the masthead with [ and ], wrapping at its ends', () => {
     expect(adjacentRoom({ pathname: '/library' }, 1)).toBe('/books');
     expect(adjacentRoom({ pathname: '/think' }, -1)).toBe('/books');
-    expect(adjacentRoom({ pathname: '/library' }, -1)).toBe('/judgment');
-    expect(adjacentRoom({ pathname: '/judgment/view-1' }, 1)).toBe('/library');
+    expect(adjacentRoom({ pathname: '/library' }, -1)).toBe('/work');
+    expect(adjacentRoom({ pathname: '/judgment/view-1' }, 1)).toBe('/work');
+    expect(adjacentRoom({ pathname: '/work' }, 1)).toBe('/library');
     expect(adjacentRoom({ pathname: '/' }, 1)).toBe('/editions');
     expect(adjacentRoom({ pathname: '/settings' }, 1)).toBe('/library');
-    expect(adjacentRoom({ pathname: '/settings' }, -1)).toBe('/judgment');
+    expect(adjacentRoom({ pathname: '/settings' }, -1)).toBe('/work');
   });
 
   const list = (...titles) => {

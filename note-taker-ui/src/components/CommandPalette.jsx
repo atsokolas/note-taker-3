@@ -826,7 +826,7 @@ const CommandPalette = ({ open, onClose }) => {
           action: () => createWiki(wikiBuildCommand)
         } : null,
         { id: 'action-new-note', type: 'Action', label: 'New Think note', action: createNote },
-        { id: 'action-quick-work-note', type: 'Action', label: 'Quick Work note', path: '/think?context=work&capture=1' },
+        { id: 'action-quick-work-note', type: 'Action', label: 'Quick Work note', path: '/work?capture=1' },
         { id: 'action-pull-reference', type: 'Action', label: 'Pull reference into current surface', path: pullReferencePath },
         q ? { id: 'action-new-wiki', type: 'Action', label: `New Wiki page from "${q.slice(0, 48)}"`, action: createWiki } : null
       ]

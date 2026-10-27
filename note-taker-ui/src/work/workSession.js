@@ -1,6 +1,6 @@
 import apiClient from '../api';
 import { operationId, workDraftStorage, workContinuationStorage } from './workDrafts';
-import { dayInZone, deviceTimeZone, itemMetadata } from './workPlannerModel';
+import { dayInZone, deviceTimeZone, displayDay, itemMetadata } from './workPlannerModel';
 import { plainTextFrom } from '../utils/editorialText';
 export { draftKey, operationId } from './workDrafts';
 
@@ -10,7 +10,7 @@ export const workAccount = token => {
 };
 export const localDay = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 export const noteTitle = note => note?.title?.trim() || noteWords(note).split('\n').find(line => line.trim())?.trim().slice(0, 80) || 'Untitled note';
-export const noteDate = note => note?.occurredOn || '';
+export const noteDate = note => displayDay(note?.occurredOn);
 export const noteWords = note => note?.blocks?.length ? note.blocks.map(block => block.text || '').join('\n') : plainTextFrom(note?.content);
 const body = (note, creating = false) => ({ ...(creating ? { capturedAt: note.capturedAt, timeZone: note.timeZone } : {}), ...(note.workItem ? { workItem: itemMetadata(note.workItem) } : {}), ...(note.workActions?.length ? { workActions: note.workActions } : {}), title: note.title || '', content: note.content || '', blocks: note.blocks || [], folder: note.folder?._id || note.folder || null, occurredOn: note.occurredOn, withText: note.withText || '' });
 const MATCHING_SERVER = 'Work needs its matching server before it can save. Retry shortly.';

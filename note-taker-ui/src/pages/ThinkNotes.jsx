@@ -503,9 +503,6 @@ const ThinkNotes = () => {
         <button type="button" className="think-notes__shelf-toggle" aria-pressed={Boolean(boardView)} onClick={() => showBoard(boardView ? '' : 'board')}>Board</button>
       </div>
       <aside id="think-notes-shelf" hidden={notesCollapsed} className="think-notes__shelf" aria-label="Think navigation" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
-        <label className="think-notes__context-picker">Context<select aria-label="Knowledge context" value="personal" onChange={async event => {
-          if (event.target.value === 'work' && await saveCurrent.current?.() !== false) navigate('/think?context=work');
-        }}><option value="personal">Personal</option><option value="work">Work</option></select></label>
         <FocusMode inRail />
         <RoomShelf
           as="div"

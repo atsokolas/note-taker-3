@@ -3,8 +3,6 @@
   --work-check-duration: 140ms;
   --work-receipt-duration: 120ms;
   --work-reopen-duration: 160ms;
-  min-height: 100svh;
-  background: var(--noeis-paper);
   color: var(--noeis-ink);
   font-family: var(--font-sans);
   font-optical-sizing: auto;
@@ -19,21 +17,7 @@
 .work-notes a { color: inherit; text-underline-offset: 4px; }
 .work-icon { display: inline-block; width: 20px; height: 20px; flex: 0 0 20px; background: currentColor; mask-size: contain; mask-repeat: no-repeat; mask-position: center; -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; vertical-align: middle; }
 .work-sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; clip-path: inset(50%); white-space: nowrap; overflow: hidden; }
-.work-masthead { min-height: 60px; padding: 8px 32px; display: flex; align-items: center; gap: 40px; border-bottom: 1px solid var(--noeis-rule); font-size: 14px; }
-.work-masthead > a { font: 500 21px/1.2 var(--font-serif); letter-spacing: .08em; text-decoration: none; }
-.work-private { display: inline-flex; gap: 10px; align-items: center; white-space: nowrap; }
-.work-private .work-icon { width: 15px; height: 15px; flex-basis: 15px; color: var(--noeis-ink-muted); }
-.work-masthead nav { display: flex; align-items: center; gap: 24px; margin-left: auto; }
-.work-masthead nav > a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
-.work-theme { display: flex; gap: 8px; align-items: center; }
-.work-theme .theme-swatch { width: 24px; height: 24px; min-width: 24px; border-radius: 50%; border: 1px solid var(--noeis-rule-strong); overflow: hidden; }
-.work-theme .theme-swatch > i { opacity: .35; }
-.work-theme .work-icon { width: 12px; height: 12px; flex-basis: 12px; }
-.work-utility { position: relative; }
-.work-utility > summary { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; cursor: pointer; list-style: none; }
-.work-utility > summary::-webkit-details-marker { display: none; }
-.work-utility > div { position: absolute; right: 0; top: 100%; width: 210px; z-index: 40; display: flex; flex-direction: column; padding: 8px; background: var(--noeis-floating); border: 1px solid var(--noeis-rule); box-shadow: var(--noeis-shadow-float); }
-.work-layout { display: grid; grid-template-columns: clamp(220px, 17.5vw, 260px) minmax(0, 1fr); min-height: calc(100svh - 60px); }
+.work-layout { display: grid; grid-template-columns: clamp(220px, 17.5vw, 260px) minmax(0, 1fr); }
 .work-shelf { border-right: 1px solid var(--noeis-rule); padding: 28px 14px 24px 20px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; min-width: 0; }
 .work-places { display: flex; flex-direction: column; gap: 2px; }
 .work-places > button, .work-place-row > button:first-child { display: flex; align-items: center; gap: 12px; width: 100%; }
@@ -69,9 +53,10 @@
 .work-calendar-heading nav { display: flex; align-items: center; gap: 2px; }
 .work-calendar-heading nav button { padding: 8px; }
 .work-calendar-heading nav .work-icon { width: 16px; height: 16px; flex-basis: 16px; }
-.work-calendar-modes { display: flex; border: 1px solid var(--noeis-rule-strong); border-radius: var(--noeis-radius-sm); overflow: hidden; }
-.work-calendar-modes button { min-height: 38px; min-width: 86px; padding: 7px 18px; text-align: center; font-size: 14px; }
-.work-calendar-modes [aria-pressed=true] { background: var(--noeis-paper-muted); box-shadow: inset 0 0 0 1px var(--noeis-rule); border-radius: var(--noeis-radius-sm); }
+.work-calendar-modes { display: flex; gap: 4px; }
+.work-calendar-modes button { padding: 8px 6px; font-size: 13px; color: var(--noeis-ink-muted); }
+.work-calendar-modes button:hover { background: transparent; color: var(--noeis-ink); }
+.work-calendar-modes [aria-pressed=true] { color: var(--noeis-ink); text-decoration: underline; text-decoration-color: var(--noeis-thread-strong); text-underline-offset: 6px; }
 .work-calendar-fold { overflow: hidden; }
 .work-week-days { display: grid; grid-template-columns: 1.5fr repeat(4, 1.1fr) .8fr .8fr; border-block: 1px solid var(--noeis-rule); padding: 6px 0; }
 .work-day { border-left: 1px solid var(--noeis-rule); min-width: 0; padding: 0 8px; }
@@ -85,7 +70,12 @@
 .work-day.is-weekend .work-day-heading { font-size: 12px !important; }
 .work-day-summary { min-height: 42px; display: flex; align-items: center; flex-wrap: wrap; gap: 0 4px; border-bottom: 1px solid var(--noeis-rule); font: 15px/1.5 var(--font-serif); }
 .work-day-summary button { font: inherit; padding: 6px 4px; }
-.work-day-summary .work-plan-new { margin-left: auto; color: var(--noeis-ink-muted); font: 12px var(--font-sans); }
+.work-day-summary .work-plan-new { margin-left: auto; }
+.work-plan-new input { width: 15em; padding: 6px 4px; background: transparent; border: 0; border-bottom: 1px solid transparent; color: var(--noeis-ink); font: 13px var(--font-sans); text-align: right; }
+.work-plan-new input:focus { border-bottom-color: var(--noeis-rule-strong); outline: none; text-align: left; }
+.work-plan-new input::placeholder { color: var(--noeis-ink-muted); }
+.work-day-tasks { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 24px; padding: 4px 0; border-bottom: 1px solid var(--noeis-rule); }
+.work-day-tasks .work-planner-task { font-size: 14px; }
 .work-day-margin { font-size: 12px; color: var(--noeis-ink-muted); }
 .work-day-margin summary { width: fit-content; min-height: 24px; padding: 3px 4px; cursor: pointer; }
 .work-day-margin:not([open]) { margin-top: 4px; }
@@ -114,7 +104,6 @@
 .work-move-control:focus-within { outline: 2px solid var(--noeis-thread-strong); outline-offset: 3px; }
 .work-page-top > [role=status] { max-width: 26em; }
 .work-sync { font-size: 11px !important; padding-inline: 0 !important; }
-.work-dated { margin: -2px 0 12px; color: var(--noeis-ink-muted); font-size: 12px; }
 .work-note-title { position: relative; }
 .work-note-title > .work-icon { position: absolute; left: -36px; top: 8px; width: 18px; height: 28px; color: var(--noeis-thread-strong); }
 .work-notes textarea.work-title { field-sizing: content; display: block; width: 100%; min-height: 1.22em; border: 0; padding: 0; margin: 0; resize: none; overflow: hidden; background: transparent; color: var(--noeis-ink); font: 500 clamp(1.75rem, 3.35vw, 3.2rem)/1.14 var(--font-serif); letter-spacing: -.025em; }
@@ -165,7 +154,10 @@
 .work-continue { display: inline-flex; align-items: center; gap: 8px; padding-left: 0 !important; font-size: 13px !important; }
 .work-continue .work-icon { width: 14px; height: 14px; flex-basis: 14px; }
 .work-bridge { border-block: 1px solid var(--noeis-rule); padding: 20px 0; margin-bottom: 24px; }
-.work-bridge > span, .work-bridge button { font-size: 12px; color: var(--noeis-ink-muted); }
+.work-bridge > span, .work-bridge button, .work-still-open > span { font-size: 12px; color: var(--noeis-ink-muted); }
+.work-still-open { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 12px; }
+.work-still-open label { display: flex; align-items: center; gap: 12px; min-height: 40px; font: 16px/1.5 var(--font-serif); cursor: pointer; }
+.work-start-note { color: var(--noeis-thread-strong); font-size: 12px; }
 .work-bridge blockquote, .work-dialog blockquote { white-space: pre-wrap; overflow-wrap: anywhere; font: 19px/1.65 var(--font-serif); margin: 12px 0; padding: 0; border: 0; }
 .work-onward { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; margin-top: 24px; }
 .work-conflict { padding: 20px 0; border-block: 1px solid var(--noeis-danger); margin-bottom: 20px; }
@@ -195,31 +187,22 @@
 .work-carry-item { border-top: 1px solid var(--noeis-rule); padding: 12px 0; }
 .work-carry-item h3 { margin-bottom: 4px; }
 .work-carry-item p { font-size: 13px; color: var(--noeis-ink-muted); }
-.work-locked { padding: 40px; background: var(--noeis-paper); color: var(--noeis-ink); min-height: 100svh; }
+.work-locked { padding: 40px; color: var(--noeis-ink); }
 .work-receipt { position: fixed; bottom: 20px; right: 24px; max-width: min(600px, calc(100vw - 40px)); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 16px; z-index: 35; background: var(--noeis-floating); border: 1px solid var(--noeis-rule); box-shadow: var(--noeis-shadow-soft); font-size: 13px; animation: work-receipt-in var(--work-receipt-duration) ease-out; }
 .work-receipt button { text-decoration: underline; }
 .work-mobile-nav, .work-mobile-close { display: none !important; }
-.work-appearance-error { margin: 0; padding: 8px 32px; font-size: 13px; color: var(--noeis-danger); }
 @keyframes work-receipt-in { from { opacity: 0; } to { opacity: 1; } }
-@media (max-width: 1100px) { .work-calendar-modes button { min-width: 64px; padding-inline: 12px; } .work-calendar-heading { flex-wrap: wrap; } .work-note-paper { padding-left: 26px; padding-right: 0; } .work-note-title > .work-icon { left: -26px; width: 15px; } }
+@media (max-width: 1100px) { .work-calendar-heading { flex-wrap: wrap; } .work-note-paper { padding-left: 26px; padding-right: 0; } .work-note-title > .work-icon { left: -26px; width: 15px; } }
 @media (max-width: 900px) {
   .work-layout { display: block; }
   .work-shelf { display: none; }
-  .work-layout.is-shelf-open .work-shelf { display: flex; min-height: calc(100svh - 60px); border: 0; padding: 20px; }
+  .work-layout.is-shelf-open .work-shelf { display: flex; min-height: calc(100svh - var(--noeis-topbar-height, 64px)); border: 0; padding: 20px; }
   .work-layout.is-shelf-open .work-page { display: none; }
   .work-mobile-nav { display: flex !important; align-items: center; justify-content: space-between; margin: -6px 0 16px; font-size: 13px; }
   .work-mobile-close { display: block !important; }
-  .work-masthead { padding: 8px 20px; gap: 20px; flex-wrap: wrap; }
-  .work-masthead nav { gap: 8px; }
-  .work-masthead > a { font-size: 18px; }
-  .work-private { font-size: 12px; gap: 6px; }
-  .work-theme { padding: 6px !important; }
-  .work-theme > span:not(.theme-swatch):not(.work-icon) { max-width: 90px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .work-page { padding: 14px 20px 80px; }
   .work-calendar h1 { font-size: 30px; }
   .work-calendar-heading { gap: 8px; }
-  .work-calendar-modes { width: 100%; }
-  .work-calendar-modes button { flex: 1; min-height: 44px; }
   .work-week-days { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .work-day { padding: 0 2px; }
   .work-day-heading, .work-day.is-weekend .work-day-heading { font-size: 11px !important; padding: 10px 2px !important; }
@@ -238,7 +221,6 @@
   .work-page-top { gap: 2px 12px; }
   .work-page-top > p { width: 100%; gap: 10px; font-size: 12px; }
   .work-page-top > p button { min-height: 36px; }
-  .work-dated { font-size: 11px; }
   .work-note-title > .work-icon { left: -22px; width: 14px; height: 23px; top: 4px; }
   .work-metadata { font-size: 15px; }
   .work-metadata input { width: auto; }
@@ -253,7 +235,7 @@
   .work-index-note small { font-size: 11px; }
   .work-dialog { width: 100%; max-width: none; height: 100svh; max-height: none; margin: 0; padding: 24px 20px max(24px, env(safe-area-inset-bottom)); border: 0; }
 }
-@media (max-width: 480px) { .work-masthead { gap: 4px 16px; } .work-masthead nav { width: 100%; margin-left: 0; justify-content: flex-end; } .work-private { margin-right: auto; } .work-form-pair { grid-template-columns: 1fr; gap: 0; } }
+@media (max-width: 480px) { .work-form-pair { grid-template-columns: 1fr; gap: 0; } }
 @media (prefers-reduced-motion: reduce) { .work-notes { --work-fold-ms: 0; --work-check-duration: 0ms; --work-receipt-duration: 0ms; --work-reopen-duration: 0ms; } .work-notes *, .work-dialog * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 html[data-ui-motion=reduced] .work-notes { --work-fold-ms: 0; --work-check-duration: 0ms; --work-receipt-duration: 0ms; --work-reopen-duration: 0ms; }
 html[data-ui-motion=reduced] .work-notes *, html[data-ui-motion=reduced] .work-dialog * { animation: none !important; transition: none !important; }

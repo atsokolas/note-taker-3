@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import WorkNotes from './WorkNotes';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
@@ -10,12 +10,12 @@ jest.mock('react-router-dom', () => {
   return { useNavigate: () => jest.fn(), useSearchParams: () => {
     const [search, setSearch] = React.useState(() => global.window.location.search);
     const set = React.useCallback(next => setSearch(new URLSearchParams(next).toString()), []);
+    React.useEffect(() => { const moved = () => setSearch(global.window.location.search); global.window.addEventListener('popstate', moved); return () => global.window.removeEventListener('popstate', moved); }, []);
     return [new URLSearchParams(search), set];
   } };
 });
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn(() => global.localStorage.removeItem('token')) }));
 jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh }) => <textarea aria-label="Work note writing" autoFocus={fresh} value={note.content || ''} onChange={e => onChange({ content: e.target.value })} />);
-const logOutButton = () => { fireEvent.click(screen.getByLabelText('Work menu')); return screen.getByRole('button', { name: 'Log out' }); };
 const deviceWords = () => JSON.stringify(Object.entries(localStorage).filter(([key]) => key.startsWith(draftKey('owner'))));
 const source = { _id: 'a', title: 'Charging windows', content: 'Original account', folder: 'f', revision: 2, occurredOn: '2026-10-26', withText: 'Mira', workingState: { revision: 2, nextTimeLine: { text: '  Check the window.\n', target: null } } };
 const older = { ...source, _id: 'b', title: 'Smaller depot', occurredOn: '2026-10-12', workingState: { revision: 1, nextTimeLine: { text: '' } } };
@@ -27,7 +27,7 @@ beforeEach(() => {
   api.post.mockImplementation(async (path, body) => ({ data: path.endsWith('/continue') ? { _id: 'c', title: '', content: '', folder: 'f', occurredOn: '2026-11-02', revision: 0, continuesFromEntryId: 'a', continuationBridge: { entryId: 'a', title: source.title, occurredOn: source.occurredOn, text: source.workingState.nextTimeLine.text } } : { _id: 'new', ...body, revision: 0 } }));
 });
 test('opens Work without personal rooms; search and inbox are scoped', async () => {
-  await open(); expect(screen.getByText('Work · private')).toBeInTheDocument(); expect(screen.queryByText('Partner')).toBeNull();
+  await open(); expect(screen.queryByText('Partner')).toBeNull();
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'smaller' } });
   expect(within(screen.getByRole('complementary')).queryByRole('button', { name: /Charging windows/ })).toBeNull(); expect(screen.getByRole('button', { name: /Smaller depot/ })).toBeInTheDocument();
   expect(api.get.mock.calls.every(([path]) => path.startsWith('/api/work-notes'))).toBe(true);
@@ -40,7 +40,7 @@ test('new note is untitled and untouched capture closes without creating anythin
 test('source confirmation names exact title, date, with text and line; Escape cancels', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note/ }));
   const sheet = await screen.findByRole('dialog', { name: 'Continue from this note' });
-  expect(within(sheet).getByText('Charging windows')).toBeInTheDocument(); expect(within(sheet).getByText(/2026-10-26/)).toHaveTextContent('Mira');
+  expect(within(sheet).getByText('Charging windows')).toBeInTheDocument(); expect(within(sheet).getByText(/Monday 26 Oct/)).toHaveTextContent('Mira');
   expect(sheet.querySelector('blockquote').textContent).toBe(source.workingState.nextTimeLine.text);
   fireEvent.keyDown(document, { key: 'Escape' }); expect(screen.queryByRole('dialog')).toBeNull(); expect(api.post).not.toHaveBeenCalled();
 });
@@ -73,17 +73,10 @@ test('filing changes only metadata and leaves occurrence date intact', async () 
   fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
   await waitFor(() => expect(api.put).toHaveBeenCalled()); expect(api.put.mock.calls[0][1]).toMatchObject({ folder: null, occurredOn: '2026-10-26', content: 'Original account' });
 });
-test('logout exposes keep, remove and cancel with honest device disclosure', async () => {
-  await open(); fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Local draft' } });
-  fireEvent.click(logOutButton());
-  expect(screen.getByRole('dialog', { name: 'Your Work drafts' })).toHaveTextContent('not a secure vault');
-  expect(screen.getByRole('button', { name: 'Keep on this device' })).toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Remove from this device' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel' })); expect(deviceWords()).toContain('Local draft');
-});
 test('storage failure keeps page open with copy and recovery choices', async () => {
   await open(); const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Unsaved' } });
-  fireEvent.click(screen.getByRole('link', { name: 'Personal' }));
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Today' }));
   expect(screen.getByRole('dialog', { name: 'Keep your writing' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Download recovery' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Stay' })); set.mockRestore();
@@ -101,22 +94,6 @@ test('cancelling changed-source review does not rebase an unseen body onto a new
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('Original account');
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Still my version' } }); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
   await waitFor(() => expect(api.put).toHaveBeenCalled()); expect(api.put.mock.calls[0][1].expectedRevision).toBe(2);
-});
-test('Work command menu offers scoped capture and continuation without Personal search', async () => {
-  await open(); fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-  const commands = screen.getByRole('dialog', { name: 'Work commands' });
-  expect(within(commands).queryByText('Partner')).toBeNull();
-  fireEvent.click(within(commands).getByRole('button', { name: 'Continue this note' }));
-  expect(await screen.findByRole('dialog', { name: 'Continue from this note' })).toBeInTheDocument();
-});
-test.each(['Keep on this device', 'Remove from this device'])('logout choice: %s', async choice => {
-  const logout = jest.fn(); render(<WorkNotes onLogout={logout} />);
-  fireEvent.click(await screen.findByRole('button', { name: /Charging windows/ }));
-  fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Pending words' } });
-  fireEvent.click(logOutButton()); fireEvent.click(screen.getByRole('button', { name: choice }));
-  expect(logout).toHaveBeenCalledTimes(1);
-  if (choice.startsWith('Keep')) expect(deviceWords()).toContain('Pending words');
-  else expect(localStorage.getItem(draftKey('owner'))).toBeNull();
 });
 test('conflict review presents server prose without exposing stored HTML markup', async () => {
   await open(); api.put.mockRejectedValue({ response: { status: 409, data: { current: { ...source, revision: 3, content: '<p>Other device <strong>words</strong>.</p>' } } } });
@@ -248,6 +225,12 @@ test('Continue expiry opens login without a second dialog and retains the operat
   expect(requests[1][1].operationId).toBe(requests[0][1].operationId);
   expect(requests[1][2].headers.Authorization).toBe(`Bearer ${renewedToken}`);
 });
+test('Quick Work note from the palette opens a fresh note when Work is already open', async () => {
+  await open(); expect(screen.queryByRole('dialog', { name: 'Work inbox · private' })).toBeNull();
+  act(() => { window.history.pushState({}, '', '/work?capture=1'); window.dispatchEvent(new PopStateEvent('popstate')); });
+  expect(await screen.findByRole('dialog', { name: 'Work inbox · private' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Work note writing')).toHaveValue('');
+});
 test('quick-capture create expiry recovers through one surface with the same writing and operation', async () => {
   window.history.replaceState({}, '', '/think?context=work&capture=1'); render(<WorkNotes />);
   await screen.findByRole('dialog', { name: 'Work inbox · private' });
@@ -263,19 +246,15 @@ test('quick-capture create expiry recovers through one surface with the same wri
   expect(requests[1][1].operationId).toBe(requests[0][1].operationId);
   expect(requests[1][2].headers.Authorization).toBe(`Bearer ${renewedToken}`);
 });
-test('logout under storage failure tells the truth and offers copy and cancel before discard', async () => {
+test('leaving under storage failure offers a copy before anything is discarded', async () => {
   await open(); const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: jest.fn().mockResolvedValue() } });
   try {
     fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: 'Only memory words' } });
-    fireEvent.click(logOutButton());
-    const dialog = screen.getByRole('dialog', { name: 'Your Work drafts' });
-    expect(dialog).toHaveTextContent('still in this page, not saved on this device');
-    expect(dialog).not.toHaveTextContent('Unsynced writing is on this device');
-    expect(within(dialog).getByRole('button', { name: 'Keep on this device' })).toBeDisabled();
-    expect(within(dialog).getByRole('button', { name: 'Download recovery' })).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Today' }));
+    const dialog = screen.getByRole('dialog', { name: 'Keep your writing' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Copy writing' })); await screen.findByText('Writing copied.');
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Only memory words'));
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' })); expect(screen.getByLabelText('Work note writing')).toHaveValue('Only memory words');
+    fireEvent.click(screen.getByRole('button', { name: 'Stay' })); expect(screen.getByLabelText('Work note writing')).toHaveValue('Only memory words');
   } finally { set.mockRestore(); }
 });
