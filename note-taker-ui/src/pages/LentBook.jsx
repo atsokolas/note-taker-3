@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getLentBook } from '../api/imports';
+/* Books first: its stylesheets come before the desk's everywhere else, and
+   a lent copy that loaded them the other way round fails the build. */
+import { Colophon, Spine } from './Books';
 import { BookPages } from '../components/reader/BookDesk';
 import { isEarlier, readingSince } from '../components/reader/bookDesk';
 import useSeoMetadata from '../hooks/useSeoMetadata';
-import { Colophon, Spine } from './Books';
 
 /* A book someone lent you: their copy, read without an account. Their marks
    under the pages they made them on, their own words beside the book's,
