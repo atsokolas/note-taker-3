@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import WorkNotes from './WorkNotes';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
@@ -10,6 +10,7 @@ jest.mock('react-router-dom', () => {
   return { useNavigate: () => jest.fn(), useSearchParams: () => {
     const [search, setSearch] = React.useState(() => global.window.location.search);
     const set = React.useCallback(next => setSearch(new URLSearchParams(next).toString()), []);
+    React.useEffect(() => { const moved = () => setSearch(global.window.location.search); global.window.addEventListener('popstate', moved); return () => global.window.removeEventListener('popstate', moved); }, []);
     return [new URLSearchParams(search), set];
   } };
 });
@@ -223,6 +224,12 @@ test('Continue expiry opens login without a second dialog and retains the operat
   const requests = api.post.mock.calls.filter(([path]) => path.endsWith('/continue'));
   expect(requests[1][1].operationId).toBe(requests[0][1].operationId);
   expect(requests[1][2].headers.Authorization).toBe(`Bearer ${renewedToken}`);
+});
+test('Quick Work note from the palette opens a fresh note when Work is already open', async () => {
+  await open(); expect(screen.queryByRole('dialog', { name: 'Work inbox · private' })).toBeNull();
+  act(() => { window.history.pushState({}, '', '/work?capture=1'); window.dispatchEvent(new PopStateEvent('popstate')); });
+  expect(await screen.findByRole('dialog', { name: 'Work inbox · private' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Work note writing')).toHaveValue('');
 });
 test('quick-capture create expiry recovers through one surface with the same writing and operation', async () => {
   window.history.replaceState({}, '', '/think?context=work&capture=1'); render(<WorkNotes />);

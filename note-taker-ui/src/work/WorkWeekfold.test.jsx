@@ -185,14 +185,15 @@ test('one typed line plans an appointment, and a [] line in a note becomes its f
   await waitFor(() => expect(records.find(x => x.title === 'Call Mira about training')?.workItem).toMatchObject({ kind: 'task', noteId: 'note' }));
   expect(writing).not.toHaveTextContent('Call Mira');
 });
-test('a meeting starts its note, continuing last time’s note of the same name with what is still open', async () => {
-  records.push({ _id: 'meeting', revision: 0, title: 'Fieldwell · pilot follow-up', folder: 'f', withText: 'Mira Chen', workItem: { kind: 'appointment', plannedOn: '2026-10-27', startTime: '10:00', endTime: '10:30', history: [] } });
+test('a meeting starts its note, continuing last time’s note of the same name, dated the meeting’s day, with what is still open', async () => {
+  records.push({ _id: 'meeting', revision: 0, title: 'Fieldwell · pilot follow-up', folder: 'f', withText: 'Mira Chen', workItem: { kind: 'appointment', plannedOn: '2026-10-29', startTime: '10:00', endTime: '10:30', history: [] } });
   api.post.mockImplementationOnce(async (path, body) => { const record = { _id: 'next', revision: 0, title: '', content: '', folder: 'f', occurredOn: body.occurredOn, continuesFromEntryId: 'note', continuationBridge: { entryId: 'note', title: 'Fieldwell · pilot follow-up', text: 'Ask about the second site' } }; records.push(record); return { data: record }; });
-  render(<MemoryRouter initialEntries={['/work?date=2026-10-27']}><WorkNotes /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/work?date=2026-10-29']}><WorkNotes /></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name: /10:00 Fieldwell · pilot follow-up · Start the note/ }));
   await waitFor(() => expect(api.post).toHaveBeenCalledWith('/api/work-notes/note/continue', expect.objectContaining({ expectedRevision: 0 }), expect.anything()));
   expect(await screen.findByLabelText('Note title')).toHaveValue('Fieldwell · pilot follow-up');
   expect(screen.getByText('Ask about the second site')).toBeInTheDocument();
   expect(within(screen.getByRole('region', { name: 'Still open from last time' })).getByText('Confirm service-training dates')).toBeInTheDocument();
   await waitFor(() => expect(records.find(x => x._id === 'meeting').workItem.noteId).toBe('next'));
+  await waitFor(() => expect(records.find(x => x._id === 'next').occurredOn).toBe('2026-10-29'));
 });

@@ -94,14 +94,16 @@ export default function WorkNotes() {
     ownURL.current = value.toString(); setParams(value, { replace });
   }, [day, view, folder, note?._id, setParams]);
   const restoreURL = useRef(url); restoreURL.current = url;
+  const quickNote = React.useCallback(() => { const id = session.capture({ folder: null, timeZone }); setSelected(id); setFresh(id); setQuick(true); restoreURL.current({ note: '' }); }, [session, timeZone]);
   useEffect(() => { try { if (session.isCurrent()) localStorage.setItem(viewKey(session.account), JSON.stringify({ ...preferences, calendarMode })); } catch (_) { /* Display preferences are optional; writing durability is reported separately. */ } }, [preferences, calendarMode, session]);
   useEffect(() => {
     if (params.toString() === ownURL.current) return; ownURL.current = params.toString();
     if (!session.canLeave()) { restoreURL.current(); setSheet('recovery'); return; }
+    if (initialized.current && params.get('capture') === '1') { quickNote(); return; }
     setView(params.get('view') || 'today'); setFolder(params.get('folder') || 'all');
     if (validDay(params.get('date'))) setDay(params.get('date'));
     setSelected(params.get('note') || ''); setFresh('');
-  }, [params, session]);
+  }, [params, quickNote, session]);
   const update = patch => {
     if (!session.isCurrent()) { setLocked(true); return; }
     session.edit(selected, patch);
@@ -139,9 +141,9 @@ export default function WorkNotes() {
     initialized.current = true;
     const pending = session.continuation();
     if (pending) { setSource(pending.source); intent.current = pending.operationId; setNotice('An earlier continuation is waiting for a receipt. Retry to recover the same page.'); setSheet('continue'); }
-    else if (params.get('capture') === '1') { const id = session.capture({ folder: null, timeZone }); setSelected(id); setFresh(id); setQuick(true); url({ note: '' }); }
+    else if (params.get('capture') === '1') quickNote();
     else if (!selected && session.pending().length) setSelected(session.pending()[0][0]);
-  }, [version, params, selected, session, setParams, timeZone, url]);
+  }, [version, params, quickNote, selected, session]);
   useEffect(() => {
     if (note?._id && params.get('note') !== note._id && !quick) url({ note: note._id });
   }, [note?._id, params, quick, setParams, url]);
@@ -277,8 +279,8 @@ export default function WorkNotes() {
     if (item.noteId) { open(item.noteId); return; }
     const series = notes.filter(entry => entry._id && noteTitle(entry).toLowerCase() === item.title.trim().toLowerCase()).sort((a, b) => writtenDay(b).localeCompare(writtenDay(a)))[0];
     const continued = series && navigator.onLine !== false && !session.continuation() ? await session.continueFrom(series, operationId(), { timeZone }).catch(() => null) : null;
-    const id = continued || session.capture({ folder: item.folder?._id || item.folder || null, occurredOn: item.plannedOn, timeZone });
-    session.edit(id, { title: item.title, withText: item.withText || '' });
+    const id = continued || session.capture({ folder: item.folder?._id || item.folder || null, timeZone });
+    session.edit(id, { title: item.title, withText: item.withText || '', occurredOn: item.plannedOn });
     session.edit(item.clientId, { workItem: { ...session.entry(item.clientId).workItem, noteId: session.entry(id)._id || id } });
     session.flush(id); session.flush(item.clientId); open(id);
   };
