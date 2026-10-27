@@ -125,6 +125,32 @@ test('a book untouched for a month asks why you stopped, and the answer is a mar
   expect(screen.queryByText('Why’d you stop?')).not.toBeInTheDocument();
 });
 
+test('a thought left past midnight opens the desk, and the first line finishes it', async () => {
+  const lastNight = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  lastNight.setHours(1, 15, 0, 0);
+  const trailing = { _id: 'n1', text: '', note: 'what he means by order is', page: 88, createdAt: lastNight.toISOString() };
+  updateHighlight.mockResolvedValue({ ...trailing, note: 'what he means by order is fear of the crowd.' });
+  render(<Desk marks={[trailing]} />);
+  expect(screen.getByText('You stopped mid-thought, p. 88')).toBeInTheDocument();
+  expect(line()).toHaveAttribute('placeholder', 'The rest of that thought');
+
+  type('fear of the crowd.');
+  await act(async () => keep());
+  expect(updateHighlight).toHaveBeenCalledWith({ articleId: 'book-1', highlightId: 'n1', payload: { note: 'what he means by order is fear of the crowd.' } });
+  expect(createHighlight).not.toHaveBeenCalled();
+  expect(await screen.findByText('what he means by order is fear of the crowd.', { selector: 'p' })).toBeInTheDocument();
+  expect(screen.queryByText(/You stopped mid-thought/)).not.toBeInTheDocument();
+});
+
+test('Escape leaves last night’s thought as it is and starts a new line', async () => {
+  const lastNight = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  lastNight.setHours(1, 15, 0, 0);
+  render(<Desk marks={[{ _id: 'n1', text: '', note: 'what he means by order is', createdAt: lastNight.toISOString() }]} />);
+  fireEvent.keyDown(line(), { key: 'Escape' });
+  expect(screen.queryByText(/You stopped mid-thought/)).not.toBeInTheDocument();
+  expect(line()).toHaveAttribute('placeholder', 'A quote, or what you think');
+});
+
 test('typing an old mark again picks a set-down book up, though the mark keeps its date', async () => {
   const old = { ...KINDLE, createdAt: '2026-01-05T20:00:00Z' };
   createHighlight.mockResolvedValue({ ...old, note: 'still true' });
