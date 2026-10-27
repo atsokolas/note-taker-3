@@ -155,7 +155,10 @@
 .work-continue { display: inline-flex; align-items: center; gap: 8px; padding-left: 0 !important; font-size: 13px !important; }
 .work-continue .work-icon { width: 14px; height: 14px; flex-basis: 14px; }
 .work-bridge { border-block: 1px solid var(--noeis-rule); padding: 20px 0; margin-bottom: 24px; }
-.work-bridge > span, .work-bridge button { font-size: 12px; color: var(--noeis-ink-muted); }
+.work-bridge > span, .work-bridge button, .work-still-open > span { font-size: 12px; color: var(--noeis-ink-muted); }
+.work-still-open { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 12px; }
+.work-still-open label { display: flex; align-items: center; gap: 12px; min-height: 40px; font: 16px/1.5 var(--font-serif); cursor: pointer; }
+.work-start-note { color: var(--noeis-thread-strong); font-size: 12px; }
 .work-bridge blockquote, .work-dialog blockquote { white-space: pre-wrap; overflow-wrap: anywhere; font: 19px/1.65 var(--font-serif); margin: 12px 0; padding: 0; border: 0; }
 .work-onward { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; margin-top: 24px; }
 .work-conflict { padding: 20px 0; border-block: 1px solid var(--noeis-danger); margin-bottom: 20px; }
