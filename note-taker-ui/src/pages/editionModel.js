@@ -423,6 +423,13 @@ export const watchThreads = (issues = []) => {
 /* What a finding means, in its own plain line, before the title of the source it rests on. */
 export const headlineOf = (item = {}) => item.plain || item.title;
 
+/* A line under a headline in a contents list: the finding's first sentence,
+   unless the headline already says it. */
+export const dekOf = (item = {}) => {
+  const first = String(item.finding || '').replace(/\s+/g, ' ').trim().match(/^.*?[.!?](?=\s|$)|^.+/)?.[0] || '';
+  return first === headlineOf(item) ? '' : first;
+};
+
 /* The newest issue of a paper: what its cover and its front-page column print. */
 export const latestOf = paper => paper.issues[paper.issues.length - 1];
 

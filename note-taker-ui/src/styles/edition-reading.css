@@ -445,6 +445,7 @@
 .stand__contents li > a { font: 700 19px/1.25 var(--noeis-font-editorial, Georgia, serif); text-decoration: none; }
 .stand__contents li > a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .stand__contents .reading-source { grid-column: 2; margin: 2px 0 0; font-size: 13px; }
+.stand__contents :is(.reading-why, .stand__dek) { grid-column: 2; margin: 2px 0 0; max-width: 62ch; font: italic 16px/1.45 var(--reading-serif); color: var(--reading-muted); }
 .edition-reading .stand__feature h3 { margin: 6px 0 10px; font: 700 clamp(28px, 2.6vw, 40px)/1.05 var(--noeis-font-editorial, Georgia, serif); letter-spacing: -.02em; }
 .stand__feature h3 a { text-decoration: none; }
 @media (max-width: 900px) {
