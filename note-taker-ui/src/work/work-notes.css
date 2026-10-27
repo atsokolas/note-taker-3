@@ -3,7 +3,6 @@
   --work-check-duration: 140ms;
   --work-receipt-duration: 120ms;
   --work-reopen-duration: 160ms;
-  background: var(--noeis-paper);
   color: var(--noeis-ink);
   font-family: var(--font-sans);
   font-optical-sizing: auto;
@@ -18,7 +17,7 @@
 .work-notes a { color: inherit; text-underline-offset: 4px; }
 .work-icon { display: inline-block; width: 20px; height: 20px; flex: 0 0 20px; background: currentColor; mask-size: contain; mask-repeat: no-repeat; mask-position: center; -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; vertical-align: middle; }
 .work-sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; clip-path: inset(50%); white-space: nowrap; overflow: hidden; }
-.work-layout { display: grid; grid-template-columns: clamp(220px, 17.5vw, 260px) minmax(0, 1fr); min-height: calc(100svh - var(--noeis-topbar-height, 64px)); }
+.work-layout { display: grid; grid-template-columns: clamp(220px, 17.5vw, 260px) minmax(0, 1fr); }
 .work-shelf { border-right: 1px solid var(--noeis-rule); padding: 28px 14px 24px 20px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; min-width: 0; }
 .work-places { display: flex; flex-direction: column; gap: 2px; }
 .work-places > button, .work-place-row > button:first-child { display: flex; align-items: center; gap: 12px; width: 100%; }

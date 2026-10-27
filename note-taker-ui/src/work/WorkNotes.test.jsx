@@ -39,7 +39,7 @@ test('new note is untitled and untouched capture closes without creating anythin
 test('source confirmation names exact title, date, with text and line; Escape cancels', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note/ }));
   const sheet = await screen.findByRole('dialog', { name: 'Continue from this note' });
-  expect(within(sheet).getByText('Charging windows')).toBeInTheDocument(); expect(within(sheet).getByText(/2026-10-26/)).toHaveTextContent('Mira');
+  expect(within(sheet).getByText('Charging windows')).toBeInTheDocument(); expect(within(sheet).getByText(/Monday 26 Oct/)).toHaveTextContent('Mira');
   expect(sheet.querySelector('blockquote').textContent).toBe(source.workingState.nextTimeLine.text);
   fireEvent.keyDown(document, { key: 'Escape' }); expect(screen.queryByRole('dialog')).toBeNull(); expect(api.post).not.toHaveBeenCalled();
 });
