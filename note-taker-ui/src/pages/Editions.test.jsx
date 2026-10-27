@@ -193,6 +193,7 @@ const twoPapers = () => {
   ]);
   api.getEdition.mockImplementation(async id => (id === 'ai' ? ai : edition));
   readingState.readEditionLocal.mockImplementation((issueId) => (issueId === 'last' ? { issueId: 'e1', itemId: 'one', title: 'A useful distinction' } : null));
+  return ai;
 };
 it('sets every paper as one front page, led by the finding with the most you can check', async () => {
   twoPapers();
@@ -226,11 +227,17 @@ it('turns the stand into a newsstand of covers, and back', async () => {
   expect(screen.getByRole('heading', { name: 'The Noeis Edition' })).toBeVisible();
 });
 it('opens a magazine: the cover on the left, what is in it and its feature on the right', async () => {
-  twoPapers();
+  const ai = twoPapers();
+  const unexplained = { ...item, itemId: 'y', finding: 'Being informed is different. It is not the same as using it.', filedAt: '2026-10-07T09:00:00Z' };
+  api.getEdition.mockImplementation(async id => (id === 'ai' ? { ...ai, items: [...ai.items, unexplained] } : edition));
   mockSearch = 'open=ai';
   render(<Editions />);
   const spread = await screen.findByRole('region', { name: 'This Week in AI, opened' });
-  expect(await within(spread).findByRole('heading', { name: /In this issue/ })).toBeVisible();
+  expect(await within(spread).findByRole('heading', { name: /In this issue.*Updated Wed, Oct 7/ })).toBeVisible();
+  /* Every entry carries a blurb: the agent's why when it gave one, else the finding's first sentence. */
+  const contents = within(spread).getByRole('list');
+  expect(within(contents).getByText('It tests the view you hold on agents.')).toBeVisible();
+  expect(within(contents).getByText('Being informed is different.')).toBeVisible();
   expect(await within(spread).findByRole('heading', { name: 'Few recover when a step fails.' })).toBeVisible();
   expect(within(spread).getByRole('link', { name: 'Read the whole issue →' })).toHaveAttribute('href', '/editions/ai');
   expect(within(spread).getByRole('link', { name: 'Every issue of This Week in AI →' })).toHaveAttribute('href', '/editions?paper=ai');
