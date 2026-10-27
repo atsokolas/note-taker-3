@@ -181,6 +181,8 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       ? [...sent.current].reverse().map(({ id }) => marks.find(mark => mark._id === id)).find(mark => mark?.text)
       : !text && !note && tags.length && marks.find(mark => mark._id === sent.current[sent.current.length - 1]?.id));
     if (onto) {
+      // Taken at once, so a second Return is a line of its own.
+      if (finishing) setTouched(true);
       const payload = {
         ...(note ? { note: finishing ? `${onto.note} ${note}` : joinNotes(onto.note, note) } : {}),
         ...(tags.length ? { tags: [...new Set([...(onto.tags || []), ...tags])] } : {})
@@ -191,9 +193,13 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
         onReplace?.(onto._id, { ...onto, ...saved });
         setReceipt(filedUnder(tags));
         setTouched(true);
+        return;
       }
-      else setLine(line);
-      return;
+      // Offline, the rest of the thought waits as a line of its own.
+      if (!finishing) {
+        setLine(line);
+        return;
+      }
     }
     if (!text && !note) {
       if (tags.length) {
