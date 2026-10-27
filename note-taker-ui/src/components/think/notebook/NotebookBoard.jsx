@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { clearNotebookCache, getNotebookBoard, moveNotebookEntry } from '../../../api/notebook';
 import { Button, PageHeader } from '../../ui';
+import { useSystemStatusControls } from '../../../system/SystemStatusContext';
+import { wikiReadPath } from '../../../utils/wikiFeatureFlags';
+import { settleIntoWiki } from '../settleIntoWiki';
 import {
   ARCHIVE_GROUPS,
   STAGES,
@@ -52,6 +55,7 @@ const NotebookBoard = ({ view = 'board', onView, onOpen, onClose }) => {
   const [error, setError] = useState('');
   const [receipt, setReceipt] = useState(null);
   const [over, setOver] = useState('');
+  const systemStatus = useSystemStatusControls();
   const now = Date.now();
   const board = useMemo(() => buildBoard(notes, now), [notes]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -65,14 +69,14 @@ const NotebookBoard = ({ view = 'board', onView, onOpen, onClose }) => {
   }, []);
 
   /* Every move lands at once and is put back if the server refuses it. */
-  const move = async (cards, change, message, undo) => {
+  const move = async (cards, change, said = null) => {
     const stamp = new Date().toISOString();
     const local = {
       ...(change.stage ? { stage: change.stage, movedAt: stamp } : {}),
       ...(change.archived !== undefined ? { archivedAt: change.archived ? stamp : null } : {})
     };
     setNotes(current => cards.reduce((next, card) => placeCard(next, card.id, local), current));
-    setReceipt(message ? { message, undo } : null);
+    setReceipt(said);
     try {
       const saved = await Promise.all(cards.map(card => moveNotebookEntry(card.id, change)));
       setNotes(current => cards.reduce((next, card, index) => (saved[index] ? placeCard(next, card.id, saved[index]) : next), current));
@@ -88,16 +92,28 @@ const NotebookBoard = ({ view = 'board', onView, onOpen, onClose }) => {
   const moveOne = (card, change) => {
     if (change.stage === card.stage) return;
     const back = change.stage ? { stage: card.stage } : { archived: !change.archived };
-    const message = change.stage === 'done' ? doneReceipt(card, Date.now())
-      : change.archived ? `“${card.title}” is in the archive.`
-      : change.archived === false ? `“${card.title}” is back on the board.`
-      : '';
-    move([card], change, message, change.stage === 'done' || change.archived !== undefined ? () => move([card], back) : null);
+    const undo = () => move([card], back);
+    move([card], change, change.stage === 'done' ? { message: doneReceipt(card, Date.now()), undo, settle: card }
+      : change.archived ? { message: `“${card.title}” is in the archive.`, undo }
+      : change.archived === false ? { message: `“${card.title}” is back on the board.`, undo }
+      : null);
+  };
+
+  /* Done is where finished thinking can settle into Wiki: offered, never assumed. */
+  const settle = async (card) => {
+    setReceipt({ message: `Settling “${card.title}” into Wiki…` });
+    const { settledIn, resettled, refusal } = await settleIntoWiki('notebook', card.id, systemStatus);
+    setReceipt(settledIn
+      ? { message: `“${settledIn.title}” ${resettled ? 'revised' : 'settled'} in Wiki.`, href: wikiReadPath(settledIn._id) }
+      : { message: refusal });
   };
 
   const archiveStale = () => {
     const stale = board.stale;
-    move(stale, { archived: true }, `${stale.length === 1 ? 'One idea' : `${stale.length} ideas`} set aside in the archive.`, () => move(stale, { archived: false }));
+    move(stale, { archived: true }, {
+      message: `${stale.length === 1 ? 'One idea' : `${stale.length} ideas`} set aside in the archive.`,
+      undo: () => move(stale, { archived: false })
+    });
   };
 
   const drop = (event, stage) => {
@@ -128,7 +144,9 @@ const NotebookBoard = ({ view = 'board', onView, onOpen, onClose }) => {
       />
       <p className="notebook-board__receipt" role="status">
         {error || receipt?.message || ''}
+        {receipt?.settle ? <button type="button" onClick={() => settle(receipt.settle)}>Settle into Wiki</button> : null}
         {receipt?.undo ? <button type="button" onClick={() => { const undo = receipt.undo; setReceipt(null); undo(); }}>Undo</button> : null}
+        {receipt?.href ? <a href={receipt.href}>Open the page</a> : null}
       </p>
 
       {archive ? (

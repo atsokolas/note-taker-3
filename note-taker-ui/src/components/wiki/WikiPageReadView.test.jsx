@@ -306,6 +306,32 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByText(/Memory never leaks between teams/)).not.toBeInTheDocument();
   });
 
+  it('links a page settled from Think back to the note it came from', async () => {
+    getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'notebook', objectId: 'note-1', label: 'settled-note:note-1' } });
+    renderReadView();
+    expect(await screen.findByText('Settled from your note in Think.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the note' })).toHaveAttribute('href', '/think?tab=notebook&entryId=note-1');
+  });
+
+  it('links a written-up book back to the book', async () => {
+    getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'article', objectId: 'book-1', label: 'settled-book:book-1' } });
+    renderReadView();
+    expect(await screen.findByText('Settled from your book.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the book' })).toHaveAttribute('href', expect.stringContaining('book-1'));
+  });
+
+  it('links a settled concept back to the concept, and says nothing for a page only made from one', async () => {
+    getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'concept', objectId: 'concept-1', label: 'settled-concept:concept-1' } });
+    const { unmount } = renderReadView();
+    expect(await screen.findByText('Settled from your concept in Think.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the concept' })).toHaveAttribute('href', '/think?tab=concepts&concept=concept-1');
+    unmount();
+    getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'concept', objectId: 'concept-1', label: 'Enterprise AI Memory' } });
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    expect(screen.queryByText(/Settled from your/)).not.toBeInTheDocument();
+  });
+
   it('declares the loaded page as an exact ordinary Wiki surface', async () => {
     renderReadView();
 
@@ -2783,6 +2809,38 @@ describe('WikiPageReadView', () => {
     expect(await screen.findByText('Memory compounds with review.')).toBeInTheDocument();
     expect(document.querySelector('.wiki-read__body'))
       .not.toHaveTextContent('UNIQUE_CANDIDATE_SENTENCE about an experiment.');
+  });
+
+  it('opens an empty page on the draft waiting for the owner', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      claims: [],
+      plainText: '',
+      body: { type: 'doc', content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Competitive map' }] }] },
+      aiState: { candidateStatus: 'awaiting_first_head_acceptance' }
+    });
+    getWikiFirstHeadCandidate.mockResolvedValue({
+      kind: 'first_head',
+      revisionId: 'rev-first',
+      candidate: {
+        title: 'Enterprise AI Memory',
+        plainText: 'UNIQUE_FIRST_DRAFT_SENTENCE.',
+        body: { type: 'doc', content: [{ type: 'paragraph', content: [{
+          type: 'text',
+          text: 'UNIQUE_FIRST_DRAFT_SENTENCE.',
+          marks: [{ type: 'claim', attrs: { claimId: 'claim-9', support: 'supported', citationIndexes: [1] } }]
+        }] }] },
+        claims: [{ claimId: 'claim-9', text: 'UNIQUE_FIRST_DRAFT_SENTENCE.', support: 'supported' }]
+      }
+    });
+
+    renderReadView();
+    await flushDeferredWikiReadWork();
+
+    expect(await screen.findByText('You are reading the proposed change. The page itself is unchanged.')).toBeInTheDocument();
+    expect(document.querySelector('.wiki-read__body')).toHaveTextContent('UNIQUE_FIRST_DRAFT_SENTENCE.');
+    // Nothing to compare a first draft against, so no sentence is marked changed.
+    expect(document.querySelector('.wiki-read__changed-passage')).not.toBeInTheDocument();
   });
 
   it('keeps accept conflict-safe when the candidate is stale', async () => {

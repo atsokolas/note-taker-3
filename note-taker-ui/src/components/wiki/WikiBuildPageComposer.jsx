@@ -117,17 +117,13 @@ const WikiBuildPageComposer = ({ className = '', compact = false, inputRef, onBu
       const suggestions = Array.isArray(response.suggestions)
         ? response.suggestions.map(item => normalizeSpaces(item?.title)).filter(Boolean).slice(0, 2)
         : [];
-      setTickerLines([
-        repo ? `repo wiki failed · ${repo.fullName}` : evidenceMissing ? `no direct evidence · ${topic}` : `build failed · ${topic}`,
-        evidenceMissing
-          ? suggestions.length ? `closest Library material · ${suggestions.join(' · ')}` : 'add or import a direct source first'
-          : 'waiting for a retry'
-      ]);
+      // One honest line: nothing retries on its own, so the trace goes away.
+      setTickerLines([]);
       setError(repo
-        ? 'Failed to build this repo wiki.'
+        ? `Couldn't build a wiki for ${repo.fullName}. Try again.`
         : evidenceMissing
-          ? response.error
-          : 'Failed to build this wiki page.');
+          ? [response.error, suggestions.length ? `Closest in your Library: ${suggestions.join(', ')}.` : ''].filter(Boolean).join(' ')
+          : `Couldn't build “${topic}”. Try again.`);
     } finally {
       setBusy(false);
       onBusyChange?.(false);

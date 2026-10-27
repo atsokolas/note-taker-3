@@ -1,0 +1,255 @@
+/* A commonplace book. A title page, contents, and chapters that each begin
+   on a fresh page in print. Passages are set as running text in the reading
+   serif, and your notes sit under them in italic like marginalia. On screen
+   it is a page of the app; printed, the app falls away. */
+
+.commonplace-book {
+  width: min(100% - 32px, 660px);
+  margin: 0 auto;
+  padding: 28px 0 120px;
+  color: var(--text-primary);
+  font-family: var(--font-serif);
+}
+
+.commonplace-book__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 22px;
+  font: 13px/1.6 var(--font-sans);
+}
+
+.commonplace-book__tools span {
+  display: inline-flex;
+  gap: 14px;
+}
+
+.commonplace-book__tools a,
+.commonplace-book__tools button {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+.commonplace-book__tools button {
+  margin-left: auto;
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.commonplace-book__tools a:hover,
+.commonplace-book__tools a:focus-visible {
+  color: var(--text-primary);
+}
+
+.commonplace-book__quiet {
+  margin: 28px 0 0;
+  color: var(--text-muted);
+  font: 13px/1.6 var(--font-sans);
+}
+
+.commonplace-book__title-page {
+  padding: clamp(56px, 14vh, 140px) 0 64px;
+  text-align: center;
+}
+
+.commonplace-book__kicker,
+.commonplace-book__count,
+.commonplace-book__epigraph figcaption,
+.commonplace-book__byline {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+}
+
+.commonplace-book__kicker {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.commonplace-book__title-page h1 {
+  margin: 14px 0 10px;
+  font: 400 clamp(64px, 14vw, 120px)/1 var(--font-serif);
+  letter-spacing: -0.04em;
+  font-variant-numeric: oldstyle-nums;
+}
+
+.commonplace-book__count {
+  margin: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.commonplace-book__epigraph {
+  max-width: 34ch;
+  margin: 56px auto 0;
+}
+
+.commonplace-book__epigraph blockquote {
+  margin: 0;
+  font: italic 20px/1.55 var(--font-serif);
+  text-wrap: balance;
+}
+
+.commonplace-book__epigraph figcaption {
+  margin-top: 14px;
+  font-size: 12px;
+  text-wrap: balance;
+}
+
+.commonplace-book a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.commonplace-book__passage a:hover,
+.commonplace-book__passage a:focus-visible,
+.commonplace-book__epigraph a:hover,
+.commonplace-book__epigraph a:focus-visible,
+.commonplace-book__source h3 a:hover,
+.commonplace-book__source h3 a:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: var(--noeis-rule);
+  text-underline-offset: 4px;
+}
+
+.commonplace-book__contents {
+  padding: 32px 0;
+  border-top: 1px solid var(--noeis-rule);
+}
+
+.commonplace-book__contents h2,
+.commonplace-book__chapter h2 {
+  margin: 0 0 18px;
+  font: 400 26px/1.2 var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+.commonplace-book__contents ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.commonplace-book__contents li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 17px;
+}
+
+/* A dotted leader runs from the name to the count, as in a printed book. */
+.commonplace-book__contents li::after {
+  content: '';
+  order: 1;
+  flex: 1;
+  border-bottom: 1px dotted var(--noeis-rule);
+}
+
+.commonplace-book__contents span {
+  order: 2;
+  color: var(--text-muted);
+  font: 13px/1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.commonplace-book__chapter {
+  scroll-margin-top: calc(var(--noeis-topbar-height, 64px) + 24px);
+  padding-top: 48px;
+  border-top: 1px solid var(--noeis-rule);
+}
+
+.commonplace-book__chapter h2 span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font: 12px/1 var(--font-sans);
+  letter-spacing: 0.14em;
+}
+
+.commonplace-book__source {
+  margin: 0 0 44px;
+}
+
+.commonplace-book__source h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font: italic 400 20px/1.35 var(--font-serif);
+}
+
+.commonplace-book__byline {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+.commonplace-book__passage {
+  margin-top: 16px;
+}
+
+.commonplace-book__passage p {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.65;
+  hanging-punctuation: first;
+}
+
+.commonplace-book__passage .commonplace-book__note {
+  margin: 6px 0 0 1.4em;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 16px;
+}
+
+@media (max-width: 560px) {
+  .commonplace-book__passage p { font-size: 17px; }
+  .commonplace-book__tools button { margin-left: 0; }
+}
+
+@media print {
+  :root:has(.commonplace-book) :is(.topbar, .app-shell-new__nav, .app-shell-new__skip-link, .agent-rail-drawer__trigger, .agent-rail-drawer) {
+    display: none !important;
+  }
+
+  /* Paper is white whatever the palette on screen: the book sets its own
+     ink and rules, and the shell around it loses its canvas. */
+  :root:has(.commonplace-book) { color-scheme: light; }
+
+  :root:has(.commonplace-book),
+  :root:has(.commonplace-book) :is(body, .app-shell-new, .app-shell-new__main, .app-shell-new__body, .app-shell-new__column, .page-area) {
+    background: #fff !important;
+  }
+
+  @page { margin: 22mm 20mm; }
+
+  /* Every ink the book is painted with, its own and the editorial shell's. */
+  .commonplace-book {
+    --text-primary: #111;
+    --text-muted: #555;
+    --vellum-ink: #111;
+    --vellum-accent: #111;
+    --vellum-muted: #555;
+    --noeis-rule: #bbb;
+    width: auto;
+    padding: 0;
+    font-size: 11pt;
+  }
+
+  .commonplace-book__tools { display: none; }
+  .commonplace-book__title-page { padding: 24vh 0 0; break-after: page; break-inside: avoid; }
+  .commonplace-book__contents { border: 0; break-after: page; }
+  .commonplace-book__chapter { border: 0; padding-top: 0; break-before: page; }
+  .commonplace-book__chapter:first-of-type { break-before: auto; }
+  .commonplace-book__source h3 { break-after: avoid; }
+  .commonplace-book__passage { break-inside: avoid; }
+  .commonplace-book__passage p { font-size: 11pt; }
+  .commonplace-book__passage .commonplace-book__note { font-size: 10pt; }
+}

@@ -1,5 +1,5 @@
 import { isSuppressedFromLibraryBrowse } from './cruftSuppression';
-import { cleanSourceTextForDisplay } from './sourceDisplayText';
+import { cleanSourceTextForDisplay, sourceTitle } from './sourceDisplayText';
 
 const idOf = (value) => String(value?._id || value?.id || value || '').trim();
 const clean = (value) => cleanSourceTextForDisplay(value || '');
@@ -79,7 +79,7 @@ export const librarySearchRows = (payload = {}, { query = '' } = {}) => {
     kind: 'highlight',
     articleId: idOf(highlight.articleId),
     highlightId: idOf(highlight),
-    title: String(highlight.articleTitle || '').trim() || 'Untitled source',
+    title: sourceTitle({ title: highlight.articleTitle }),
     passage: clean(highlight.text || highlight.anchor?.text),
     highlight
   }));
@@ -89,7 +89,7 @@ export const librarySearchRows = (payload = {}, { query = '' } = {}) => {
       kind: 'article',
       articleId: idOf(article),
       highlightId: '',
-      title: String(article.title || '').trim() || 'Untitled source',
+      title: sourceTitle(article),
       passage: String(query || '').trim()
         ? (snippetAroundQuery(raw, query) || clean(raw))
         : clean(raw),

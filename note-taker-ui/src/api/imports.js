@@ -32,10 +32,75 @@ export const importPastedText = async ({ text, title = '', url = '' } = {}) => {
   return response.data || {};
 };
 
-export const importPastedUrl = async ({ url, title = '' } = {}) => {
-  const response = await api.post('/api/import/url', { url, title }, getAuthHeaders());
+export const importPastedUrl = async ({ url, title = '', placement, folderId } = {}) => {
+  const response = await api.post('/api/import/url', { url, title, placement, folderId }, getAuthHeaders());
   return response.data || {};
 };
+
+/* A book you are starting: found if an import already brought it, made if not. */
+export const startBook = async ({ title, author = '' } = {}) => {
+  const response = await api.post('/api/import/book', { title, author }, getAuthHeaders());
+  return response.data || {};
+};
+
+/* Today as this reader's calendar has it ("2026-10-19"). A book is closed
+   on a day, not at a moment, so its anniversary is that day wherever you are. */
+const today = (now = new Date()) => new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+/* Closing a book with the one sentence you will remember, or none; and
+   opening it again when you are still reading it after all. */
+export const closeBook = async (id, line = '') => (
+  (await api.put(`/api/books/${encodeURIComponent(id)}/closed`, { line, on: today() }, getAuthHeaders())).data
+);
+export const reopenBook = async (id) => (
+  (await api.delete(`/api/books/${encodeURIComponent(id)}/closed`, getAuthHeaders())).data
+);
+/* Starting a finished book again: the reading you closed is kept, with its marks. */
+export const readAgain = async (id) => (
+  (await api.post(`/api/books/${encodeURIComponent(id)}/again`, {}, getAuthHeaders())).data
+);
+
+/* Every book on the shelf, with its marks. */
+export const listBooks = async () => (
+  (await api.get(`/api/books?today=${today()}`, getAuthHeaders())).data?.books || []
+);
+
+/* A photograph of the page gives quotes typed by their ends their whole words. */
+export const readBookPage = async (id, image) => (
+  (await api.post(`/api/books/${encodeURIComponent(id)}/page`, { image }, getAuthHeaders())).data?.filled || []
+);
+
+/* Today's passage from a book and its echo, marked in another work long before or after; null on a day with none. */
+export const bookEcho = async () => (
+  (await api.get(`/api/books/echo?today=${today()}`, getAuthHeaders())).data?.echo || null
+);
+
+/* The questions typed beside books, each with the passage marked since that answers it, if one does. */
+export const listBookQuestions = async () => (
+  (await api.get('/api/books/questions', getAuthHeaders())).data?.questions || []
+);
+
+/* What you marked elsewhere that touches a book with nothing marked in it yet. */
+export const beforeBook = async (id) => (
+  (await api.get(`/api/books/${encodeURIComponent(id)}/before`, getAuthHeaders())).data?.passages || []
+);
+
+/* Lending a book: the address a friend reads your copy at; taking it back ends it. */
+export const lendBook = async (id) => (
+  (await api.put(`/api/books/${encodeURIComponent(id)}/lent`, {}, getAuthHeaders())).data
+);
+export const takeBookBack = async (id) => (
+  (await api.delete(`/api/books/${encodeURIComponent(id)}/lent`, getAuthHeaders())).data
+);
+/* A copy lent to you, read without an account. */
+export const getLentBook = async (slug) => (
+  (await api.get(`/api/public/books/${encodeURIComponent(slug)}`, { skipAuthHandling: true })).data?.book || null
+);
+
+/* The questions still open beside a book, answered only from the passages marked in it. */
+export const askBook = async (id) => (
+  (await api.post(`/api/books/${encodeURIComponent(id)}/ask`, {}, getAuthHeaders())).data?.answers || []
+);
 
 export const listImportConnections = async ({ provider = '' } = {}) => {
   const params = new URLSearchParams();

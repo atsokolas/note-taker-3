@@ -1,0 +1,343 @@
+/* The reading desk: the marks set like a printed book's pages, page numbers
+   in the gutter, and one line at the foot to type into. Quotes are the
+   book's type; your words are the hand beside them. */
+
+.book-desk {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.book-desk__lede {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.book-desk__label {
+  margin-right: 0.75em;
+  font: 0.7rem var(--font-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.book-desk__lede q {
+  font-family: var(--font-serif);
+  color: var(--text);
+}
+
+.book-desk__pages,
+.book-desk__marks {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.book-desk__page {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.book-desk__folio {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  font-variant-numeric: oldstyle-nums;
+}
+
+.book-desk__marks {
+  grid-column: 2;
+}
+
+.book-desk__mark {
+  display: grid;
+  gap: var(--space-2);
+  position: relative;
+}
+
+.book-desk__mark blockquote {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+  line-height: 1.6;
+}
+
+.book-desk__own {
+  margin: 0;
+  color: var(--ink-human, var(--muted));
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+blockquote + .book-desk__own {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border-subtle-2);
+}
+
+/* The concepts a mark is filed under, in the margin's small type. */
+.book-desk__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  font: 0.8rem/1.5 var(--font-sans);
+}
+
+.book-desk__tags a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.book-desk__tags a:hover,
+.book-desk__tags a:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* A question hangs its mark in the margin, the way a pencilled query does. */
+.book-desk__mark[data-kind='question']::before {
+  content: '?';
+  position: absolute;
+  left: -0.9rem;
+  top: 0;
+  color: var(--muted);
+  font-family: var(--font-serif);
+  line-height: 1.55;
+}
+
+/* Typed with only its ends: the gap shows until the book fills it. */
+.book-desk__mark[data-unfinished] blockquote {
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 0.3em;
+}
+
+.book-desk__mark[data-unsent] {
+  opacity: 0.6;
+}
+
+.book-desk__mark[data-inked] blockquote {
+  animation: book-desk-ink 1.6s ease-out;
+}
+
+@keyframes book-desk-ink {
+  from { background: color-mix(in srgb, var(--highlight-color, #f6e27a) 45%, transparent); }
+  to { background: transparent; }
+}
+
+/* The line is written on, not typed into a box: a page number in the
+   gutter like every folio above it, and one rule that inks when you write. */
+.book-desk__line {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  align-items: baseline;
+  margin-top: var(--space-3);
+}
+
+.book-desk__turn {
+  display: flex;
+  align-items: baseline;
+  gap: 0.2em;
+  min-height: 44px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+}
+
+.book-desk__turn input {
+  width: 4ch;
+  padding: 0;
+  font: inherit;
+  font-variant-numeric: oldstyle-nums tabular-nums;
+}
+
+.book-desk__turn input:focus-visible,
+.book-desk__type textarea:focus-visible {
+  outline: none;
+}
+
+
+/* The field and its mirror share one cell, so the field grows with the line
+   and the book's words run on after the caret. */
+.book-desk__type {
+  display: grid;
+  align-items: end;
+  min-height: 44px;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle-2);
+  transition: border-color 160ms ease-out;
+}
+
+.book-desk__line:focus-within .book-desk__type {
+  border-bottom-color: var(--muted);
+}
+
+.book-desk__mirror,
+.book-desk__type textarea {
+  grid-area: 1 / 1;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.book-desk__mirror {
+  color: transparent;
+  pointer-events: none;
+}
+
+.book-desk__ghost {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+/* body.noeis-editorial rules every field with !important; the desk line is
+   already a ruled box, so it out-ranks that here. */
+.book-desk .book-desk__type textarea,
+.book-desk .book-desk__turn input {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+.book-desk .book-desk__type textarea {
+  resize: none;
+  overflow: hidden;
+  font-family: var(--font-serif);
+  caret-color: var(--wiki-warm-accent);
+}
+
+/* How to write here shows only while you are writing; what became of a
+   line stays until the next one. */
+.book-desk__hint {
+  margin: calc(var(--space-4) * -1) 0 0;
+  padding-left: 4.5rem;
+  min-height: 1.2em;
+  color: var(--muted);
+  font-size: 0.78rem;
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+
+.book-desk__hint[data-said],
+.book-desk__line:focus-within + .book-desk__hint {
+  opacity: 1;
+}
+
+/* The camera, offered only while a quote waits for its middle. */
+.book-desk__photo {
+  display: block;
+  margin: var(--space-3) 0 0;
+  padding-left: 4.5rem;
+  color: var(--muted);
+  font: 0.8rem/1.5 var(--font-sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.book-desk__photo:hover,
+.book-desk__photo:focus-within {
+  color: var(--text);
+}
+
+.book-desk__photo input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+@media (max-width: 560px) {
+  .book-desk__photo {
+    padding-left: 3.25rem;
+  }
+
+  .book-desk__page,
+  .book-desk__line {
+    grid-template-columns: 3.25rem minmax(0, 1fr);
+  }
+
+  .book-desk__hint {
+    padding-left: 3.25rem;
+  }
+
+  /* The margin is too narrow to hang a query in beside the page number,
+     and the question already ends with its own mark. */
+  .book-desk__mark[data-kind='question']::before {
+    content: none;
+  }
+
+  /* While you type, the Partner steps out of the line's way. */
+  :root:has(.book-desk__line:focus-within) .agent-rail-drawer__trigger {
+    display: none;
+  }
+}
+
+/* Brought into view, the line stops clear of anything floating at the bottom. */
+.book-desk__line {
+  scroll-margin-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-desk__mark[data-inked] blockquote {
+    animation: none;
+  }
+
+  .book-desk__type,
+  .book-desk__hint {
+    transition: none;
+  }
+}
+
+/* Earlier ink: what you marked the last time you read the book, still on its
+   page beside tonight's, faded and dated like an old pencil margin. */
+.book-desk__mark[data-earlier] blockquote,
+.book-desk__mark[data-earlier] .book-desk__own {
+  opacity: 0.5;
+}
+
+/* The year sits at the end of the line, in the margin's small type. */
+.book-desk__mark[data-earlier] {
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--space-3);
+}
+
+.book-desk__mark[data-earlier] > * {
+  grid-column: 1;
+}
+
+.book-desk__mark[data-earlier] > .book-desk__when {
+  grid-column: 2;
+  grid-row: 1;
+  line-height: 1.6rem;
+}
+
+.book-desk__when {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-variant-numeric: oldstyle-nums;
+  letter-spacing: 0.04em;
+}
+
+/* What you marked on this page when you read it before, in its faded ink. */
+.book-desk__hint q {
+  font-family: var(--font-serif);
+  font-style: italic;
+}

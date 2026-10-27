@@ -71,8 +71,8 @@ describe('wikiAskService', () => {
       expect(list[11].index).toBe(12);
     });
 
-    it('falls back to "Untitled source" when title is missing', () => {
-      expect(buildSourceList([{ snippet: 'x' }])[0].title).toBe('Untitled source');
+    it('falls back to "Untitled" when title is missing', () => {
+      expect(buildSourceList([{ snippet: 'x' }])[0].title).toBe('Untitled');
     });
   });
 

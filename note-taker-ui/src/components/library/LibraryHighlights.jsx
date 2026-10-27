@@ -188,8 +188,8 @@ const LibraryHighlights = ({
   }, [displayRows.length, selectedHighlight]);
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
   const handleAddConcept = async (highlight, conceptName) => {

@@ -30,7 +30,7 @@ const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
    find is a place you do not have — and unlike a count, a name is true when
    the place is empty. */
 const PLACES = Object.freeze([
-  { id: 'place.later', label: 'Later', path: LATER_HREF },
+  { id: 'place.later', label: 'Nightstand', path: LATER_HREF },
   { id: 'place.set-aside', label: 'Set aside', path: SET_ASIDE_HREF },
   { id: 'place.kept', label: 'Kept', path: KEPT_HREF }
 ]);
@@ -50,8 +50,8 @@ export const placementCommands = ({ subject = null } = {}) => {
   return [
     {
       id: `place.later.${id}`,
-      label: `Later: ${title}`,
-      hint: 'parks it, oldest-owed first',
+      label: `Nightstand: ${title}`,
+      hint: 'puts it on the nightstand, oldest first',
       placement: 'later',
       targetId: id,
       kind: 'command'

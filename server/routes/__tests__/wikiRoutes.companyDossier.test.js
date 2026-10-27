@@ -611,6 +611,41 @@ const run = async () => {
   } finally {
     await new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
   }
+
+  // A fourth dossier in a week waits; nothing is created or resolved for it.
+  const weekOfBuilds = [1, 2, 3].map(day => ({ startedAt: new Date(Date.now() - day * 86400000) }));
+  const cappedPages = createWikiPageModel([]);
+  const cappedApp = express();
+  cappedApp.use(express.json());
+  cappedApp.use(buildWikiRouter({
+    authenticateToken: (req, _res, next) => { req.user = { id: ownerId }; next(); },
+    WikiPage: cappedPages,
+    WikiRevision: FakeRevision,
+    WikiSourceEvent: FakeWikiSourceEvent,
+    WikiMaintenanceRun: {
+      find: () => {
+        const chain = { sort: () => chain, limit: () => chain, select: () => chain, lean: async () => weekOfBuilds };
+        return chain;
+      }
+    },
+    resolveEdgarCompanyIdentifier: async () => company,
+    inspectCompanyDossierFiler: async () => filer
+  }));
+  const cappedServer = await new Promise(resolve => {
+    const instance = cappedApp.listen(0, '127.0.0.1', () => resolve(instance));
+  });
+  try {
+    const capped = await request(`http://127.0.0.1:${cappedServer.address().port}`, '/api/wiki/pages/from-company', {
+      ...input,
+      startingJudgment: ''
+    });
+    assert.equal(capped.response.status, 409);
+    assert.equal(capped.body.code, 'DOSSIER_WEEKLY_LIMIT');
+    assert.match(capped.body.error, /built 3 dossiers this week/);
+    assert.equal(cappedPages.records.length, 0);
+  } finally {
+    await new Promise((resolve, reject) => cappedServer.close(error => (error ? reject(error) : resolve())));
+  }
   console.log('wikiRoutes company dossier tests passed');
 };
 

@@ -162,6 +162,13 @@ body.go-to-primed .topbar__primary-key {
   opacity: 1;
 }
 
+/* Where J and K have put you. The theme's own focus ink, so under Omarchy it
+   is the desktop's accent. */
+[data-noeis-item]:focus-visible {
+  outline: 2px solid var(--noeis-focus);
+  outline-offset: 3px;
+}
+
 .topbar__right {
   display: flex;
   align-items: center;
@@ -2123,120 +2130,6 @@ button.connections-row {
   background: var(--surface-muted);
 }
 
-.semantic-related-panel {
-  border: 1px solid var(--border-subtle-2);
-  border-radius: 10px;
-  background: var(--surface-muted);
-  padding: 10px;
-  display: grid;
-  gap: 10px;
-}
-
-.semantic-related-header {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.semantic-related-explain {
-  border: 1px solid var(--border-subtle-2);
-  border-radius: 9px;
-  padding: 8px 10px;
-  background: var(--surface);
-  display: grid;
-  gap: 4px;
-}
-
-.semantic-related-explain-title {
-  font-size: 0.73rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.semantic-related-explain-body,
-.semantic-related-explain-note {
-  margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.4;
-  color: var(--text-secondary);
-}
-
-.semantic-related-list {
-  display: grid;
-  gap: 8px;
-}
-
-.semantic-related-item {
-  border: 1px solid var(--border-subtle-2);
-  border-radius: 9px;
-  padding: 8px 9px;
-  background: var(--surface);
-  display: grid;
-  gap: 8px;
-}
-
-.semantic-related-item-link {
-  text-decoration: none;
-  color: inherit;
-  display: grid;
-  gap: 4px;
-}
-
-.semantic-related-item-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.semantic-related-item-title {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.semantic-related-item-subtitle {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  line-height: 1.35;
-}
-
-.semantic-related-band {
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  padding: 2px 7px;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-
-.semantic-related-band.is-high {
-  background: color-mix(in srgb, var(--noeis-success) 20%, transparent);
-  color: color-mix(in srgb, var(--noeis-success) 80%, #132218);
-  border-color: color-mix(in srgb, var(--noeis-success) 50%, transparent);
-}
-
-.semantic-related-band.is-medium {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: color-mix(in srgb, var(--accent) 86%, #1c2534);
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-}
-
-.semantic-related-band.is-low {
-  background: color-mix(in srgb, var(--border-subtle) 36%, transparent);
-  color: var(--text-secondary);
-  border-color: var(--border-subtle);
-}
-
-.semantic-related-item-action {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .concept-path-toolbar {
   display: flex;
   align-items: center;
@@ -3119,82 +3012,6 @@ button.connections-row {
   margin: 0 0 16px;
 }
 
-.article-reader-content--highlights {
-  width: 100%;
-}
-
-.article-highlight-edition {
-  display: grid;
-  gap: 22px;
-}
-
-.article-highlight-edition__lead {
-  display: grid;
-  gap: 8px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-subtle-2);
-}
-
-.article-highlight-edition__lead p {
-  max-width: 62ch;
-  margin: 0;
-  color: var(--muted);
-}
-
-.article-highlight-edition__list {
-  display: grid;
-  gap: 18px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: article-highlight;
-}
-
-.article-highlight-edition__item {
-  display: grid;
-  gap: 10px;
-  padding: 0 0 18px 44px;
-  border-bottom: 1px solid var(--border-subtle-2);
-  counter-increment: article-highlight;
-  position: relative;
-}
-
-.article-highlight-edition__item::before {
-  content: counter(article-highlight, decimal-leading-zero);
-  position: absolute;
-  left: 0;
-  top: 3px;
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-}
-
-.article-highlight-edition__item blockquote {
-  margin: 0;
-  color: var(--text);
-  font-size: 1.08em;
-  line-height: 1.64;
-}
-
-.article-highlight-edition__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.article-highlight-edition__note {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.92em;
-  font-style: italic;
-}
-
 .article-passage-threads {
   display: grid;
   gap: var(--space-2);
@@ -3204,10 +3021,6 @@ button.connections-row {
 
 .article-passage-threads:empty {
   display: none;
-}
-
-.article-highlight-edition__item > .passage-door {
-  margin-top: var(--space-1);
 }
 
 .article-cited-passage {
@@ -3240,14 +3053,13 @@ button.connections-row {
 }
 
 .article-reader-content mark.highlight {
-  background: color-mix(in srgb, var(--highlight-color, #f6e27a) 62%, transparent) !important;
+  background: color-mix(in srgb, var(--highlight-color, #f6e27a) calc(62% + var(--ink-deepen, 0%)), transparent) !important;
   border-radius: 2px;
   padding: 0 2px;
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--highlight-color, #f6e27a) 40%, transparent);
 }
 
 .article-reader-content .is-cited-passage,
-.article-highlight-edition__item.is-cited-passage,
 .article-cited-passage.is-cited-passage {
   outline: 1px solid color-mix(in srgb, var(--wiki-warm-accent) 55%, transparent);
   outline-offset: 4px;
@@ -3257,7 +3069,6 @@ button.connections-row {
 
 @media (prefers-reduced-motion: reduce) {
   .article-reader-content .is-cited-passage,
-  .article-highlight-edition__item.is-cited-passage,
   .article-cited-passage.is-cited-passage {
     transition: none;
   }
@@ -5514,16 +5325,9 @@ html[data-ui-scheme='dark'] .external-bridge-pre {
   width: min(640px, 92vw);
 }
 
-.concept-share-modal__active,
-.concept-share-modal__inactive {
+.concept-share-modal__active {
   display: grid;
   gap: 14px;
-}
-
-.concept-share-modal__pitch {
-  font-size: 0.95rem;
-  line-height: 1.55;
-  color: var(--text);
 }
 
 .concept-share-modal__label {
@@ -5556,16 +5360,7 @@ html[data-ui-scheme='dark'] .external-bridge-pre {
   font-size: 0.84rem;
 }
 
-.concept-share-modal__revoke {
-  color: var(--noeis-danger) !important;
-  border-color: color-mix(in srgb, var(--noeis-danger) 32%, var(--border-subtle));
-}
-
-.concept-share-modal__revoke:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--noeis-danger) 8%, transparent);
-}
-
-/* ConceptShareModal — modern polish (preview card, bullets, refined CTA) -- */
+/* Question share modal — preview card, bullets, refined CTA ---------------- */
 
 .concept-share-modal__header {
   align-items: flex-start;
@@ -5599,14 +5394,6 @@ html[data-ui-scheme='dark'] .external-bridge-pre {
 
 /* Mini "what your link will look like" preview card. Pure presentational —
    does not fetch real content, just reassures the owner before they mint. */
-
-.concept-share-modal__preview-title {
-  font-family: var(--font-serif);
-  font-size: 1.18rem;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-  color: var(--text);
-}
 
 /* What's-included bullet list */
 .concept-share-modal__includes {
@@ -5645,44 +5432,9 @@ html[data-ui-scheme='dark'] .external-bridge-pre {
   color: var(--text-secondary);
 }
 
-.concept-share-modal__cta-row {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.concept-share-modal__cta-row .ui-button {
-  min-width: 180px;
-  border-radius: 999px;
-}
-
-.concept-share-modal__pitch {
-  margin: 0;
-}
-
 .concept-share-modal__active-controls {
   display: grid;
   gap: 10px;
-}
-
-.concept-share-modal__active-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.concept-share-modal__open-link {
-  font-size: 0.82rem;
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.concept-share-modal__open-link:hover,
-.concept-share-modal__open-link:focus-visible {
-  text-decoration: underline;
-  outline: none;
 }
 
 .concept-share-modal__reader-label {
@@ -6091,72 +5843,6 @@ textarea.think-share-view__offer-field {
   color: var(--accent);
 }
 
-.shared-concept-page__section-title {
-  margin: 0 0 16px;
-  font-family: var(--font-sans);
-  font-size: 0.66rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  font-weight: 700;
-}
-
-.shared-concept-page__cards {
-  display: grid;
-  gap: 14px;
-}
-
-.shared-concept__card {
-  padding: 16px 18px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-}
-
-.shared-concept__card header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-  font-family: var(--font-sans);
-  font-size: 0.62rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-}
-
-.shared-concept__card-eyebrow {
-  font-weight: 600;
-}
-
-.shared-concept__card-title {
-  margin: 0 0 6px;
-  font-family: var(--font-serif);
-  font-size: 1.08rem;
-  line-height: 1.3;
-}
-
-.shared-concept__card-content {
-  margin: 0 0 8px;
-  font-size: 0.96rem;
-  line-height: 1.55;
-}
-
-.shared-concept__card-why {
-  margin: 0;
-  font-size: 0.86rem;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
-.shared-concept__card--tension {
-  border-color: color-mix(in srgb, #a54731 36%, var(--border-subtle));
-}
-
-.shared-concept__card--question {
-  background: color-mix(in srgb, var(--accent-soft) 14%, var(--surface));
-}
-
 @media (max-width: 640px) {
   .shared-concept-page {
     padding: 40px 18px 80px;
@@ -6166,7 +5852,7 @@ textarea.think-share-view__offer-field {
   }
 }
 
-/* SharedConcept top bar + sticky attribution + grid polish ---------------- */
+/* Shared question top bar ------------------------------------------------ */
 
 .shared-concept-topbar {
   display: flex;
@@ -6247,94 +5933,13 @@ textarea.think-share-view__offer-field {
 
 /* Sticky attribution bar — fades in once the visitor has scrolled past
    the hero so author + actions stay reachable in long shares. */
-.shared-concept-page__sticky-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 28px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border-subtle);
-  opacity: 0;
-  transform: translateY(-100%);
-  pointer-events: none;
-  transition: opacity 220ms ease-out, transform 220ms ease-out;
-}
-
-.shared-concept-page__sticky-bar.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-.shared-concept-page__sticky-title {
-  font-family: var(--font-serif);
-  font-weight: 600;
-  font-size: 0.96rem;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-}
-
-.shared-concept-page__sticky-meta {
-  display: none;
-  white-space: nowrap;
-}
-
-@media (min-width: 720px) {
-  .shared-concept-page__sticky-meta {
-    display: inline;
-  }
-}
-
-.shared-concept-page__sticky-copy {
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 0.74rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: color 160ms ease-out, border-color 160ms ease-out, background-color 160ms ease-out;
-}
-
-.shared-concept-page__sticky-copy:hover,
-.shared-concept-page__sticky-copy:focus-visible {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent-soft) 14%, transparent);
-  outline: none;
-}
 
 /* Two-column card grid for support / tension on wider viewports — questions
    stay single-column because they read better full-width. */
-.shared-concept-page__cards--grid {
-  display: grid;
-  gap: 14px;
-}
-
-@media (min-width: 720px) {
-  .shared-concept-page__cards--grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
-  .shared-concept-page__sticky-bar,
   .shared-concept-topbar__copy,
-  .shared-concept-topbar__cta,
-  .shared-concept-page__sticky-copy {
+  .shared-concept-topbar__cta {
     transition: none;
   }
 }
@@ -6346,9 +5951,6 @@ textarea.think-share-view__offer-field {
   }
   .shared-concept-topbar__actions {
     margin-left: auto;
-  }
-  .shared-concept-page__sticky-bar {
-    padding: 8px 18px;
   }
 }
 

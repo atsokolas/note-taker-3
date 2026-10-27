@@ -8,7 +8,6 @@ const {
   MANDATE_NEEDS_FIELDS,
   applyShareRecordImport,
   buildShareRecordMarkdown,
-  canPublishConcept,
   canPublishQuestion,
   claimShareAgentAsk,
   contributionConflict,
@@ -19,7 +18,6 @@ const {
   freezeShareMandate,
   freezeShareSuccession,
   freezeThinkSnapshot,
-  hashPublicConcept,
   hashPublicQuestion,
   missingSnapshot,
   parseShareRecordBundle,
@@ -28,7 +26,6 @@ const {
   PRESENCE_TTL_MS,
   projectContribution,
   projectPresence,
-  projectPublicConcept,
   projectPublicQuestion,
   projectShareBrief,
   projectShareMandate,
@@ -78,34 +75,6 @@ describe('authored think share', () => {
     expect(canPublishQuestion(projectPublicQuestion({ text: '   ' }, 'Athan'))).toBe(false);
   });
 
-  it('projects concept cards without source trails or ConceptNote', () => {
-    const preview = projectPublicConcept({
-      name: 'Opportunity Cost',
-      description: 'Tradeoffs over hidden alternatives.',
-      ideaWorkbench: {
-        hypothesis: { html: '<p>Tradeoffs compound.</p>' },
-        header: { prompt: 'What does this explain?' },
-        cards: [{
-          id: 'card-1',
-          zone: 'supports',
-          type: 'highlight',
-          title: 'Public argument',
-          content: 'Choosing one path excludes another.',
-          source: 'Private article title',
-          whyItMatters: 'It makes hidden alternatives visible.',
-          sourcePath: '/library?articleId=private'
-        }]
-      }
-    }, 'Athan');
-    expect(preview.concept.name).toBe('Opportunity Cost');
-    expect(preview.concept.supports[0].title).toBe('Public argument');
-    expect(preview.concept.supports[0].source).toBeUndefined();
-    expect(preview.concept.note).toBeUndefined();
-    expect(JSON.stringify(preview)).not.toMatch(/Private article title/);
-    expect(JSON.stringify(preview)).not.toMatch(/library\?/);
-    expect(canPublishConcept(preview)).toBe(true);
-  });
-
   it('hashes the public payload without dates so a later freeze is not a rewrite', () => {
     const preview = projectPublicQuestion({ text: 'What survives compounding?' }, 'Athan');
     const frozen = freezeThinkSnapshot(preview, '2026-09-13T12:00:00.000Z', {
@@ -116,8 +85,6 @@ describe('authored think share', () => {
     expect(frozen.revisedAt).toBe('2026-09-13T15:00:00.000Z');
     expect(frozen.correction).toBe('The exception now leads.');
     expect(hashPublicQuestion(preview)).toBe(hashPublicQuestion(frozen));
-    expect(hashPublicConcept(projectPublicConcept({ name: 'Cost' }, 'Athan')))
-      .toBe(hashPublicConcept(freezeThinkSnapshot(projectPublicConcept({ name: 'Cost' }, 'Athan'), new Date())));
   });
 
   it('marks a share stale only when the live hash moved', () => {
@@ -128,14 +95,14 @@ describe('authored think share', () => {
       snapshot: freezeThinkSnapshot(preview, '2026-09-13T12:00:00.000Z'),
       contentHash: hash,
       publishedAt: '2026-09-13T12:00:00.000Z'
-    }, { preview, currentHash: hash, kind: 'question' });
+    }, { preview, currentHash: hash });
     expect(shared.stale).toBe(false);
     const moved = projectPublicQuestion({ text: 'What survives the rewrite?' }, 'Athan');
     expect(thinkShareState({
       slug: 'qslug',
       snapshot: shared.snapshot,
       contentHash: hash
-    }, { preview: moved, currentHash: hashPublicQuestion(moved), kind: 'question' }).stale).toBe(true);
+    }, { preview: moved, currentHash: hashPublicQuestion(moved) }).stale).toBe(true);
     expect(missingSnapshot({})).toBe(true);
     expect(missingSnapshot({ snapshot: preview })).toBe(false);
   });
@@ -247,7 +214,6 @@ describe('authored think share', () => {
     }, {
       preview,
       currentHash: hash,
-      kind: 'question',
       contributions: [{
         _id: 'c2',
         by: 'Mara',
@@ -261,7 +227,6 @@ describe('authored think share', () => {
       interpretedBy: 'Athan'
     });
     expect(shared.snapshot.contributions).toBeUndefined();
-    expect(thinkShareState(null, { preview, kind: 'concept' }).contributions).toBeUndefined();
 
     const heldPage = publicQuestionPage({
       ownerDisplayName: 'Athan',
@@ -292,7 +257,6 @@ describe('authored think share', () => {
     }, {
       preview,
       currentHash: hash,
-      kind: 'question',
       contributions: [
         { _id: 'held', by: 'Mara', text: 'Same fact, different time horizon.', held: true },
         { _id: 'live', by: 'Ada', text: 'Already on the page.' }
@@ -438,7 +402,6 @@ describe('authored think share', () => {
     }, {
       preview,
       currentHash: hash,
-      kind: 'question',
       contributions: withdrawnRows
     });
     expect(ownerSilent.waiting).toBeUndefined();
@@ -486,7 +449,6 @@ describe('authored think share', () => {
     const ownerBrief = thinkShareState(shareWithBrief, {
       preview,
       currentHash: hash,
-      kind: 'question',
       contributions: liveRows
     });
     expect(ownerBrief.brief).toEqual({
@@ -543,7 +505,6 @@ describe('authored think share', () => {
     const ownerHanded = thinkShareState(shareWithSuccession, {
       preview,
       currentHash: hash,
-      kind: 'question',
       contributions: liveRows
     });
     expect(ownerHanded.succession.unresolved).toBe('The window may close before compounding pays.');
@@ -597,7 +558,6 @@ describe('authored think share', () => {
     const ownerMandated = thinkShareState(shareWithMandate, {
       preview,
       currentHash: hash,
-      kind: 'question',
       contributions: liveRows
     });
     expect(ownerMandated.mandate.review).toBe('Return to this door to end or renew the assignment.');
@@ -746,7 +706,6 @@ describe('authored think share', () => {
     const ownerHere = thinkShareState(shareWithBrief, {
       preview,
       currentHash: hash,
-      kind: 'question',
       contributions: liveRows,
       here: [{ by: 'Mara' }]
     });
@@ -755,7 +714,6 @@ describe('authored think share', () => {
     expect(thinkShareState(shareWithBrief, {
       preview,
       currentHash: hash,
-      kind: 'question',
       contributions: liveRows,
       here: []
     }).here).toBeUndefined();

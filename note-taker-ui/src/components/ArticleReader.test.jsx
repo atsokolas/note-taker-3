@@ -1,16 +1,21 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render as renderSync, screen, waitFor, within } from '@testing-library/react';
 import ArticleReader from './ArticleReader';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import * as Router from 'react-router-dom';
 import { writeReturnTicket } from './wiki/open-sentence/openSentenceJourney';
-import { getArticleReadingState, saveArticleReadingState } from '../api/articleReadingState';
+import { checkOriginalSource, getArticleReadingState, markPassageOpened, saveArticleReadingState } from '../api/articleReadingState';
 import { createHighlight } from '../api/highlights';
 import { libraryExplorations } from '../api/authoredExplorations';
 jest.mock('../api/authoredExplorations', () => ({
   ...jest.requireActual('../api/authoredExplorations'),
   libraryExplorations: { load: jest.fn(), save: jest.fn(), keep: jest.fn(), discard: jest.fn() }
 }));
+import { getConcepts } from '../api/concepts';
+import { getNotebookSummaries } from '../api/notebook';
+import { listReturnQueue } from '../api/returnQueue';
+import { canExplainBack } from '../api/readingRoom';
 import { listWikiPages } from '../api/wiki';
+import { fetchMarginNotes } from '../api/retrieval';
 import { fileReadingProposal, getPushesAgainst } from '../api/judgmentResolution';
 import useTextSelection from './reader/useTextSelection';
 import { handOffSentence, resetFirstPaint } from '../motion/columnMotion';
@@ -20,7 +25,7 @@ import { buildArticlePassageHref } from '../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../utils/sourceDisplayText';
 import { passageFromSelection } from './wiki/open-sentence/LibraryPassagePicker';
 
-jest.mock('../api/articleReadingState', () => ({ getArticleReadingState: jest.fn(async () => null), saveArticleReadingState: jest.fn(async () => {}) }));
+jest.mock('../api/articleReadingState', () => ({ getArticleReadingState: jest.fn(async () => null), saveArticleReadingState: jest.fn(async () => {}), markPassageOpened: jest.fn(async () => {}), checkOriginalSource: jest.fn(async () => null) }));
 jest.mock('../api/highlights', () => ({
   createHighlight: jest.fn(),
   updateHighlight: jest.fn()
@@ -28,13 +33,21 @@ jest.mock('../api/highlights', () => ({
 jest.mock('../api/wiki', () => ({
   listWikiPages: jest.fn(async () => [])
 }));
+jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn(async () => []) }));
+jest.mock('../api/concepts', () => ({ getConcepts: jest.fn() }));
+jest.mock('../api/notebook', () => ({ getNotebookSummaries: jest.fn() }));
+jest.mock('../api/returnQueue', () => ({ listReturnQueue: jest.fn() }));
+jest.mock('../api/readingRoom', () => ({
+  canExplainBack: jest.fn(async () => false),
+  explainBack: jest.fn()
+}));
 jest.mock('../api/judgmentResolution', () => ({
   getPushesAgainst: jest.fn(async () => null),
   fileReadingProposal: jest.fn(async () => ({}))
 }));
-jest.mock('./reader/SelectionMenu', () => ({ onAskLibrarian, onWorkWithPassage, onThought }) => (
+jest.mock('./reader/SelectionMenu', () => ({ onAsk, onWorkWithPassage, onThought }) => (
   <>
-    <button type="button" onClick={onAskLibrarian}>Ask about this</button>
+    {onAsk ? <button type="button" onClick={onAsk}>Ask</button> : null}
     <button type="button" onClick={onWorkWithPassage}>Work with this passage</button>
     {onThought ? <button type="button" onClick={onThought}>Leave a thought</button> : null}
   </>
@@ -54,10 +67,23 @@ jest.mock('../motion/columnMotion', () => {
   };
 });
 
+// Let the real mounted effects settle before the next assertion or cleanup.
+const render = async (ui) => {
+  let view;
+  await act(async () => { view = renderSync(ui); });
+  return { ...view, rerender: async (next) => { await act(async () => view.rerender(next)); } };
+};
+
 beforeEach(() => {
+  canExplainBack.mockResolvedValue(false);
+  getConcepts.mockResolvedValue([]);
+  getNotebookSummaries.mockResolvedValue([]);
+  listReturnQueue.mockResolvedValue([]);
   getPushesAgainst.mockResolvedValue(null);
   getArticleReadingState.mockResolvedValue(null);
   saveArticleReadingState.mockResolvedValue();
+  markPassageOpened.mockResolvedValue();
+  checkOriginalSource.mockResolvedValue(null);
   libraryExplorations.load.mockResolvedValue({ userId: 'owner-1', explorations: [] });
 });
 
@@ -71,6 +97,7 @@ describe('ArticleReader', () => {
     jest.spyOn(Router, 'useLocation').mockImplementation(() => ({ pathname: window.location.pathname, search: window.location.search, hash: window.location.hash }));
     resetFirstPaint();
     listWikiPages.mockResolvedValue([]);
+    fetchMarginNotes.mockResolvedValue([]);
     usePrefersReducedMotion.mockReturnValue(false);
     useFinePointer.mockReturnValue(true);
     useTextSelection.mockReturnValue({
@@ -84,7 +111,7 @@ describe('ArticleReader', () => {
     });
   });
 
-  it('keeps the visible passage in place when a highlight rewrites the article', () => {
+  it('keeps the visible passage in place when a highlight rewrites the article', async () => {
     const sentence = 'The sentence you are reading stays put after the mark lands.';
     const article = {
       _id: 'article-1',
@@ -103,12 +130,12 @@ describe('ArticleReader', () => {
     };
     window.scrollBy = jest.fn();
     try {
-      const view = render(
+      const view = await render(
         <MemoryRouter>
           <ArticleReader article={article} highlights={[]} />
         </MemoryRouter>
       );
-      view.rerender(
+      await view.rerender(
         <MemoryRouter>
           <ArticleReader article={article} highlights={[{ _id: 'highlight-1', text: sentence }]} />
         </MemoryRouter>
@@ -121,11 +148,73 @@ describe('ArticleReader', () => {
     }
   });
 
-  it('stays readable while no article is selected', () => {
-    render(<ArticleReader />);
+  it('sets a passage you marked elsewhere beside the paragraph it is close to', async () => {
+    const paragraph = 'Surgeons resisted written checklists for years, insisting that judgment and memory were enough in the theatre.';
+    fetchMarginNotes.mockResolvedValue([{
+      paragraph: 0,
+      relation: 'close',
+      highlight: { _id: 'h-elsewhere', text: 'A checklist is a net for the expert who forgets the obvious step, not a crutch.', articleId: 'article-2', articleTitle: 'The Checklist Manifesto' }
+    }]);
+    await render(
+      <MemoryRouter>
+        <ArticleReader article={{ _id: 'article-1', title: 'Theatre', content: `<p>Short opener.</p><p>${paragraph}</p>` }} highlights={[]} />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('link', { name: /You marked something close in The Checklist Manifesto/ })).toHaveAttribute('href', expect.stringContaining('article-2'));
+    expect(fetchMarginNotes).toHaveBeenCalledWith({ articleId: 'article-1', paragraphs: [paragraph] });
+    expect(document.querySelector('.library-margin-note')).toHaveAttribute('data-beside', '1');
+  });
+
+  it('stays readable while no article is selected', async () => {
+    await render(<ArticleReader />);
     expect(screen.getByText('Select an article to start reading.')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Read fresh' })).not.toBeInTheDocument();
     expect(libraryExplorations.load).not.toHaveBeenCalled();
+  });
+
+  it('walks paragraphs on J and K and turns pieces on N and P, leaving typing and shortcuts alone', async () => {
+    const onNext = jest.fn();
+    await render(<MemoryRouter>
+      <ArticleReader article={{ _id: 'article-1', title: 'A real source', content: '<p>One.</p><p>Two.</p><p>Three.</p>' }} highlights={[]} onNext={onNext} />
+    </MemoryRouter>);
+    const here = () => document.querySelector('.is-reader-here')?.textContent;
+    fireEvent.keyDown(document, { key: 'j' });
+    expect(here()).toBe('One.');
+    fireEvent.keyDown(document, { key: 'J' });
+    fireEvent.keyDown(document, { key: 'j' });
+    fireEvent.keyDown(document, { key: 'j' });
+    expect(here()).toBe('Three.');
+    fireEvent.keyDown(document, { key: 'k' });
+    expect(here()).toBe('Two.');
+    expect(document.querySelectorAll('.is-reader-here')).toHaveLength(1);
+    fireEvent.keyDown(document, { key: 'n', metaKey: true });
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    fireEvent.keyDown(input, { key: 'n' });
+    input.remove();
+    expect(onNext).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: 'n' });
+    expect(onNext).toHaveBeenCalledTimes(1);
+    expect(() => fireEvent.keyDown(document, { key: 'p' })).not.toThrow();
+  });
+
+  it('highlights on H only while a selection is open', async () => {
+    useTextSelection.mockReturnValue({ selectionState: { text: 'One.', anchor: null, isOpen: true }, clearSelection: jest.fn() });
+    createHighlight.mockResolvedValue({ _id: 'highlight-key' });
+    const { rerender } = await render(<MemoryRouter>
+      <ArticleReader article={{ _id: 'article-1', title: 'A real source', content: '<p>One.</p>' }} highlights={[]} />
+    </MemoryRouter>);
+    fireEvent.keyDown(document, { key: 'h', ctrlKey: true });
+    expect(createHighlight).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: 'h' });
+    await waitFor(() => expect(createHighlight).toHaveBeenCalledWith(expect.objectContaining({ text: 'One.' })));
+    useTextSelection.mockReturnValue({ selectionState: { text: '', anchor: null, isOpen: false, rect: null }, clearSelection: jest.fn() });
+    await rerender(<MemoryRouter>
+      <ArticleReader article={{ _id: 'article-1', title: 'A real source', content: '<p>One.</p>' }} highlights={[]} />
+    </MemoryRouter>);
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Work with this passage' })).toBeNull());
+    fireEvent.keyDown(document, { key: 'h' });
+    expect(createHighlight).toHaveBeenCalledTimes(1);
   });
 
   it('reads fresh without remounting writing, changing footnotes or saving on Escape', async () => {
@@ -133,14 +222,14 @@ describe('ArticleReader', () => {
     libraryExplorations.load.mockResolvedValue({ userId: 'owner-1', explorations: [{ highlightId: 'highlight-1', revision: 2, draft: { writing: 'Words worth keeping.', originalText: 'A source sentence.' } }] });
     const onOpenedSentence = jest.fn();
     const article = { _id: 'article-1', content: '<p>A source sentence. <a href="#footnote-1">[1]</a></p><p id="footnote-1">The original footnote.</p>' };
-    render(<ArticleReader article={article} highlights={[{ _id: 'highlight-1', text: 'A source sentence.' }]} focusedHighlightId="highlight-1" onOpenedSentence={onOpenedSentence} />);
+    await render(<ArticleReader article={article} highlights={[{ _id: 'highlight-1', text: 'A source sentence.' }]} focusedHighlightId="highlight-1" onOpenedSentence={onOpenedSentence} />);
     const writing = await screen.findByRole('textbox', { name: 'Your writing' });
     await waitFor(() => expect(writing).toHaveValue('Words worth keeping.'));
     const footnote = screen.getByText('The original footnote.');
     fireEvent.click(screen.getByRole('button', { name: 'Read fresh' }));
     expect(screen.getByRole('button', { name: 'Show my work' })).toHaveAttribute('aria-pressed', 'true');
     expect(onOpenedSentence).toHaveBeenLastCalledWith('');
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape' });
     fireEvent.click(screen.getByRole('button', { name: 'Show my work' }));
     expect(screen.getByRole('textbox', { name: 'Your writing' })).toBe(writing);
     expect(writing).toHaveValue('Words worth keeping.');
@@ -151,10 +240,26 @@ describe('ArticleReader', () => {
     expect(libraryExplorations.save).not.toHaveBeenCalled();
   });
 
+  it('opens a footnote in place, dresses a filing, and says when the original is gone', async () => {
+    const article = {
+      _id: 'article-1',
+      title: 'Costco 10-K 2025',
+      url: 'https://www.sec.gov/Archives/costco.htm',
+      sourceGoneAt: '2026-10-01T00:00:00Z',
+      content: '<p>Revenue rose 7%.<sup><a href="#fn1">1</a></sup></p><ol><li id="fn1">Net of membership fees.</li></ol>'
+    };
+    const { container } = await render(<ArticleReader article={article} highlights={[]} />);
+    expect(container.querySelector('.article-reader')).toHaveAttribute('data-source-kind', 'filing');
+    expect(screen.getByText(/The original is gone\. Your copy isn/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: '1' }));
+    expect(screen.getByRole('note')).toHaveTextContent('Net of membership fees.');
+    expect(window.location.hash).toBe('');
+  });
+
   it('finds authored work from the article itself without a requested highlight', async () => {
     libraryExplorations.load.mockResolvedValue({ userId: 'owner-1', explorations: [{ highlightId: 'highlight-1', revision: 1, draft: { title: 'A thought from this source', writing: 'My own words.', returnNote: 'Try another example.' } }] });
     const onOpenedSentence = jest.fn();
-    render(<MemoryRouter><ArticleReader article={{ _id: 'article-1', content: 'An exact passage.' }} highlights={[{ _id: 'highlight-1', text: 'An exact passage.' }]} onOpenedSentence={onOpenedSentence} /></MemoryRouter>);
+    await render(<MemoryRouter><ArticleReader article={{ _id: 'article-1', content: 'An exact passage.' }} highlights={[{ _id: 'highlight-1', text: 'An exact passage.' }]} onOpenedSentence={onOpenedSentence} /></MemoryRouter>);
     expect(await screen.findByRole('button', { name: 'A thought from this source' })).toBeVisible();
     expect(screen.getByText('Try another example.')).toBeVisible();
     expect(screen.queryByLabelText('Your writing')).not.toBeInTheDocument();
@@ -164,7 +269,7 @@ describe('ArticleReader', () => {
 
   it('keeps the recovery route mounted when the requested highlight disappears', async () => {
     libraryExplorations.load.mockResolvedValue({ userId: 'owner-1', explorations: [{ highlightId: 'highlight-gone', revision: 1, draft: { writing: 'The mark went away; the thought did not.', originalText: 'Earlier quotation.' } }] });
-    render(<MemoryRouter><ArticleReader article={{ _id: 'article-1', content: 'The article still reads normally.' }} highlights={[]} focusedHighlightId="highlight-gone" /></MemoryRouter>);
+    await render(<MemoryRouter><ArticleReader article={{ _id: 'article-1', content: 'The article still reads normally.' }} highlights={[]} focusedHighlightId="highlight-gone" /></MemoryRouter>);
     expect(await screen.findByText('The mark went away; the thought did not.', { selector: 'summary' })).toBeVisible();
     expect(screen.getByText('Earlier quotation.')).toBeVisible();
     expect(screen.getByText('The article still reads normally.')).toBeVisible();
@@ -176,7 +281,7 @@ describe('ArticleReader', () => {
     const selection = { text: 'A passage worth working with.', anchor: { prefix: 'Before. ', suffix: ' After.', startOffsetApprox: 8 }, isOpen: true };
     useTextSelection.mockReturnValue({ selectionState: selection, clearSelection: jest.fn() });
     createHighlight.mockResolvedValue({ _id: 'highlight-new' });
-    render(<MemoryRouter initialEntries={['/library?scope=kept&folder=folder-1']}>
+    await render(<MemoryRouter initialEntries={['/library?scope=kept&folder=folder-1']}>
       <ArticleReader article={{ _id: 'article-1', title: 'A real source', content: selection.text }} highlights={[]} />
     </MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Work with this passage' }));
@@ -193,7 +298,7 @@ describe('ArticleReader', () => {
     };
     useTextSelection.mockReturnValue({ selectionState: selection, clearSelection: jest.fn() });
     createHighlight.mockResolvedValue({ _id: 'highlight-thought', text: selection.text, note: '' });
-    render(
+    await render(
       <MemoryRouter initialEntries={['/library?articleId=article-1']}>
         <ArticleReader
           article={{ _id: 'article-1', title: 'A real source', content: `<p>${selection.text}</p>` }}
@@ -223,7 +328,7 @@ describe('ArticleReader', () => {
       hash: '',
       key: 'thought-arrival'
     }));
-    render(
+    await render(
       <MemoryRouter initialEntries={['/library?articleId=article-1&highlightId=highlight-1&thought=1']}>
         <ArticleReader
           article={{ _id: 'article-1', content: '<p>A source sentence.</p>' }}
@@ -235,10 +340,10 @@ describe('ArticleReader', () => {
     expect(await screen.findByRole('textbox', { name: 'Your thought' })).toBeVisible();
   });
 
-  it('explains an oversized passage before creating a highlight', () => {
+  it('explains an oversized passage before creating a highlight', async () => {
     const text = 'a'.repeat(4001);
     useTextSelection.mockReturnValue({ selectionState: { text, isOpen: true }, clearSelection: jest.fn() });
-    render(<ArticleReader article={{ _id: 'article-1', content: text }} highlights={[]} />);
+    await render(<ArticleReader article={{ _id: 'article-1', content: text }} highlights={[]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Work with this passage' }));
     expect(screen.getByText('Choose a passage of 4000 characters or fewer to start writing.')).toBeInTheDocument();
     expect(createHighlight).not.toHaveBeenCalled();
@@ -256,7 +361,7 @@ describe('ArticleReader', () => {
       <ArticleReader article={article} highlights={[highlight]} focusedHighlightId="highlight-1" />
     </MemoryRouter>;
     window.history.replaceState({}, '', '/library?articleId=article-1&highlightId=highlight-1&exploration=1');
-    const first = render(reader());
+    const first = await render(reader());
     const writing = await screen.findByRole('textbox', { name: 'Your writing' });
     await waitFor(() => expect(writing).toBeEnabled());
     fireEvent.change(writing, { target: { value: 'My own distinction.' } });
@@ -265,26 +370,26 @@ describe('ArticleReader', () => {
     first.unmount();
     libraryExplorations.load.mockResolvedValue({ userId: 'owner-1', explorations: [saved] });
     libraryExplorations.save.mockClear();
-    render(reader());
+    await render(reader());
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Your writing' })).toHaveValue('My own distinction.'));
     fireEvent.click(screen.getAllByRole('button', { name: 'Close', exact: true })[0]);
     expect(libraryExplorations.save).not.toHaveBeenCalled();
   });
 
-  it('returns an exact excerpt to its originating authored pocket without opening a Library experiment', () => {
+  it('returns an exact excerpt to its originating authored pocket without opening a Library experiment', async () => {
     listWikiPages.mockImplementation(() => new Promise(() => {}));
     const passage = 'A second attempt remains possible.';
     const anchor = { text: passage, prefix: '', suffix: '', startOffsetApprox: 0 };
     writeReturnTicket({ articleId: 'article-1', pageId: 'wiki-1', pageTitle: 'Product strategy', claimId: 'claim-1', sentence: 'Try the smallest experiment.', passage, anchor, reopen: true });
     window.history.replaceState({}, '', buildArticlePassageHref({ articleId: 'article-1', anchor }));
-    render(<MemoryRouter><ArticleReader article={{ _id: 'article-1', title: 'Nomad', content: `<p>${passage}</p>` }} highlights={[]} /></MemoryRouter>);
+    await render(<MemoryRouter><ArticleReader article={{ _id: 'article-1', title: 'Nomad', content: `<p>${passage}</p>` }} highlights={[]} /></MemoryRouter>);
     expect(screen.getByRole('link', { name: 'Back to Product strategy →' })).toHaveAttribute('href', '/wiki/read/wiki-1?claimId=claim-1&exploration=1');
     expect(screen.getByText(/You were holding Try the smallest experiment/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
     expect(createHighlight).not.toHaveBeenCalled();
   });
 
-  it('opens an exact article-excerpt fragment as a transient passage without saving it', () => {
+  it('opens an exact article-excerpt fragment as a transient passage without saving it', async () => {
     listWikiPages.mockImplementation(() => new Promise(() => {}));
     const previousScrollIntoView = Element.prototype.scrollIntoView;
     Element.prototype.scrollIntoView = jest.fn();
@@ -300,7 +405,7 @@ describe('ArticleReader', () => {
     });
     window.history.replaceState({}, '', href);
 
-    render(
+    await render(
       <ArticleReader
         article={{ _id: 'article-1', title: 'Parenting', content: `<p>${content}</p>` }}
         highlights={[]}
@@ -316,7 +421,7 @@ describe('ArticleReader', () => {
     Element.prototype.scrollIntoView = previousScrollIntoView;
   });
 
-  it('returns a canonical chooser selection to its exact paragraph and decoded entities', () => {
+  it('returns a canonical chooser selection to its exact paragraph and decoded entities', async () => {
     listWikiPages.mockImplementation(() => new Promise(() => {}));
     const content = '<p>Before &amp; context.</p><p>Second &amp; chosen paragraph.</p><p>After.</p>';
     const text = cleanSourceTextForDisplay(content);
@@ -330,7 +435,7 @@ describe('ArticleReader', () => {
     });
     window.history.replaceState({}, '', selected.href);
 
-    render(
+    await render(
       <ArticleReader
         article={{ _id: 'article-1', title: 'Three paragraphs', content }}
         highlights={[]}
@@ -342,7 +447,7 @@ describe('ArticleReader', () => {
     expect(createHighlight).not.toHaveBeenCalled();
   });
 
-  it('keeps normal reading and saved highlights intact beside a transient passage return', () => {
+  it('keeps normal reading and saved highlights intact beside a transient passage return', async () => {
     listWikiPages.mockImplementation(() => new Promise(() => {}));
     const content = 'A saved fact sits here. The exact private excerpt follows.';
     const href = buildArticlePassageHref({
@@ -355,7 +460,7 @@ describe('ArticleReader', () => {
       }
     });
     window.history.replaceState({}, '', href);
-    render(
+    await render(
       <ArticleReader
         article={{ _id: 'article-1', title: 'Two kinds of ink', content: `<p>${content}</p>` }}
         highlights={[{ _id: 'saved-1', text: 'A saved fact', anchor: { text: 'A saved fact', prefix: '', suffix: ' sits here.', startOffsetApprox: 0 } }]}
@@ -367,7 +472,7 @@ describe('ArticleReader', () => {
     expect(screen.queryByRole('complementary', { name: 'Saved passage' })).not.toBeInTheDocument();
   });
 
-  it('states when an exact historical excerpt changed while leaving the article readable', () => {
+  it('states when an exact historical excerpt changed while leaving the article readable', async () => {
     listWikiPages.mockImplementation(() => new Promise(() => {}));
     const href = buildArticlePassageHref({
       articleId: 'article-1',
@@ -379,7 +484,7 @@ describe('ArticleReader', () => {
       }
     });
     window.history.replaceState({}, '', href);
-    render(
+    await render(
       <ArticleReader
         article={{ _id: 'article-1', title: 'Changed source', content: '<p>There must be room to recover.</p>' }}
         highlights={[]}
@@ -390,7 +495,7 @@ describe('ArticleReader', () => {
     expect(screen.getByText('There must be room to recover.')).toBeInTheDocument();
   });
 
-  it('ignores a passage fragment when the open Library route names another article', () => {
+  it('ignores a passage fragment when the open Library route names another article', async () => {
     listWikiPages.mockImplementation(() => new Promise(() => {}));
     const href = buildArticlePassageHref({
       articleId: 'article-1',
@@ -402,7 +507,7 @@ describe('ArticleReader', () => {
       }
     });
     window.history.replaceState({}, '', href.replace('articleId=article-1', 'articleId=article-2'));
-    render(
+    await render(
       <ArticleReader
         article={{ _id: 'article-1', title: 'Parenting', content: '<p>There must be room to be wrong without losing the next attempt.</p>' }}
         highlights={[]}
@@ -413,10 +518,10 @@ describe('ArticleReader', () => {
     expect(screen.getByText('There must be room to be wrong without losing the next attempt.')).toBeInTheDocument();
   });
 
-  it('reports malformed and oversized passage fragments without disturbing the article', () => {
+  it('reports malformed and oversized passage fragments without disturbing the article', async () => {
     listWikiPages.mockImplementation(() => new Promise(() => {}));
     window.history.replaceState({}, '', '/library?articleId=article-1#passage=%7Bbad');
-    render(
+    await render(
       <ArticleReader
         article={{ _id: 'article-1', title: 'Still readable', content: '<p>The article remains.</p>' }}
         highlights={[]}
@@ -432,40 +537,36 @@ describe('ArticleReader', () => {
     expect(screen.getByRole('status')).toHaveTextContent('could not be read');
   });
 
-  it('shows saved highlights as the reading body when an imported source has no full text', () => {
-    render(
+  it('sends a source with no text of its own to its book page, at the passage asked for', async () => {
+    jest.spyOn(Router, 'Navigate').mockImplementation(({ to }) => <p>{`to ${to}`}</p>);
+    await render(
       <ArticleReader
-        article={{
-          _id: 'article-1',
-          title: 'Poor Charlie\'s Almanack',
-          content: '',
-          createdAt: '2026-06-07T00:00:00.000Z'
-        }}
-        highlights={[
-          {
-            _id: 'highlight-1',
-            text: 'Invert, always invert.',
-            note: 'Useful for decision-making.',
-            tags: ['mental models'],
-            createdAt: '2026-06-07T00:00:00.000Z'
-          }
-        ]}
+        article={{ _id: 'article-1', title: 'Poor Charlie\'s Almanack', content: '', createdAt: '2026-06-07T00:00:00.000Z' }}
+        highlights={[{ _id: 'highlight-1', text: 'Invert, always invert.', createdAt: '2026-06-07T00:00:00.000Z' }]}
+        focusedHighlightId="highlight-1"
       />
     );
 
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent("Poor Charlie's Almanack");
-    expect(screen.getByText('Highlight edition')).toBeInTheDocument();
-    expect(screen.getByText(/No full article text was imported/)).toBeInTheDocument();
-    expect(screen.getByText('Invert, always invert.')).toBeInTheDocument();
-    expect(screen.getByText('Useful for decision-making.')).toBeInTheDocument();
-    expect(screen.getByText('mental models')).toBeInTheDocument();
+    expect(screen.getByText('to /library/books/article-1?highlight=highlight-1')).toBeInTheDocument();
+    expect(screen.queryByText('Invert, always invert.')).not.toBeInTheDocument();
   });
 
-  it('puts a deep-linked saved passage in the reader when the imported body omits it', () => {
+  it('sends a second copy of a book that went onto the shelf to the book it went into', async () => {
+    jest.spyOn(Router, 'Navigate').mockImplementation(({ to }) => <p>{`to ${to}`}</p>);
+    await render(
+      <ArticleReader
+        article={{ _id: 'stray-1', title: 'The Power Broker', content: '', url: 'https://readwise.io/bookreview/101', mergedInto: 'book-1', createdAt: '2026-06-07T00:00:00.000Z' }}
+        highlights={[]}
+        focusedHighlightId="highlight-1"
+      />
+    );
+    expect(screen.getByText('to /library/books/book-1?highlight=highlight-1')).toBeInTheDocument();
+  });
+
+  it('puts a deep-linked saved passage in the reader when the imported body omits it', async () => {
     const previousScrollIntoView = Element.prototype.scrollIntoView;
     Element.prototype.scrollIntoView = jest.fn();
-    const { container } = render(
+    const { container } = await render(
       <ArticleReader
         article={{
           _id: 'article-1',
@@ -491,8 +592,8 @@ describe('ArticleReader', () => {
     Element.prototype.scrollIntoView = previousScrollIntoView;
   });
 
-  it('lets the focused passage open in place without leaving the article', () => {
-    render(
+  it('lets the focused passage open in place without leaving the article', async () => {
+    await render(
       <ArticleReader
         article={{
           _id: 'article-1',
@@ -516,8 +617,8 @@ describe('ArticleReader', () => {
     expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
   });
 
-  it('does not repeat a deep-linked passage already marked in the article body', () => {
-    const { container } = render(
+  it('does not repeat a deep-linked passage already marked in the article body', async () => {
+    const { container } = await render(
       <ArticleReader
         article={{
           _id: 'article-1',
@@ -537,24 +638,8 @@ describe('ArticleReader', () => {
     expect(container.querySelectorAll('[data-highlight-id="highlight-highlight-1"]')).toHaveLength(1);
   });
 
-  it('does not repeat a deep-linked passage in a highlight-only import', () => {
-    const { container } = render(
-      <ArticleReader
-        article={{ _id: 'article-1', title: 'Highlight-only import', content: '' }}
-        highlights={[{
-          _id: 'highlight-1',
-          text: 'The saved highlight is already the reading body.'
-        }]}
-        focusedHighlightId="highlight-1"
-      />
-    );
-
-    expect(screen.queryByRole('complementary', { name: 'Saved passage' })).not.toBeInTheDocument();
-    expect(container.querySelectorAll('[data-highlight-id="highlight-highlight-1"]')).toHaveLength(1);
-  });
-
-  it('does not render the inline thought partner dock before article content', () => {
-    render(
+  it('does not render the inline thought partner dock before article content', async () => {
+    await render(
       <ArticleReader
         article={{
           _id: 'article-1',
@@ -574,8 +659,8 @@ describe('ArticleReader', () => {
     expect(screen.getByText('Cash flow discipline matters.')).toBeInTheDocument();
   });
 
-  it('keeps a single page h1 when imported article HTML already includes an h1', () => {
-    const { container } = render(
+  it('keeps a single page h1 when imported article HTML already includes an h1', async () => {
+    const { container } = await render(
       <ArticleReader
         article={{
           _id: 'article-1',
@@ -593,8 +678,8 @@ describe('ArticleReader', () => {
     expect(container.querySelector('.article-reader-content h2')).not.toBeNull();
   });
 
-  it('places source provenance outside the selectable article content', () => {
-    const { container } = render(
+  it('places source provenance outside the selectable article content', async () => {
+    const { container } = await render(
       <ArticleReader
         article={{
           _id: 'article-1',
@@ -622,7 +707,7 @@ describe('ArticleReader', () => {
       }
     }]);
 
-    render(
+    await render(
       <ArticleReader
         article={{
           _id: 'article-1',
@@ -646,13 +731,7 @@ describe('ArticleReader', () => {
 
   /* Asking about a sentence saves it first, so the answer has something to
      point at. Asking about one you already kept must not keep it twice. */
-  it('reuses an exact saved highlight before opening the agent', async () => {
-    const clearSelection = jest.fn();
-    const savedHighlight = {
-      _id: 'highlight-1',
-      text: 'Cash flow discipline matters.',
-      anchor: { text: 'Cash flow discipline matters.', startOffsetApprox: 0 }
-    };
+  it('offers no Ask on a selection where no model reads the piece', async () => {
     useTextSelection.mockReturnValue({
       selectionState: {
         isOpen: true,
@@ -660,34 +739,21 @@ describe('ArticleReader', () => {
         rect: { top: 100, left: 100, width: 200 },
         anchor: { text: 'Cash flow discipline matters.', startOffsetApprox: 0 }
       },
-      clearSelection
+      clearSelection: jest.fn()
     });
-    const onAskLibrarian = jest.fn();
-
-    render(
-      <ArticleReader
-        article={{
-          _id: 'article-1',
-          title: 'Investor letter',
-          content: '<p>Cash flow discipline matters.</p>'
-        }}
-        highlights={[savedHighlight]}
-        onAskLibrarian={onAskLibrarian}
-      />
+    await render(
+      <ArticleReader article={{ _id: 'article-1', title: 'Investor letter', content: '<p>Cash flow discipline matters.</p>' }} />
     );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Ask about this' }));
-    await waitFor(() => expect(onAskLibrarian).toHaveBeenCalledWith(savedHighlight));
-    expect(createHighlight).not.toHaveBeenCalled();
-    expect(clearSelection).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Work with this passage' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ask' })).toBeNull();
   });
 
   /* Every article opened onto a panel: the source record -- who wrote it, when
      it was saved, where else it is used -- sat between the headline and the
      first paragraph. Same record, read after the piece instead of instead of
      starting it. */
-  it('opens onto the article, with the source record after the text', () => {
-    render(
+  it('opens onto the article, with the source record after the text', async () => {
+    await render(
       <ArticleReader
         article={{
           _id: 'article-1',
@@ -719,7 +785,7 @@ describe('keeping a source for life', () => {
 
   it('offers the mark, and settles it the moment it is pressed', async () => {
     const onToggleEvergreen = jest.fn().mockResolvedValue({ evergreen: true });
-    render(
+    await render(
       <ArticleReader
         article={{ _id: 'a1', title: 'The Bitter Lesson', content: '<p>Text.</p>' }}
         highlights={[]}
@@ -739,7 +805,7 @@ describe('keeping a source for life', () => {
 
   it('still reads as kept after the source is reloaded from what the server stored', async () => {
     const onToggleEvergreen = jest.fn().mockResolvedValue({ evergreen: true, evergreenAt: '2026-08-29T12:00:00.000Z' });
-    const { rerender } = render(
+    const { rerender } = await render(
       <ArticleReader
         article={{ _id: 'a1', title: 'The Bitter Lesson', content: '<p>Text.</p>' }}
         highlights={[]}
@@ -750,7 +816,7 @@ describe('keeping a source for life', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Keep for good' }));
     expect(await screen.findByRole('button', { name: 'Kept for good' })).toHaveAttribute('aria-pressed', 'true');
 
-    rerender(
+    await rerender(
       <ArticleReader
         article={{
           _id: 'a1',
@@ -770,8 +836,8 @@ describe('keeping a source for life', () => {
   /* It sat in the meta line as a grey word between a date and a link, which
      read as another label rather than something you could do. It belongs with
      Move: the other thing you can do to a source. */
-  it('sits with the actions, not in the row of metadata labels', () => {
-    render(
+  it('sits with the actions, not in the row of metadata labels', async () => {
+    await render(
       <ArticleReader
         article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }}
         highlights={[]}
@@ -785,8 +851,8 @@ describe('keeping a source for life', () => {
     expect(document.querySelector('.article-reader-meta').contains(keep)).toBe(false);
   });
 
-  it('is absent where nothing can be kept', () => {
-    render(<ArticleReader article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }} highlights={[]} />);
+  it('is absent where nothing can be kept', async () => {
+    await render(<ArticleReader article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }} highlights={[]} />);
     expect(screen.queryByRole('button', { name: 'Keep for good' })).not.toBeInTheDocument();
   });
 });
@@ -812,7 +878,7 @@ describe('Later and Set aside', () => {
      pressed — which, on an ordinary source, was the whole control. */
   it('offers a source at home the two piles it could go to', async () => {
     const onTogglePlacement = jest.fn().mockResolvedValue({ placement: 'later' });
-    render(
+    await render(
       <ArticleReader
         article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }}
         highlights={[]}
@@ -822,7 +888,7 @@ describe('Later and Set aside', () => {
     );
 
     const group = screen.getByRole('group', { name: 'Where this sits' });
-    const later = within(group).getByRole('button', { name: 'Put it in later' });
+    const later = within(group).getByRole('button', { name: 'Put it on the nightstand' });
     const toggles = within(group).getAllByRole('button').filter(b => b.hasAttribute('aria-pressed'));
     expect(toggles).toHaveLength(2);
     expect(toggles.every(b => b.getAttribute('aria-pressed') === 'false')).toBe(true);
@@ -831,8 +897,8 @@ describe('Later and Set aside', () => {
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'later'));
   });
 
-  it('keeps the vow outside the switch, because a vow is not a position', () => {
-    render(
+  it('keeps the vow outside the switch, because a vow is not a position', async () => {
+    await render(
       <ArticleReader
         article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }}
         highlights={[]}
@@ -849,7 +915,7 @@ describe('Later and Set aside', () => {
   it('closes a piece at its end in one line, and writes what was chosen into the record', async () => {
     const onToggleEvergreen = jest.fn().mockResolvedValue({ evergreen: true });
     const onTogglePlacement = jest.fn().mockResolvedValue({ placement: 'setAside' });
-    render(
+    await render(
       <MemoryRouter>
         <ArticleReader
           article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }}
@@ -873,9 +939,48 @@ describe('Later and Set aside', () => {
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'setAside'));
   });
 
+  it('a nightstand piece read to its end moves into the Library, with one step back', async () => {
+    const observers = [];
+    const original = window.IntersectionObserver;
+    window.IntersectionObserver = class {
+      constructor(callback) { this.callback = callback; observers.push(this); }
+      observe() {}
+      disconnect() { this.gone = true; }
+    };
+    const onTogglePlacement = jest.fn(async (_id, placement) => ({ placement }));
+    try {
+      await render(
+        <MemoryRouter>
+          <ArticleReader
+            article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>', placement: 'later', placementReason: 'Sam sent this' }}
+            highlights={[]}
+            onToggleEvergreen={jest.fn()}
+            onTogglePlacement={onTogglePlacement}
+          />
+        </MemoryRouter>
+      );
+      // Why it waited sits under the headline.
+      expect(document.querySelector('.article-reader-why')).toHaveTextContent('Sam sent this');
+      const [end] = observers;
+      // Opening onto the end does not count; reaching it does.
+      act(() => end.callback([{ isIntersecting: false }]));
+      expect(onTogglePlacement).not.toHaveBeenCalled();
+      await act(async () => end.callback([{ isIntersecting: true }]));
+      expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'stream');
+      const went = screen.getByRole('list', { name: 'Where this piece went' });
+      expect(within(went).getByText(/^Finished\. Moved to your Library\./)).toBeInTheDocument();
+      expect(document.querySelector('.article-reader-why')).toBeNull();
+      fireEvent.click(within(went).getByRole('button', { name: 'Put it back' }));
+      await waitFor(() => expect(onTogglePlacement).toHaveBeenLastCalledWith('a1', 'later'));
+      await waitFor(() => expect(screen.queryByText(/^Finished\./)).toBeNull());
+    } finally {
+      window.IntersectionObserver = original;
+    }
+  });
+
   it('returns home when the position it already sits in is pressed again', async () => {
     const onTogglePlacement = jest.fn().mockResolvedValue({ placement: 'stream' });
-    render(
+    await render(
       <ArticleReader
         article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>', placement: 'setAside' }}
         highlights={[]}
@@ -893,8 +998,8 @@ describe('Later and Set aside', () => {
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'stream'));
   });
 
-  it('grows a clock cap only once something is parked', () => {
-    const { rerender } = render(
+  it('grows a clock cap only once something is parked', async () => {
+    const { rerender } = await render(
       <ArticleReader
         article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }}
         highlights={[]}
@@ -903,7 +1008,7 @@ describe('Later and Set aside', () => {
     );
     expect(document.querySelector('.placement-switch__cap')).toBeNull();
 
-    rerender(
+    await rerender(
       <ArticleReader
         article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>', placement: 'later' }}
         highlights={[]}
@@ -961,7 +1066,7 @@ describe('the folio line', () => {
       title: 'NVIDIA',
       currentJudgment: 'Demand still outruns deliverable capacity.'
     })]);
-    renderReader();
+    await renderReader();
 
     const folio = await screen.findByTestId('article-folio');
     expect(folio).toHaveTextContent('Demand still outruns deliverable capacity.');
@@ -973,7 +1078,7 @@ describe('the folio line', () => {
     listWikiPages.mockResolvedValue([relatedClaim({
       sourceRefs: [{ _id: 'src-9', type: 'article', objectId: 'article-9' }]
     })]);
-    renderReader();
+    await renderReader();
 
     await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, summary: 1 }));
     expect(screen.queryByTestId('article-folio')).not.toBeInTheDocument();
@@ -987,7 +1092,7 @@ describe('the folio line', () => {
       title: sentence,
       currentJudgment: sentence
     })]);
-    renderReader();
+    await renderReader();
 
     expect(await screen.findByTestId('article-folio')).toHaveTextContent(sentence);
   });
@@ -1005,7 +1110,7 @@ describe('the folio line', () => {
         updatedAt: '2026-01-01T00:00:00.000Z'
       })
     ]);
-    renderReader({ preferredClaimId: 'older' });
+    await renderReader({ preferredClaimId: 'older' });
 
     const folio = await screen.findByTestId('article-folio');
     expect(folio).toHaveTextContent('The older claim.');
@@ -1016,7 +1121,7 @@ describe('the folio line', () => {
   it('arrives with opacity only when motion is reduced', async () => {
     usePrefersReducedMotion.mockReturnValue(true);
     listWikiPages.mockResolvedValue([relatedClaim()]);
-    renderReader();
+    await renderReader();
 
     const folio = await screen.findByTestId('article-folio');
     expect(folio).toHaveClass('is-arriving');
@@ -1029,7 +1134,7 @@ describe('the folio line', () => {
       currentJudgment: 'Rates still matter.',
       sourceRefs: []
     })]);
-    renderReader({
+    await renderReader({
       graphConnections: {
         outgoing: [{ toType: 'wiki_page', toId: 'wiki-graph' }],
         incoming: []
@@ -1050,9 +1155,9 @@ describe('the masthead and the record under the piece', () => {
     jest.spyOn(Router, 'useLocation').mockImplementation(() => ({ pathname: '/library', search: '?articleId=a1', hash: '' }));
   });
 
-  it('dates the masthead by publication, never by the day it was saved', () => {
+  it('dates the masthead by publication, never by the day it was saved', async () => {
     listWikiPages.mockResolvedValue([]);
-    const { rerender } = render(
+    const { rerender } = await render(
       <MemoryRouter>
         <ArticleReader article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>', publicationDate: '2026-09-28', createdAt: '2026-10-10T12:00:00Z' }} highlights={[]} />
       </MemoryRouter>
@@ -1060,7 +1165,7 @@ describe('the masthead and the record under the piece', () => {
     const meta = document.querySelector('.article-reader-meta');
     expect(meta).toHaveTextContent('Sep 28, 2026');
     expect(meta).not.toHaveTextContent('Oct 10');
-    rerender(
+    await rerender(
       <MemoryRouter>
         <ArticleReader article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>', createdAt: '2026-10-10T12:00:00Z' }} highlights={[]} />
       </MemoryRouter>
@@ -1084,7 +1189,7 @@ describe('the masthead and the record under the piece', () => {
       },
       { _id: 'page-1', title: 'membership models', sourceRefs: [{ _id: 'ref-3', type: 'highlight', objectId: 'h3' }] }
     ]);
-    render(
+    await render(
       <MemoryRouter>
         <ArticleReader
           article={{ _id: 'a1', title: 'A source', content: '<p>The fee. Renewals. Markup.</p>' }}
@@ -1108,7 +1213,7 @@ describe('the masthead and the record under the piece', () => {
       view: 'Costco’s membership model makes it recession-resistant.',
       proposal: { id: 'judgment-change-proposal:view-1:r1', provenance: { stance: 'challenge' } }
     });
-    render(
+    await render(
       <MemoryRouter>
         <ArticleReader article={{ _id: 'a1', title: 'A source', content: '<p>Members cancel.</p>' }} highlights={[]} />
       </MemoryRouter>

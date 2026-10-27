@@ -54,12 +54,12 @@ export const NOEIS_CONNECTORS = Object.freeze([
     id: 'connector.files',
     key: 'files',
     name: 'Files and text',
-    description: 'Paste or upload markdown or plain text when you need a quick path.',
-    helper: 'Useful for exports, clipped text, and one-off notes while direct connections are being added.',
+    description: 'Kindle, Apple Books, Pocket, Instapaper, Obsidian, any folder of Markdown, or a quick paste.',
+    helper: 'Bring years of highlights in at once. Importing the same export again never doubles anything.',
     readiness: 'local',
     path: '/connections?source=files#files',
     sourcePicker: true,
-    commandKeywords: 'file markdown text paste upload import'
+    commandKeywords: 'file markdown text paste upload import export kindle clippings apple books pocket instapaper obsidian notion vault'
   })
 ]);
 

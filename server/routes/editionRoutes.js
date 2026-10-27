@@ -181,7 +181,7 @@ const serializeEdition = (edition = {}, { withItems = true, profiles = null, rec
         filedAt: item.filedAt,
         saved: Boolean(item.savedArticleId),
         ...(item.readings.length ? {
-          readings: item.readings.map(({ filedBy, filedByRuntime }) => ({ filedBy, filedByRuntime }))
+          readings: item.readings.map(({ filedBy, filedByRuntime, filedAt }) => ({ filedBy, filedByRuntime, filedAt }))
         } : {})
       }))
     })
@@ -973,7 +973,7 @@ const buildEditionRouter = ({
         placed,
         fromSetAside: previous === 'setAside',
         edition: await present(edition, req.user.id, profiles),
-        error: placed ? '' : 'Saved to Library; could not move to Later — Retry'
+        error: placed ? '' : 'Saved to Library; could not put it on your nightstand — Retry'
       });
     } catch (error) {
       return refuse(res, error, 'Failed to save that source for later.');

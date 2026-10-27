@@ -508,6 +508,7 @@ describe('the reader’s layer of a finding', () => {
   const layered = over => item({
     finding: 'Agents completed 83.54% of tasks but recovered from 46.72% of failures.',
     plain: 'Finishing a job and cleaning up after a mistake are different skills.',
+    why: 'You hold that agents are ready to run unattended; this tests it.',
     passage: 'task competence of 83.54% … conditional recovery of 46.72%',
     sourceKind: 'Peer-reviewed',
     confidence: 'Moderate',
@@ -517,10 +518,11 @@ describe('the reader’s layer of a finding', () => {
   });
   const two = first => [first, item({ title: 'A second', url: 'https://example.com/two' })];
 
-  it('takes a plain line, a passage, a source kind, how sure, and the numbers it turns on', () => {
+  it('takes a plain line, why it was picked, a passage, a source kind, how sure, and the numbers it turns on', () => {
     const [built] = normalizeEdition(edition({ items: two(layered()) })).items;
     expect(built).toMatchObject({
       plain: 'Finishing a job and cleaning up after a mistake are different skills.',
+      why: 'You hold that agents are ready to run unattended; this tests it.',
       sourceKind: 'peer_reviewed',
       confidence: 'moderate',
       figures: [{ label: 'Recovered', value: '46.72%' }, { label: 'Trials', value: '2,880' }]
@@ -529,7 +531,7 @@ describe('the reader’s layer of a finding', () => {
 
   it('asks nothing of an item that carries none of it', () => {
     const [built] = normalizeEdition(edition()).items;
-    expect(built).toMatchObject({ plain: '', passage: '', sourceKind: '', confidence: '', figures: [] });
+    expect(built).toMatchObject({ plain: '', why: '', passage: '', sourceKind: '', confidence: '', figures: [] });
   });
 
   /* A key figure is a quotation: a number the agent never wrote down beside
@@ -557,6 +559,7 @@ describe('the reader’s layer of a finding', () => {
     expect(readerLayerOf({ passage: 'words' }).passageCheck).toBe('unchecked');
     expect(readerLayerOf({ passage: 'words', passageCheck: 'missing' }).passageCheck).toBe('missing');
     expect(readerLayerOf({}).passageCheck).toBe('');
+    expect(readerLayerOf({ why: 'It tests your view.' }).why).toBe('It tests your view.');
   });
 
   /* A check holds for the words it checked. */
@@ -576,8 +579,8 @@ describe('the reader’s layer of a finding', () => {
     const [rich] = normalizeEdition(edition({ items: two(layered()) })).items;
     expect(projectPublicEdition(issue([rich]), 'Athan').items[0]).not.toHaveProperty('passage');
     expect(projectPublicEdition(issue([{ ...rich, passageCheck: 'found' }]), 'Athan').items[0].passage).toMatch(/83.54%/);
-    expect(projectPublicEdition(issue([rich]), 'Athan').items[0]).toMatchObject({ plain: rich.plain, sourceKind: 'peer_reviewed' });
-    const { plain: _p, passage: _q, sourceKind: _s, confidence: _c, figures: _f, ...before } = plain;
+    expect(projectPublicEdition(issue([rich]), 'Athan').items[0]).toMatchObject({ plain: rich.plain, why: rich.why, sourceKind: 'peer_reviewed' });
+    const { plain: _p, why: _w, passage: _q, sourceKind: _s, confidence: _c, figures: _f, ...before } = plain;
     expect(hashPublicEdition(projectPublicEdition(issue([plain]), 'Athan')))
       .toBe(hashPublicEdition(projectPublicEdition(issue([before]), 'Athan')));
   });

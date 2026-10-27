@@ -19,7 +19,7 @@ import {
   questionSnapshot,
   questionSuccession
 } from '../components/think/thinkShareFixture';
-import '../components/think/notebook/notebookShare.css';
+import '../styles/question-share-preview.css';
 
 const WIDTHS = [
   { id: '1440', px: 1440 },

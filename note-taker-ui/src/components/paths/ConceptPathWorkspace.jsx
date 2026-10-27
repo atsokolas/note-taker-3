@@ -431,9 +431,6 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
               title="Path editor"
               subtitle="Shape the route, then walk it one step at a time."
             />
-            <p className="muted small">
-              Use the current step to stay focused; use the builder below to keep the sequence intentional.
-            </p>
           </div>
           <div className="concept-path-meta-grid">
             <input

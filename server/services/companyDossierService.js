@@ -23,7 +23,6 @@ const normalizeCompanyDossierInput = (input = {}) => {
   const requiredReturn = Number(input.requiredReturn);
   const horizonYears = Number(input.horizonYears);
   if (!/^[A-Z0-9.-]{1,12}$/.test(ticker)) throw new Error('Enter a valid public-company ticker.');
-  if (startingJudgment.length < 20) throw new Error('Starting judgment must be at least 20 characters.');
   if (!Number.isFinite(requiredReturn) || requiredReturn <= 0 || requiredReturn > 1) {
     throw new Error('Required return must be greater than 0% and no more than 100%.');
   }
@@ -37,7 +36,7 @@ const buildCompanyDossierBody = ({ companyName, ticker, startingJudgment, requir
   type: 'doc',
   content: [
     heading('Current judgment'),
-    paragraph(startingJudgment),
+    ...(startingJudgment ? [paragraph(startingJudgment)] : []),
     paragraph(`Owner hurdle: ${(requiredReturn * 100).toFixed(1)}% annual return over ${horizonYears} years. This is a starting judgment, not a proven conclusion.`),
     heading('What the market is pricing'),
     paragraph(MARKET_PLACEHOLDER),

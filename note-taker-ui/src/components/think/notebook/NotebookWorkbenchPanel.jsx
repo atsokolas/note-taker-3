@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '../../ui';
+import { sourceTitle } from '../../../utils/sourceDisplayText';
 
 const SourceRow = ({ item, used, targets, onInsert, onRemove, onGoTo }) => (
   <article className={`notebook-workbench__row${used ? ' is-used' : ''}`}>
     <div>
       <span className="notebook-workbench__eyebrow">{item.kind}</span>
-      {item.sourcePath ? <a href={item.sourcePath}>{item.title || 'Untitled source'}</a> : <strong>{item.title || 'Untitled source'}</strong>}
+      {item.sourcePath ? <a href={item.sourcePath}>{sourceTitle(item)}</a> : <strong>{sourceTitle(item)}</strong>}
       {item.text ? <p>{item.text}</p> : null}
     </div>
     <div className="notebook-workbench__row-actions">

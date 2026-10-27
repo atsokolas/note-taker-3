@@ -680,6 +680,11 @@
     gap: 20px;
     align-items: start;
   }
+  /* A one-line strip above the article (where it came from, a proposal, an
+     earlier version) spans both columns instead of taking the body's. */
+  .wiki-read__layout--rail-collapsed .wiki-read__article-panel > :is(.wiki-read__return-thread, .wiki-read__proposal, .wiki-read__preview-strip, .wiki-read__history-banner) {
+    grid-column: 1 / -1;
+  }
   .wiki-read__layout--rail-collapsed .wiki-read__marginalia {
     position: sticky;
     top: 28px;

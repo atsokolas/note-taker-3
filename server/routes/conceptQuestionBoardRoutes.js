@@ -1,3 +1,4 @@
+const { personalContext } = require('../models/knowledgeContext');
 const express = require('express');
 const {
   buildWikiOpenQuestionRows,
@@ -165,6 +166,7 @@ const buildConceptQuestionBoardRouter = ({
             from: 'notebookentries',
             localField: 'sourceId',
             foreignField: '_id',
+            pipeline: [{ $match: personalContext() }],
             as: 'entry'
           }
         },

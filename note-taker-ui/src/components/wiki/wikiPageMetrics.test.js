@@ -72,4 +72,25 @@ describe('wikiPageMetrics', () => {
     expect(formatWikiRowDate('2026-05-01T12:00:00.000Z')).toMatch(/May 1, 2026/);
     expect(wikiRowMetaForPage(page)).toBe('2 sources · 4 claims · reviewed Apr 19, 2026');
   });
+
+  /* A page saved from the editor previews as its prose: no space before the
+     comma a bold word left behind, and no heading run into the first line. */
+  it('previews a saved page as its sentences, not its heading', () => {
+    const body = {
+      type: 'doc',
+      content: [
+        { type: 'heading', content: [{ type: 'text', text: 'Moats' }] },
+        { type: 'paragraph', content: [
+          { type: 'text', text: 'A moat is ' },
+          { type: 'text', text: 'durable', marks: [{ type: 'bold' }] },
+          { type: 'text', text: ', next to nothing else.' }
+        ] },
+        { type: 'bulletList', content: [
+          { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'one' }, { type: 'hardBreak' }, { type: 'text', text: 'two' }] }] }
+        ] }
+      ]
+    };
+    expect(wikiPreviewForPage({ title: 'Moats', body })).toBe('A moat is durable, next to nothing else.');
+    expect(countWikiPageWords({ body })).toBe(11);
+  });
 });

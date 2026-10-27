@@ -27,8 +27,8 @@ import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import { trackWikiReadModePageView } from '../../utils/wikiAnalytics';
 import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
-import { libraryIdentity, resolveSourceDoors } from '../../utils/sourceRoutes';
-import { cleanSourceTextForDisplay } from '../../utils/sourceDisplayText';
+import { buildSourceOpenPath, libraryIdentity, resolveSourceDoors } from '../../utils/sourceRoutes';
+import { cleanSourceTextForDisplay, sourceTitle } from '../../utils/sourceDisplayText';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
 import { cleanWikiLinkSnippetText } from './wikiLinkText';
@@ -113,7 +113,7 @@ import { swallowSkippedViewTransition } from '../../utils/viewTransitionNavigati
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { buildWikiSurfaceDescriptor, wikiAllowsOpenSentence } from './wikiSurfaceModel';
 import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
-import { wordBoundaryTrim } from '../../utils/editorialText';
+import { docText, wordBoundaryTrim } from '../../utils/editorialText';
 import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const WikiChangesSinceLastVisit = lazy(() => import('./WikiChangesSinceLastVisit'));
@@ -296,14 +296,6 @@ const collectFootnoteCitations = (node, fallbackPrefix = 'body') => {
   return matches;
 };
 
-const collectText = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return node;
-  if (Array.isArray(node)) return node.map(collectText).join(' ');
-  if (typeof node !== 'object') return '';
-  return [node.text || '', collectText(node.content)].filter(Boolean).join(' ');
-};
-
 const normalizeHeadingText = (value = '') => String(value || '')
   .toLowerCase()
   .replace(/[\s\p{Punctuation}]+/gu, ' ')
@@ -314,7 +306,7 @@ const stripLeadingDuplicateTitleHeading = (body = emptyDoc, title = '') => {
   if (!body || !Array.isArray(body.content) || !normalizedTitle) return body || emptyDoc;
   const first = body.content[0];
   if (first?.type !== 'heading') return body;
-  const headingText = normalizeHeadingText(collectText(first));
+  const headingText = normalizeHeadingText(docText(first));
   if (headingText !== normalizedTitle) return body;
   return { ...body, content: body.content.slice(1) };
 };
@@ -982,15 +974,15 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
                 {doors.ownedHref ? (
                   doors.isLibrary ? (
                     <Link className="wiki-read__reference-title" to={doors.ownedHref}>
-                      {source.title || 'Untitled source'}
+                      {sourceTitle(source)}
                     </Link>
                   ) : (
                     <a className="wiki-read__reference-title" href={doors.ownedHref}>
-                      {source.title || 'Untitled source'}
+                      {sourceTitle(source)}
                     </a>
                   )
                 ) : (
-                  <span className="wiki-read__reference-title">{source.title || 'Untitled source'}</span>
+                  <span className="wiki-read__reference-title">{sourceTitle(source)}</span>
                 )}
               </div>
               {excerpt ? <p>{conciseText(excerpt, 240)}</p> : null}
@@ -1152,7 +1144,7 @@ const WikiReadMarginalia = ({ sources = [], citations = [], onJumpToReference })
             }}
           >
             <span className="wiki-read__margin-note-index">[{citation.index}]</span>
-            <strong>{source.title || 'Untitled source'}</strong>
+            <strong>{sourceTitle(source)}</strong>
             {excerpt ? <span>{conciseText(excerpt, 120)}</span> : null}
           </a>
         );
@@ -1622,6 +1614,7 @@ const WikiPageReadView = ({
     } catch (maintainError) {
       const rejected = maintainError?.code === 'WIKI_CANDIDATE_REJECTED';
       const evidenceIncomplete = maintainError?.code === 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE';
+      const limited = maintainError?.code === 'DOSSIER_WEEKLY_LIMIT';
       const firstFailure = (Array.isArray(maintainError?.qualityFailures) ? maintainError.qualityFailures : []).find(Boolean);
       const message = rejected
         ? `The page is unchanged. ${firstFailure || 'The proposed change did not hold up against the sources.'}`
@@ -1639,9 +1632,9 @@ const WikiPageReadView = ({
       }
       setError(message);
       setRereadResult({ status: rejected || evidenceIncomplete ? 'research' : 'failed', summary: message });
-      if (rejected || evidenceIncomplete) {
+      if (rejected || evidenceIncomplete || limited) {
         systemStatus.setLatestReceipt({
-          title: rejected ? 'The page was not changed.' : 'More reading is needed.',
+          title: rejected || limited ? 'The page was not changed.' : 'More reading is needed.',
           summary: message,
           status: 'needs_review',
           href: wikiReadPath(pageId)
@@ -2199,6 +2192,17 @@ const WikiPageReadView = ({
     });
   }, [candidatePayload, exitIsolatedPreview, openContextPanel, page, previewMode]);
 
+  // Reading the draft is the review, so it gets the page to itself (a side
+  // panel hides the article on narrower screens) and is scrolled into view.
+  const handleReviewUpdate = useCallback(() => {
+    if (!candidatePayload?.candidate) return;
+    setPreviewMode('candidate');
+    setPreviewPage(candidatePayload.candidate);
+    setShowChangedOnly(false);
+    closeContextPanels();
+    window.requestAnimationFrame(() => scrollToElementId('wiki-read-preview'));
+  }, [candidatePayload, closeContextPanels]);
+
   const handleAcceptCandidate = useCallback(async () => {
     if (acceptBusy || !pageId) return;
     setAcceptBusy('accept');
@@ -2319,7 +2323,8 @@ const WikiPageReadView = ({
 
   useEffect(() => {
     const params = new URLSearchParams(traceSearch || '');
-    const review = params.get('review') === '1';
+    // A page with nothing on it yet opens on the draft waiting for the owner.
+    const review = params.get('review') === '1' || Boolean(candidatePayload?.candidate && !countPageClaims(page));
     const revisionId = params.get('rev') || '';
     const intent = `${review ? 'review' : ''}|${revisionId}`;
     if (!review && !revisionId) return;
@@ -2348,7 +2353,7 @@ const WikiPageReadView = ({
       urlIntentRef.current = intent;
       handleOpenHistoryRevision(match);
     }
-  }, [candidatePayload, handleOpenHistoryRevision, page?.body, page?.plainText, revisions, traceSearch]);
+  }, [candidatePayload, handleOpenHistoryRevision, page, revisions, traceSearch]);
 
   const readingPage = previewPage || page;
   const strippedBody = useMemo(
@@ -2360,9 +2365,10 @@ const WikiPageReadView = ({
     if (!isRepoDossierPage(page)) return strippedBody;
     return applyRepoDossierSectionAnchors(strippedBody, bodyTocItems);
   }, [page, strippedBody, bodyTocItems]);
+  // A first draft has nothing to differ from, so nothing in it is marked changed.
   const previewDiffIds = useMemo(() => (
-    previewMode === 'candidate' ? changedClaimIdsFromPages(page, previewPage) : []
-  ), [page, previewMode, previewPage]);
+    previewMode === 'candidate' && candidatePayload?.kind !== 'first_head' ? changedClaimIdsFromPages(page, previewPage) : []
+  ), [candidatePayload?.kind, page, previewMode, previewPage]);
   const markedClaimIds = useMemo(() => {
     if (showChangedOnly && diffClaimIds.length) return new Set(diffClaimIds);
     if (previewMode === 'candidate' && previewDiffIds.length) return new Set(previewDiffIds);
@@ -2695,6 +2701,7 @@ const WikiPageReadView = ({
   const publicShareUrl = buildPublicWikiShareUrl(page);
   const weekendReadingsPage = isResearchEditionPage(page);
   const investmentDossierPage = Boolean(page?.investmentDossier?.version);
+  const settledFrom = /^settled-(note|concept|book):/.exec(page?.createdFrom?.label || '')?.[1] || '';
   const livingThesisPage = Boolean(page?.judgment?.kind) && !investmentDossierPage;
   const isSharedPublicly = String(page.visibility || 'private') === 'shared';
   const shareBlocked = isPageQualityBlocked(page);
@@ -2971,6 +2978,7 @@ const WikiPageReadView = ({
                 judgmentTrackBusy={judgmentTrackBusy}
                 judgmentTrackStatus={judgmentTrackStatus}
                 onMaintain={handleMaintain}
+                onReview={handleReviewUpdate}
                 onTrackInJudgment={handleTrackInJudgment}
               />
             ) : null}
@@ -3131,6 +3139,12 @@ const WikiPageReadView = ({
                   <Link to={wikiReadPath(fromWikiPageId)}>Return to {location.state?.fromWikiTitle || 'the previous page'}</Link>
                 </div>
               ) : null}
+              {settledFrom && page.createdFrom.objectId ? (
+                <div className="wiki-read__return-thread">
+                  <span>Settled from your {settledFrom}{settledFrom === 'book' ? '' : ' in Think'}.</span>
+                  <Link to={buildSourceOpenPath({ type: page.createdFrom.type, objectId: page.createdFrom.objectId })}>Open the {settledFrom}</Link>
+                </div>
+              ) : null}
               {awaitingCandidate && !proposalDeferred && !investmentDossierPage && !staleCandidate ? (
                 <div className="wiki-read__proposal" role="status">
                   <button type="button" className="wiki-read__proposal-sentence" onClick={() => openCandidatePreview()} disabled={!candidatePayload?.candidate}>
@@ -3145,7 +3159,7 @@ const WikiPageReadView = ({
                 </div>
               ) : null}
               {previewMode === 'candidate' ? (
-                <div className="wiki-read__preview-strip">
+                <div className="wiki-read__preview-strip" id="wiki-read-preview" tabIndex={-1}>
                   <span>You are reading the proposed change. The page itself is unchanged.</span>
                   <button type="button" onClick={exitIsolatedPreview}>Return to the current page</button>
                 </div>

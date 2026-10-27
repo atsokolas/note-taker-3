@@ -14,7 +14,8 @@ const input = normalizeCompanyDossierInput({
 });
 assert.strictEqual(input.ticker, 'NVDA');
 assert.strictEqual(input.requiredReturn, 0.1);
-assert.throws(() => normalizeCompanyDossierInput({ ...input, startingJudgment: 'Too short' }), /20 characters/);
+// A view is the owner's to give; a dossier starts without one.
+assert.strictEqual(normalizeCompanyDossierInput({ ...input, startingJudgment: '' }).startingJudgment, '');
 
 const profile = buildInvestmentDossierProfile({
   ...input,
@@ -48,5 +49,8 @@ const text = JSON.stringify(body);
 assert.match(text, /Current judgment/);
 assert.match(text, /starting judgment, not a proven conclusion/i);
 assert.match(text, /SEC filings and other free public sources/);
+
+const viewless = buildCompanyDossierBody({ ...input, startingJudgment: '', companyName: 'NVIDIA CORP' });
+assert.match(viewless.content[1].content[0].text, /^Owner hurdle/);
 
 console.log('companyDossierService tests passed');

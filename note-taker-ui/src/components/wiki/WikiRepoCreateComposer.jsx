@@ -125,10 +125,7 @@ const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated, on
         ? `${receiptTitle} The GitHub watch can be retried from the page.`
         : receiptTitle);
     } catch (submitError) {
-      setTickerLines([
-        `repo wiki failed · ${input}`,
-        'waiting for a retry'
-      ]);
+      setTickerLines([]);
       setError(submitError?.message || 'That did not save.');
     } finally {
       setBusy(false);

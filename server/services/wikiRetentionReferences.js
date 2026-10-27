@@ -1,7 +1,9 @@
+const { personalContext } = require('../models/knowledgeContext');
 // Traverse BSON on the server: transfer references, never private document bodies.
 // Terminal job links retain their identities without retaining obsolete snapshots.
 const referenceProjection = (name) => {
   const pipeline = [];
+  if (['notebookentries', 'notebookfolders'].includes(name)) pipeline.push({ $match: personalContext() });
   if (name === 'wikimaintenanceruns') pipeline.push({ $match: { status: { $nin: ['completed', 'failed'] } } });
   if (name === 'wikisourceevents') pipeline.push({ $match: { status: { $nin: ['processed', 'ignored', 'failed'] } } });
   pipeline.push({ $unset: name === 'wikirevisions' ? ['_id', 'before', 'after', 'snapshotHistoryArchive'] : '_id' });

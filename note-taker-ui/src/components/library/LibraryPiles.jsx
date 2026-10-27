@@ -12,17 +12,17 @@ import { beginArticleDrag, carriesArticleDrag, DROP_KINDS, dropIntent, readArtic
 import '../../styles/library-column.css';
 import PlacementSwitch from '../PlacementSwitch';
 import { rowKeyAction } from '../../pages/placementSwitchModel';
+import { sourceTitle } from '../../utils/sourceDisplayText';
 
 /*
  * Hey keeps both piles at the foot of the Imbox. We steal that.
  *
- * Later is work: oldest owed on top. Set aside is a folio stack you fan.
+ * The nightstand is work: oldest owed on top. Set aside is a folio stack you fan.
  * Empty means absent — never a zero, never a skeleton. A parked title flies
  * here from the reader; the fan opens so it has somewhere to land.
  */
 
 const WARM_MS = 420;
-const titleOf = (article) => article.title || 'Untitled source';
 const idOf = (article) => String(article?._id || article?.id || '').trim();
 
 /* Done flashes the destination. When a piece arrives in a pile — parked
@@ -84,7 +84,7 @@ const useArticleDrop = ({ enabled, placement, onPark }) => {
 const awaitingSentence = (articles) => {
   const pending = peekSentenceHandoff()?.sentence;
   if (!pending) return false;
-  return articles.some((article) => normalizeSpaces(titleOf(article)) === pending);
+  return articles.some((article) => normalizeSpaces(sourceTitle(article)) === pending);
 };
 
 const usePileLanding = (articles, listRef) => {
@@ -95,7 +95,7 @@ const usePileLanding = (articles, listRef) => {
     let pile = null;
     articles.some((article, index) => {
       const node = buttons[index];
-      if (!node || !flySentenceInto(node, titleOf(article))) return false;
+      if (!node || !flySentenceInto(node, sourceTitle(article))) return false;
       pile = node.closest('.library-pile');
       pile?.classList.add('is-warm');
       return true;
@@ -130,7 +130,7 @@ const PileRow = ({ article, onSelect, onDone, onPlace, hinting = false }) => {
       onDragStart={(event) => { beginArticleDrag(event, id); }}
     >
       <button type="button" className="library-pile__title" onClick={() => onSelect?.(id)}>
-        {titleOf(article)}
+        {sourceTitle(article)}
       </button>
       {/* Hints only while holding ?. A row that always showed its keys would
           be teaching every reader something most of them never asked for; a
@@ -176,13 +176,13 @@ const LaterPile = ({ articles, ledger = [], onSelect, onDone, onPlace, hinting }
   return (
     <section
       className={`library-pile library-pile--later${drop.over ? ' is-drop-target' : ''}${arrived ? ' is-warm' : ''}`}
-      aria-label="Later"
+      aria-label="Nightstand"
       onDragOver={drop.handleDragOver}
       onDragLeave={drop.handleDragLeave}
       onDrop={drop.handleDrop}
     >
       {drop.intent ? <span role="status" className="sr-only">{drop.intent}</span> : null}
-      <p className="library-pile__eyebrow">Later</p>
+      <p className="library-pile__eyebrow">Nightstand</p>
       {line ? <p className="library-pile__line">{line}</p> : null}
       <ul ref={listRef} className="library-pile__list">
         {articles.map((article) => (

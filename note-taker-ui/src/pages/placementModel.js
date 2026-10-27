@@ -73,7 +73,7 @@ export const laterPileLine = (articles = [], now = Date.now()) => {
   if (!pile.length) return '';
   const count = pile.length === 1 ? 'One thing' : `${pile.length} things`;
   const since = oldestSince(pile[0], now);
-  return since ? `${count} saved for later. The ${since}.` : `${count} saved for later.`;
+  return since ? `${count} on your nightstand. The ${since}.` : `${count} on your nightstand.`;
 };
 
 export const setAsidePileLine = (articles = [], now = Date.now()) => {

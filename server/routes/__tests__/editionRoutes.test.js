@@ -1441,9 +1441,10 @@ describe('a second reading of a held source', () => {
     }]);
     /* A reading is not an arrival and not an item. */
     expect(second.body.itemCount).toBe(1);
-    /* The stand's row names the second hand too, so a filter can offer it. */
+    /* The stand's row names the second hand too, so a filter can offer it,
+       and when it filed, so the row can say when the issue was updated. */
     const listed = await fetch(`${url}/api/editions`).then(response => response.json());
-    expect(listed.editions[0].filings[0].readings).toEqual([{ filedBy: 'Codex', filedByRuntime: 'codex' }]);
+    expect(listed.editions[0].filings[0].readings).toEqual([{ filedBy: 'Codex', filedByRuntime: 'codex', filedAt: expect.any(String) }]);
   });
 
   it('drops the same agent filing the same link again', async () => {

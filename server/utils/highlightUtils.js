@@ -45,10 +45,12 @@ const buildHighlightDocument = ({
   tags,
   color,
   anchor,
+  page,
   normalizeTags
 }) => ({
   text,
   note: note || '',
+  ...(page ? { page } : {}),
   tags: normalizeTags(tags),
   color: normalizeHighlightColor(color),
   type: 'note',
@@ -69,7 +71,10 @@ const serializeHighlightWithArticle = (article, highlight, options = {}) => {
     color: normalizeHighlightColor(highlight.color),
     type: normalizeItemType(highlight.type, 'note'),
     claimId: highlight.claimId || null,
-    createdAt: highlight.createdAt
+    createdAt: highlight.createdAt,
+    opens: highlight.opens || 0,
+    page: highlight.page || null,
+    location: highlight.importMeta?.sourcePath || ''
   };
   if (includeAnchor) {
     payload.anchor = normalizeHighlightAnchor(highlight.anchor, highlight.text);

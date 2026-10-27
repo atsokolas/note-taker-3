@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const {
   dayOf,
   inboundMailConfig,
+  linkFromMail,
   newsletterFromMail,
   parseAddress,
   receivedMail,
@@ -115,6 +116,22 @@ const run = async () => {
   assert.deepStrictEqual(fetched, [['https://api.resend.com/emails/receiving/e1', 'Bearer re_test']]);
   assert.strictEqual(mail.html, '<p>Body</p>');
   assert.strictEqual(mail.messageId, 'abc@mail');
+
+  // A mail that is a link and a line about it is a link to read later; the
+  // line is why. With nothing written, the subject says why.
+  assert.deepStrictEqual(
+    linkFromMail({ subject: 'x', text: 'Sam sent this\n\nhttps://essays.example/attention?utm_source=share&id=2\n\nSent from my iPhone' }),
+    { url: 'https://essays.example/attention?id=2', note: 'Sam sent this' }
+  );
+  assert.deepStrictEqual(
+    linkFromMail({ subject: 'Fwd: for the hiring question', html: '<div><a href="https://essays.example/hiring">https://essays.example/hiring</a></div>' }),
+    { url: 'https://essays.example/hiring', note: 'for the hiring question' }
+  );
+  assert.deepStrictEqual(linkFromMail({ subject: 'https://essays.example/a', text: '' }), { url: 'https://essays.example/a', note: '' });
+  // Newsletters carry many links and a page of prose; none reads as a link.
+  assert.strictEqual(linkFromMail({ subject: 'Fwd: Money Stuff', html: GMAIL_FORWARD }), null);
+  assert.strictEqual(linkFromMail(SUBSTACK_DIRECT), null);
+  assert.strictEqual(linkFromMail({ text: `${'A long letter. '.repeat(30)} https://essays.example/a` }), null);
 
   // Without the key that fetches the body, email-in stays off.
   const env = { INBOUND_EMAIL_ADDRESS: 'read@noeis.io', INBOUND_EMAIL_WEBHOOK_SECRET: 'whsec_x' };

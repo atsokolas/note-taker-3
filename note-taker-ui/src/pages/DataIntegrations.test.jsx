@@ -1143,19 +1143,20 @@ describe('DataIntegrations first insight workflow', () => {
     expect(screen.getByRole('link', { name: 'My working note' })).toHaveAttribute('href', 'https://notion.so/notion-page-1');
   });
 
-  it('routes csv uploads from the files flow through the Readwise CSV importer', async () => {
+  it('brings export files in through one door and says what landed', async () => {
     api.post.mockResolvedValueOnce({
       data: {
-        importedArticles: 2,
-        importedHighlights: 4,
+        format: 'kindle',
+        importedArticles: 1,
+        importedHighlights: 412,
         importedNotes: 0,
-        skippedRows: 0,
         articleIds: ['article-1'],
-        indexingQueued: 2,
-        indexingAttempts: 2,
+        indexingQueued: 413,
+        indexingAttempts: 413,
         indexingFailures: 0,
         warningCodes: [],
-        warnings: []
+        warnings: [],
+        summary: 'Imported 412 highlights from 37 books; 9 were already here.'
       }
     });
 
@@ -1166,17 +1167,63 @@ describe('DataIntegrations first insight workflow', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Files and text/i }));
-    const fileInput = screen.getByLabelText('Markdown or CSV upload');
-    const csvFile = new File(['title,author\nDeep Work,Cal Newport'], 'readwise-export.csv', { type: 'text/csv' });
-    fireEvent.change(fileInput, { target: { files: [csvFile] } });
+    expect(screen.getByRole('heading', { name: 'Bring everything in' })).toBeInTheDocument();
+    const clippings = new File(['Walden (Thoreau)\n- Your Highlight on Location 1-2\n\nSimplify.\n=========='], 'My Clippings.txt', { type: 'text/plain' });
+    fireEvent.change(screen.getByLabelText('Export files'), { target: { files: [clippings] } });
 
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
-    expect(api.post).toHaveBeenCalledWith(
-      '/api/import/readwise-csv',
-      expect.any(FormData),
-      expect.any(Object)
+    const [route, form] = api.post.mock.calls[0];
+    expect(route).toBe('/api/import/files');
+    expect(form.getAll('files')).toHaveLength(1);
+    expect(form.getAll('paths')).toEqual(['My Clippings.txt']);
+    expect(await screen.findByText('Imported 412 highlights from 37 books; 9 were already here.')).toBeInTheDocument();
+  });
+
+  it('sends a folder of notes without its attachments or hidden folders', async () => {
+    api.post.mockResolvedValueOnce({ data: { format: 'markdown', importedNotes: 1, entryId: 'note-1', summary: 'Brought in 1 note.' } });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
     );
-    expect(await screen.findByText('CSV import complete.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Files and text/i }));
+    const inVault = (name, relativePath) => {
+      const file = new File(['# A note'], name, { type: 'text/markdown' });
+      Object.defineProperty(file, 'webkitRelativePath', { value: relativePath });
+      return file;
+    };
+    fireEvent.change(screen.getByLabelText('Folder of notes'), {
+      target: {
+        files: [
+          inVault('Idea.md', 'Vault/Ideas/Idea.md'),
+          inVault('diagram.png', 'Vault/Ideas/diagram.png'),
+          inVault('workspace.md', 'Vault/.obsidian/workspace.md')
+        ]
+      }
+    });
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    const form = api.post.mock.calls[0][1];
+    expect(form.getAll('paths')).toEqual(['Vault/Ideas/Idea.md']);
+    expect(await screen.findByText('Brought in 1 note.')).toBeInTheDocument();
+  });
+
+  it('says plainly when nothing picked is an export it can read, and sends nothing', async () => {
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Files and text/i }));
+    fireEvent.change(screen.getByLabelText('Export files'), {
+      target: { files: [new File(['png'], 'cover.png', { type: 'image/png' })] }
+    });
+
+    expect(await screen.findByText('Choose an export file, or a folder with Markdown notes in it.')).toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
   });
 
   it('guides Evernote ENEX import and shows a destination receipt after import', async () => {

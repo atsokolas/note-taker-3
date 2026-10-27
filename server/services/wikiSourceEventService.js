@@ -62,7 +62,7 @@ const connectorTitle = ({ provider = '', payload = {} } = {}) => {
   if (provider === 'readwise' && payload.highlight) {
     return firstString(payload.highlight.title, payload.title, payload.bookTitle, payload.book_title, 'Readwise highlight');
   }
-  return firstString(payload.title, payload.name, payload.bookTitle, payload.book_title, payload.pageTitle, payload.page_title, 'Untitled source');
+  return firstString(payload.title, payload.name, payload.bookTitle, payload.book_title, payload.pageTitle, payload.page_title, 'Untitled');
 };
 
 const connectorText = ({ provider = '', payload = {} } = {}) => {

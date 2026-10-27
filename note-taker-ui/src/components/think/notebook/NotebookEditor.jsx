@@ -2,13 +2,11 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
-import { Extension, Node, mergeAttributes } from '@tiptap/core';
+import { Node, mergeAttributes } from '@tiptap/core';
 import { Button, buttonClass } from '../../ui';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
-import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
+import { EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
 import EntryHistory from '../editor/EntryHistory';
 import { passageSlashItems } from '../editor/slashCommands';
 import { begunLine, countWords } from '../../../pages/thinkNotesModel';
@@ -21,8 +19,7 @@ import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
 import { createNotebookClaimSlashItems } from './notebookClaimSlash';
 import UseDistinctionHere from '../../wiki/open-sentence/UseDistinctionHere';
 import SourceCorrectionReview from '../SourceCorrectionReview';
-import NotebookShare from './NotebookShare';
-import NotebookVolume from './NotebookVolume';
+import { useSettleIntoWiki } from '../settleIntoWiki';
 import { editorNodesFromDistinctionUse, eligibleDistinctions } from '../../../utils/distinctionUse';
 import { exportNotebookMarkdown, getNotebookSummaries, disposeNotebookSourceCorrection, readNoteAgainstViews, requestNotebookWordingOptions, setOppositeAside } from '../../../api/notebook';
 import useHighlights from '../../../hooks/useHighlights';
@@ -52,6 +49,7 @@ import NotebookArrangementRail from './NotebookArrangementRail';
 import NotebookWorkbenchPanel from './NotebookWorkbenchPanel';
 import NotebookAlternativesRail from './NotebookAlternativesRail';
 import useNotebookWorkbench from './useNotebookWorkbench';
+import useGhostQuote, { GhostQuote } from './useGhostQuote';
 import {
   NotebookWorkbenchDecorations,
   setNotebookWorkbenchDecorations,
@@ -77,7 +75,7 @@ import {
   notebookTrialKey
 } from '../../../utils/notebookWorkbench';
 import { readTighterSupport, rescueReadTighterPhrase } from '../../../utils/notebookReadTighter';
-import { UniqueBlockIds } from './uniqueBlockIds';
+import { notebookWritingExtensions } from '../editor/notebookWriting';
 import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../../utils/sourceRoutes';
 import '../../../styles/think-writing.css';
 
@@ -102,25 +100,6 @@ const ITEM_TYPES = [
 
 const EMPTY_CLAIM_CANDIDATES = [];
 
-const ListIndentExtension = Extension.create({
-  name: 'listIndent',
-  addKeyboardShortcuts() {
-    return {
-      Tab: () => {
-        if (this.editor.isActive('bulletList') || this.editor.isActive('orderedList')) {
-          return this.editor.commands.sinkListItem('listItem');
-        }
-        return false;
-      },
-      'Shift-Tab': () => {
-        if (this.editor.isActive('bulletList') || this.editor.isActive('orderedList')) {
-          return this.editor.commands.liftListItem('listItem');
-        }
-        return false;
-      }
-    };
-  }
-});
 
 const ReferenceCard = ({ label, title, meta, href }) => (
   <div className="notebook-ref-card">
@@ -301,12 +280,9 @@ const NotebookEditor = ({
   const [wikiPagesLoading, setWikiPagesLoading] = useState(false);
   const [savedDistinctions, setSavedDistinctions] = useState([]);
   const [organizeOpen, setOrganizeOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const settlement = useSettleIntoWiki('notebook', entry?._id, entry?.settledIn);
   const restoredFromRef = useRef('');
-  const shareOpenRef = useRef(false);
-  shareOpenRef.current = shareOpen;
-  const [shareRevision, setShareRevision] = useState(0);
   const [entryType, setEntryType] = useState(entry?.type || 'note');
   const [entryTags, setEntryTags] = useState(entry?.tags || []);
   const [tagInput, setTagInput] = useState('');
@@ -453,15 +429,12 @@ const NotebookEditor = ({
   const [finishError, setFinishError] = useState('');
   const [docTick, setDocTick] = useState(0);
   const highlightedRef = useRef(null);
+  const ghostKeyRef = useRef(null);
 
   const editor = useEditor({
     editable: false,
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-      Placeholder.configure({ placeholder: 'Start writing…', showOnlyWhenEditable: false }),
-      ListIndentExtension,
-      BlockIdExtension,
-      UniqueBlockIds,
+      ...notebookWritingExtensions(),
       NotebookWorkbenchDecorations,
       highlightExtension,
       ArticleRefNode,
@@ -478,6 +451,7 @@ const NotebookEditor = ({
       },
       handleKeyDown: (view, event) => (
         slashKeyDownRef.current?.(view, event)
+        || ghostKeyRef.current?.(event)
         || handleEditorStructureShortcut({ editor, event, allowTitle: true })
         || false
       ),
@@ -545,6 +519,9 @@ const NotebookEditor = ({
       editor.commands?.focus?.();
     });
   };
+
+  const ghostQuote = useGhostQuote(editor, { enabled: editingBody, createId });
+  ghostKeyRef.current = ghostQuote.handleKey;
 
   /* A picker open is still writing — see the hook. */
   useThinkWritingActivity(editor, { enabled: editingBody, reaching: Boolean(insertMode) });
@@ -746,7 +723,6 @@ const NotebookEditor = ({
         if (sequence === saveSequenceRef.current) {
           setSaveState(dirtyRef.current ? 'dirty' : 'saved');
           if (!dirtyRef.current) setSavedAt(new Date().toISOString());
-          if (shareOpenRef.current) setShareRevision((value) => value + 1);
         }
         return true;
       } catch (_saveError) {
@@ -1563,24 +1539,6 @@ const NotebookEditor = ({
     }
   };
 
-  const handleShare = async () => {
-    setOrganizeOpen(false);
-    if (shareOpen) {
-      setShareOpen(false);
-      setFinishError('');
-      return;
-    }
-    if (!entry?._id) return;
-    setFinishError('');
-    dirtyRef.current = true;
-    const saved = await commitDraft();
-    if (!saved) {
-      setFinishError('Could not save this draft, so sharing did not open.');
-      return;
-    }
-    setShareOpen(true);
-  };
-
   /* An earlier version comes back through the ordinary save, marked as a
      restore so the history can say so. */
   const restoreRevision = async ({ id, snapshot }) => {
@@ -1591,6 +1549,11 @@ const NotebookEditor = ({
     restoredFromRef.current = id;
     dirtyRef.current = true;
     return commitDraft();
+  };
+
+  const handleSettle = (event) => {
+    event.currentTarget.closest('details')?.removeAttribute('open');
+    settlement.settle(commitDraft);
   };
 
   const openHistory = async (event) => {
@@ -1626,7 +1589,7 @@ const NotebookEditor = ({
           <Button variant="quiet" data-context-trigger="material" onClick={() => openMaterial()}>Material</Button>
           <Button variant="quiet" onClick={handleExport}>Export draft</Button>
           <Button variant="quiet" onClick={handleRecoveryExport}>Private recovery file</Button>
-          <Button variant="quiet" onClick={handleShare}>{shareOpen ? 'Close share' : 'Share snapshot'}</Button>
+          <Button variant="quiet" onClick={handleSettle} disabled={settlement.settling}>{settlement.action}</Button>
           <Button variant="quiet" onClick={() => setOrganizeOpen(previous => !previous)}>Structure</Button>
           <Button variant="quiet" onClick={openHistory}>History</Button>
         </EntryBar>
@@ -1674,6 +1637,7 @@ const NotebookEditor = ({
             placeholder="Title"
           />
           <p className="think-notebook-title-meta" id={metaId}>{begunLine(entry.createdAt, wordCount)}</p>
+          {settlement.lines}
         </div>
         {historyOpen ? (
           <EntryHistory kind="note" entryId={String(entry._id)} onRestore={restoreRevision} onClose={() => setHistoryOpen(false)} />
@@ -1739,12 +1703,6 @@ const NotebookEditor = ({
           {workbenchReceipt.text}
           {['insert', 'thought', 'trial', 'next-line'].includes(workbenchReceipt.type) ? <Button variant="quiet" onClick={undoWorkbenchReceipt}>Undo</Button> : null}
         </p>
-      ) : null}
-      {shareOpen && entry?._id ? (
-        <>
-          <NotebookShare notebookId={entry._id} revision={shareRevision} />
-          <NotebookVolume notebookId={entry._id} revision={shareRevision} />
-        </>
       ) : null}
       {organizeOpen && (
         <div className="notebook-organize-panel">
@@ -1915,6 +1873,7 @@ const NotebookEditor = ({
         onRestore={handleRestoreAside}
         onDeletePiece={handleDeletePiece}
       />
+      <GhostQuote ghost={ghostQuote.ghost} onQuote={ghostQuote.quote} />
       </div>
       <AuthoredWorkOrigin importMeta={entry.importMeta} sourceBlocks={entry.blocks} />
       {alternativesPortal && alternativesVisible ? createPortal(

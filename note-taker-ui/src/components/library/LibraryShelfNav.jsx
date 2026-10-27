@@ -1,10 +1,12 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   RoomShelf,
   RoomShelfButton,
   RoomShelfList,
   RoomShelfMeta,
-  RoomShelfSection
+  RoomShelfSection,
+  roomShelfItemClass
 } from '../collection/RoomShelf';
 import { flySentenceInto } from '../../motion/columnMotion';
 import { buildFolderTree, flattenFolderTree, folderCountPhrase, isFolderDescendant } from '../../pages/folderTreeModel';
@@ -295,7 +297,7 @@ const LibraryShelfNav = ({
             {Number.isFinite(count) ? <RoomShelfMeta>{count}</RoomShelfMeta> : null}
           </RoomShelfButton>
         </li>
-        {[['set-aside', 'On the desk'], ['later', 'Later'], ['kept', 'Keepers']].map(([value, label]) => (
+        {[['set-aside', 'On the desk'], ['later', 'Nightstand'], ['kept', 'Keepers']].map(([value, label]) => (
           <li key={value}><RoomShelfButton active={scope === value} onClick={() => onSelectScope?.(value)}>{label}</RoomShelfButton></li>
         ))}
         {topics.map((topic) => (
@@ -323,7 +325,15 @@ const LibraryShelfNav = ({
             <span>Passages</span>
           </RoomShelfButton>
         </li>
+        {/* Books are a page of their own: each one is the desk you write at. */}
+        <li><Link className={roomShelfItemClass()} to="/library/books">Books</Link></li>
       </RoomShelfList>
+
+      {/* The same shelves seen from above, and bound: quiet doors, not scopes. */}
+      <p className="library-shelf__map">
+        <Link to="/library/map">See your reading as a map</Link>
+        <Link to="/library/book">Read your year as a book</Link>
+      </p>
 
       {narrow && !showCabinet && folders.length ? (
         <button

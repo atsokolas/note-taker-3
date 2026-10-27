@@ -979,7 +979,7 @@ const buildSourceList = (sourceRefs = []) => {
   const list = Array.isArray(sourceRefs) ? sourceRefs.slice(0, 12) : [];
   return list.map((source, index) => ({
     index: index + 1,
-    title: truncate(source?.title, 240) || 'Untitled source',
+    title: truncate(source?.title, 240) || 'Untitled',
     snippet: truncateAtSentenceBoundary(source?.snippet || source?.text, MAX_SOURCE_TEXT),
     url: truncate(source?.url, 600),
     type: asString(source?.type) || 'source'

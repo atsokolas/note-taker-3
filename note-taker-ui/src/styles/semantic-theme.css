@@ -378,6 +378,40 @@ html[data-ui-theme='solarized-light'] {
   --noeis-shadow-float: 0 20px 48px rgba(88, 110, 117, 0.16);
 }
 
+/* Omarchy wears the desktop's colours, set on <html> by
+   settings/omarchyColors.js, and derives the rest of the palette from them.
+   Until a device receives any it wears Omarchy's default, Tokyo Night. */
+html {
+  --omarchy-background: #1a1b26;
+  --omarchy-foreground: #a9b1d6;
+  --omarchy-accent: #7aa2f7;
+  --omarchy-color1: #f7768e;
+  --omarchy-color2: #9ece6a;
+  --omarchy-color3: #e0af68;
+}
+
+html[data-ui-theme='omarchy'] {
+  color-scheme: dark;
+  --noeis-paper: var(--omarchy-background);
+  --noeis-ink: var(--omarchy-foreground);
+  --noeis-chrome: color-mix(in srgb, var(--noeis-paper) 92%, #000);
+  --noeis-ink-muted: color-mix(in srgb, var(--noeis-ink) 82%, var(--noeis-paper));
+  --noeis-ink-subtle: color-mix(in srgb, var(--noeis-ink) 58%, var(--noeis-paper));
+  --noeis-rule: color-mix(in srgb, var(--noeis-ink) 14%, var(--noeis-paper));
+  --noeis-rule-strong: color-mix(in srgb, var(--noeis-ink) 26%, var(--noeis-paper));
+  --noeis-action: var(--omarchy-accent);
+  --noeis-thread: var(--omarchy-color3);
+  --noeis-success: var(--omarchy-color2);
+  --noeis-warning: var(--omarchy-color3);
+  --noeis-danger: var(--omarchy-color1);
+}
+
+html[data-ui-theme='omarchy'][data-ui-scheme='light'] {
+  color-scheme: light;
+  --noeis-shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.08);
+  --noeis-shadow-float: 0 20px 48px rgba(0, 0, 0, 0.14);
+}
+
 html[data-ui-density='compact'] {
   --noeis-density-scale: 0.86;
   --ui-card-padding: 18px;
@@ -637,9 +671,7 @@ html:is([data-ui-family='palette'], [data-ui-scheme='dark']) :is(
   .library-highlight-group-header,
   .library-reference-item .muted,
   .library-related-item .muted,
-  .library-highlight-item .muted,
-  .semantic-related-item .muted,
-  .semantic-related-explain :is(p, div)
+  .library-highlight-item .muted
 ) {
   color: var(--noeis-ink-muted);
 }
@@ -703,4 +735,56 @@ html:is([data-ui-family='palette'], [data-ui-scheme='dark']) :is(
     transition-duration: 1ms !important;
     transform: none !important;
   }
+}
+
+/* A choice owns both its paper and ink. Native popups do not reliably inherit
+   a transparent select's surface; menus must not mix room ink with OS grey. */
+:root {
+  --noeis-choice-surface: var(--noeis-paper);
+  --noeis-choice-hover: var(--noeis-paper-sunken);
+  --noeis-choice-ink: color-mix(in srgb, var(--noeis-ink) 90%, black);
+  --noeis-choice-focus: var(--noeis-choice-ink);
+}
+html[data-ui-scheme='dark'] {
+  --noeis-choice-ink: color-mix(in srgb, var(--noeis-ink) 90%, white);
+}
+body.noeis-editorial select {
+  color: var(--noeis-choice-ink) !important;
+  color-scheme: inherit;
+}
+body.noeis-editorial select :is(option, optgroup) {
+  color: var(--noeis-choice-ink) !important;
+  background-color: var(--noeis-choice-surface) !important;
+  opacity: 1;
+}
+body.noeis-editorial select option:is(:checked, :hover) {
+  color: var(--noeis-choice-ink) !important;
+  background-color: var(--noeis-choice-hover) !important;
+  font-weight: 600;
+}
+body.noeis-editorial :is([role='menu'], [role='listbox'], .topbar__menu-popover, .work-utility > div) {
+  color: var(--noeis-choice-ink);
+  background: var(--noeis-choice-surface) !important;
+}
+body.noeis-editorial :is([role='menu'], [role='listbox'], .topbar__menu-popover, .work-utility > div) :is(button, a, [role='option'], [role='menuitem'], .think-slash-menu__item-description) {
+  color: var(--noeis-choice-ink) !important;
+}
+body.noeis-editorial :is([role='menu'], [role='listbox'], .topbar__menu-popover, .work-utility > div) :is(button, a, [role='option'], [role='menuitem']):not(.selection-menu__ink) { background: transparent !important; }
+body.noeis-editorial :is([role='menu'], [role='listbox'], .topbar__menu-popover, .work-utility > div) :is(button, a, [role='option'], [role='menuitem']):not(.selection-menu__ink):is(:hover, [aria-selected='true'], [aria-current='page'], .is-active) {
+  background: var(--noeis-choice-hover) !important;
+  box-shadow: inset 2px 0 0 var(--noeis-choice-focus);
+}
+body.noeis-editorial :is(select, [role='menu'], [role='listbox'], [role='menu'] button, [role='menu'] a, [role='listbox'] [role='option'], .topbar__menu-popover button, .work-utility button):focus-visible {
+  outline: 2px solid var(--noeis-choice-focus) !important;
+  outline-offset: 2px;
+}
+body.noeis-editorial :is(select, option, [role='menu'] button, [role='listbox'] [role='option'], .topbar__menu-popover button, .work-utility button):is(:disabled, [aria-disabled='true']) {
+  color: var(--noeis-choice-ink) !important;
+  opacity: 1 !important;
+  font-style: italic;
+  cursor: not-allowed;
+}
+@media (forced-colors: active) {
+  body.noeis-editorial :is(select, option, [role='menu'], [role='menu'] button, [role='listbox'], [role='option']) { color: CanvasText !important; background: Canvas !important; }
+  body.noeis-editorial option:checked { color: HighlightText !important; background: Highlight !important; }
 }

@@ -23,11 +23,13 @@ import {
 import { scopedKey, currentAccountId } from '../../utils/browserScope';
 import { beginArticleDrag } from '../../pages/dragGrammar';
 import { useFinePointer } from '../../hooks/useMotionPreferences';
+import { sourceTitle } from '../../utils/sourceDisplayText';
+import { hasWaitedLong, tonightFrom } from './nightstand';
 
 const LABELS = {
   all: 'Library',
   unfiled: 'Unfiled',
-  later: 'Later',
+  later: 'Nightstand',
   'set-aside': 'On the desk',
   kept: 'Keepers'
 };
@@ -111,6 +113,7 @@ export default function LibraryCollection({
   const [peekId, setPeekId] = useState(() => getSaved(storageKey).peekId || '');
   const [returned, setReturned] = useState('');
   const [opening, setOpening] = useState('');
+  const [released, setReleased] = useState(null);
   /* A row opens its peek when the pointer rests on it, or when it is tapped.
      Resting means a beat, so sweeping down the list does not unfold it. */
   const finePointer = useFinePointer();
@@ -247,8 +250,8 @@ export default function LibraryCollection({
         search.current?.focus();
       }
     };
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
   });
   const closePeek = () => {
     const id = peekId;
@@ -291,6 +294,28 @@ export default function LibraryCollection({
             }
           : {})
     );
+  };
+  /* The nightstand reads by the evening, not the calendar: minutes on each
+     row, one line naming what fits tonight, and a month's wait asked about
+     at the bottom instead of left to pile up. Nothing leaves on its own. */
+  const nightstand = scope === 'later';
+  const now = Date.now();
+  const rows = nightstand
+    ? [...state.items].sort((a, b) => hasWaitedLong(a, now) - hasWaitedLong(b, now))
+    : state.items;
+  const firstLong = nightstand ? rows.find(row => hasWaitedLong(row, now)) : null;
+  const { tonight, weekend } = nightstand && !query ? tonightFrom(state.items) : {};
+  const pick = (label, row) => row ? (
+    <>
+      {label}:{' '}
+      <button type="button" className="library-tonight__title" onClick={() => open(row)}>{sourceTitle(row)}</button>
+      {` (${row.minutes} min).`}
+    </>
+  ) : null;
+  const keep = row => onPlace(row._id, 'later');
+  const letGoOf = async (row) => {
+    await onPlace(row._id, 'stream');
+    setReleased(row);
   };
   const pages =
     scope === 'kept'
@@ -344,7 +369,10 @@ export default function LibraryCollection({
           {state.loading
             ? 'Searching saved sources…'
             : `${state.total} matching sources in ${scope === 'all' ? 'your Library' : 'this collection'}.`}{' '}
-          Searches saved titles, source text, and passage notes.
+          Searches saved titles, source text, and passage notes.{' '}
+          <Link className="library-search-trail" to={`/library/trail?subject=${encodeURIComponent(query.trim())}`}>
+            What to read next on it →
+          </Link>
         </p>
       ) : null}
       {state.error ? (
@@ -376,82 +404,109 @@ export default function LibraryCollection({
           </button>
         </p>
       ) : null}
+      {tonight || weekend ? (
+        <p className="library-tonight">
+          {pick('Tonight', tonight)}{tonight && weekend ? ' ' : ''}{pick('For the weekend', weekend)}
+        </p>
+      ) : null}
+      {nightstand && released ? (
+        <p className="library-placement-receipt" role="status">
+          Let go of {sourceTitle(released)}. It stays in your Library.{' '}
+          <button onClick={() => onPlace(released._id, 'later').then(() => setReleased(null))}>Undo</button>
+        </p>
+      ) : null}
       <ul className="library-source-collection">
-        {state.items.map((row) => {
+        {rows.map((row) => {
           const trace = row.match || row.trace;
+          const waitedLong = nightstand && hasWaitedLong(row, now);
           return (
-            <li
-              key={row._id}
-              data-source-id={row._id}
-              className={`library-collection-row${returned === row._id ? ' is-returned' : ''}`}
-              draggable
-              onDragStart={(event) => beginArticleDrag(event, row._id)}
-              onMouseEnter={() => restOn(row._id)}
-              onMouseLeave={() => clearTimeout(hoverIntent.current)}
-            >
-              <div className="library-source-face" onClick={(event) => tapRow(event, row._id)}>
-                <div>
-                  <button
-                    className="library-source-title"
-                    disabled={opening === row._id}
-                    onClick={() => open(row)}
-                  >
-                    {row.title || 'Untitled source'}
-                  </button>
-                  <p className="library-source-meta">
-                    {[
-                      sourceLabel(row),
-                      row.folder?.name,
-                      row.placement === 'later'
-                        ? 'In Later'
-                        : row.placement === 'setAside'
-                          ? 'On the desk'
-                          : '',
-                      row.createdAt
-                        ? new Date(row.createdAt).toLocaleDateString(
-                            undefined,
-                            { month: 'short', day: 'numeric', year: 'numeric' }
-                          )
-                        : ''
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                  {trace && trace.kind !== 'title' ? (
-                    <p
-                      className={`library-personal-trace${trace.kind === 'continue' ? ' is-continuation' : ''}`}
+            <React.Fragment key={row._id}>
+              {row === firstLong ? <li className="library-waited-long">Been waiting a while</li> : null}
+              <li
+                data-source-id={row._id}
+                className={`library-collection-row${returned === row._id ? ' is-returned' : ''}`}
+                draggable
+                onDragStart={(event) => beginArticleDrag(event, row._id)}
+                onMouseEnter={() => restOn(row._id)}
+                onMouseLeave={() => clearTimeout(hoverIntent.current)}
+              >
+                <div className="library-source-face" onClick={(event) => tapRow(event, row._id)}>
+                  <div>
+                    <button
+                      className="library-source-title"
+                      data-noeis-item
+                      disabled={opening === row._id}
+                      onClick={() => open(row)}
                     >
-                      <span>
-                        {(row.match ? MATCH_LABELS : TRACE_LABELS)[trace.kind]}
-                      </span>
-                      {trace.text}
+                      {sourceTitle(row)}
+                    </button>
+                    <p className="library-source-meta">
+                      {[
+                        sourceLabel(row),
+                        row.folder?.name,
+                        row.placement === 'later' && !nightstand
+                          ? 'On the nightstand'
+                          : row.placement === 'setAside'
+                            ? 'On the desk'
+                            : '',
+                        nightstand && row.minutes ? `${row.minutes} min` : '',
+                        !nightstand && row.createdAt
+                          ? new Date(row.createdAt).toLocaleDateString(
+                              undefined,
+                              { month: 'short', day: 'numeric', year: 'numeric' }
+                            )
+                          : ''
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </p>
-                  ) : row.match ? (
-                    <p className="library-row-label">Matched title</p>
-                  ) : null}
+                    {row.placementReason && row.placement !== 'stream' ? (
+                      <p className="library-source-why">{row.placementReason}</p>
+                    ) : null}
+                    {waitedLong ? (
+                      <p className="library-still">
+                        Still want this?{' '}
+                        <button type="button" onClick={() => keep(row)}>Keep it</button>
+                        {' · '}
+                        <button type="button" onClick={() => letGoOf(row)}>Let it go</button>
+                      </p>
+                    ) : null}
+                    {trace && trace.kind !== 'title' ? (
+                      <p
+                        className={`library-personal-trace${trace.kind === 'continue' ? ' is-continuation' : ''}`}
+                      >
+                        <span>
+                          {(row.match ? MATCH_LABELS : TRACE_LABELS)[trace.kind]}
+                        </span>
+                        {trace.text}
+                      </p>
+                    ) : row.match ? (
+                      <p className="library-row-label">Matched title</p>
+                    ) : null}
+                  </div>
+                  <button
+                    className="library-peek-trigger"
+                    aria-expanded={peekId === row._id}
+                    aria-controls={`peek-${row._id}`}
+                    aria-label={`${peekId === row._id ? 'Close Peek' : 'Peek'}: ${row.title}`}
+                    onClick={() =>
+                      peekId === row._id ? closePeek() : setPeekId(row._id)
+                    }
+                  >
+                    {peekId === row._id ? 'Close' : 'Peek'}
+                  </button>
                 </div>
-                <button
-                  className="library-peek-trigger"
-                  aria-expanded={peekId === row._id}
-                  aria-controls={`peek-${row._id}`}
-                  aria-label={`${peekId === row._id ? 'Close Peek' : 'Peek'}: ${row.title}`}
-                  onClick={() =>
-                    peekId === row._id ? closePeek() : setPeekId(row._id)
-                  }
-                >
-                  {peekId === row._id ? 'Close' : 'Peek'}
-                </button>
-              </div>
-              {peekId === row._id ? (
-                <LibrarySourcePeek
-                  key={`${row._id}:${query}`}
-                  row={row}
-                  onRead={open}
-                  onPlace={onPlace}
-                  onMove={onMove}
-                />
-              ) : null}
-            </li>
+                {peekId === row._id ? (
+                  <LibrarySourcePeek
+                    key={`${row._id}:${query}`}
+                    row={row}
+                    onRead={open}
+                    onPlace={onPlace}
+                    onMove={onMove}
+                  />
+                ) : null}
+              </li>
+            </React.Fragment>
           );
         })}
         {pages.map((row) => (
@@ -459,7 +514,7 @@ export default function LibraryCollection({
             className={`library-collection-row${row.retiredAt ? ' is-retired' : ''}`}
             key={`${row.kind}:${row.targetId}`}
           >
-            <Link className="library-source-title" to={evergreenHref(row)}>
+            <Link className="library-source-title" data-noeis-item to={evergreenHref(row)}>
               {row.title}
             </Link>
             <p className="library-source-meta">

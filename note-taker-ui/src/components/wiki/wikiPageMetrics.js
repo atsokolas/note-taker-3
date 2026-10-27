@@ -1,16 +1,7 @@
 import { formatSurfaceDate } from '../../utils/dateDisplay';
-import { sentenceBoundaryTrim } from '../../utils/editorialText';
-import { normalizeSpaces } from '../../utils/editorialText';
+import { docText, normalizeSpaces, sentenceBoundaryTrim } from '../../utils/editorialText';
 
 const EMPTY_DOC = { type: 'doc', content: [] };
-
-export const collectWikiText = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return node;
-  if (Array.isArray(node)) return node.map(collectWikiText).join(' ');
-  if (typeof node !== 'object') return '';
-  return [node.text || '', collectWikiText(node.content)].filter(Boolean).join(' ');
-};
 
 export const countWikiWords = (value = '') => String(value || '').split(/\s+/).filter(Boolean).length;
 
@@ -24,7 +15,7 @@ export const countWikiClaimMarks = (node, out = new Set()) => {
   (node.marks || []).forEach((mark) => {
     if (mark?.type !== 'claim') return;
     const attrs = mark.attrs || {};
-    out.add(attrs.claimId ? String(attrs.claimId) : `${collectWikiText(node).slice(0, 120)}:${out.size}`);
+    out.add(attrs.claimId ? String(attrs.claimId) : `${docText(node).slice(0, 120)}:${out.size}`);
   });
   if (Array.isArray(node.content)) countWikiClaimMarks(node.content, out);
   return out;
@@ -70,13 +61,22 @@ export const countWikiPageWords = (page = {}, body = null) => {
   page = page || {};
   const explicit = Number(page.wordCount ?? page.wordsCount);
   if (Number.isFinite(explicit) && explicit > 0) return explicit;
-  const bodyWords = countWikiWords(collectWikiText(body || page.body || EMPTY_DOC));
+  const bodyWords = countWikiWords(docText(body || page.body || EMPTY_DOC));
   if (bodyWords > 0) return bodyWords;
   return countWikiWords(page.plainText || page.summary || page.scope || page.description || '');
 };
 
+/* A heading is a line with no sentence ending. In a preview it would run into
+   the prose after it ("Moats A moat is…"), so a preview keeps only the lines
+   that read as sentences, when there are any. */
+const proseLines = (value = '') => {
+  const lines = String(value || '').split(/\n+/).map(line => line.trim()).filter(Boolean);
+  const prose = lines.filter(line => /[.!?…:;"'”’)\]]$/.test(line));
+  return (prose.length ? prose : lines).join(' ');
+};
+
 export const cleanWikiPreviewText = (value = '', title = '') => {
-  let text = String(value || '')
+  let text = proseLines(value)
     .replace(/\[\s*\d+(?:\s*[,–-]\s*\d+)*\s*\]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -93,7 +93,7 @@ export const clampWikiPreview = (value = '', budget = 160) => {
 
 export const wikiPreviewForPage = (page = {}, budget = 160) => {
   page = page || {};
-  const source = page.summary || page.scope || page.description || page.plainText || collectWikiText(page.body || EMPTY_DOC) || '';
+  const source = page.summary || page.scope || page.description || page.plainText || docText(page.body || EMPTY_DOC) || '';
   return clampWikiPreview(cleanWikiPreviewText(source, page.title), budget);
 };
 
@@ -106,7 +106,7 @@ export const isWikiScaffoldPage = (page = {}) => {
     page.scope,
     page.description,
     page.plainText,
-    collectWikiText(page.body || EMPTY_DOC),
+    docText(page.body || EMPTY_DOC),
     ...(Array.isArray(page.aiState?.health?.issues) ? page.aiState.health.issues.map(issue => issue?.text || issue?.label || '') : [])
   ].filter(Boolean).join(' ');
   return WIKI_SCAFFOLD_PATTERN.test(bodyText);

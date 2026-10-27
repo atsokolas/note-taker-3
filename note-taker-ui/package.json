@@ -2,6 +2,9 @@
 	"name": "note-taker-ui",
 	"version": "0.1.0",
 	"private": true,
+	"engines": {
+		"node": ">=22.23.4 <23"
+	},
 	"dependencies": {
 		"@citation-js/core": "^0.7.21",
 		"@citation-js/plugin-csl": "^0.7.21",
@@ -18,17 +21,16 @@
 		"@tiptap/react": "^2.11.5",
 		"@tiptap/starter-kit": "^2.11.5",
 		"@vercel/analytics": "^1.5.0",
-		"axios": "^1.11.0",
+		"axios": "1.20.0",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
 		"react-force-graph-2d": "^1.27.0",
-		"react-router-dom": "^7.6.2",
-		"react-scripts": "5.0.1",
-		"web-vitals": "^2.1.4"
+		"react-router-dom": "^7.18.4",
+		"react-scripts": "5.0.1"
 	},
 	"scripts": {
 		"prestart": "node scripts/seo/generate.js",
-		"prebuild": "node scripts/seo/generate.js",
+		"prebuild": "node --version && node scripts/seo/generate.js",
 		"generate:seo": "node scripts/seo/generate.js",
 		"indexnow:submit": "node scripts/seo/indexnow.js",
 		"start": "react-scripts start",
@@ -69,6 +71,11 @@
 	"jest": {
 		"moduleNameMapper": {
 			"^axios$": "axios/dist/node/axios.cjs"
+		}
+	},
+	"overrides": {
+		"jsonpath": {
+			"underscore": "1.13.8"
 		}
 	}
 }

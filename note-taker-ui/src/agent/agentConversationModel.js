@@ -1,4 +1,5 @@
 import { buildCanonicalArticlePath } from '../utils/sourceRoutes';
+import { sourceTitle } from '../utils/sourceDisplayText';
 
 const clean = (value) => String(value || '').trim();
 
@@ -106,7 +107,7 @@ export const buildAgentEvidenceCandidates = (items = []) => (
       const type = clean(item.type).toLowerCase();
       const id = clean(item.id || item.itemId);
       const sentence = clean(item.snippet);
-      const source = clean(item.title) || 'Untitled source';
+      const source = sourceTitle(item);
       if (type !== 'article' || !id || !sentence) return null;
       return {
         sentence,

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
 import MoveToFolderModal from '../components/library/MoveToFolderModal';
@@ -19,7 +19,7 @@ import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import ReferencePullIn from '../components/references/ReferencePullIn';
 import { getConnectionsForItem } from '../api/connections';
-import { updateHighlight, deleteHighlight } from '../api/highlights';
+import { deleteHighlight } from '../api/highlights';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { chatWithAgent } from '../api/agent';
@@ -37,6 +37,8 @@ import { isProceduralShelf } from './readingDriftModel';
 import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import LibraryCollection from '../components/library/LibraryCollection';
+import LibraryReadingRoom from '../components/library/LibraryReadingRoom';
+import LibraryPasteLink from '../components/library/LibraryPasteLink';
 import { buildArticlePassageHref } from '../utils/sourceRoutes';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
 import LibraryActions from '../components/library/LibraryActions';
@@ -108,7 +110,6 @@ const Library = () => {
   });
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const [filingLaunching, setFilingLaunching] = useState(false);
-  const [filingReceipt, setFilingReceipt] = useState(null);
   /* Kept pages and beliefs for the canon, or null until they have been read.
      Null travels all the way to the shelf so it can stay silent rather than
      announce an empty canon it has not looked at. */
@@ -275,15 +276,11 @@ const Library = () => {
   const handleReviewFiling = useCallback(async () => {
     if (filingLaunching) return;
     setFilingLaunching(true);
-    setFilingReceipt(null);
     systemStatus.clearRecoverableFailure();
     systemStatus.setBackgroundWork({ label: 'Filing the library', stage: 'Staging suggestions' });
     try {
       const result = await startLibraryFilingSuggestions();
       const receipt = result?.receipt && typeof result.receipt === 'object' ? result.receipt : null;
-      if (receipt?.summary) {
-        setFilingReceipt(receipt);
-      }
       const nextThreadId = String(result?.thread?.threadId || result?.thread?._id || '').trim();
       const href = nextThreadId
         ? `/think?tab=threads&threadId=${encodeURIComponent(nextThreadId)}`
@@ -297,10 +294,6 @@ const Library = () => {
       navigate(href);
     } catch (error) {
       console.error('Failed to start library filing suggestions:', error);
-      setFilingReceipt({
-        stage: 'error',
-        summary: 'Could not stage filing suggestions. Try again in a moment.'
-      });
       systemStatus.setRecoverableFailure({
         stage: 'Library filing',
         message: 'Could not stage filing suggestions. Try again in a moment.',
@@ -518,17 +511,6 @@ const Library = () => {
   const handleHighlightClick = useCallback((highlight) => {
     setActiveHighlightId(highlight._id);
   }, []);
-
-  const handleUpdateHighlight = useCallback(async (highlightId, payload) => {
-    if (!selectedArticleId || !highlightId) return null;
-    const updated = await updateHighlight({
-      articleId: selectedArticleId,
-      highlightId,
-      payload
-    });
-    replaceHighlight(highlightId, updated);
-    return updated;
-  }, [replaceHighlight, selectedArticleId]);
 
   const handleDeleteHighlight = useCallback(async (highlight) => {
     if (!highlight?._id || !selectedArticleId) return;
@@ -791,7 +773,7 @@ const Library = () => {
     const previousArticle = known.find((item) => String(item._id || item.id) === String(articleId)) || {};
     const previous = placementOf(previousArticle);
     const saved = await setArticlePlacement(articleId, placement);
-      setCollectionRevision(revision => revision + 1);
+    setCollectionRevision(revision => revision + 1);
     const next = saved?.placement || placement;
     const stamp = Object.prototype.hasOwnProperty.call(saved || {}, 'placementAt')
       ? saved.placementAt
@@ -837,6 +819,11 @@ const Library = () => {
     }
   }, [legacyFolders, libraryRoom, refreshArticles]);
 
+  const handleLinkSaved = useCallback(() => {
+    setCollectionRevision(revision => revision + 1);
+    libraryRoom.refresh?.();
+  }, [libraryRoom]);
+
   const handleScreenFolder = useCallback(async (asFeed) => {
     const id = String(shelfFolderId || '').trim();
     if (!id) return;
@@ -859,25 +846,23 @@ const Library = () => {
     return saved;
   }, [libraryRoom, refreshArticles, searchParams, setSearchParams, shelfFolderId]);
 
-  const handleAskLibrarian = useCallback((highlight) => {
-    const prompt = buildLibrarianSelectionPrompt(highlight);
-    if (!prompt) return;
-    retainHighlightInLibraryHistory(highlight);
-    askRail?.(prompt, { origin: 'Asked of this passage' });
-  }, [askRail, retainHighlightInLibraryHistory]);
-
   /* A passage asked about from the browser extension arrives on its
-     highlight with ?ask=1, and the Partner opens already asking. Once. */
+     highlight with ?ask=1, and the Partner opens already asking. Once.
+     In the reader, asking happens in the margin instead. */
   const askedFromExtension = searchParams.get('ask') === '1';
   useEffect(() => {
     if (!askedFromExtension) return;
     const highlight = (articleHighlights || []).find(item => String(item?._id) === requestedHighlightId);
     if (!highlight) return;
-    handleAskLibrarian(highlight);
+    const prompt = buildLibrarianSelectionPrompt(highlight);
+    if (prompt) {
+      retainHighlightInLibraryHistory(highlight);
+      askRail?.(prompt, { origin: 'Asked of this passage' });
+    }
     const params = new URLSearchParams(searchParams);
     params.delete('ask');
     setSearchParams(params, { replace: true });
-  }, [askedFromExtension, articleHighlights, handleAskLibrarian, requestedHighlightId, searchParams, setSearchParams]);
+  }, [askedFromExtension, articleHighlights, askRail, requestedHighlightId, retainHighlightInLibraryHistory, searchParams, setSearchParams]);
 
   const selectedFolderName = useMemo(() => {
     if (scope !== 'folder' && scope !== 'feed') return '';
@@ -1018,7 +1003,6 @@ const Library = () => {
       onHighlightRemove={removeHighlight}
       onOpenConcept={handleOpenConceptModal}
       onOpenQuestion={handleOpenQuestionModal}
-      onAskLibrarian={handleAskLibrarian}
       onToggleEvergreen={handleToggleEvergreen}
       onTogglePlacement={handleTogglePlacement}
       onOpenedSentence={setOpenedSentenceText}
@@ -1031,11 +1015,6 @@ const Library = () => {
       onArticleQueryChange={handleArticleQueryChange}
       onQueryChange={handleHighlightQueryChange}
       allArticles={allArticles}
-      unfiledCount={unfiledCount}
-      onReviewFiling={handleReviewFiling}
-      filingLaunching={filingLaunching}
-      filingReceipt={filingReceipt}
-      onToggleSuppressed={handleToggleSuppressedItems}
       corpusTotal={corpusTotal}
       rawCorpusTotal={rawCorpusTotal}
       suppressedCount={suppressedCount}
@@ -1080,11 +1059,9 @@ const Library = () => {
           referencesError={articleError}
           activeHighlightId={activeHighlightId}
           onHighlightClick={handleHighlightClick}
-          onSelectHighlight={setActiveHighlightId}
           onAddConcept={handleOpenConceptModal}
           onAddNotebook={handleOpenNotebookModal}
           onAddQuestion={handleOpenQuestionModal}
-          onUpdateHighlight={handleUpdateHighlight}
           onDeleteHighlight={handleDeleteHighlight}
         />
       </EditorialSideRailCollapsible>
@@ -1122,6 +1099,12 @@ const Library = () => {
           <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>← Back to collection</button>
         </div> : null}
         <div className={`library-reader ${!isReadingView ? 'is-shelf' : ''}`} data-testid="library-main">
+          {collectionView && ['all', 'later', 'folder'].includes(scope) && !isReadingView ? <LibraryPasteLink
+            key={folderId || scope} folders={folders} folderId={scope === 'folder' ? folderId : ''}
+            onOpen={handleSelectArticle} onSaved={handleLinkSaved}
+            onShowNightstand={scope === 'later' ? null : () => handleSelectScope('later')}
+          >{scope === 'later' ? <Link className="library-paste-link__more" to="/library/save">Save from your phone too</Link> : null}</LibraryPasteLink> : null}
+          {collectionView && scope === 'all' && !isReadingView && !articleQuery ? <LibraryReadingRoom onOpen={handleSelectArticle} /> : null}
           {collectionView ? <LibraryCollection
             scope={scope} folderId={shelfFolderId} folderName={selectedFolderName} revision={collectionRevision}
             query={articleQuery} sort={collectionSort} onQueryChange={handleArticleQueryChange}

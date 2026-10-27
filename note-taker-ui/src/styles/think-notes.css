@@ -896,10 +896,11 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
 .notebook-board__header .ui-page-header__actions { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .notebook-board__receipt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-height: 1.6em; margin: 0 0 18px; color: var(--text-secondary); font-size: .8rem; }
 .notebook-board__receipt button,
+.notebook-board__receipt a,
 .notebook-board__stale button,
 .notebook-board__restore {
   padding: 0; border: 0; border-bottom: 1px solid currentColor; background: transparent;
-  color: var(--noeis-pointer, #6f87ff); font: inherit; cursor: pointer;
+  color: var(--noeis-pointer, #6f87ff); font: inherit; cursor: pointer; text-decoration: none;
 }
 .notebook-board__columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 2.2vw, 32px); align-items: start; }
 .notebook-board__column {
@@ -982,3 +983,19 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
   border-radius: 8px;
   background: color-mix(in srgb, var(--noeis-paper-muted) 46%, transparent);
 }
+
+/* An empty notebook opens on the reader's last mark. */
+.think-notes__last-mark { display: grid; gap: 14px; justify-items: start; max-width: 56ch; }
+.think-notes__last-mark blockquote {
+  margin: 0;
+  padding-left: 16px;
+  border-left: 2px solid var(--vellum-warm, currentColor);
+  font-family: var(--font-serif);
+  font-size: 1.18rem;
+  line-height: 1.5;
+  color: var(--text-primary, var(--vellum-ink));
+}
+.think-notes__last-thought { margin: 0; font-size: 0.96rem; color: var(--text-primary, var(--vellum-ink)); }
+
+.think-notes__context-picker { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--noeis-ink-muted); }
+.think-notes__context-picker select { min-height: 44px; font: inherit; }

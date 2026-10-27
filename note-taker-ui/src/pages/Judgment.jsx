@@ -105,7 +105,7 @@ const JudgmentIndex = ({ items, loading, error, setAsideView, initialHold = '' }
         <ul className="judgment-index__list">
           {shown.map(item => (
             <li key={item.id}>
-              <Link to={`/judgment/${item.id}`}>{item.sentence}</Link>
+              <Link to={`/judgment/${item.id}`} data-noeis-item>{item.sentence}</Link>
               {item.card ? <p>{item.card}</p> : null}
             </li>
           ))}

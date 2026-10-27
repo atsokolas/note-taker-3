@@ -1,6 +1,6 @@
 const express = require('express');
 
-const SUPPORTED_AGENT_SCOPES = new Set(['read', 'agent-write']);
+const { AGENT_TOKEN_PREFIX, AGENT_TOKEN_SCOPE_SET, getBearerToken } = require('../services/agentTokenService');
 
 const buildAgentTokenRouter = ({
   mongoose,
@@ -20,7 +20,7 @@ const buildAgentTokenRouter = ({
     const requested = (Array.isArray(value) ? value : value ? [value] : ['read'])
       .map(scope => String(scope || '').trim())
       .filter(Boolean);
-    const unsupported = requested.filter(scope => !SUPPORTED_AGENT_SCOPES.has(scope));
+    const unsupported = requested.filter(scope => !AGENT_TOKEN_SCOPE_SET.has(scope));
     if (unsupported.length > 0) {
       return { error: `Unsupported scope: ${unsupported.join(', ')}.` };
     }
@@ -202,45 +202,46 @@ const buildAgentTokenRouter = ({
     }
   });
 
-  router.post('/api/agent-tokens/:id/revoke', authenticateToken, async (req, res) => {
+  /* Revoking a token ends its whole OAuth family with it, so a ChatGPT
+     connection cannot outlive the token you revoked. */
+  const revoke = async (query) => {
+    const updated = await AgentToken.findOneAndUpdate(query, { status: 'revoked', revokedAt: new Date() }, { new: true });
+    if (updated?.oauthFamilyId && OAuthGrant) {
+      const family = { familyId: updated.oauthFamilyId, userId: updated.userId };
+      await OAuthGrant.updateOne(family, { $set: { revokedAt: new Date() } });
+      await AgentToken.updateMany({ oauthFamilyId: family.familyId, userId: family.userId }, { $set: { status: 'revoked', revokedAt: new Date() } });
+    }
+    return updated;
+  };
+
+  const revokeById = async (req, res) => {
     try {
       const id = String(req.params.id || '').trim();
       if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid token id.' });
-      const updated = await AgentToken.findOneAndUpdate(
-        { _id: id, userId: req.user.id },
-        { status: 'revoked', revokedAt: new Date() },
-        { new: true }
-      );
+      const updated = await revoke({ _id: id, userId: req.user.id });
       if (!updated) return res.status(404).json({ error: 'Agent token not found.' });
-      if (updated.oauthFamilyId && OAuthGrant) {
-        await OAuthGrant.updateOne({ familyId: updated.oauthFamilyId, userId: req.user.id }, { $set: { revokedAt: new Date() } });
-        await AgentToken.updateMany({ oauthFamilyId: updated.oauthFamilyId, userId: req.user.id }, { $set: { status: 'revoked', revokedAt: new Date() } });
-      }
       res.status(200).json({ token: sanitizeAgentToken(updated) });
     } catch (error) {
       console.error('❌ Error revoking agent token:', error);
       res.status(500).json({ error: 'Failed to revoke agent token.' });
     }
-  });
+  };
+  router.post('/api/agent-tokens/:id/revoke', authenticateToken, revokeById);
+  router.delete('/api/agent-tokens/:id', authenticateToken, revokeById);
 
-  router.delete('/api/agent-tokens/:id', authenticateToken, async (req, res) => {
+  /* A connection ends itself: a desktop signing out throws its token away.
+     Holding the secret is the proof, as in OAuth token revocation, so a
+     token that may do nothing else may still do this, and nothing more. */
+  router.delete('/api/agent-connection', async (req, res) => {
     try {
-      const id = String(req.params.id || '').trim();
-      if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid token id.' });
-      const updated = await AgentToken.findOneAndUpdate(
-        { _id: id, userId: req.user.id },
-        { status: 'revoked', revokedAt: new Date() },
-        { new: true }
-      );
-      if (!updated) return res.status(404).json({ error: 'Agent token not found.' });
-      if (updated.oauthFamilyId && OAuthGrant) {
-        await OAuthGrant.updateOne({ familyId: updated.oauthFamilyId, userId: req.user.id }, { $set: { revokedAt: new Date() } });
-        await AgentToken.updateMany({ oauthFamilyId: updated.oauthFamilyId, userId: req.user.id }, { $set: { status: 'revoked', revokedAt: new Date() } });
-      }
+      const secret = getBearerToken(req);
+      const updated = secret.startsWith(AGENT_TOKEN_PREFIX)
+        && await revoke({ hashedSecret: hashAgentTokenSecret(secret) });
+      if (!updated) return res.status(401).json({ error: 'Agent token required.' });
       res.status(200).json({ token: sanitizeAgentToken(updated) });
     } catch (error) {
-      console.error('❌ Error deleting agent token:', error);
-      res.status(500).json({ error: 'Failed to delete agent token.' });
+      console.error('❌ Error ending agent connection:', error);
+      res.status(500).json({ error: 'Failed to revoke agent token.' });
     }
   });
 

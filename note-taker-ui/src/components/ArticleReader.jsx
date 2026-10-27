@@ -1,8 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from './ui';
 import { createHighlight } from '../api/highlights';
-import { listWikiPages } from '../api/wiki';
 import { fileReadingProposal, getPushesAgainst } from '../api/judgmentResolution';
 import EvergreenToggle from './EvergreenToggle';
 import PlacementSwitch from './PlacementSwitch';
@@ -11,10 +10,19 @@ import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
 import PassageThought from './reader/PassageThought';
 import ReadFresh, { useReadFresh } from './reader/ReadFresh';
+import { PASSAGES, walkPassages } from './reader/passageWalk';
 import useArticleReadingPlace from './reader/useArticleReadingPlace';
 import MagneticReadingRail from './reader/MagneticReadingRail';
+import ReturnGreeting from './reader/ReturnGreeting';
+import FootnotePeek from './reader/FootnotePeek';
+import OpenSource from './reader/OpenSource';
+import usePassageOpens from './reader/usePassageOpens';
+import { sourceKind } from './reader/readerDress';
+import ExplainItBack, { useModelReads } from './reader/ExplainItBack';
 import PassageDoor from './reader/PassageDoorView';
-import { heldHighlightIds, sourceWhereabouts } from './reader/sourceWhereabouts';
+import { ArticleMargins, paragraphAt } from './margins/LibraryMargins';
+import { useMarginAsk } from './margins/MarginAnswer';
+import useSourceWhereabouts from './reader/useSourceWhereabouts';
 import OpenedLibraryPassage, { LibraryOriginReturn } from './wiki/open-sentence/OpenedLibraryPassage';
 import { matchingReturnTicket } from './wiki/open-sentence/openSentenceJourney';
 import {
@@ -25,6 +33,7 @@ import {
 import { handOffSentence, takeFirstPaint } from '../motion/columnMotion';
 import { PLACES } from '../motion/crossings';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
+import { isGoToTypingTarget } from '../navigation/appNavigation';
 import { knownHighlightColor } from '../constants/highlightColors';
 import { placementOf } from '../pages/placementModel';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
@@ -33,9 +42,9 @@ import {
   readArticlePassageFragment
 } from '../utils/articlePassageAnchor';
 import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
-import { originalUrl, sourceLabel } from './library/libraryColumnModel';
+import { sourceLabel } from './library/libraryColumnModel';
 import { formatCalendarDate } from '../utils/dateDisplay';
-import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
+import { sourceTitle } from '../utils/sourceDisplayText';
 
 const hasReadableContent = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
@@ -154,10 +163,11 @@ const ArticleReader = ({
   onHighlightOptimistic,
   onHighlightReplace,
   onHighlightRemove,
-  onAskLibrarian,
   onToggleEvergreen,
   onTogglePlacement,
   onOpenedSentence,
+  onNext,
+  onPrevious,
   sourceTrace = null
 }) => {
   const contentRef = useRef(null);
@@ -165,6 +175,7 @@ const ArticleReader = ({
   const location = useLocation() || { search: '', hash: '' };
   const titleRef = useRef(null);
   const readerRootRef = useRef(null);
+  const doneRef = useRef(null);
   const menuRef = useRef(null);
   const reducedMotion = usePrefersReducedMotion();
   const [saveError, setSaveError] = useState('');
@@ -173,7 +184,9 @@ const ArticleReader = ({
   const thoughtRequest = useRef('');
   useEffect(() => { setThought(null); }, [article?._id]);
   const articleId = article?._id;
-  const reading = useReadFresh(readerRootRef, articleId, '.article-reader-content p, .article-reader-content blockquote, .article-reader-content h2');
+  const modelReads = useModelReads(articleId);
+  const asking = useMarginAsk(articleId, modelReads);
+  const reading = useReadFresh(readerRootRef, articleId, PASSAGES);
   const articlePlacement = article?.placement;
   /* Kept lives here rather than being read straight off the prop, so pressing
      it settles immediately instead of waiting for the article list to refetch.
@@ -182,7 +195,6 @@ const ArticleReader = ({
   const [placement, setPlacement] = useState(() => placementOf(article));
   /* When the reader last decided what this piece is, if it was in this sitting. */
   const [closedOn, setClosedOn] = useState(null);
-  const [folioPages, setFolioPages] = useState([]);
   const [against, setAgainst] = useState(null);
   const [passageLocation, setPassageLocation] = useState(() => ({
     hash: typeof window === 'undefined' ? '' : window.location.hash,
@@ -195,30 +207,14 @@ const ArticleReader = ({
   useEffect(() => {
     setPlacement(placementOf({ placement: articlePlacement }));
   }, [articleId, articlePlacement]);
-  useEffect(() => {
-    const replacePages = (next) => {
-      setFolioPages((current) => (current.length || next.length ? next : current));
-    };
-    if (!articleId) {
-      replacePages([]);
-      return undefined;
-    }
-    let cancelled = false;
-    replacePages([]);
-    listWikiPages({ limit: 500, summary: 1 })
-      .then((pages) => {
-        if (!cancelled) replacePages(Array.isArray(pages) ? pages : []);
-      })
-      .catch(() => {
-        if (!cancelled) replacePages([]);
-      });
-    return () => { cancelled = true; };
-  }, [articleId]);
+  const { pages: folioPages, whereabouts, held: heldPassages } = useSourceWhereabouts(articleId, highlights);
   const fireTourSignal = useTourSignal();
+  const inkedHighlights = usePassageOpens({ articleId, highlightId: focusedHighlightId, highlights });
   const html = useMemo(
-    () => renderArticleContentWithHighlights(article, highlights),
-    [article, highlights]
+    () => renderArticleContentWithHighlights(article, inkedHighlights),
+    [article, inkedHighlights]
   );
+  const dress = useMemo(() => sourceKind(article), [article]);
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     const readLocation = () => setPassageLocation({
@@ -259,11 +255,14 @@ const ArticleReader = ({
   }, [articleId, focusedHighlightId, focusedHighlight, location.key, location.search]);
   const focusedPassageIsInArticle = Boolean(focusedHighlightId)
     && html.includes(`data-highlight-id="highlight-${focusedHighlightId}"`);
-  const isHighlightOnlyImport = Boolean(article)
-    && !hasReadableContent(article.content)
-    && Array.isArray(highlights)
-    && highlights.length > 0;
-  const focusedPassage = focusedHighlight && !focusedPassageIsInArticle && !isHighlightOnlyImport
+  /* A source with no text of its own, a book above all, is read elsewhere
+     and written about at its desk, on a page of its own. A second copy of a
+     book that went onto the shelf opens the book it went into. */
+  const atDesk = Boolean(article) && (Boolean(article.mergedInto) || (
+    !hasReadableContent(article.content)
+    && (highlights.length > 0 || /^import:\/\//.test(article.url || ''))
+  ));
+  const focusedPassage = focusedHighlight && !focusedPassageIsInArticle
     ? focusedHighlight
     : null;
   const { selectionState, clearSelection } = useTextSelection({
@@ -286,11 +285,6 @@ const ArticleReader = ({
     return () => { live = false; };
   }, [articleId]);
 
-  const whereabouts = useMemo(
-    () => sourceWhereabouts(folioPages, { articleId, highlights }),
-    [articleId, folioPages, highlights]
-  );
-  const heldPassages = useMemo(() => heldHighlightIds(whereabouts), [whereabouts]);
 
   const keep = async (next) => {
     const saved = await onToggleEvergreen(article._id, next);
@@ -304,7 +298,7 @@ const ArticleReader = ({
       /* A source leaving the reading for a pile: the first of the four
          crossings, and the one a reader makes most often. */
       if (origin) {
-        handOffSentence(article.title || 'Untitled source', origin, {
+        handOffSentence(sourceTitle(article), origin, {
           from: PLACES.READER,
           to: PLACES.PILE
         });
@@ -314,6 +308,28 @@ const ArticleReader = ({
     setPlacement(placementOf({ placement: saved?.placement ?? next }));
     setClosedOn(new Date());
   };
+
+  /* Reading to the end of a piece from the nightstand is what it waited
+     for, so it moves into the Library. The end must come into view after the
+     piece opened, not be there already, or opening one at its last screen
+     would count. One step puts it back. */
+  const [finished, setFinished] = useState(false);
+  useEffect(() => { setFinished(false); }, [articleId]);
+  const waiting = placement === 'later';
+  useEffect(() => {
+    const node = doneRef.current;
+    if (!waiting || !node || typeof IntersectionObserver === 'undefined') return undefined;
+    let seenBefore = null;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (seenBefore === null) seenBefore = entry.isIntersecting;
+      else if (entry.isIntersecting && !seenBefore) {
+        observer.disconnect();
+        park('stream').then(() => setFinished(true));
+      }
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [articleId, waiting]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const passageDoorFor = (highlight, index) => {
     const highlightId = highlight?._id || highlight?.id || '';
@@ -329,6 +345,24 @@ const ArticleReader = ({
       />
     );
   };
+
+  /* The reader's one keyboard. J and K walk the paragraphs, N and P turn to
+     the next and previous piece in the list it was opened from, and H, T and
+     A act on a selection while its menu is open. Typing and shortcuts are
+     left alone. On the document, so the reader claims these before the
+     app's own moves hear them. */
+  const keys = useRef({});
+  useEffect(() => {
+    const press = (event) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || isGoToTypingTarget(event.target)) return;
+      const action = keys.current[String(event.key || '').toLowerCase()];
+      if (!action) return;
+      event.preventDefault();
+      action();
+    };
+    document.addEventListener('keydown', press);
+    return () => document.removeEventListener('keydown', press);
+  }, []);
 
   useEffect(() => {
     if (!selectionState.isOpen) return;
@@ -372,7 +406,7 @@ const ArticleReader = ({
     return '';
   })();
 
-  useArticleReadingPlace({
+  const arrival = useArticleReadingPlace({
     articleId, contentRef, contentKey: article?.content,
     explicitDestination: Boolean(focusedHighlightId || location.hash || new URLSearchParams(location.search).has('searchMissing') || location.state?.explicitPassage),
     enabled: Boolean(articleId && hasReadableContent(article?.content))
@@ -391,6 +425,7 @@ const ArticleReader = ({
   }, [highlightSignature]);
 
   if (!article) {
+    keys.current = {};
     return (
       <div className="article-reader-empty">
         <p className="muted">Select an article to start reading.</p>
@@ -400,7 +435,9 @@ const ArticleReader = ({
 
   const published = formatCalendarDate(article.publicationDate);
   const closedDate = (at) => formatCalendarDate(closedOn || at);
-  const closingLine = kept
+  const closingLine = finished && placement === 'stream'
+    ? <>Finished. Moved to your Library. <button type="button" className="article-put-back" onClick={() => park('later').then(() => setFinished(false))}>Put it back</button></>
+    : kept
     ? `Kept for good${closedDate(article.evergreenAt) ? ` on ${closedDate(article.evergreenAt)}` : ''}.`
     : placement === 'setAside'
       ? `Set aside${closedDate(article.placementAt) ? ` on ${closedDate(article.placementAt)}` : ''}.`
@@ -476,17 +513,47 @@ const ArticleReader = ({
     await persistHighlight(undefined, ink);
   };
 
-  const handleSaveAndOpen = async (callback, fallbackError) => {
-    if (!callback) {
-      setSaveError(fallbackError);
-      return;
-    }
-    await persistHighlight(callback);
+  /* Asking about a selection keeps nothing: the answer opens in the margin
+     beside the paragraph the selection begins in. */
+  const askAboutSelection = () => {
+    const selection = window.getSelection?.();
+    const { rect } = selectionState;
+    const node = selection?.rangeCount
+      ? selection.getRangeAt(0).startContainer
+      : rect && document.elementFromPoint?.(rect.left + 1, rect.top + rect.height / 2);
+    const at = paragraphAt(contentRef.current, node);
+    if (!at) return;
+    asking.ask({ ...at, selection: selectionState.text });
+    clearSelection();
   };
 
+  const leaveThought = () => persistHighlight(highlight => {
+    setThought(highlight);
+    const params = new URLSearchParams(location.search);
+    params.set('articleId', articleId);
+    params.set('highlightId', highlight._id);
+    params.delete('exploration');
+    params.set('thought', '1');
+    navigate({ pathname: '/library', search: params.toString(), hash: '' });
+  });
+  const ask = asking.available ? askAboutSelection : undefined;
+  const menuOpen = selectionState.isOpen && !reading.readFresh;
+  const walk = (step) => () => walkPassages(readerRootRef.current, step, { reducedMotion });
+  keys.current = {
+    j: walk(1),
+    k: walk(-1),
+    n: onNext,
+    p: onPrevious,
+    ...(menuOpen && !saving ? { h: handleCreateHighlight, t: leaveThought, a: ask } : {})
+  };
+
+  if (atDesk) {
+    return <Navigate replace to={`/library/books/${article.mergedInto || article._id}${focusedHighlightId ? `?highlight=${focusedHighlightId}` : ''}`} />;
+  }
+
   return (
-    <div className="article-reader" ref={readerRootRef} data-read-fresh={reading.readFresh || undefined}>
-      {selectionState.isOpen && !reading.readFresh && (
+    <div className="article-reader" ref={readerRootRef} data-read-fresh={reading.readFresh || undefined} data-source-kind={dress || undefined}>
+      {menuOpen && (
         <SelectionMenu
           ref={menuRef}
           rect={selectionState.rect}
@@ -505,16 +572,8 @@ const ArticleReader = ({
               navigate({ pathname: '/library', search: params.toString(), hash: '' });
             });
           }}
-          onThought={() => persistHighlight(highlight => {
-            setThought(highlight);
-            const params = new URLSearchParams(location.search);
-            params.set('articleId', articleId);
-            params.set('highlightId', highlight._id);
-            params.delete('exploration');
-            params.set('thought', '1');
-            navigate({ pathname: '/library', search: params.toString(), hash: '' });
-          })}
-          onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, `${AGENT_DISPLAY_NAME} is not here right now.`)}
+          onThought={leaveThought}
+          onAsk={ask}
         />
       )}
       <div className="article-reader-header">
@@ -529,10 +588,9 @@ const ArticleReader = ({
           <div className="article-reader-meta">
             {/* When it was published. When you saved it lives in the source record. */}
             {published ? <span>{published}</span> : null}
-            {originalUrl(article) ? (
-              <a href={originalUrl(article)} target="_blank" rel="noopener noreferrer">Open source</a>
-            ) : null}
+            <OpenSource key={article._id} article={article} />
           </div>
+          {placement !== 'stream' && article.placementReason ? <p className="article-reader-why">{article.placementReason}</p> : null}
           {folioLine ? <ArticleFolioLine line={folioLine} articleId={article._id} /> : null}
         </div>
         {/* Keeping a source for life is something you do to it, so it sits
@@ -561,11 +619,7 @@ const ArticleReader = ({
               onChange={keep}
             />
           ) : null}
-          {onMove && (
-            <Button variant="quiet" onClick={onMove}>
-              Move
-            </Button>
-          )}
+          {onMove ? <button type="button" className="source-decision" onClick={onMove}>Move</button> : null}
         </div>
       </div>
       {new URLSearchParams(location.search).has('searchMissing') ? <p role="status">The matching text could not be located in the readable source. Your source record is still here.</p> : null}
@@ -575,6 +629,7 @@ const ArticleReader = ({
       {!focusedHighlight && passageFragment.status === 'ready' ? (
         <LibraryOriginReturn ticket={matchingReturnTicket({ articleId, passage: passageFragment.anchor.text, anchor: passageFragment.anchor })} />
       ) : null}
+      <ReturnGreeting key={articleId} article={article} highlights={highlights} arrival={arrival} contentRef={contentRef} />
       {articleId ? (
         <OpenedLibraryPassage
           key={articleId}
@@ -589,54 +644,22 @@ const ArticleReader = ({
           onOpenedText={onOpenedSentence}
         />
       ) : null}
-      {isHighlightOnlyImport ? (
-        <div className="article-reader-content reader article-reader-content--highlights" ref={contentRef}>
-          <section className="article-highlight-edition" aria-label="Saved highlights">
-            <div className="article-highlight-edition__lead">
-              <span className="eyebrow">Highlight edition</span>
-              <p>
-                No full article text was imported for this source, so Noeis is showing the saved
-                highlights as the reading body.
-              </p>
-            </div>
-            <ol className="article-highlight-edition__list">
-              {highlights.map((highlight, index) => {
-                const highlightId = highlight?._id || highlight?.id || `${article?._id || 'article'}-${index}`;
-                const tags = Array.isArray(highlight?.tags) ? highlight.tags.filter(Boolean) : [];
-                const createdAt = formatCalendarDate(highlight?.createdAt || highlight?.highlightedAt);
-                return (
-                  <li
-                    key={highlightId}
-                    className="article-highlight-edition__item"
-                    data-highlight-id={`highlight-${highlightId}`}
-                  >
-                    <blockquote>{highlight?.text || 'Untitled highlight'}</blockquote>
-                    {(highlight?.note || createdAt || tags.length > 0) && (
-                      <div className="article-highlight-edition__meta">
-                        {createdAt && <span>{createdAt}</span>}
-                        {tags.slice(0, 6).map(tag => <span key={`${highlightId}-${tag}`}>{tag}</span>)}
-                      </div>
-                    )}
-                    {highlight?.note && (
-                      <p className="article-highlight-edition__note">{highlight.note}</p>
-                    )}
-                    {passageDoorFor(highlight, index)}
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        </div>
-      ) : (
-        <>
-          <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
-          <div className="article-passage-threads" aria-label="Connections to held judgments">
-            {highlights
-              .filter((highlight) => !heldPassages.has(String(highlight?._id || highlight?.id || '')))
-              .map(passageDoorFor)}
-          </div>
-        </>
-      )}
+      <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
+      <FootnotePeek contentRef={contentRef} />
+      <ArticleMargins
+        articleId={articleId}
+        contentRef={contentRef}
+        frameRef={readerRootRef}
+        contentKey={article.content}
+        layoutKey={contentMarkup.__html}
+        hidden={Boolean(reading.readFresh)}
+        asking={asking}
+      />
+      <div className="article-passage-threads" aria-label="Connections to held judgments">
+        {highlights
+          .filter((highlight) => !heldPassages.has(String(highlight?._id || highlight?.id || '')))
+          .map(passageDoorFor)}
+      </div>
       {/* The source record — who wrote it, when it was saved, where else it is
           used — sat between the headline and the first paragraph, so every
           article opened onto a panel instead of onto its text. It is the same
@@ -647,12 +670,13 @@ const ArticleReader = ({
       {focusedHighlight?.note && !thought ? <button className="article-thought-reopen" onClick={() => setThought(focusedHighlight)}>Your thought: {focusedHighlight.note}</button> : null}
       {onToggleEvergreen && onTogglePlacement ? (
         /* Done reading: what this piece is now, in one line. No modal. */
-        <p className={`article-done${kept || placement === 'setAside' ? ' is-settled' : ''}`} data-reader-control>
+        <p ref={doneRef} className={`article-done${kept || placement === 'setAside' ? ' is-settled' : ''}`} data-reader-control>
           <button type="button" aria-pressed={kept} onClick={() => keep(!kept)}>Keep for good</button>
           <span aria-hidden="true"> · </span>
           <button type="button" aria-pressed={placement === 'setAside'} onClick={() => park(placement === 'setAside' ? 'stream' : 'setAside')}>Set aside</button>
         </p>
       ) : null}
+      <ExplainItBack articleId={articleId} available={modelReads} />
       {sourceTrace}
       {closingLine || whereabouts.length || against ? (
         <ul className="article-whereabouts" aria-label="Where this piece went">
@@ -663,6 +687,7 @@ const ArticleReader = ({
           ))}
         </ul>
       ) : null}
+      {/* How much is left is the book's to know; the desk has no length. */}
       <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>

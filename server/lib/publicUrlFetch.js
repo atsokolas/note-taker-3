@@ -23,6 +23,7 @@ const net = require('net');
 
 const DEFAULT_MAX_BYTES = 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 10000;
+const DEFAULT_DEADLINE_MS = 20000;
 const MAX_REDIRECTS = 3;
 
 const isPrivateIpv4 = (address = '') => {
@@ -116,20 +117,20 @@ const readBoundedBody = async (response, maxBytes = DEFAULT_MAX_BYTES, subject =
 };
 
 /**
- * Fetch a public URL and return its text, following redirects safely.
+ * Request a public URL, following redirects safely, and return the final
+ * response.
  *
  * Redirects are followed manually so every hop is re-validated. A public host
  * that redirects to 127.0.0.1 is the whole reason this function exists.
  */
-const fetchPublicText = async ({
+const requestPublic = async ({
   url,
+  method = 'GET',
   subject = 'This URL',
   accept = 'text/html,application/xhtml+xml',
   userAgent = 'Noeis (+https://www.noeis.io)',
-  contentTypePattern = null,
-  contentTypeMessage = '',
-  maxBytes = DEFAULT_MAX_BYTES,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  signal = null,
   fetchImpl = global.fetch,
   lookup = dns.lookup
 } = {}) => {
@@ -139,9 +140,12 @@ const fetchPublicText = async ({
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    // The hop's timer stops at the headers; a caller's signal can still end the body.
+    signal?.addEventListener('abort', () => controller.abort(), { once: true });
     let response;
     try {
       response = await fetchImpl(current, {
+        method,
         redirect: 'manual',
         signal: controller.signal,
         headers: { Accept: accept, 'User-Agent': userAgent }
@@ -156,15 +160,57 @@ const fetchPublicText = async ({
       current = await validatePublicUrl(new URL(location, current).toString(), { lookup, subject });
       continue;
     }
-    if (!response?.ok) throw new Error(`${subject} request failed with HTTP ${response?.status || 'unknown'}.`);
+    return { response, url: current };
+  }
+  throw new Error(`${subject} exceeded the redirect limit.`);
+};
 
+/** Fetch a public URL and return its text. */
+const fetchPublicText = async ({
+  contentTypePattern = null,
+  contentTypeMessage = '',
+  maxBytes = DEFAULT_MAX_BYTES,
+  subject = 'This URL',
+  deadlineMs = DEFAULT_DEADLINE_MS,
+  ...request
+} = {}) => {
+  // One deadline over every hop and the whole body, so a page that sends its
+  // headers and then trickles forever is cut off and its socket released.
+  const deadline = new AbortController();
+  const timer = setTimeout(() => deadline.abort(), deadlineMs);
+  try {
+    const { response, url } = await requestPublic({ ...request, subject, signal: deadline.signal });
+    if (!response?.ok) {
+      const error = new Error(`${subject} request failed with HTTP ${response?.status || 'unknown'}.`);
+      error.status = response?.status || 0;
+      throw error;
+    }
     const contentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
     if (contentTypePattern && contentType && !contentTypePattern.test(contentType)) {
       throw new Error(contentTypeMessage || `${subject} did not return the expected content type.`);
     }
-    return { text: await readBoundedBody(response, maxBytes, subject), url: current, contentType };
+    return { text: await readBoundedBody(response, maxBytes, subject), url, contentType };
+  } finally {
+    clearTimeout(timer);
   }
-  throw new Error(`${subject} exceeded the redirect limit.`);
+};
+
+/* Not Found and Gone are the only answers that mean the page is no longer
+   there. A 403, a 500 or a timeout is a door that did not open today. */
+const isGoneStatus = (status) => status === 404 || status === 410;
+
+/**
+ * The status a public URL answers a HEAD with, or 0 when it would not say.
+ * Nothing is read: a check, not a fetch.
+ */
+const publicUrlStatus = async ({ url, timeoutMs = 5000, ...request } = {}) => {
+  try {
+    const { response } = await requestPublic({ ...request, url, timeoutMs, method: 'HEAD', accept: '*/*' });
+    response?.body?.cancel?.().catch?.(() => null);
+    return Number(response?.status) || 0;
+  } catch (_error) {
+    return 0;
+  }
 };
 
 module.exports = {
@@ -172,6 +218,8 @@ module.exports = {
   DEFAULT_TIMEOUT_MS,
   MAX_REDIRECTS,
   fetchPublicText,
+  isGoneStatus,
+  publicUrlStatus,
   isPrivateAddress,
   readBoundedBody,
   validatePublicUrl

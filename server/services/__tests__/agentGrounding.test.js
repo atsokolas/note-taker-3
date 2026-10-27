@@ -62,6 +62,10 @@ describe('unstatedFigures', () => {
     expect(unstatedFigures('Compute was 91.6% ($162.85bn / $177.84bn), with the remaining 8.4% from Graphics.', [filing])).toEqual([]);
   });
 
+  it('reads a period\'s length as no figure', () => {
+    expect(unstatedFigures('Net sales for the 52-week year were $297.25bn.', ['Net sales $297,247 million.'])).toEqual([]);
+  });
+
   it('reads a slash between words as no division', () => {
     const filing = 'Renewal rate 92.3% in the U.S. and Canada and 89.8% worldwide.';
     expect(unstatedFigures('Renewal held near prior levels (92.3% U.S./Canada, 89.8% worldwide).', [filing])).toEqual([]);
@@ -130,6 +134,14 @@ describe('unstatedFigures', () => {
 
   it('follows compounding and growth rates per year', () => {
     expect(unstatedFigures('A 10% hurdle compounds to 1.61x over five years (1.10^5 = 1.61).', ['Hurdle 10%.'])).toEqual([]);
+    expect(unstatedFigures('A 10% return over five years needs 1.61 times the start (1.10 raised to the 5th power).', ['Hurdle 10%.'])).toEqual([]);
+    expect(unstatedFigures('At a 10% hurdle EPS would need to roughly double over five years (1.10^5 ≈ 1.61x).', ['Hurdle 10%.'])).toEqual(['double over five years (1.10^5 ≈ 1.61x']);
+    expect(unstatedFigures('Net income roughly doubled (2.1x).', ['Net income 2.1x.'])).toEqual([]);
+    const commitments = ['Commitments were $119 billion and are $279 billion.'];
+    expect(unstatedFigures('Commitments nearly quadrupled from $119 billion to $279 billion.', commitments)).toEqual(['quadrupled from $119 billion to $279 billion']);
+    expect(unstatedFigures('Commitments more than doubled from $119 billion to $279 billion.', commitments)).toEqual([]);
+    expect(unstatedFigures('Commitments doubled from $279 billion to $119 billion.', commitments)).toEqual(['doubled from $279 billion to $119 billion']);
+    expect(unstatedFigures('The dividend doubled; revenue was $96 billion and capex $6 billion.', ['Revenue $96 billion, capex $6 billion.'])).toEqual([]);
     expect(unstatedFigures('Operating income rose from $7.79bn to $11.69bn, about 10.7% a year (($11.69bn / $7.79bn)^(1/4) - 1).', ['$7,793 million; $11,690 million'])).toEqual([]);
   });
 

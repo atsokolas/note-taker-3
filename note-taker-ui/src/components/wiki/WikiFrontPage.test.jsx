@@ -24,6 +24,7 @@ jest.mock('./WikiCreationComposer', () => () => (
     <button type="button">Wiki</button>
     <button type="button">Repo wiki</button>
     <button type="button">Investment dossier</button>
+    <textarea aria-label="What the page is about" />
   </section>
 ));
 
@@ -113,6 +114,18 @@ describe('WikiFrontPage collection', () => {
       .not.toBeNull();
     expect(screen.getByRole('button', { name: 'Ask' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '+ New page' })).toBeInTheDocument();
+  });
+
+  it('opens the composer under the header, ready to type in', async () => {
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    const newPage = await screen.findByRole('button', { name: '+ New page' });
+    fireEvent.click(newPage);
+    const composer = screen.getByRole('region', { name: 'Build a wiki page' });
+    expect(newPage).toHaveAttribute('aria-expanded', 'true');
+    expect(composer.compareDocumentPosition(screen.getByLabelText('Search current Wiki pages')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.activeElement).toBe(within(composer).getByRole('textbox'));
+    fireEvent.click(newPage);
+    expect(screen.queryByRole('region', { name: 'Build a wiki page' })).not.toBeInTheDocument();
   });
 
   it('opens on what changed since you last looked, one sentence a page', async () => {

@@ -1,6 +1,10 @@
+const crypto = require('crypto');
 const express = require('express');
 
 const SEMANTIC_RESULT_TYPES = new Set(['highlight', 'concept']);
+const MARGIN_LIMIT = 5;
+const MARGIN_CACHE_SIZE = 500;
+const MARGIN_CACHE_MS = 30 * 60 * 1000;
 
 const buildSemanticSearchRouter = ({
   authenticateToken,
@@ -12,9 +16,15 @@ const buildSemanticSearchRouter = ({
   resolveConceptByParam,
   buildEmbeddingId,
   EmbeddingError,
-  sendEmbeddingError
+  sendEmbeddingError,
+  marginNotes = (...args) => require('../ai/semanticSearch').marginNotes(...args),
+  now = () => Date.now()
 }) => {
   const router = express.Router();
+  /* Reopening an article asks the same question of the same paragraphs, so
+     the answer is kept for a while, per person and per text. A new highlight
+     elsewhere is picked up when the entry ages out. */
+  const marginCache = new Map();
 
   const parseSemanticResultTypes = (value, fallback = ['highlight']) => {
     const parsed = parseCsvList(value)
@@ -131,6 +141,33 @@ const buildSemanticSearchRouter = ({
         return sendEmbeddingError(res, error);
       }
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  /* The one engine behind both margins: an article's paragraphs while you
+     read, the paragraph you are writing in a note. Any failure is silence. */
+  router.post('/api/semantic/margins', authenticateToken, async (req, res) => {
+    const paragraphs = (Array.isArray(req.body?.paragraphs) ? req.body.paragraphs : [])
+      .map(text => String(text || '').slice(0, 4000));
+    const articleId = String(req.body?.articleId || '').trim();
+    const excludeHighlightIds = (Array.isArray(req.body?.excludeHighlightIds) ? req.body.excludeHighlightIds : [])
+      .map(String).slice(0, 200);
+    const key = crypto.createHash('sha1')
+      .update(JSON.stringify([String(req.user.id), articleId, [...excludeHighlightIds].sort(), paragraphs]))
+      .digest('hex');
+    const kept = marginCache.get(key);
+    if (kept && now() - kept.at < MARGIN_CACHE_MS) return res.status(200).json({ notes: kept.notes });
+    try {
+      const notes = await marginNotes({
+        userId: String(req.user.id), paragraphs, articleId, excludeHighlightIds, limit: MARGIN_LIMIT
+      });
+      marginCache.delete(key);
+      marginCache.set(key, { at: now(), notes });
+      if (marginCache.size > MARGIN_CACHE_SIZE) marginCache.delete(marginCache.keys().next().value);
+      return res.status(200).json({ notes });
+    } catch (error) {
+      console.warn('[MARGINS] lookup failed', { message: String(error?.message || error).slice(0, 160) });
+      return res.status(200).json({ notes: [] });
     }
   });
 

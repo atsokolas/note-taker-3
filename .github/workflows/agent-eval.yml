@@ -24,6 +24,10 @@ on:
       - '.github/workflows/agent-eval.yml'
   workflow_dispatch:
 
+concurrency:
+  group: agent-eval-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   eval:
     name: Agent eval (no model)
@@ -32,10 +36,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version-file: package.json
           cache: npm
       - run: npm ci
-      - run: node scripts/run_server_tests.js server/agentEval/
+      # Tests/Server discovers both agentEval test files for every eval trigger.
+      # Manual eval dispatch still runs them because Tests has no dispatch trigger.
+      - if: github.event_name == 'workflow_dispatch'
+        run: npm run test:server -- server/agentEval/
       - run: npm run agent:eval:check
       - uses: actions/upload-artifact@v4
         if: always()

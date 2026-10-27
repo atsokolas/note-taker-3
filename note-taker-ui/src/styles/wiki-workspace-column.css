@@ -184,8 +184,7 @@
 .wiki-index .wiki-index-source-drop input,
 .wiki-index .wiki-index-source-drop textarea,
 .wiki-index .wiki-index__filters input,
-.wiki-index .wiki-index__filters select,
-.wiki-index .wiki-index__composer-row input {
+.wiki-index .wiki-index__filters select {
   min-height: 0;
   padding: 7px 0 !important;
   color: var(--text-primary, var(--vellum-ink)) !important;

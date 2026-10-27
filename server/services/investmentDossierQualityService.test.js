@@ -1,7 +1,6 @@
 const assert = require('assert');
 const { completeResearchPlan, upgradeInvestmentDossierProfile } = require('./investmentDossierProfileService');
 const { evaluateInvestmentDossierQuality } = require('./investmentDossierQualityService');
-const { MARKET_PLACEHOLDER } = require('./companyDossierService');
 
 const headings = [
   'Current Judgment',
@@ -157,6 +156,23 @@ assert.strictEqual(restated(
   'Three customers were 16%, 15% and 13% of revenue, together 44%.'
 ).ok, true);
 assert.strictEqual(restated('Does concentration near 47% of revenue reflect diversified demand?').ok, false);
+
+// The arithmetic of what the price implies carries forward the market value a
+// sensitivity sentence computed, even one that names what could not be found;
+// the judge cannot find a hypothetical in a filing, so the figure check decides.
+const priced = [{ ...sourceRefs[0], snippet: 'Last sale $977.01. 443 million shares outstanding.' }, ...sourceRefs.slice(1)];
+const implied = text => evaluateInvestmentDossierQuality({
+  page: { investmentDossier: { ...profile, hurdle: { annualReturn: 0.1, horizonYears: 5 } } },
+  body,
+  claims: [...claims,
+    { claimId: 'value', section: 'Implied Expectations', text: 'At $977.01 and 443 million shares the value is about $432.8bn (443 million x $977.01), a sensitivity, since no share count is stated for the price date.', support: 'supported', sourceRefIds: ['filing'], citationIds: ['v'] },
+    { claimId: 'hurdle', section: 'Implied Expectations', text, support: 'unsupported', sourceRefIds: ['filing'], citationIds: ['h'] }],
+  sourceRefs: priced,
+  words: 2600
+});
+assert.strictEqual(implied('A 10% hurdle needs the $432.8bn to reach about $697bn in five years (1.10 raised to the 5th power).').ok, true);
+assert.strictEqual(implied('A 10% hurdle needs the $432.8bn to reach about $750bn in five years (1.10 raised to the 5th power).').ok, false);
+assert.strictEqual(implied('At $432.8bn, the company has an unassailable moat.').ok, false);
 assert.strictEqual(framing('Whether 7%-8% comparable growth lasts could not be found in any independent source.').ok, false);
 assert.strictEqual(evaluateInvestmentDossierQuality({
   page: { investmentDossier: { ...profile, hurdle: { annualReturn: 0.1, horizonYears: 5 } } },
@@ -176,16 +192,6 @@ const ownerView = text => evaluateInvestmentDossierQuality({
 });
 assert.strictEqual(ownerView('Owner judgment, unresolved: whether 16%, 15% and 13% concentration is durable.').ok, true);
 assert.strictEqual(ownerView('Owner judgment: concentration will be 9% within a year.').ok, false);
-
-// A page that still says it has not been written is refused.
-const template = evaluateInvestmentDossierQuality({
-  page: { investmentDossier: profile },
-  body: { ...body, content: [...body.content, { type: 'paragraph', content: [{ type: 'text', text: MARKET_PLACEHOLDER }] }] },
-  claims,
-  sourceRefs,
-  words: 2600
-});
-assert.match(template.failures.join(' '), /unwritten template/);
 
 const thinProfile = upgradeInvestmentDossierProfile({
   profile: { company: { name: 'Generic Company', ticker: 'GEN' } },

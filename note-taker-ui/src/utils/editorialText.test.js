@@ -1,4 +1,4 @@
-import { sentenceBoundaryTrim, wordBoundaryTrim } from './editorialText';
+import { docText, sentenceBoundaryTrim, wordBoundaryTrim } from './editorialText';
 
 describe('editorialText', () => {
   it('keeps a complete sentence under the budget', () => {
@@ -61,5 +61,28 @@ describe('editorialText', () => {
       expect(wordBoundaryTrim('', { maxLength: 10 })).toBe('');
       expect(wordBoundaryTrim(null, { maxLength: 10 })).toBe('');
     });
+  });
+
+  /* Text nodes carry their own spaces; blocks end their lines. Joining every
+     node with a space gave saved pages "word , next" and a heading run into
+     its first sentence. Keep in lockstep with server/lib/editorialText.test.js. */
+  it('reads a document as prose: punctuation unspaced, blocks on their own lines', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        { type: 'heading', content: [{ type: 'text', text: 'Moats' }] },
+        { type: 'paragraph', content: [
+          { type: 'text', text: 'A moat is ' },
+          { type: 'text', text: 'durable', marks: [{ type: 'bold' }] },
+          { type: 'text', text: ', next to nothing else.' }
+        ] },
+        { type: 'bulletList', content: [
+          { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'one' }, { type: 'hardBreak' }, { type: 'text', text: 'two' }] }] }
+        ] }
+      ]
+    };
+    expect(docText(doc)).toBe('Moats\nA moat is durable, next to nothing else.\none\ntwo');
+    expect(docText('already text')).toBe('already text');
+    expect(docText(null)).toBe('');
   });
 });

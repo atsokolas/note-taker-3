@@ -8,6 +8,7 @@ import EditionStand from '../components/editions/EditionStand';
 import EditionZoom from '../components/editions/EditionZoom';
 import { readEditionLocal, readingPosition } from '../components/editions/editionReadingState';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
+import { buttonClass } from '../components/ui';
 import { byPaper, issueLine, newCountOf } from './editionModel';
 import '../styles/edition-reading.css';
 
@@ -150,9 +151,17 @@ export default function Editions() {
             <h1>No paper yet.</h1>
             <p>
               A paper is a short weekly issue that an agent you connect, such as Claude Code or Codex, files for you:
-              what it found, each finding with its source and how sure to be. Connect one
-              from <Link to="/connections">Connections</Link>.
+              what it found, each finding with its source and how sure to be.
             </p>
+            {/* An example, said to be one, so the first visit shows the thing
+                and not only a sentence about it. */}
+            <figure className="editions__specimen">
+              <figcaption>An example finding</figcaption>
+              <p className="editions__specimen-issue">Issue 3 · the week of your last saves</p>
+              <p className="editions__specimen-headline">Two of the three essays you saved on hiring argue against interviews you already run.</p>
+              <p className="editions__specimen-source">From your Library: two essays, one paragraph each · fairly sure</p>
+            </figure>
+            <Link className={buttonClass('primary')} to="/connections">Connect an agent</Link>
           </section>
         ) : null}
         {level === 4 && papers.length ? <EditionStand papers={papers} resume={resume} /> : null}

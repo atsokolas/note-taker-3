@@ -1,6 +1,7 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import plan from './reviewerFixturePlan.json';
+import { heldFixtureEvent } from './reviewerFixtureEvents';
 
 const idOf = row => String(row?._id || row?.id || '');
 const validId = value => /^[a-f0-9]{24}$/.test(String(value || ''));
@@ -10,6 +11,26 @@ const bodyText = doc => (doc?.content || []).map(node => (node.content || []).ma
 const canonical = value => Array.isArray(value) ? `[${value.map(canonical).join(',')}]`
   : value && typeof value === 'object' ? `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`
     : JSON.stringify(value);
+
+const readerNoteReceipt = (owner, source, highlight) => {
+  if (validId(idOf(highlight)) && highlight.text === plan.highlight.text) {
+    if (highlight.note === plan.highlight.note && (highlight.noteRevision === undefined || highlight.noteRevision === 0)) {
+      return { readerNoteHash: plan.highlight.noteHash, readerNoteRevision: 0 };
+    }
+    const append = plan.highlight.reviewedAppend;
+    if (owner === plan.edition.ownerId && idOf(source) === append.sourceId && idOf(highlight) === append.highlightId
+      && highlight.note === `${plan.highlight.note}\n\n${append.text}` && highlight.noteRevision === append.noteRevision) {
+      return { readerNoteHash: append.noteHash, readerNoteRevision: append.noteRevision };
+    }
+  }
+  throw pause('The saved highlight differs or is duplicated. It was preserved.');
+};
+
+export const editionFixturePayload = () => ({
+  ...plan.edition.issue, profile: plan.edition.profile.key,
+  items: [{ ...plan.edition.item, title: plan.sources[0].title, url: plan.sources[0].url,
+    sourceLabel: plan.sources[0].author, passage: plan.highlight.text }]
+});
 
 export const verifySetupIdentity = identity => {
   if (!identity?.ownershipVerified || typeof identity.username !== 'string' || !identity.username.trim()
@@ -47,6 +68,11 @@ export const createSetupClient = (signal, { origin = window.location.origin, con
       return groups.flat();
     },
     page: id => get(`/api/wiki/pages/${id}`),
+    editionProfiles: () => get('/api/edition-profiles'),
+    editions: () => get('/api/editions', { profile: plan.edition.profile.key, limit: 100 }),
+    edition: id => get(`/api/editions/${id}`),
+    configureEdition: () => post('/api/edition-profiles', plan.edition.profile),
+    fileEdition: () => post('/api/editions/file', editionFixturePayload()),
     importSource: source => post('/api/import/text', { title: source.title, text: source.text, url: source.url, author: source.author }),
     highlight: articleId => post(`/articles/${articleId}/highlights`, { text: plan.highlight.text, note: plan.highlight.note }),
     wiki: sourceIds => post('/api/wiki/pages', {
@@ -61,10 +87,17 @@ export const createSetupClient = (signal, { origin = window.location.origin, con
 
 export const createFixtureSession = ({ client, storage, locks }) => {
   let owner = ''; let key = ''; let journal;
-  const loadJournal = () => {
-    let parsed;
-    try { parsed = JSON.parse(storage.getItem(key) || 'null'); }
+  const readSaved = storageKey => {
+    try { return JSON.parse(storage.getItem(storageKey) || 'null'); }
     catch (_) { throw pause('Durable setup state is unavailable; no writes are allowed.'); }
+  };
+  const persist = (storageKey, value) => {
+    const serialized = JSON.stringify(value);
+    try { storage.setItem(storageKey, serialized); if (storage.getItem(storageKey) !== serialized) throw new Error(); }
+    catch (_) { throw pause('Durable setup state could not be confirmed; setup is paused.'); }
+  };
+  const loadJournal = () => {
+    const parsed = readSaved(key);
     if (parsed && (parsed.version !== plan.version || parsed.owner !== owner || !parsed.confirmed
       || typeof parsed.confirmed !== 'object' || Array.isArray(parsed.confirmed)
       || Object.entries(parsed.confirmed).some(([operation, id]) => !['source-1', 'source-2', 'highlight', 'wiki'].includes(operation) || !validId(id))
@@ -73,11 +106,7 @@ export const createFixtureSession = ({ client, storage, locks }) => {
     }
     journal = parsed || { version: plan.version, owner, confirmed: {}, intent: null };
   };
-  const saveJournal = () => {
-    const value = JSON.stringify(journal);
-    try { storage.setItem(key, value); if (storage.getItem(key) !== value) throw new Error(); }
-    catch (_) { throw pause('Durable setup state could not be confirmed; setup is paused.'); }
-  };
+  const saveJournal = () => persist(key, journal);
   const identity = async () => {
     const result = verifySetupIdentity(await client.identity());
     if (owner && owner !== result.userId) throw pause('The reviewer session changed; setup is paused.');
@@ -92,7 +121,7 @@ export const createFixtureSession = ({ client, storage, locks }) => {
     return article;
   };
   const checkPage = (page, sources) => {
-    if (!validId(idOf(page)) || String(page.userId) !== owner || page.title !== plan.wiki.title
+    if (!validId(idOf(page)) || String(page.userId) !== owner || page.title !== plan.wiki.readbackTitle
       || page.visibility !== 'private' || page.status !== 'draft' || page.pageType !== 'topic'
       || page.sourceScope !== 'selected_sources' || page.plainText !== plan.wiki.body || bodyText(page.body) !== plan.wiki.body
       || canonical(page.body) !== canonical(bodyDoc(plan.wiki.body))
@@ -116,11 +145,12 @@ export const createFixtureSession = ({ client, storage, locks }) => {
     if ((sources[0]?.highlights || []).length !== matchingHighlights.length || (sources[1]?.highlights || []).length) {
       throw pause('An existing fixture source has unexpected highlights. They were preserved.');
     }
-    if (matchingHighlights.length > 1 || matchingHighlights.some(row => row.note !== plan.highlight.note || !validId(idOf(row)))) {
+    if (matchingHighlights.length > 1) {
       throw pause('The saved highlight differs or is duplicated. It was preserved.');
     }
     const highlight = matchingHighlights[0] || null;
-    const candidates = (await client.pages()).filter(row => row.title === plan.wiki.title);
+    if (highlight) readerNoteReceipt(owner, sources[0], highlight);
+    const candidates = (await client.pages()).filter(row => row.title === plan.wiki.readbackTitle);
     if (candidates.length > 1) throw pause('Duplicate fixture Wiki pages need review; setup is paused.');
     const wiki = candidates.length ? checkPage(await client.page(idOf(candidates[0])), sources) : null;
     const events = await client.events();
@@ -128,14 +158,14 @@ export const createFixtureSession = ({ client, storage, locks }) => {
       || ['pending', 'processing', 'failed'].includes(event.status))) {
       throw pause('Source-event state is incomplete or unsettled; setup is paused.');
     }
-    const heldEvent = (type, objectId) => {
-      const related = events.filter(event => event.sourceType === type && String(event.sourceObjectId) === objectId);
-      if (!related.length || related.some(event => event.status !== 'held' || event.attemptCount !== 0
-        || event.metadata?.reviewerRehearsalHold?.inferenceAttemptedByHold !== false)) return null;
-      return related[0];
-    };
-    sources.forEach(source => { if (source && !heldEvent('article', idOf(source))) throw pause('Saved source hold is unverified; setup is paused.'); });
-    if (highlight && !heldEvent('highlight', idOf(highlight))) throw pause('Saved highlight hold is unverified; setup is paused.');
+    sources.forEach((source, index) => {
+      if (source && !heldFixtureEvent(events, { owner, type: 'article', objectId: idOf(source), source: plan.sources[index] })) {
+        throw pause('Saved source hold is unverified; setup is paused.');
+      }
+    });
+    if (highlight && !heldFixtureEvent(events, { owner, type: 'highlight', objectId: idOf(highlight) })) {
+      throw pause('Saved highlight hold is unverified; setup is paused.');
+    }
     return { identity: activeIdentity, sources, highlight, wiki, verifiedAt: new Date().toISOString(),
       complete: sources.every(Boolean) && Boolean(highlight) && Boolean(wiki) };
   };
@@ -193,7 +223,107 @@ export const createFixtureSession = ({ client, storage, locks }) => {
       return state;
     });
   };
-  return { inspect, run };
+  const editionSnapshot = async () => {
+    const state = await snapshot();
+    if (owner !== plan.edition.ownerId || !state.complete) {
+      throw pause('Edition setup requires the exact reviewer and complete original fixtures.');
+    }
+    loadJournal(); reconcile(state);
+    const result = await client.editionProfiles();
+    if (!Array.isArray(result?.profiles)) throw pause('Edition profile lookup is incomplete; setup is paused.');
+    const profiles = result.profiles.filter(row => row.key === plan.edition.profile.key);
+    if (profiles.length > 1) throw pause('Duplicate fixture profiles need review; they were preserved.');
+    const profile = profiles[0] || null;
+    if (profile && (profile.configuredBy !== '' || profile.configuredByRuntime !== ''
+      || Object.entries(plan.edition.profile).some(([field, value]) => canonical(profile[field]) !== canonical(value)))) {
+      throw pause('The existing Edition profile differs from the fixture. It was preserved.');
+    }
+    // An unknown profile does not narrow the API's newsstand query. Never ask
+    // for issues until this exact owned custom profile has been read back.
+    const listed = profile ? await client.editions() : { editions: [] };
+    if (!Array.isArray(listed?.editions) || listed.editions.length > 1
+      || listed.editions.some(row => row.profile !== plan.edition.profile.key || !validId(idOf(row)))) {
+      throw pause('Edition issue lookup is incomplete or duplicated; setup is paused.');
+    }
+    const issue = listed.editions.length ? await client.edition(idOf(listed.editions[0])) : null;
+    if (listed.editions.length && !issue) throw pause('Edition detail readback is incomplete; setup is paused.');
+    const payload = editionFixturePayload();
+    const item = issue?.items?.[0];
+    const start = new Date(issue?.windowStart); const end = new Date(issue?.windowEnd);
+    if (issue && (idOf(issue) !== idOf(listed.editions[0]) || issue.profile !== payload.profile
+      || !Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start.getUTCDay() !== 0
+      || start.toISOString().slice(11) !== '00:00:00.000Z' || end.getTime() - start.getTime() !== 6 * 86400000
+      || issue.title !== payload.title || issue.standfirst !== payload.standfirst
+      || issue.writtenBy !== payload.writtenBy || issue.writtenByRuntime !== '' || issue.number !== null
+      || !Array.isArray(issue.items) || issue.items.length !== 1
+      || Object.entries(payload.items[0]).some(([field, value]) => canonical(item?.[field]) !== canonical(value))
+      || item.filedBy !== payload.writtenBy || item.filedByRuntime !== '' || !Number.isFinite(Date.parse(item.filedAt))
+      || item.savedArticleId || item.readerStatus !== 'new' || item.passageCheck !== 'unchecked'
+      || item.plain !== '' || item.confidence !== '' || !Array.isArray(item.figures) || item.figures.length
+      || !Array.isArray(item.readings) || item.readings.length || issue.headline !== ''
+      || issue.throughLine !== '' || !Array.isArray(issue.followUps) || issue.followUps.length
+      || !Array.isArray(issue.watchNext) || issue.watchNext.length)) {
+      throw pause('The existing Edition issue differs from the fixture. It was preserved.');
+    }
+    return { ...state, edition: { profile, issue, complete: Boolean(profile && issue) }, verifiedAt: new Date().toISOString() };
+  };
+  const editionJournal = state => {
+    const storageKey = `${key}.edition`;
+    const parsed = readSaved(storageKey);
+    const saved = parsed === null ? { version: plan.version, owner, profile: false, issueId: null, intent: null } : parsed;
+    if (saved.version !== plan.version || saved.owner !== owner || typeof saved.profile !== 'boolean'
+      || (saved.issueId !== null && !validId(saved.issueId)) || ![null, 'profile', 'issue'].includes(saved.intent)
+      || ((saved.issueId || saved.intent === 'issue') && !saved.profile)) {
+      throw pause('Saved Edition setup state needs review; no writes are allowed.');
+    }
+    if ((saved.profile && !state.edition.profile) || (saved.issueId && saved.issueId !== idOf(state.edition.issue))) {
+      throw pause('A confirmed Edition fixture is absent or changed; setup is paused.');
+    }
+    if (saved.intent && !state.edition[saved.intent]) {
+      throw pause('An earlier Edition write has an uncertain outcome. Check saved state; do not repeat it.');
+    }
+    saved.profile = Boolean(state.edition.profile); saved.issueId = state.edition.issue ? idOf(state.edition.issue) : null;
+    saved.intent = null; persist(storageKey, saved);
+    return { saved, storageKey };
+  };
+  const inspectEdition = () => withLock(async () => {
+    const state = await editionSnapshot(); editionJournal(state); return state;
+  });
+  const runEdition = () => withLock(async () => {
+    let state = await editionSnapshot(); let durable = editionJournal(state);
+    for (const operation of ['profile', 'issue']) {
+      if (state.edition[operation]) continue;
+      const activeIdentity = await identity();
+      if (owner !== plan.edition.ownerId || activeIdentity.fixtureBindingComplete) throw pause('Edition setup is read-only.');
+      durable.saved.intent = operation; persist(durable.storageKey, durable.saved);
+      try {
+        if (operation === 'profile') await client.configureEdition();
+        else await client.fileEdition();
+        state = await editionSnapshot();
+        if (!state.edition[operation]) throw pause('The Edition write could not be verified. Check saved state; do not repeat it.');
+        durable = editionJournal(state);
+      } catch (error) {
+        if (error.reviewerSetup) throw error;
+        throw pause('An Edition write or readback has an uncertain outcome. Check saved state; do not repeat it.');
+      }
+    }
+    return state;
+  });
+  return { inspect, run, inspectEdition, runEdition };
+};
+
+export const editionFixtureReceipt = state => {
+  if (state?.identity?.userId !== plan.edition.ownerId || !state.complete || !state.edition?.complete) {
+    throw pause('An Edition receipt requires complete exact readback.');
+  }
+  return { version: plan.version, ownerId: state.identity.userId, verifiedAt: state.verifiedAt,
+    status: 'persisted_and_read_back', profile: state.edition.profile, editionId: idOf(state.edition.issue),
+    windowStart: state.edition.issue.windowStart, windowEnd: state.edition.issue.windowEnd,
+    baselineItem: state.edition.issue.items[0], existingSourceId: idOf(state.sources[0]),
+    sourceContentHash: plan.sources[0].contentHash, passageHash: plan.highlight.textHash,
+    ...readerNoteReceipt(state.identity.userId, state.sources[0], state.highlight),
+    setupInference: 'no_inference_route_called', schedule: 'not_created', sharing: 'not_requested',
+    passageVerification: 'unchecked_until_reader_save', connectorAcceptance: 'not_run' };
 };
 
 export const fixtureReceipt = state => {
@@ -204,7 +334,7 @@ export const fixtureReceipt = state => {
   sourceIds: state.sources.map(source => source ? idOf(source) : null),
   highlightId: state.highlight ? idOf(state.highlight) : null, wikiPageId: state.wiki ? idOf(state.wiki) : null,
   contentHashes: plan.sources.map(source => source.contentHash), highlightHash: plan.highlight.textHash,
-  readerNoteHash: plan.highlight.noteHash, wikiBodyHash: plan.wiki.bodyHash,
+  ...readerNoteReceipt(state.identity.userId, state.sources[0], state.highlight), wikiBodyHash: plan.wiki.bodyHash,
   wikiBodyFormat: 'exact_tiptap_doc',
   contentComparison: 'exact', sourceEvents: 'held_with_zero_attempts',
   setupInference: 'no_inference_route_called', connectorAcceptance: 'not_run'

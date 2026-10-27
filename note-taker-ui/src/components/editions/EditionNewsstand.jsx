@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { costLine, coverFigure, frontPage, headlineOf, issueLine, latestOf, newCountOf, sourceNote, windowLine } from '../../pages/editionModel';
-import { Figures, Passage } from './EditionLayer';
-import { SourceLine } from './EditionFrontPage';
+import { costLine, coverFigure, frontPage, headlineOf, issueLine, latestOf, newCountOf, updatedLine, windowLine } from '../../pages/editionModel';
+import { Figures, Passage, SourceLink, Why } from './EditionLayer';
 
 /* Each paper wears its own cover, in the house's own inks. */
 const COVERS = ['ink', 'thread', 'living', 'slate', 'danger'];
@@ -23,7 +22,7 @@ function Cover({ papers, paper, opened, open = false }) {
   const face = (
     <>
       {fresh ? <span className="stand__ribbon">{fresh} new</span> : null}
-      <span className="stand__issue">{issueName(paper, latest)}</span>
+      <span className="stand__issue">{[issueName(paper, latest), updatedLine(latest)].filter(Boolean).join(' · ')}</span>
       <span className="stand__title">{paper.title}</span>
       {figure ? (
         <span className="stand__figure">
@@ -37,7 +36,7 @@ function Cover({ papers, paper, opened, open = false }) {
   const className = `stand__cover stand__cover--${inkOf(papers, paper)}${open ? ' is-open' : ''}`;
   return open
     ? <div className={className}>{face}</div>
-    : <Link className={className} to={`/editions?open=${encodeURIComponent(paper.profile)}`}>{face}</Link>;
+    : <Link className={className} data-noeis-item to={`/editions?open=${encodeURIComponent(paper.profile)}`}>{face}</Link>;
 }
 
 /**
@@ -75,7 +74,7 @@ function Spread({ papers, paper, opened }) {
                   <li key={item.itemId}>
                     <span className="stand__number">{String(index + 1).padStart(2, '0')}</span>
                     <Link to={findingPath(issue, item)}>{headlineOf(item)}</Link>
-                    <small>{sourceNote(item)}</small>
+                    <SourceLink item={item} />
                   </li>
                 ))}
               </ol>
@@ -83,7 +82,8 @@ function Spread({ papers, paper, opened }) {
                 <article className="stand__feature">
                   <span className="front-kicker">The feature</span>
                   <h3><Link to={findingPath(issue, lead.item)}>{headlineOf(lead.item)}</Link></h3>
-                  <SourceLine item={lead.item} />
+                  <Why item={lead.item} />
+                  <SourceLink item={lead.item} />
                   <Figures figures={lead.item.figures} />
                   <p className="front__body">{lead.item.finding}</p>
                   <Passage item={lead.item} />

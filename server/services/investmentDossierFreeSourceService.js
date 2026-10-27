@@ -139,13 +139,22 @@ const formatUsd = (value) => {
 const formatValue = (value, unit) => (unit === 'USD/shares' ? `$${Number(value).toFixed(2)}` : formatUsd(value));
 
 // The newest share count on a filing's cover page, with its date: what a
-// dated price is multiplied by to give a market value.
+// dated price is multiplied by to give a market value. A cover lists each
+// class of common stock on its own row; the classes stay separate, since one
+// share of each need not be worth the same.
 const latestSharesOutstanding = (companyFacts = {}) => {
-  const rows = companyFacts?.facts?.dei?.EntityCommonStockSharesOutstanding?.units?.shares || [];
-  const latest = rows
+  const rows = (companyFacts?.facts?.dei?.EntityCommonStockSharesOutstanding?.units?.shares || [])
     .filter(row => Number(row?.val) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(String(row?.end || '')))
-    .sort((a, b) => String(b.end).localeCompare(String(a.end)) || String(b.filed || '').localeCompare(String(a.filed || '')))[0];
-  return latest ? { value: Number(latest.val), asOf: latest.end, form: latest.form || '', filed: latest.filed || '' } : null;
+    .sort((a, b) => String(b.end).localeCompare(String(a.end)) || String(b.filed || '').localeCompare(String(a.filed || '')));
+  const latest = rows[0];
+  if (!latest) return null;
+  const cover = rows.filter(row => row.end === latest.end && (row.accn || '') === (latest.accn || ''));
+  return {
+    classes: cover.map(row => Number(row.val)),
+    asOf: latest.end,
+    form: latest.form || '',
+    filed: latest.filed || ''
+  };
 };
 
 const buildCompanyFactsOperatingBenchmark = ({
@@ -177,7 +186,7 @@ const buildCompanyFactsOperatingBenchmark = ({
         `FY${point.fiscalYear} ${formatValue(point.value, metric.unit)}`
       )).join('; ')}.`
     )),
-    ...(shares ? [`Shares outstanding: ${Math.round(shares.value / 1e6).toLocaleString('en-US')} million as of ${shares.asOf} (cover of the ${shares.form} filed ${shares.filed}).`] : []),
+    ...(shares ? [`Shares outstanding: ${shares.classes.map(count => `${Math.round(count / 1e6).toLocaleString('en-US')} million`).join(' and ')}${shares.classes.length > 1 ? ` across ${shares.classes.length} classes of common stock` : ''} as of ${shares.asOf} (cover of the ${shares.form} filed ${shares.filed}).`] : []),
     'Values are issuer-filed US-GAAP facts; periods and accessions are preserved in source metadata.'
   ].join('\n');
   const contentHash = crypto.createHash('sha256').update(snippet).digest('hex');

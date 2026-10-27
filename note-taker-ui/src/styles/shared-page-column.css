@@ -11,8 +11,7 @@
 
 .shared-wiki-page,
 .shared-concept-page,
-.shared-question-page,
-.shared-notebook-page {
+.shared-question-page {
   background: var(--surface);
 }
 

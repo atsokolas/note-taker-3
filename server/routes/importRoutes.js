@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { encryptSecret, decryptSecret } = require('../utils/integrationSecrets');
+const { absorbPassage, isUnfinished, passageIn } = require('../utils/passages');
 const {
   blockToPlainText,
   buildNotionPropertyLines,
@@ -25,6 +26,7 @@ const {
 const {
   buildReadwisePreviewSummary
 } = require('../services/import/readwiseTransform');
+const { BOOK, BOOK_URL, FORMAT_LABELS, bookSource, parseExportFile } = require('../services/import/exportFiles');
 const {
   fetchUrlForIngest,
   normalizeIngestText
@@ -51,8 +53,12 @@ const { recordSourceCorrection } = require('../services/authoredSourceCorrection
 const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
+const { bookReturning, calendarDay, marksOfReading } = require('../services/closedBooks');
+const { BOOK_MARKS, SHELF_BOOK, bookOnShelf, echoToday, isQuestion, lentCopy, openQuestions, shelfMark, shelveBooks } = require('../services/bookShelf');
+const { fillArticleBodies } = require('../services/readableArticle');
 const {
   inboundMailConfig,
+  linkFromMail,
   newsletterFromMail,
   readerForMail,
   receivedMail,
@@ -79,19 +85,26 @@ const READWISE_OAUTH_REGISTER_URL = 'https://readwise.io/o/register/';
 const READWISE_OAUTH_USERINFO_URL = 'https://readwise.io/o/userinfo';
 const READWISE_OAUTH_SCOPES = ['openid', 'read', 'write'];
 const READWISE_DYNAMIC_CLIENTS = new Map();
+/* Pocket and Instapaper hand over links, not pages. The bodies are read after
+   the import answers, and only this many per import, so a ten-year export
+   cannot keep the server reading all afternoon. */
+const IMPORT_BODY_FETCH_CAP = 50;
+const bareLinks = (articles = []) => articles
+  .filter(article => /^https?:\/\//i.test(article.url) && !String(article.content || '').trim())
+  .map(article => article.url)
+  .slice(0, IMPORT_BODY_FETCH_CAP);
 
 const buildImportRouter = ({
   authenticateToken,
+  // Bringing in a link, a file or a piece of text also takes a token that may do little else (`capture`).
+  authenticateCapture = authenticateToken,
   isAccountActive = async () => false,
   upload,
-  Papa,
-  findRowValue,
   slugify,
-  parseTagList,
   Article,
+  Folder = null,
   trackEvent,
   EVENT_NAMES,
-  path,
   crypto,
   TagMeta,
   NotebookEntry,
@@ -111,7 +124,14 @@ const buildImportRouter = ({
   enqueueNotebookEmbedding,
   User = null,
   env = process.env,
-  fetchImpl = global.fetch
+  fetchImpl = global.fetch,
+  /* Reads a bare link's body; the public-URL-guarded reader when absent. */
+  fetchSourceBody,
+  answerTo = (...args) => require('../ai/semanticSearch').answerTo(...args),
+  readPage = (...args) => require('../ai/books').readPage(...args),
+  askTheBook = (...args) => require('../ai/books').askTheBook(...args),
+  echoOf = (...args) => require('../ai/semanticSearch').echoOf(...args),
+  beforeYouStart = (...args) => require('../ai/semanticSearch').beforeYouStart(...args)
 }) => {
   const router = express.Router();
 
@@ -260,7 +280,7 @@ const buildImportRouter = ({
     return { article, sourceEvent, isNew };
   };
 
-  router.post('/api/import/text', authenticateToken, async (req, res) => {
+  router.post('/api/import/text', authenticateCapture, async (req, res) => {
     try {
       const userId = req.user.id;
       const text = normalizeIngestText(req.body?.text);
@@ -291,35 +311,329 @@ const buildImportRouter = ({
     }
   });
 
-  router.post('/api/import/url', authenticateToken, async (req, res) => {
+  /* Saving a link, from the paste field or from mail. Where it goes is the
+     reader's to say: the nightstand to read later, or straight into the
+     Library when it is already read. Only those two trade places; a piece on
+     the desk stays on the desk, nearer to hand. A folder files it, new or
+     already held, and a reason says why it waits. */
+  const saveLink = async ({ userId, url: raw, placement: destination = '', folder = null, reason = '', title = '', author = '' }) => {
+    const land = async (article, existing, extra = {}) => {
+      const current = article.placement || 'stream';
+      const placement = destination && current !== 'setAside' ? destination : current;
+      const why = placement === 'later' && reason ? reason : '';
+      const change = {
+        ...(placement !== current ? { placement, placementAt: new Date() } : {}),
+        ...(why ? { placementReason: why } : {}),
+        ...(folder ? { folder: folder._id } : {})
+      };
+      if (Object.keys(change).length) await Article.updateOne({ _id: article._id, userId }, change);
+      return {
+        article: {
+          _id: article._id,
+          title: article.title,
+          url: article.url,
+          createdAt: article.createdAt,
+          placement,
+          placementReason: why || article.placementReason || '',
+          folder: folder || null,
+          contentLength: String(article.content || '').length
+        },
+        existing,
+        ...extra
+      };
+    };
+    /* A link you already saved opens the copy you have. Fetching it again
+       would overwrite the page the extension captured with a plainer read,
+       and lose nothing but time to tell you it is already here. Checked
+       before the fetch and again after redirects. */
+    const saved = url => (url ? Article.findOne({ userId, url }, '_id title url content createdAt placement placementReason') : null);
+    /* Stored URLs carry no fragment (the fetch drops it), so a link to a
+       section of a saved piece still finds the piece without the origin. */
+    const pasted = (() => {
+      try {
+        const url = new URL(raw);
+        url.hash = '';
+        return url.toString();
+      } catch (_) {
+        return raw;
+      }
+    })();
+    const before = await saved(pasted);
+    if (before) return land(before, true);
+    const fetched = await fetchUrlForIngest({ url: pasted, fetchImpl });
+    const after = fetched.url !== pasted && await saved(fetched.url);
+    if (after) return land(after, true);
+    if (!fetched.text) {
+      const error = new Error('Could not extract readable text from that URL.');
+      error.statusCode = 422;
+      throw error;
+    }
+    const result = await ingestArticleSource({
+      userId,
+      title: title || fetched.title,
+      content: fetched.text,
+      url: fetched.url,
+      author,
+      provider: 'url',
+      sourceType: 'url',
+      sourceLabel: 'Pasted URL',
+      externalId: fetched.url
+    });
+    return land(result.article, !result.isNew, {
+      sourceEventId: result.sourceEvent?._id || null,
+      status: result.sourceEvent ? 'queued' : 'imported'
+    });
+  };
+
+  router.post('/api/import/url', authenticateCapture, async (req, res) => {
     try {
       const userId = req.user.id;
-      const fetched = await fetchUrlForIngest({ url: req.body?.url });
-      if (!fetched.text) return res.status(422).json({ error: 'Could not extract readable text from that URL.' });
-      const result = await ingestArticleSource({
+      const folderId = toTrimmedString(req.body?.folderId);
+      const folder = folderId && Folder
+        ? await Folder.findOne({ _id: folderId, userId }, '_id name').lean().catch(() => null)
+        : null;
+      if (folderId && !folder) return res.status(400).json({ error: 'That folder is not one of yours.' });
+      const saved = await saveLink({
         userId,
-        title: req.body?.title || fetched.title,
-        content: fetched.text,
-        url: fetched.url,
-        author: req.body?.author,
-        provider: 'url',
-        sourceType: 'url',
-        sourceLabel: 'Pasted URL',
-        externalId: fetched.url
+        url: toTrimmedString(req.body?.url),
+        placement: ['later', 'stream'].includes(req.body?.placement) ? req.body.placement : '',
+        folder,
+        title: req.body?.title,
+        author: req.body?.author
       });
-      res.status(result.isNew ? 201 : 200).json({
-        article: {
-          _id: result.article._id,
-          title: result.article.title,
-          url: result.article.url,
-          contentLength: String(result.article.content || '').length
-        },
-        sourceEventId: result.sourceEvent?._id || null,
-        status: result.sourceEvent ? 'queued' : 'imported'
-      });
+      return res.status(saved.existing ? 200 : 201).json(saved);
     } catch (error) {
       console.error('Error importing URL:', error);
       res.status(error.statusCode || 500).json({ error: error.message || 'Failed to import URL.' });
+    }
+  });
+
+  /* A book you are starting, by its title and author. It is addressed the
+     way an import addresses a book, so the Kindle's marks for it land in it
+     later; one an import already brought, by that title, is opened instead. */
+  router.post('/api/import/book', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const title = toTrimmedString(req.body?.title);
+      if (!title) return res.status(400).json({ error: 'A book needs its title.' });
+      const book = bookSource({ provider: BOOK, title, author: toTrimmedString(req.body?.author) });
+      const known = bookOnShelf(await Article.find({ userId, url: BOOK_URL }).select('url title author'), book);
+      if (known) return res.status(200).json({ article: known, existing: true });
+      const article = await Article.create({
+        userId,
+        url: book.url,
+        title: book.title,
+        author: book.author,
+        importMeta: { provider: BOOK, sourceType: BOOK, importedAt: new Date() }
+      });
+      return res.status(201).json({ article, existing: false });
+    } catch (error) {
+      console.error('Error starting a book:', error);
+      res.status(500).json({ error: 'That book could not be started.' });
+    }
+  });
+
+  /* The shelf of books, each with its marks, newest reading first. The page,
+     the count and the last thing written are read from the marks by the
+     page that shows them. */
+  router.get('/api/books', authenticateToken, async (req, res) => {
+    try {
+      // Today as the reader's calendar has it, for the book coming back.
+      const today = calendarDay(req.query?.today);
+      await shelveBooks({ Article, userId: req.user.id });
+      const books = await Article.find({ userId: req.user.id, url: BOOK_URL })
+        .select(SHELF_BOOK)
+        .lean();
+      const shelf = books.map(({ highlights = [], ...book }) => ({
+        ...book,
+        returning: bookReturning(book, today),
+        marks: highlights.map(shelfMark)
+      }));
+      const lastTouched = book => Math.max(new Date(book.createdAt).getTime() || 0, ...book.marks.map(mark => new Date(mark.createdAt).getTime() || 0));
+      return res.json({ books: shelf.sort((a, b) => lastTouched(b) - lastTouched(a)) });
+    } catch (error) {
+      console.error('Error reading the book shelf:', error);
+      res.status(500).json({ error: 'The books could not be read.' });
+    }
+  });
+
+  /* Today's echo: a passage from one of your books and nearly the same
+     thought, marked in another work long before or after. Null on a day
+     with none. The day is the reader's own, sent as a calendar day. */
+  router.get('/api/books/echo', authenticateToken, async (req, res) => {
+    try {
+      const books = await Article.find({ userId: req.user.id, url: BOOK_URL }).select(BOOK_MARKS).lean();
+      const echo = await echoToday({ books, today: calendarDay(req.query.today), echoOf: mark => echoOf({ userId: req.user.id, mark }) });
+      return res.json({ echo });
+    } catch (error) {
+      console.error('Error finding the day’s echo:', error);
+      res.status(500).json({ error: 'The echo could not be found.' });
+    }
+  });
+
+  /* The questions you typed beside your books, newest first, each with the
+     passage you marked since that answers it, when one does. A question is a
+     note of your own ending in "?", as the desk has it. */
+  router.get('/api/books/questions', authenticateToken, async (req, res) => {
+    try {
+      const asked = openQuestions(await Article.find({ userId: req.user.id, url: BOOK_URL }).select(BOOK_MARKS).lean());
+      const questions = await Promise.all(asked.map(async question => ({
+        ...question,
+        answer: await answerTo({ userId: req.user.id, question }).catch(() => null)
+      })));
+      return res.json({ questions });
+    } catch (error) {
+      console.error('Error reading the open questions:', error);
+      res.status(500).json({ error: 'The questions could not be read.' });
+    }
+  });
+
+  /* Closing a book: you finished it today (your today, sent as a calendar
+     day), and here is the one sentence you will remember, which may be none.
+     The day is when you first closed it, so rewriting the sentence does not
+     move its anniversary. */
+  router.put('/api/books/:id/closed', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL });
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      book.finishedOn ||= calendarDay(req.body?.on);
+      book.closingLine = toTrimmedString(req.body?.line).slice(0, 400);
+      await book.save();
+      return res.json({ finishedOn: book.finishedOn, closingLine: book.closingLine });
+    } catch (error) {
+      console.error('Error closing a book:', error);
+      res.status(500).json({ error: 'The book could not be closed.' });
+    }
+  });
+
+  /* Reading it again: the reading just finished is kept, sentence and all,
+     and its marks stay where they are, in fainter ink. */
+  router.post('/api/books/:id/again', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL });
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      if (!book.finishedOn) return res.status(409).json({ error: 'That book is still being read.' });
+      book.readBefore.push({ finishedOn: book.finishedOn, closingLine: book.closingLine, until: new Date() });
+      book.finishedOn = '';
+      book.closingLine = '';
+      await book.save();
+      return res.json({ finishedOn: '', closingLine: '', readBefore: book.readBefore });
+    } catch (error) {
+      console.error('Error starting a book again:', error);
+      res.status(500).json({ error: 'The book could not be started again.' });
+    }
+  });
+
+  /* A photograph of the page in your lap gives the quotes you typed by their
+     ends ("A … B") their whole words. The page is read and let go: only the
+     words a quote was waiting for are kept. Typing stays the way in. */
+  router.post('/api/books/:id/page', authenticateToken, async (req, res) => {
+    try {
+      const image = String(req.body?.image || '');
+      if (!/^data:image\/[\w+.-]+;base64,/.test(image)) return res.status(400).json({ error: 'Send a photograph of the page.' });
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL });
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      const waiting = book.highlights.filter(mark => isUnfinished(mark.text));
+      if (!waiting.length) return res.json({ filled: [] });
+      const page = (await readPage(image)).replace(/\s+/g, ' ');
+      const filled = waiting.filter((mark) => {
+        const whole = passageIn(page, mark.text);
+        if (whole) mark.text = whole;
+        return Boolean(whole);
+      });
+      if (filled.length) {
+        await book.save();
+        filled.forEach(highlight => Promise.resolve(enqueueHighlightEmbedding?.({ highlight, article: book })).catch(() => {}));
+      }
+      return res.json({ filled: filled.map(mark => ({ _id: mark._id, text: mark.text })) });
+    } catch (error) {
+      console.error('Error reading a page of a book:', error);
+      res.status(502).json({ error: 'The page could not be read. Try it again in better light.' });
+    }
+  });
+
+  /* Before you start: a book with nothing marked in it yet gets the passages
+     you marked elsewhere that touch it. Once you mark one, it has its own. */
+  router.get('/api/books/:id/before', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL }).select('title author highlights._id').lean();
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      const passages = book.highlights?.length ? [] : await beforeYouStart({ userId: req.user.id, book }).catch(() => []);
+      return res.json({ passages });
+    } catch (error) {
+      console.error('Error finding what you marked before a book:', error);
+      res.status(500).json({ error: 'Nothing could be found for this book.' });
+    }
+  });
+
+  /* Asking the author: the questions still open beside a book, each answered
+     only from the passages marked in it. Nothing is kept until you keep it. */
+  router.post('/api/books/:id/ask', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL }).select(BOOK_MARKS).lean();
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      const answers = await askTheBook({
+        title: book.title,
+        questions: book.highlights.filter(isQuestion),
+        passages: book.highlights.filter(mark => mark.text)
+      });
+      return res.json({ answers });
+    } catch (error) {
+      console.error('Error asking a book:', error);
+      res.status(502).json({ error: 'The book could not be asked just now. Try it again.' });
+    }
+  });
+
+  /* Lending a book: a link a friend reads your copy at, as it stands each
+     time they open it, until you take it back. Lending it again after that
+     is a new link; the old one stays dead. */
+  router.put('/api/books/:id/lent', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL });
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      book.lentAs ||= crypto.randomBytes(12).toString('base64url');
+      await book.save();
+      return res.json({ lentAs: book.lentAs });
+    } catch (error) {
+      console.error('Error lending a book:', error);
+      res.status(500).json({ error: 'The book could not be lent.' });
+    }
+  });
+
+  router.delete('/api/books/:id/lent', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOneAndUpdate({ _id: req.params.id, userId: req.user.id, url: BOOK_URL }, { $set: { lentAs: '' } });
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      return res.json({ lentAs: '' });
+    } catch (error) {
+      console.error('Error taking a book back:', error);
+      res.status(500).json({ error: 'The book could not be taken back.' });
+    }
+  });
+
+  router.get('/api/public/books/:slug', async (req, res) => {
+    try {
+      const book = await Article.findOne({ lentAs: { $eq: String(req.params.slug) }, url: BOOK_URL }).select(SHELF_BOOK).lean();
+      if (!book) return res.status(404).json({ error: 'This book is not lent any more.' });
+      return res.json({ book: lentCopy(book) });
+    } catch (error) {
+      console.error('Error reading a lent book:', error);
+      res.status(500).json({ error: 'The book could not be read.' });
+    }
+  });
+
+  /* Still reading it after all. */
+  router.delete('/api/books/:id/closed', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user.id, url: BOOK_URL },
+        { $set: { finishedOn: '', closingLine: '' } }
+      );
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      return res.json({ finishedOn: '', closingLine: '' });
+    } catch (error) {
+      console.error('Error reopening a book:', error);
+      res.status(500).json({ error: 'The book could not be reopened.' });
     }
   });
 
@@ -338,6 +652,15 @@ const buildImportRouter = ({
       if (!reader) {
         console.log('[email-in] dropped: no account confirmed that address');
         return res.status(200).json({ status: 'dropped' });
+      }
+      /* A mail that is only a link, and maybe a line about it, is a link to
+         read later: it goes on the nightstand with that line as its why. */
+      const link = linkFromMail(mail);
+      if (link) {
+        const saved = await saveLink({ userId: reader._id, url: link.url, placement: 'later', reason: link.note.slice(0, 280) })
+          .catch(error => (error.statusCode === 422 ? null : Promise.reject(error)));
+        if (!saved) return res.status(200).json({ status: 'dropped' });
+        return res.status(200).json({ status: saved.existing ? 'duplicate' : 'saved', articleId: saved.article._id });
       }
       const url = `email://${mail.messageId}`;
       if (await Article.exists({ userId: reader._id, url })) return res.status(200).json({ status: 'duplicate' });
@@ -663,6 +986,7 @@ const buildImportRouter = ({
     touched = [],
     nextAction = null,
     error = null,
+    summary = '',
     createdAt = new Date(),
     completedAt = new Date()
   } = {}) => {
@@ -686,7 +1010,7 @@ const buildImportRouter = ({
       sourceLabel: safeLabel,
       status,
       title: `${safeLabel} import ${status === 'failed' ? 'failed' : 'finished'}`,
-      summary: error?.message || buildImportReceiptSummary(metrics),
+      summary: error?.message || summary || buildImportReceiptSummary(metrics),
       metrics,
       touched,
       nextAction,
@@ -1069,7 +1393,8 @@ const buildImportRouter = ({
     folderPlacement,
     importMeta,
     createdAt,
-    updatedAt
+    updatedAt,
+    skipUnchanged = false
   }) => {
     const existing = await NotebookEntry.findOne({
       userId,
@@ -1091,6 +1416,16 @@ const buildImportRouter = ({
     const nextFolder = preserveUserOwnedFolder
       ? (existing?.folder || null)
       : (folderPlacement?.folder?._id || null);
+
+    if (
+      skipUnchanged
+      && existing
+      && existing.title === title
+      && existing.content === content
+      && String(existing.folder || '') === String(nextFolder || '')
+    ) {
+      return { entry: existing, created: false, updated: false };
+    }
 
     if (existing) {
       existing.title = title;
@@ -1360,215 +1695,371 @@ const buildImportRouter = ({
     });
   };
 
-  const handleReadwiseImport = async (req, res) => {
+  /* One door for every export file: Kindle, Apple Books, Pocket, Instapaper,
+     Readwise CSV, folders of Markdown from Notion or Obsidian, EPUB books and PDFs. The files
+     are read by services/import/exportFiles into sources and notes; this lands
+     them. Safe to repeat: a source is found again by its address, a highlight
+     by its words, a note by its path, and nothing is added twice. */
+  const EXPORT_LIMITS = { files: 2000, bytes: 60 * 1024 * 1024 };
+  const EXPORT_UNITS = {
+    kindle: 'book',
+    'apple-books': 'book',
+    pocket: 'article',
+    instapaper: 'article',
+    readwise: 'source',
+    markdown: 'note',
+    epub: 'book',
+    pdf: 'document'
+  };
+  const sameText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+  const receiveExportFiles = (req, res, next) => {
+    const tooLarge = () => res.status(413).json({ error: 'That is more than 60 MB at once. Bring it in a few smaller batches.' });
+    if (Number(req.headers['content-length'] || 0) > EXPORT_LIMITS.bytes) return tooLarge();
+    // The header is optional (chunked uploads omit it), so count the bytes as they arrive.
+    let received = 0;
+    const meter = (chunk) => {
+      received += chunk.length;
+      if (received <= EXPORT_LIMITS.bytes) return;
+      req.off('data', meter);
+      req.unpipe();
+      res.set('Connection', 'close');
+      tooLarge();
+      req.resume();
+    };
+    req.on('data', meter);
+    return upload.array('files', EXPORT_LIMITS.files)(req, res, (error) => {
+      req.off('data', meter);
+      if (res.headersSent) return undefined;
+      if (!error) return next();
+      const message = error.code === 'LIMIT_FILE_SIZE'
+        ? 'One of those files is larger than 15 MB.'
+        : error.code === 'LIMIT_UNEXPECTED_FILE'
+          ? `Bring in up to ${EXPORT_LIMITS.files} files at a time.`
+          : 'Those files could not be read.';
+      return res.status(413).json({ error: message });
+    });
+  };
+
+  const inBatches = async (values, size, work) => {
+    for (let index = 0; index < values.length; index += size) {
+      await Promise.all(values.slice(index, index + size).map(work));
+    }
+  };
+
+  const landExportSources = async ({ userId, sources, sourceLabel, importSessionId, indexing }) => {
+    const tally = { newSources: 0, newHighlights: 0, sourcesWithNewHighlights: 0, alreadyHere: 0 };
+    if (!sources.length) return { tally, articles: [] };
+    const addresses = [...new Set(sources.flatMap(source => [source.url, ...(source.aliases || [])]))];
+    const byUrl = new Map();
+    for (let index = 0; index < addresses.length; index += 1000) {
+      const found = await Article.find({ userId, url: { $in: addresses.slice(index, index + 1000) } });
+      found.forEach(article => byUrl.set(article.url, article));
+    }
+    // Folders and concepts are matched by name, never made: an export's
+    // shelves become this library's shelves only where the reader already has them.
+    const folders = Folder ? await Folder.find({ userId }).select('name').lean() : [];
+    const folderByName = new Map(folders.map(folder => [sameText(folder.name), folder._id]));
+    const concepts = TagMeta?.find ? await TagMeta.find({ userId }).select('name').lean() : [];
+    const conceptByName = new Map(concepts.map(concept => [sameText(concept.name), concept._id]));
+
+    const dirty = new Set();
+    const madeNow = new Set();
+    const newHighlights = [];
+    const pins = [];
+    sources.forEach((source) => {
+      const provider = source.provider;
+      let article = byUrl.get(source.url) || (source.aliases || []).map(alias => byUrl.get(alias)).find(Boolean);
+      const importMeta = {
+        provider,
+        sourceType: 'file_upload',
+        sourceLabel,
+        sourceUrl: /^https?:/i.test(source.url) ? source.url : '',
+        importSessionId: importSessionId || null,
+        importedAt: new Date(),
+        ...(source.tags?.length ? { tags: source.tags } : {})
+      };
+      if (!article) {
+        const folderName = [source.folderName, ...(source.tags || [])].find(name => folderByName.has(sameText(name)));
+        article = new Article({
+          url: source.url,
+          title: deriveImportedTitle({
+            metadataTitle: source.title,
+            content: source.highlights[0]?.text || '',
+            author: source.author,
+            sourceType: 'csv',
+            url: source.url
+          }),
+          author: source.author || '',
+          content: source.content || '',
+          userId,
+          folder: folderName ? folderByName.get(sameText(folderName)) : null,
+          importMeta
+        });
+        if (source.savedAt) article.createdAt = source.savedAt;
+        byUrl.set(source.url, article);
+        madeNow.add(article);
+        dirty.add(article);
+        tally.newSources += 1;
+      } else if (source.content && !article.content) {
+        /* A book first known by its highlights gets its pages when the book
+           itself arrives, and the quotes typed with only their ends take its words. */
+        article.content = source.content;
+        const pages = source.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+        article.highlights.filter(mark => isUnfinished(mark.text)).forEach((mark) => {
+          mark.text = passageIn(pages, mark.text) || mark.text;
+        });
+        dirty.add(article);
+        tally.newSources += 1;
+      } else if (!source.highlights.length && !madeNow.has(article)) {
+        tally.alreadyHere += 1;
+      }
+      (source.tags || []).forEach((tag) => {
+        const conceptId = conceptByName.get(sameText(tag));
+        if (conceptId) pins.push({ conceptId, article });
+      });
+
+      let added = 0;
+      source.highlights.forEach((highlight) => {
+        if (!sameText(highlight.text)) return;
+        const held = absorbPassage(marksOfReading(article, highlight.createdAt), { text: highlight.text, note: highlight.note, at: highlight.createdAt });
+        if (held) {
+          held.page = held.page || highlight.page;
+          if (article.isModified()) dirty.add(article);
+          tally.alreadyHere += 1;
+          return;
+        }
+        article.highlights.push({
+          text: highlight.text,
+          note: highlight.note || '',
+          tags: highlight.tags || [],
+          ...(highlight.page ? { page: highlight.page } : {}),
+          ...(highlight.createdAt ? { createdAt: highlight.createdAt } : {}),
+          importMeta: { ...importMeta, sourcePath: highlight.location || '' }
+        });
+        newHighlights.push({ article, highlight: article.highlights[article.highlights.length - 1] });
+        added += 1;
+      });
+      if (added) {
+        dirty.add(article);
+        tally.newHighlights += added;
+        tally.sourcesWithNewHighlights += 1;
+      }
+    });
+
+    const articles = [...dirty];
+    await inBatches(articles, 50, article => article.save());
+    if (pins.length && TagMeta?.bulkWrite) {
+      await TagMeta.bulkWrite(pins.map(({ conceptId, article }) => ({
+        updateOne: { filter: { _id: conceptId, userId }, update: { $addToSet: { pinnedArticleIds: article._id } } }
+      })));
+    }
+    // The wiki reads passages, so it hears about the ones that arrived. A bare
+    // saved link has nothing in it to read yet.
+    const withPassages = new Set(newHighlights.map(({ article }) => article));
+    await inBatches([...withPassages], 50, article => emitWikiSourceEvent({
+      userId,
+      sourceType: 'article',
+      sourceObjectId: article._id,
+      provider: article.importMeta?.provider || 'import',
+      eventType: 'imported',
+      title: article.title,
+      summary: article.content || '',
+      url: article.url,
+      sourceUpdatedAt: article.updatedAt || new Date(),
+      metadata: { source: 'export-file', importSessionId }
+    }));
+    await inBatches(newHighlights, 50, ({ article, highlight }) => emitWikiSourceEvent({
+      userId,
+      sourceType: 'highlight',
+      sourceObjectId: highlight._id,
+      parentObjectId: article._id,
+      provider: highlight.importMeta?.provider || 'import',
+      eventType: 'imported',
+      title: article.title,
+      summary: [highlight.text, highlight.note].filter(Boolean).join(' - '),
+      url: article.url,
+      sourceUpdatedAt: highlight.createdAt || new Date(),
+      metadata: { source: 'export-file', importSessionId }
+    }));
+    await inBatches(articles, 50, article => queueIndexingAttempt(
+      indexing,
+      () => enqueueArticleEmbedding(article),
+      `Article indexing failed for ${article.title || article._id}`
+    ));
+    await inBatches(newHighlights, 50, ({ article, highlight }) => queueIndexingAttempt(
+      indexing,
+      () => enqueueHighlightEmbedding({ highlight, article }),
+      `Highlight indexing failed for ${article.title || article._id}`
+    ));
+    return { tally, articles };
+  };
+
+  /* A Notion or Obsidian note is the reader's own writing, so it lands in
+     Think beside their other notes, in folders mirroring the ones it came from. */
+  const landExportNotes = async ({ userId, notes, importSessionId, indexing }) => {
+    const tally = { notesCreated: 0, notesUpdated: 0, alreadyHere: 0 };
+    const entries = [];
+    const placements = new Map();
+    for (const note of notes) {
+      const [root = '', ...rest] = note.folderPath;
+      const placementKey = note.folderPath.join('/');
+      if (!placements.has(placementKey)) {
+        placements.set(placementKey, await ensureNotebookImportFolderPath({
+          userId,
+          provider: 'markdown',
+          sourceType: 'file_upload',
+          sourceLabel: root,
+          folderOwnership: NOTEBOOK_IMPORT_FOLDER_OWNERSHIP,
+          sourcePath: rest
+        }));
+      }
+      const folderPlacement = placements.get(placementKey);
+      const { entry, created, updated } = await upsertImportedNotebookEntry({
+        userId,
+        provider: 'markdown',
+        externalId: note.externalId,
+        title: note.title,
+        content: note.content,
+        blocks: note.blocks.map(block => ({ id: crypto.randomUUID(), ...block })),
+        tags: note.tags,
+        folderPlacement,
+        skipUnchanged: true,
+        importMeta: {
+          provider: 'markdown',
+          sourceType: 'file_upload',
+          sourceLabel: root || 'Markdown',
+          sourcePath: folderPlacement.sourcePath,
+          folderOwnership: NOTEBOOK_IMPORT_FOLDER_OWNERSHIP,
+          externalId: note.externalId,
+          importSessionId: importSessionId || null,
+          importedAt: new Date()
+        }
+      });
+      if (!created && !updated) {
+        tally.alreadyHere += 1;
+        continue;
+      }
+      tally[created ? 'notesCreated' : 'notesUpdated'] += 1;
+      entries.push(entry);
+    }
+    await inBatches(entries, 50, entry => queueIndexingAttempt(
+      indexing,
+      () => enqueueNotebookEmbedding(entry),
+      `Notebook indexing failed for ${entry.title || entry._id}`
+    ));
+    return { tally, entries };
+  };
+
+  /* The receipt says what happened in the reader's terms: highlights from
+     books, saved articles, notes, and what was already here. When nothing
+     could be read it says so, and nothing else. */
+  const describeExportLanding = ({ formats, sources, notes, unreadable, unattachedNotes }) => {
+    const units = [...new Set(formats.map(format => EXPORT_UNITS[format]).filter(unit => unit && unit !== 'note'))];
+    const unit = units.length === 1 ? units[0] : 'source';
+    const parts = [];
+    if (sources.newHighlights) {
+      parts.push(`Imported ${pluralize(sources.newHighlights, 'highlight')} from ${pluralize(sources.sourcesWithNewHighlights, unit)}`);
+    }
+    const bareSaves = sources.newSources - (sources.newHighlights ? sources.sourcesWithNewHighlights : 0);
+    if (bareSaves > 0) parts.push(`${parts.length ? 'saved' : 'Saved'} ${pluralize(bareSaves, unit === 'source' ? 'article' : unit)}`);
+    if (notes.notesCreated) parts.push(`${parts.length ? 'brought in' : 'Brought in'} ${pluralize(notes.notesCreated, 'note')}`);
+    if (notes.notesUpdated) parts.push(`${parts.length ? 'refreshed' : 'Refreshed'} ${pluralize(notes.notesUpdated, 'note')}`);
+    const alreadyHere = sources.alreadyHere + notes.alreadyHere;
+    let summary = parts.join('; ');
+    if (summary && alreadyHere) summary += `; ${alreadyHere} ${alreadyHere === 1 ? 'was' : 'were'} already here`;
+    if (!summary) {
+      summary = alreadyHere
+        ? 'Everything in that export was already here'
+        : 'Nothing in those files read as highlights, saved articles or notes';
+    }
+    const asides = [];
+    if (unattachedNotes) asides.push(`${pluralize(unattachedNotes, 'Kindle note')} had no highlight to sit beside and ${unattachedNotes === 1 ? 'was' : 'were'} left out.`);
+    if (unreadable) asides.push(`${pluralize(unreadable, 'entry', 'entries')} could not be read.`);
+    return [`${summary}.`, ...asides].join(' ');
+  };
+
+  router.post('/api/import/files', authenticateCapture, receiveExportFiles, async (req, res) => {
     const importSessionId = readImportSessionId(req);
     const userId = req.user.id;
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (!files.length) return res.status(400).json({ error: 'Choose an export file or a folder of notes.' });
+    // Browsers send a folder's inner paths alongside the files, in order.
+    const paths = [].concat(req.body?.paths || []);
+    const readable = files
+      .map((file, index) => ({ name: file.originalname, path: toTrimmedString(paths[index]), buffer: file.buffer, text: file.buffer.toString('utf8') }))
+      .filter(file => !(file.path || file.name).split('/').some(segment => segment.startsWith('.')));
+    const sourceLabel = files.length === 1 ? (files[0].originalname || 'Export file') : (toTrimmedString(paths[0]).split('/')[0] || 'Export files');
 
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'CSV file is required.' });
-      }
-
       await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
           session.status = 'importing';
-          session.sourceLabel = session.sourceLabel || req.file.originalname || 'Readwise CSV';
+          session.sourceLabel = session.sourceLabel || sourceLabel;
           clearImportOrganizationOffer(session);
-          session.progress = {
-            ...(session.progress || {}),
-            stage: 'upload_received',
-            indexingState: 'not_started'
-          };
+          session.progress = { ...(session.progress || {}), stage: 'upload_received', indexingState: 'not_started' };
         }
       });
 
-      const csvText = req.file.buffer.toString('utf8');
-      const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
-      const rows = Array.isArray(parsed.data) ? parsed.data : [];
-
-      let importedArticles = 0;
-      let importedHighlights = 0;
-      let skippedRows = 0;
-      let duplicateSkips = 0;
-      let invalidSkips = 0;
-
-      const articleCache = new Map();
-      const dirtyArticles = new Set();
-      const pendingHighlightRefs = [];
-      for (const row of rows) {
-        const highlightText = toTrimmedString(findRowValue(row, ['Highlight', 'Text', 'Highlight text']));
-        if (!highlightText) {
-          skippedRows += 1;
-          invalidSkips += 1;
-          continue;
-        }
-
-        const metadataTitle = toTrimmedString(findRowValue(row, ['Title', 'Book Title', 'Article Title']));
-        const author = toTrimmedString(findRowValue(row, ['Author']));
-        let url = toTrimmedString(findRowValue(row, ['URL', 'Source URL', 'Link']));
-        if (!url) {
-          const base = `${slugify(metadataTitle)}-${slugify(author || 'source')}`;
-          url = `import://readwise/${base || 'untitled'}`;
-        }
-
-        const note = toTrimmedString(findRowValue(row, ['Note', 'Notes']));
-        const tagsValue = findRowValue(row, ['Tags', 'Tag']);
-        const tags = parseTagList(tagsValue);
-        const tagList = tags.length > 0 ? tags : ['imported'];
-        const dateValue = findRowValue(row, ['Highlighted at', 'Created at', 'Added', 'Date']);
-        const parsedDate = dateValue ? new Date(dateValue) : null;
-        const createdAt = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
-        const title = deriveImportedTitle({
-          metadataTitle,
-          content: highlightText,
-          author,
-          sourceType: /(?:x\.com|twitter\.com)/i.test(url) ? 'social_thread' : 'csv',
-          url,
-          publishedAt: createdAt
-        });
-
-        let article = articleCache.get(url);
-        if (!article) {
-          article = await Article.findOne({ userId, url });
-          if (!article) {
-            article = new Article({
-              url,
-              title,
-              content: '',
-              userId,
-              importMeta: {
-                provider: 'readwise',
-                sourceType: 'csv',
-                sourceLabel: req.file.originalname || 'Readwise CSV',
-                sourceUrl: url,
-                importSessionId: importSessionId || null,
-                importedAt: new Date()
-              }
-            });
-            importedArticles += 1;
-          } else if (isFragmentTitle(article.title)) {
-            article.title = title;
-            dirtyArticles.add(article);
-          }
-          articleCache.set(url, article);
-        }
-
-        const alreadyExists = (article.highlights || []).some(h => h.text === highlightText);
-        if (alreadyExists) {
-          skippedRows += 1;
-          duplicateSkips += 1;
-          continue;
-        }
-
-        article.highlights.push({
-          text: highlightText,
-          note,
-          tags: tagList,
-          createdAt,
-          importMeta: {
-            provider: 'readwise',
-            sourceType: 'csv',
-            sourceLabel: req.file.originalname || 'Readwise CSV',
-            sourceUrl: url,
-            importSessionId: importSessionId || null,
-            importedAt: new Date()
-          }
-        });
-        const highlightRef = article.highlights[article.highlights.length - 1];
-        pendingHighlightRefs.push({ article, highlight: highlightRef });
-        dirtyArticles.add(article);
-        importedHighlights += 1;
-      }
-
-      await Promise.all(Array.from(dirtyArticles).map(article => article.save()));
-      await Promise.all(Array.from(dirtyArticles).map(article => emitWikiSourceEvent({
-        userId,
-        sourceType: 'article',
-        sourceObjectId: article._id,
-        provider: 'readwise',
-        eventType: 'imported',
-        title: article.title,
-        summary: article.content || '',
-        url: article.url,
-        sourceUpdatedAt: article.updatedAt || new Date(),
-        metadata: { source: 'readwise-csv', importSessionId }
-      })));
-      await Promise.all(pendingHighlightRefs.map(({ article, highlight }) => emitWikiSourceEvent({
-        userId,
-        sourceType: 'highlight',
-        sourceObjectId: highlight._id,
-        parentObjectId: article._id,
-        provider: 'readwise',
-        eventType: 'imported',
-        title: article.title,
-        summary: [highlight.text, highlight.note].filter(Boolean).join(' - '),
-        url: article.url,
-        sourceUpdatedAt: highlight.createdAt || article.updatedAt || new Date(),
-        metadata: { source: 'readwise-csv', importSessionId }
-      })));
-      await logConnectorAction({
-        userId,
-        connector: 'readwise',
-        action: 'import_csv',
-        targetType: 'import_session',
-        targetId: importSessionId || '',
-        summary: `Imported ${importedHighlights} Readwise highlights.`,
-        metadata: { importedArticles, importedHighlights, skippedRows }
-      });
+      const parsed = await Promise.all(readable.map(file => parseExportFile(file)));
+      const formats = [...new Set(parsed.map(result => result.format).filter(format => format !== 'unknown'))];
+      const sources = parsed.flatMap(result => result.sources.map(source => ({ ...source, provider: result.format })));
+      const notes = parsed.flatMap(result => result.notes || []);
+      const unreadable = parsed.reduce((sum, result) => sum + (result.skipped || 0), 0);
+      const unattachedNotes = parsed.reduce((sum, result) => sum + (result.unattachedNotes || 0), 0);
+      const unrecognised = parsed.filter(result => result.format === 'unknown').length;
+      const provider = formats.length === 1 ? formats[0] : 'files';
+      const label = formats.length === 1 ? FORMAT_LABELS[formats[0]] : 'Your exports';
 
       const indexing = buildIndexingSummary();
-      await Promise.all([
-        ...Array.from(dirtyArticles).map(article => queueIndexingAttempt(
-          indexing,
-          () => enqueueArticleEmbedding(article),
-          `Article indexing failed for ${article.title || article._id}`
-        )),
-        ...pendingHighlightRefs.map(({ article, highlight }) => queueIndexingAttempt(
-          indexing,
-          () => enqueueHighlightEmbedding({ highlight, article }),
-          `Highlight indexing failed for ${article.title || article._id}`
-        ))
-      ]);
+      const landed = await landExportSources({ userId, sources, sourceLabel, importSessionId, indexing });
+      const written = await landExportNotes({ userId, notes, importSessionId, indexing });
+      const s = landed.tally;
+      const n = written.tally;
 
-      const parseErrors = parsed.errors ? parsed.errors.length : 0;
       const warningEntries = indexing.warnings.map(message => buildWarning('indexing_failed', message));
-      if (parseErrors > 0) {
-        warningEntries.push(buildWarning('csv_parse_errors', `${parseErrors} CSV rows had parse errors.`));
-      }
+      if (unrecognised) warningEntries.push(buildWarning('unrecognised_files', `${pluralize(unrecognised, 'file')} did not look like an export we know.`));
       const warningSummary = summarizeWarnings(warningEntries);
-      const status = finalizeSessionStatus(indexing, parseErrors);
+      const status = finalizeSessionStatus(indexing, 0);
+      const articleIds = landed.articles.map(article => String(article._id));
+      const entryIds = written.entries.map(entry => String(entry._id));
       const resultPayload = {
-        importedArticles,
-        importedHighlights,
-        skippedRows,
-        duplicateSkips,
-        invalidSkips,
-        parseErrors,
+        format: provider,
+        importedArticles: s.newSources,
+        importedHighlights: s.newHighlights,
+        importedNotes: n.notesCreated + n.notesUpdated,
+        alreadyHere: s.alreadyHere + n.alreadyHere,
+        skippedRows: unreadable + unattachedNotes,
+        duplicateSkips: s.alreadyHere + n.alreadyHere,
+        invalidSkips: unreadable,
+        parseErrors: 0,
         indexingAttempts: indexing.indexingAttempts,
         indexingFailures: indexing.indexingFailures,
         indexingQueued: indexing.indexingQueued,
         warningCodes: warningSummary.warningCodes,
         warnings: warningSummary.warnings,
-        articleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
-        importedArticleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
+        articleIds,
+        importedArticleIds: articleIds,
+        entryId: entryIds[0] || '',
+        entryIds,
+        importedEntryIds: entryIds,
         indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
       };
+      resultPayload.summary = describeExportLanding({ formats, sources: s, notes: n, unreadable, unattachedNotes });
       resultPayload.receipt = buildNoeisImportReceipt({
-        id: `import-${importSessionId || 'readwise-csv'}-${Date.now()}`,
-        source: 'readwise',
-        sourceLabel: req.file.originalname || 'Readwise CSV',
+        id: `import-${importSessionId || provider}-${Date.now()}`,
+        source: provider,
+        sourceLabel: label,
         status,
+        summary: resultPayload.summary,
         result: resultPayload,
-        touched: Array.from(dirtyArticles).map(article => ({
-          type: 'article',
-          id: String(article._id || ''),
-          title: article.title || 'Imported source'
-        })),
-        nextAction: resultPayload.importedArticleIds.length > 0
-          ? { label: 'Review filing suggestions', intent: 'organize_import' }
-          : null
+        touched: [
+          ...landed.articles.map(article => ({ type: 'article', id: String(article._id), title: article.title })),
+          ...written.entries.map(entry => ({ type: 'note', id: String(entry._id), title: entry.title }))
+        ],
+        nextAction: articleIds.length || entryIds.length ? { label: 'Review filing suggestions', intent: 'organize_import' } : null
       });
 
       const completedSession = await patchImportSession({
@@ -1576,97 +2067,90 @@ const buildImportRouter = ({
         userId,
         mutate: (session) => {
           session.status = status;
-          session.preview = {
-            ...(session.preview || {}),
-            items: rows.length,
-            articles: importedArticles,
-            highlights: importedHighlights
-          };
+          session.preview = { ...(session.preview || {}), items: sources.length + notes.length, articles: s.newSources, highlights: s.newHighlights, notes: notes.length };
           session.progress = {
             ...(session.progress || {}),
             stage: 'import_complete',
-            itemsProcessed: rows.length,
-            itemsTotal: rows.length,
+            itemsProcessed: sources.length + notes.length,
+            itemsTotal: sources.length + notes.length,
             percent: 100,
             indexingState: resultPayload.indexingState
           };
           session.result = {
             ...(session.result || {}),
-            importedArticles,
-            importedHighlights,
-            importedNotes: 0,
-            skippedRows,
-            duplicateSkips,
-            invalidSkips,
-            parseErrors,
+            importedArticles: s.newSources,
+            importedHighlights: s.newHighlights,
+            importedNotes: resultPayload.importedNotes,
+            skippedRows: resultPayload.skippedRows,
+            duplicateSkips: resultPayload.duplicateSkips,
+            invalidSkips: unreadable,
             indexingAttempts: indexing.indexingAttempts,
             indexingFailures: indexing.indexingFailures,
             indexingQueued: indexing.indexingQueued,
             warningCodes: warningSummary.warningCodes,
             warnings: warningSummary.warnings,
-            lastImportedArticleId: resultPayload.articleIds[0] || '',
-            importedArticleIds: resultPayload.importedArticleIds
+            lastImportedArticleId: articleIds[0] || '',
+            lastImportedEntryId: entryIds[0] || '',
+            importedArticleIds: articleIds,
+            importedEntryIds: entryIds
           };
           session.receipt = resultPayload.receipt;
           session.lastError = '';
-          applyImportOrganizationOffer(session);
+          if (articleIds.length || entryIds.length) applyImportOrganizationOffer(session);
         }
       });
-      await stageImportOrganizationProposalForSession({
-        session: completedSession,
-        userId,
-        articleIds: resultPayload.importedArticleIds
-      });
+      if (articleIds.length || entryIds.length) {
+        await stageImportOrganizationProposalForSession({ session: completedSession, userId, articleIds, notebookEntryIds: entryIds });
+      }
       await persistImportReceipt({ userId, receipt: resultPayload.receipt });
-
+      await logConnectorAction({
+        userId,
+        connector: provider,
+        action: 'import_file',
+        targetType: 'import_session',
+        targetId: importSessionId || '',
+        summary: resultPayload.summary,
+        metadata: { formats, importedArticles: s.newSources, importedHighlights: s.newHighlights, importedNotes: resultPayload.importedNotes }
+      });
       trackEvent({
         event: EVENT_NAMES.CAPTURE_COMPLETED,
         userId,
         requestId: req.requestId,
-        properties: {
-          source: 'readwise-csv',
-          importedArticles,
-          importedHighlights,
-          skippedRows,
-          parseErrors
-        }
+        properties: { source: `export-${provider}`, importedArticles: s.newSources, importedHighlights: s.newHighlights, importedNotes: resultPayload.importedNotes }
       });
-
       res.status(200).json(resultPayload);
-    } catch (err) {
-      console.error('Readwise CSV import failed:', err);
+      fillArticleBodies({
+        Article,
+        userId,
+        urls: bareLinks(landed.articles),
+        fetchBody: fetchSourceBody,
+        onFilled: article => enqueueArticleEmbedding(article)
+      }).catch(error => console.error('Failed fetching imported links:', error));
+      return undefined;
+    } catch (error) {
+      console.error('Export file import failed:', error);
+      const message = 'Those files did not finish coming in. Whatever arrived stays, and trying again will not double it.';
       const failedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
           session.status = 'failed';
           clearImportOrganizationOffer(session);
-          session.progress = {
-            ...(session.progress || {}),
-            stage: 'failed',
-            indexingState: session.progress?.indexingState || 'not_started'
-          };
-          session.lastError = 'Failed to import Readwise CSV.';
+          session.progress = { ...(session.progress || {}), stage: 'failed', indexingState: session.progress?.indexingState || 'not_started' };
+          session.lastError = message;
           session.receipt = buildNoeisImportReceipt({
-            id: `import-${importSessionId || 'readwise-csv'}-${Date.now()}`,
-            source: 'readwise',
-            sourceLabel: session.sourceLabel || 'Readwise CSV',
+            id: `import-${importSessionId || 'files'}-${Date.now()}`,
+            source: session.provider || 'files',
+            sourceLabel: session.sourceLabel || sourceLabel,
             status: 'failed',
-            error: {
-              stage: 'failed',
-              message: 'Failed to import Readwise CSV.',
-              retryable: true
-            }
+            error: { stage: 'failed', message, retryable: true }
           });
         }
       });
       await persistImportReceipt({ userId, receipt: failedSession?.receipt });
-      res.status(500).json({ error: 'Failed to import Readwise CSV.' });
+      return res.status(500).json({ error: message });
     }
-  };
-
-  router.post('/api/import/readwise-csv', authenticateToken, upload.single('file'), handleReadwiseImport);
-  router.post('/api/import/readwise', authenticateToken, upload.single('file'), handleReadwiseImport);
+  });
 
   router.get('/api/import/connections', authenticateToken, async (req, res) => {
     try {
@@ -2067,6 +2551,7 @@ const buildImportRouter = ({
     let duplicateSkips = 0;
     let invalidSkips = 0;
     const articleCache = new Map();
+    let shelf = null;
     const dirtyArticles = new Set();
     const pendingHighlightRefs = [];
     const pendingCorrections = [];
@@ -2074,10 +2559,12 @@ const buildImportRouter = ({
     for (const row of rows) {
       const metadataTitle = toTrimmedString(row.title);
       const author = toTrimmedString(row.author);
-      const sourceUrl = toTrimmedString(row.source_url || row.url || row.readwise_url);
+      // Readwise's own page for a book is not the book's address; a Kindle book has none.
+      const sourceUrl = toTrimmedString(row.source_url || row.url);
       const externalId = toTrimmedString(row.user_book_id || row.id);
       const sourceLabel = connection.accountLabel || 'Readwise';
-      const url = sourceUrl || `import://readwise/${externalId || slugify(metadataTitle) || crypto.randomUUID()}`;
+      const book = !sourceUrl && metadataTitle ? bookSource({ provider: 'readwise', title: metadataTitle, author }) : null;
+      const url = sourceUrl || book?.url || `import://readwise/${externalId || crypto.randomUUID()}`;
       const documentTags = Array.isArray(row.book_tags)
         ? row.book_tags.map(tag => toTrimmedString(tag?.name || tag)).filter(Boolean)
         : [];
@@ -2096,6 +2583,12 @@ const buildImportRouter = ({
       let article = articleCache.get(url);
       if (!article) {
         article = await Article.findOne({ userId, url });
+        // A book with no web address may already be on the shelf, started at the desk or imported from a file.
+        if (!article && book) {
+          shelf ||= await Article.find({ userId, url: BOOK_URL }).select('url title');
+          const known = bookOnShelf(shelf, book);
+          if (known) article = await Article.findById(known._id);
+        }
         if (!article) {
           article = new Article({
             url,
@@ -2107,7 +2600,7 @@ const buildImportRouter = ({
               provider: 'readwise',
               sourceType: 'api',
               sourceLabel,
-              sourceUrl,
+              sourceUrl: sourceUrl || toTrimmedString(row.readwise_url),
               externalId,
               importSessionId: importSessionId || null,
               importedAt: new Date()
@@ -2145,10 +2638,18 @@ const buildImportRouter = ({
           dirtyArticles.add(article);
           continue;
         }
-        const highlightAlreadyExists = Boolean(existingHighlight) || (article.highlights || []).some((highlight) => (
-          highlight.text === highlightText
-        ));
-        if (highlightAlreadyExists) {
+        // A quote or note typed at the desk that this highlight completes.
+        const absorbed = !existingHighlight && absorbPassage(marksOfReading(article, highlightRow.highlighted_at), {
+          text: highlightText,
+          note: toTrimmedString(highlightRow.note),
+          at: highlightRow.highlighted_at
+        });
+        if (absorbed) {
+          // Readwise knows it by this id from now on.
+          absorbed.importMeta.externalId = absorbed.importMeta.externalId || highlightExternalId;
+          if (article.isModified()) dirtyArticles.add(article);
+        }
+        if (existingHighlight || absorbed) {
           skippedRows += 1;
           duplicateSkips += 1;
           continue;
@@ -2161,6 +2662,8 @@ const buildImportRouter = ({
           note: toTrimmedString(highlightRow.note),
           tags: highlightTags.length > 0 ? highlightTags : (documentTags.length > 0 ? documentTags : ['imported']),
           createdAt: highlightRow.highlighted_at || highlightRow.created_at || new Date(),
+          // A paper book read through Readwise's own app knows its printed page.
+          ...(highlightRow.location_type === 'page' && Number(highlightRow.location) > 0 ? { page: Number(highlightRow.location) } : {}),
           importMeta: {
             provider: 'readwise',
             sourceType: 'api',
@@ -3325,7 +3828,7 @@ const buildImportRouter = ({
       res.status(200).json(resultPayload);
     } catch (error) {
       console.error('Evernote ENEX import failed:', error);
-      await patchImportSession({
+      const failedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -3351,204 +3854,6 @@ const buildImportRouter = ({
       });
       await persistImportReceipt({ userId, receipt: failedSession?.receipt });
       res.status(500).json({ error: 'Failed to import Evernote ENEX.' });
-    }
-  });
-
-  router.post('/api/import/markdown', authenticateToken, upload.single('file'), async (req, res) => {
-    const importSessionId = readImportSessionId(req);
-    const userId = req.user.id;
-
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'Markdown file is required.' });
-      }
-
-      await patchImportSession({
-        sessionId: importSessionId,
-        userId,
-        mutate: (session) => {
-          session.status = 'importing';
-          session.sourceLabel = session.sourceLabel || req.file.originalname || 'Imported markdown note';
-          clearImportOrganizationOffer(session);
-          session.progress = {
-            ...(session.progress || {}),
-            stage: 'upload_received',
-            indexingState: 'not_started'
-          };
-        }
-      });
-
-      const originalName = req.file.originalname || 'imported-note.md';
-      const title = path.basename(originalName, path.extname(originalName)) || 'Imported note';
-      const markdown = req.file.buffer.toString('utf8');
-
-      const createBlockId = () => {
-        if (crypto.randomUUID) return crypto.randomUUID();
-        return `block-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      };
-      const escapeHtml = (value = '') =>
-        String(value)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-
-      const lines = markdown.split(/\r?\n/);
-      const blocks = [];
-      const htmlParts = [];
-      let listItems = [];
-
-      const flushList = () => {
-        if (listItems.length === 0) return;
-        htmlParts.push(`<ul>${listItems.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`);
-        listItems = [];
-      };
-
-      lines.forEach((line) => {
-        const trimmed = line.trim();
-        if (!trimmed) {
-          flushList();
-          return;
-        }
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          const text = trimmed.slice(2).trim();
-          listItems.push(text);
-          blocks.push({
-            id: createBlockId(),
-            type: 'bullet',
-            text,
-            indent: 0
-          });
-          return;
-        }
-        flushList();
-        htmlParts.push(`<p>${escapeHtml(trimmed)}</p>`);
-        blocks.push({
-          id: createBlockId(),
-          type: 'paragraph',
-          text: trimmed
-        });
-      });
-      flushList();
-
-      const content = htmlParts.join('') || `<p>${escapeHtml(markdown.trim())}</p>`;
-
-      const entry = new NotebookEntry({
-        title,
-        content,
-        blocks,
-        userId,
-        importMeta: {
-          provider: 'markdown',
-          sourceType: 'file_upload',
-          sourceLabel: originalName,
-          importSessionId: importSessionId || null,
-          importedAt: new Date()
-        }
-      });
-      await entry.save();
-      if (blocks.length > 0) {
-        await syncNotebookReferences(userId, entry._id, blocks);
-      }
-
-      const indexing = buildIndexingSummary();
-      await queueIndexingAttempt(
-        indexing,
-        () => enqueueNotebookEmbedding(entry),
-        `Notebook indexing failed for ${entry.title || entry._id}`
-      );
-
-      const status = finalizeSessionStatus(indexing, 0);
-      const resultPayload = {
-        importedNotes: 1,
-        entryId: entry._id,
-        entryIds: [String(entry._id)],
-        importedEntryIds: [String(entry._id)],
-        ...indexing,
-        indexingState: indexing.indexingFailures > 0 ? 'failed' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
-      };
-
-      const completedSession = await patchImportSession({
-        sessionId: importSessionId,
-        userId,
-        mutate: (session) => {
-          session.status = status;
-          session.preview = {
-            ...(session.preview || {}),
-            items: 1,
-            notes: 1
-          };
-          session.progress = {
-            ...(session.progress || {}),
-            stage: 'import_complete',
-            itemsProcessed: 1,
-            itemsTotal: 1,
-            percent: 100,
-            indexingState: resultPayload.indexingState
-          };
-          session.result = {
-            ...(session.result || {}),
-            importedArticles: 0,
-            importedHighlights: 0,
-            importedNotes: 1,
-            indexingAttempts: indexing.indexingAttempts,
-            indexingFailures: indexing.indexingFailures,
-            indexingQueued: indexing.indexingQueued,
-            warnings: indexing.warnings,
-            lastImportedEntryId: String(entry._id),
-            importedEntryIds: resultPayload.importedEntryIds
-          };
-          session.lastError = '';
-          applyImportOrganizationOffer(session);
-        }
-      });
-      await stageImportOrganizationProposalForSession({
-        session: completedSession,
-        userId,
-        notebookEntryIds: resultPayload.importedEntryIds
-      });
-
-      trackEvent({
-        event: EVENT_NAMES.WORKSPACE_CREATED,
-        userId,
-        requestId: req.requestId,
-        properties: {
-          workspaceType: 'notebook',
-          source: 'markdown',
-          entryId: String(entry._id),
-          blockCount: blocks.length
-        }
-      });
-      trackEvent({
-        event: EVENT_NAMES.CAPTURE_COMPLETED,
-        userId,
-        requestId: req.requestId,
-        properties: {
-          source: 'markdown',
-          entryId: String(entry._id),
-          importedNotes: 1,
-          blockCount: blocks.length
-        }
-      });
-
-      res.status(200).json(resultPayload);
-    } catch (err) {
-      console.error('Markdown import failed:', err);
-      await patchImportSession({
-        sessionId: importSessionId,
-        userId,
-        mutate: (session) => {
-          session.status = 'failed';
-          clearImportOrganizationOffer(session);
-          session.progress = {
-            ...(session.progress || {}),
-            stage: 'failed'
-          };
-          session.lastError = 'Failed to import markdown file.';
-        }
-      });
-      res.status(500).json({ error: 'Failed to import markdown file.' });
     }
   });
 

@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const { isDuplicateKey, shareSlug } = require('./authoredNotebookShare');
 const {
   AGENT_MANDATE_PAUSE,
   evaluateAgentMandate,
@@ -10,10 +9,8 @@ const {
 } = require('./governedResearch');
 
 /**
- * C6/C7: a shared question or concept leaves the workshop as a frozen snapshot.
- *
- * Same URL contract as a notebook share — one slug, an explicit freeze, an
- * explicit later update under that URL. Private edits never rewrite the
+ * C6/C7: a shared question leaves the workshop as a frozen snapshot: one
+ * slug, an explicit freeze, an explicit later update under that URL. Private edits never rewrite the
  * published copy. Wiki shares stay live. This file replaces the inline
  * sanitizers that used to assemble a public page from live documents.
  *
@@ -36,10 +33,15 @@ const {
  * record. Libraries, held readings, and workshop edits stay private.
  */
 
-const PREVIEW_STALE = {
-  question: 'The question changed since you previewed it. Refresh the preview before sharing.',
-  concept: 'The concept changed since you previewed it. Refresh the preview before sharing.'
-};
+const PREVIEW_STALE = 'The question changed since you previewed it. Refresh the preview before sharing.';
+
+const shareSlug = () => crypto.randomBytes(9)
+  .toString('base64')
+  .replace(/\+/g, '-')
+  .replace(/\//g, '_')
+  .replace(/=+$/g, '');
+
+const isDuplicateKey = (error) => Number(error?.code) === 11000;
 
 const CONTRIBUTION_TAKEN_BACK = 'They took this back.';
 const CONTRIBUTION_TAKE_CHANGED = 'This take was already changed.';
@@ -47,10 +49,7 @@ const CONTRIBUTION_HELD = 'Place this reading before you say how you take it.';
 const BRIEF_NEEDS_READING = 'Place a reading before you write a brief.';
 const SUCCESSION_NEEDS_UNRESOLVED = 'Close the brief at an unresolved question before you hand this on.';
 
-const NOT_PUBLISHED = {
-  question: 'This question is not published.',
-  concept: 'This concept is not published.'
-};
+const NOT_PUBLISHED = 'This question is not published.';
 
 const SHARE_RECORD_KIND = 'question-share-records';
 const SHARE_RECORD_VERSION = 1;
@@ -121,16 +120,6 @@ const sanitizeParagraphBlocks = (blocks = []) => (
     .filter((block) => block.text)
 );
 
-const sanitizeCard = (card) => ({
-  id: String(card?.id || ''),
-  type: String(card?.type || ''),
-  title: String(card?.title || ''),
-  content: String(card?.content || ''),
-  whyItMatters: String(card?.whyItMatters || ''),
-  strength: String(card?.strength || ''),
-  confidence: String(card?.confidence || '')
-});
-
 const projectPublicQuestion = (question = {}, ownerDisplayName = '') => ({
   ownerDisplayName: publicText(ownerDisplayName, 200),
   question: {
@@ -141,25 +130,6 @@ const projectPublicQuestion = (question = {}, ownerDisplayName = '') => ({
   }
 });
 
-const projectPublicConcept = (concept = {}, ownerDisplayName = '') => {
-  const workbench = (concept?.ideaWorkbench && typeof concept.ideaWorkbench === 'object')
-    ? concept.ideaWorkbench
-    : {};
-  const cards = Array.isArray(workbench.cards) ? workbench.cards : [];
-  return {
-    ownerDisplayName: publicText(ownerDisplayName, 200),
-    concept: {
-      name: publicText(concept?.name, 400),
-      description: String(concept?.description || ''),
-      hypothesisHtml: String(workbench?.hypothesis?.html || ''),
-      framing: String(workbench?.header?.prompt || ''),
-      supports: cards.filter((card) => card?.zone === 'supports').map(sanitizeCard),
-      contradictions: cards.filter((card) => card?.zone === 'contradictions').map(sanitizeCard),
-      questions: cards.filter((card) => card?.zone === 'questions').map(sanitizeCard)
-    }
-  };
-};
-
 const hashPublicQuestion = (preview) => crypto
   .createHash('sha256')
   .update(JSON.stringify({
@@ -168,16 +138,7 @@ const hashPublicQuestion = (preview) => crypto
   }))
   .digest('hex');
 
-const hashPublicConcept = (preview) => crypto
-  .createHash('sha256')
-  .update(JSON.stringify({
-    ownerDisplayName: preview?.ownerDisplayName || '',
-    concept: preview?.concept || {}
-  }))
-  .digest('hex');
-
 const canPublishQuestion = (preview) => Boolean(publicText(preview?.question?.text, 8000));
-const canPublishConcept = (preview) => Boolean(publicText(preview?.concept?.name, 400));
 
 const freezeThinkSnapshot = (preview, publishedAt, extra = {}) => {
   const body = { ...(preview || {}) };
@@ -321,7 +282,7 @@ const freezeShareSuccession = (share, contributions = [], { outcome = '', at = n
   }
   const evidenceThen = evidenceThenOf(share);
   if (!evidenceThen) {
-    return { error: NOT_PUBLISHED.question, field: 'succession' };
+    return { error: NOT_PUBLISHED, field: 'succession' };
   }
   const agreement = contributionRemainder(share?.brief?.agreement);
   const authority = contributionBy(share?.ownerDisplayName);
@@ -394,7 +355,7 @@ const projectShareSuccession = (share, { includeEmpty = false } = {}) => {
 
 const freezeShareMandate = (share, fields = {}, { now = new Date() } = {}) => {
   if (!share?.snapshot || typeof share.snapshot !== 'object') {
-    return { error: NOT_PUBLISHED.question, field: 'mandate' };
+    return { error: NOT_PUBLISHED, field: 'mandate' };
   }
   try {
     return {
@@ -666,32 +627,19 @@ const missingSnapshot = (share) => (
 const thinkShareState = (share, {
   preview = null,
   currentHash = '',
-  kind = 'question',
   contributions = [],
   here = null
 } = {}) => {
-  const publishable = kind === 'concept'
-    ? canPublishConcept(preview)
-    : canPublishQuestion(preview);
+  const publishable = canPublishQuestion(preview);
   const extra = {
     interpretedBy: share?.ownerDisplayName || preview?.ownerDisplayName,
-    includeUpdatedAt: kind === 'question'
+    includeUpdatedAt: true
   };
-  const readings = kind === 'question'
-    ? projectContributionList(placedContributions(contributions), extra)
-    : null;
-  const waiting = kind === 'question' && share
-    ? projectContributionList(heldContributions(contributions), extra)
-    : null;
-  const brief = kind === 'question' && share
-    ? projectShareBrief(share, contributions, { includeEmpty: true })
-    : null;
-  const succession = kind === 'question' && share
-    ? projectShareSuccession(share, { includeEmpty: true })
-    : null;
-  const mandate = kind === 'question' && share
-    ? projectShareMandate(share)
-    : null;
+  const readings = projectContributionList(placedContributions(contributions), extra);
+  const waiting = share ? projectContributionList(heldContributions(contributions), extra) : null;
+  const brief = share ? projectShareBrief(share, contributions, { includeEmpty: true }) : null;
+  const succession = share ? projectShareSuccession(share, { includeEmpty: true }) : null;
+  const mandate = share ? projectShareMandate(share) : null;
   if (!share) {
     return {
       shared: false,
@@ -699,7 +647,7 @@ const thinkShareState = (share, {
       ownerDisplayName: preview?.ownerDisplayName || '',
       preview,
       currentHash,
-      ...(readings ? { contributions: readings } : {})
+      contributions: readings
     };
   }
   const snapshot = share.snapshot && typeof share.snapshot === 'object'
@@ -719,7 +667,7 @@ const thinkShareState = (share, {
     delete snapshot.here;
     delete snapshot.presence;
   }
-  const present = kind === 'question' && Array.isArray(here) ? here : null;
+  const present = Array.isArray(here) ? here : null;
   return {
     shared: true,
     publishable,
@@ -731,7 +679,7 @@ const thinkShareState = (share, {
     stale: Boolean(share.contentHash && currentHash && share.contentHash !== currentHash),
     preview,
     snapshot,
-    ...(readings ? { contributions: readings } : {}),
+    contributions: readings,
     ...(waiting && waiting.length ? { waiting } : {}),
     ...(brief ? { brief } : {}),
     ...(succession ? { succession } : {}),
@@ -763,17 +711,6 @@ const liveQuestionPreview = async ({ User, question, userId }) => {
     currentHash: hashPublicQuestion(preview),
     ownerDisplayName,
     publishable: canPublishQuestion(preview)
-  };
-};
-
-const liveConceptPreview = async ({ User, concept, userId }) => {
-  const ownerDisplayName = await ownerNameOf(User, userId);
-  const preview = projectPublicConcept(concept, ownerDisplayName);
-  return {
-    preview,
-    currentHash: hashPublicConcept(preview),
-    ownerDisplayName,
-    publishable: canPublishConcept(preview)
   };
 };
 
@@ -1034,7 +971,7 @@ const inspectShareRecordImport = (raw, share, { userId } = {}) => {
   const parsed = parseShareRecordBundle(raw);
   if (parsed.error) return { ...parsed, status: 400 };
   if (!share?.snapshot) {
-    return { error: NOT_PUBLISHED.question, status: 404 };
+    return { error: NOT_PUBLISHED, status: 404 };
   }
   const sameDoor = Boolean(
     parsed.door.slug && parsed.door.slug === publicText(share.slug, 80)
@@ -1151,7 +1088,6 @@ module.exports = {
   asRow,
   beatQuestionPresence,
   buildShareRecordMarkdown,
-  canPublishConcept,
   canPublishQuestion,
   claimContributionSlot,
   claimShareAgentAsk,
@@ -1168,12 +1104,10 @@ module.exports = {
   freezeShareMandate,
   freezeShareSuccession,
   freezeThinkSnapshot,
-  hashPublicConcept,
   hashPublicQuestion,
   inspectShareRecordImport,
   heldContributions,
   isDuplicateKey,
-  liveConceptPreview,
   liveQuestionPreview,
   loadQuestionContributions,
   loadQuestionPresence,
@@ -1186,7 +1120,6 @@ module.exports = {
   projectContribution,
   projectContributionList,
   projectPresence,
-  projectPublicConcept,
   projectPublicQuestion,
   projectShareBrief,
   projectShareMandate,
@@ -1194,7 +1127,6 @@ module.exports = {
   publicQuestionPage,
   readLean,
   releaseContributionSlot,
-  sanitizeCard,
   sanitizeParagraphBlocks,
   shareRecordArchiveOf,
   shareRecordFilename,

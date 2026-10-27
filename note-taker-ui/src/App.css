@@ -1829,6 +1829,35 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   margin-top: 0;
 }
 
+/* Bring everything in: the apps it reads, said once as a quiet list. */
+.import-exports__formats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 20px;
+  margin: 14px 0 18px;
+}
+
+.import-exports__formats dt {
+  color: var(--noeis-ink);
+  font-weight: 600;
+}
+
+.import-exports__formats dd {
+  margin: 2px 0 0;
+  color: var(--noeis-ink-muted);
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+.import-exports__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .import-preview {
   margin-top: 16px;
   padding: 14px;

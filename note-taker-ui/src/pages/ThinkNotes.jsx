@@ -7,6 +7,7 @@ import { clearNotebookCache, getNotebookShelf } from '../api/notebook';
 import { getConcepts, updateConcept } from '../api/concepts';
 import { createQuestion, getQuestions } from '../api/questions';
 import { getAgentThread } from '../api/agent';
+import { getHighlights } from '../api/highlights';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
 import NotebookBoard from '../components/think/notebook/NotebookBoard';
 import ThinkEntryEditor from '../components/think/ThinkEntryEditor';
@@ -32,6 +33,7 @@ import {
   targetParams
 } from './thinkNotesModel';
 import useDocumentTitle from '../hooks/useDocumentTitle';
+import { Button } from '../components/ui';
 
 // Think.
 //
@@ -116,6 +118,7 @@ const ThinkNotes = () => {
   const [compactContext, setCompactContext] = useState(false);
   const [authoredWork, setAuthoredWork] = useState([]);
   const [authoredError, setAuthoredError] = useState('');
+  const [lastMark, setLastMark] = useState(null);
   const arriving = useMemo(() => takeFirstPaint('think-notes'), []);
   const openKey = openTarget ? `${openTarget.kind}:${openTarget.id}` : '';
   const openKeyRef = useRef(openKey);
@@ -191,6 +194,18 @@ const ThinkNotes = () => {
     return () => { cancelled = true; };
     // The shelf is read once; opening a note is handled below without refetching it.
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* An empty notebook opens on the reader's last mark, if there is one: the
+     passage they just highlighted, and the thought they left on it. With no
+     mark there is nothing to show and the page stays quiet. */
+  useEffect(() => {
+    if (loading || notes.length) return undefined;
+    let cancelled = false;
+    getHighlights({ limit: 1 })
+      .then(([mark]) => { if (!cancelled && mark?.text) setLastMark(mark); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [loading, notes.length]);
 
   // Concepts and questions join the list when they arrive; a note never waits for them.
   useEffect(() => {
@@ -390,17 +405,26 @@ const ThinkNotes = () => {
     }, { replace: true });
   }, [setSearchParams]);
 
-  const startNote = async () => {
+  const startNote = async (mark = null) => {
     if (creatingRef.current) return;
     creatingRef.current = true;
     setCreating(true);
     setCreationError('');
     try {
       if (await saveCurrent.current?.() === false) return;
-      const { data: created } = await api.post('/api/notebook', {
+      let { data: created } = await api.post('/api/notebook', {
         title: '', content: '', blocks: [], type: 'note', source: 'think'
       }, getAuthHeaders());
       if (!created?._id) throw new Error('Missing note identity');
+      if (mark?._id) {
+        // The note exists now; a passage that cannot be quoted into it must not
+        // lose it, or the next try leaves a second blank note behind.
+        const quoted = await api.post(
+          `/api/notebook/${created._id}/append-highlight`, { highlightId: mark._id }, getAuthHeaders()
+        ).then(({ data }) => data, () => null);
+        if (quoted?._id) created = quoted;
+        else setCreationError('The note is open, but the passage could not be quoted into it. Add it from Library.');
+      }
       clearNotebookCache();
       setNotes(current => [created, ...current]);
       setEntry(created);
@@ -479,6 +503,9 @@ const ThinkNotes = () => {
         <button type="button" className="think-notes__shelf-toggle" aria-pressed={Boolean(boardView)} onClick={() => showBoard(boardView ? '' : 'board')}>Board</button>
       </div>
       <aside id="think-notes-shelf" hidden={notesCollapsed} className="think-notes__shelf" aria-label="Think navigation" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
+        <label className="think-notes__context-picker">Context<select aria-label="Knowledge context" value="personal" onChange={async event => {
+          if (event.target.value === 'work' && await saveCurrent.current?.() !== false) navigate('/think?context=work');
+        }}><option value="personal">Personal</option><option value="work">Work</option></select></label>
         <FocusMode inRail />
         <RoomShelf
           as="div"
@@ -516,7 +543,7 @@ const ThinkNotes = () => {
               <button
                 type="button"
                 className="think-notes__new"
-                onClick={startNote}
+                onClick={() => startNote()}
                 disabled={creating || loading || loadingEntry}
               >
                 {creating ? 'Opening…' : '+ New note'}
@@ -533,7 +560,7 @@ const ThinkNotes = () => {
               <RoomShelfList>
                 {writingResults.map(item => (
                   <li key={`${item.kind}:${item.id}`}>
-                    <Link to={item.href} title={item.title} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
+                    <Link to={item.href} title={item.title} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })} data-noeis-item>
                       <span className="think-notes__note-title">{item.excerpt === item.title ? <WritingMatch item={item} /> : item.title}</span>
                       <span className="think-notes__writing-origin">{item.kind === 'notebook' ? 'Note' : `Private writing · ${item.label}`}{item.pageTitle ? ` · ${item.pageTitle}` : ''}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span>
                       {item.excerpt !== item.title ? <span className="think-notes__match-excerpt"><WritingMatch item={item} /></span> : null}
@@ -551,7 +578,7 @@ const ThinkNotes = () => {
               <RoomShelfList>
                 {authoredWork.map(item => (
                   <li key={item.id}>
-                    <Link to={item.href} title={item.title} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
+                    <Link to={item.href} title={item.title} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })} data-noeis-item>
                       <span className="think-notes__note-title">{item.title}</span>
                       {item.returnNote ? <span className="think-notes__return-note">{item.returnNote}</span> : null}
                       {item.pageTitle ? <span className="think-notes__writing-origin">From {item.pageTitle}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span> : null}
@@ -570,6 +597,7 @@ const ThinkNotes = () => {
                     active={isTarget(item, openTarget)}
                     nested
                     className="think-notes__note-link"
+                    data-noeis-item
                     title={item.title}
                     onClick={() => openEntry(item)}
                   >
@@ -665,11 +693,20 @@ const ThinkNotes = () => {
             />
           </div>
         ) : (
-          <p className={`think-notes__quiet ${step(2)}`} role="status">
-            {loading
-              ? 'Opening your last note…'
-              : error || 'A thought does not need a source to begin. Start a note and see where it takes you.'}
-          </p>
+          !loading && !error && lastMark ? (
+            <section className={`think-notes__last-mark ${step(2)}`} aria-label="Your last mark">
+              <p className="think-notes__quiet">Your last mark{lastMark.articleTitle ? `, from ${lastMark.articleTitle}` : ''}</p>
+              <blockquote>{lastMark.text}</blockquote>
+              {lastMark.note ? <p className="think-notes__last-thought">You wrote: {lastMark.note}</p> : null}
+              <Button variant="primary" onClick={() => startNote(lastMark)} disabled={creating}>Think with it</Button>
+            </section>
+          ) : (
+            <p className={`think-notes__quiet ${step(2)}`} role="status">
+              {loading
+                ? 'Opening your last note…'
+                : error || 'A thought does not need a source to begin. Start a note and see where it takes you.'}
+            </p>
+          )
         )}
       </main>
 

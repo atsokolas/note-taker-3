@@ -5,7 +5,7 @@ const { normalizeRuntime, runtimeLabel } = require('../services/agentRuntime');
 const CONNECT_SESSION_TTL_MS = 15 * 60 * 1000;
 const CONNECT_SECRET_DELIVERY_MS = 5 * 60 * 1000;
 const CONNECT_POLL_INTERVAL_SEC = 2;
-const SUPPORTED_SCOPES = new Set(['read', 'agent-write']);
+const { AGENT_TOKEN_SCOPE_SET } = require('../services/agentTokenService');
 
 const hashPollSecret = (value) => (
   crypto.createHash('sha256').update(String(value || '')).digest('hex')
@@ -61,7 +61,7 @@ const normalizeRequestedScopes = (value, normalizeAgentTokenScopes) => {
   const requested = (Array.isArray(value) ? value : value ? [value] : ['read'])
     .map(scope => String(scope || '').trim())
     .filter(Boolean);
-  const unsupported = requested.filter(scope => !SUPPORTED_SCOPES.has(scope));
+  const unsupported = requested.filter(scope => !AGENT_TOKEN_SCOPE_SET.has(scope));
   if (unsupported.length > 0) {
     const error = new Error(`Unsupported scope: ${unsupported.join(', ')}.`);
     error.status = 400;

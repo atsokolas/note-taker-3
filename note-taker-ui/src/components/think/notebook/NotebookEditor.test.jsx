@@ -1,9 +1,9 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import NotebookEditor from './NotebookEditor';
-import { listWikiPages } from '../../../api/wiki';
+import { listWikiPages, settleIntoWiki } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
-import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries, getNotebookVolume, previewNotebookVolume, readNoteAgainstViews, setOppositeAside } from '../../../api/notebook';
+import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookSummaries, readNoteAgainstViews, setOppositeAside } from '../../../api/notebook';
 import { MemoryRouter } from 'react-router-dom';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 import useConcepts from '../../../hooks/useConcepts';
@@ -91,14 +91,12 @@ jest.mock('../../../api/notebook', () => ({
   updateNotebookEntry: jest.fn(),
   exportNotebookMarkdown: jest.fn(),
   disposeNotebookSourceCorrection: jest.fn(),
-  getNotebookShare: jest.fn(async () => ({ shared: false, preview: null })),
-  getNotebookVolume: jest.fn(async () => ({ shared: false, catalog: [] })),
-  previewNotebookVolume: jest.fn(async () => ({ shared: false, catalog: [] })),
   readNoteAgainstViews: jest.fn(async () => null),
   setOppositeAside: jest.fn(async () => {})
 }));
 
 jest.mock('../../../api/wiki', () => ({
+  settleIntoWiki: jest.fn(),
   listWikiPages: jest.fn(async () => [])
 }));
 
@@ -138,12 +136,6 @@ describe('NotebookEditor', () => {
     useConcepts.mockReturnValue({ concepts: [] });
     exportNotebookMarkdown.mockReset();
     exportNotebookMarkdown.mockResolvedValue(new Blob(['# Letter\n'], { type: 'text/markdown' }));
-    getNotebookShare.mockReset();
-    getNotebookShare.mockResolvedValue({ shared: false, preview: null });
-    getNotebookVolume.mockReset();
-    getNotebookVolume.mockResolvedValue({ shared: false, catalog: [] });
-    previewNotebookVolume.mockReset();
-    previewNotebookVolume.mockResolvedValue({ shared: false, catalog: [] });
     readNoteAgainstViews.mockResolvedValue(null);
     setOppositeAside.mockResolvedValue(undefined);
     mockUseEditor.mockReturnValue(mockEditor);
@@ -243,6 +235,45 @@ describe('NotebookEditor', () => {
     expect(exportDraft).toBeVisible();
     expect(title.compareDocumentPosition(exportDraft) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(0);
     expect(exportDraft.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  describe('settling into Wiki', () => {
+    const renderNote = (entry = {}) => render(
+      <MemoryRouter>
+        <NotebookEditor
+          entry={{ _id: 'note-1', title: 'Why moats erode', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [], ...entry }}
+          saving={false}
+          error=""
+          onSave={jest.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    it('keeps a quiet link to the page a note settled into', () => {
+      renderNote({ settledIn: { _id: 'page-1', title: 'Why moats erode' } });
+      expect(screen.getByText(/Settled in Wiki →/)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Why moats erode' })).toHaveAttribute('href', '/wiki/read/page-1');
+      expect(screen.getByRole('button', { name: 'Settle again' })).toBeInTheDocument();
+      expect(screen.getByText(/Share it from there/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /share/i })).not.toBeInTheDocument();
+    });
+
+    it('settles from the action row and marks the note settled', async () => {
+      settleIntoWiki.mockResolvedValueOnce({ page: { _id: 'page-1', title: 'Why moats erode', sourceRefs: [] }, resettled: false });
+      renderNote();
+      expect(screen.queryByText(/Settled in Wiki/)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Settle into Wiki' }));
+      expect(await screen.findByRole('link', { name: 'Why moats erode' })).toHaveAttribute('href', '/wiki/read/page-1');
+      expect(settleIntoWiki).toHaveBeenCalledWith('notebook', 'note-1');
+    });
+
+    it('says in one line what to fix when Wiki refuses the note', async () => {
+      settleIntoWiki.mockRejectedValueOnce({ response: { data: { error: 'Give this note a title before it settles.' } } });
+      renderNote({ title: '' });
+      fireEvent.click(screen.getByRole('button', { name: 'Settle into Wiki' }));
+      expect(await screen.findByText('Give this note a title before it settles.')).toBeInTheDocument();
+      expect(screen.queryByText(/Settled in Wiki →/)).not.toBeInTheDocument();
+    });
   });
 
   it('keeps unused quote button coverage', () => {
@@ -1107,108 +1138,6 @@ describe('NotebookEditor', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(exportNotebookMarkdown).not.toHaveBeenCalled();
     expect(screen.getByText('Could not save this draft, so export did not start.')).toBeInTheDocument();
-  });
-
-  it('opens the recipient preview from Share', async () => {
-    getNotebookShare.mockResolvedValue({
-      shared: false,
-      publishable: true,
-      preview: {
-        title: 'Who gets to experiment, and who pays?',
-        ownerDisplayName: 'Athan',
-        blocks: [{ id: 'p1', type: 'paragraph', text: 'The exception arrives first.' }]
-      },
-      currentHash: 'hash'
-    });
-    render(
-      <NotebookEditor
-        entry={{ _id: 'essay-1', title: 'Who gets to experiment, and who pays?', content: '', blocks: [], type: 'note', tags: [] }}
-        saving={false}
-        error=""
-        onSave={jest.fn()}
-      />
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Share snapshot' }));
-    expect(await screen.findByTestId('notebook-share-preview')).toBeInTheDocument();
-    expect(screen.getByText('The exception arrives first.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create share link' })).toBeInTheDocument();
-  });
-
-  it('does not open Share when the draft cannot be saved', async () => {
-    const onSave = jest.fn(async () => {
-      throw new Error('Offline');
-    });
-    render(
-      <NotebookEditor
-        entry={{ _id: 'essay-1', title: 'Who gets to experiment, and who pays?', content: '', blocks: [], type: 'note', tags: [] }}
-        saving={false}
-        error=""
-        onSave={onSave}
-      />
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Share snapshot' }));
-    await waitFor(() => expect(onSave).toHaveBeenCalled());
-    expect(screen.queryByTestId('notebook-share')).not.toBeInTheDocument();
-    expect(screen.getByText('Could not save this draft, so sharing did not open.')).toBeInTheDocument();
-  });
-
-  it('refreshes share after a save while the panel stays open', async () => {
-    const onSave = jest.fn(async (payload) => payload);
-    getNotebookShare
-      .mockResolvedValueOnce({
-        shared: true,
-        slug: 'essay-slug',
-        stale: false,
-        publishable: true,
-        snapshot: {
-          title: 'Who gets to experiment, and who pays?',
-          ownerDisplayName: 'Athan',
-          blocks: [{ id: 'p1', type: 'paragraph', text: 'The exception arrives first.' }]
-        },
-        preview: {
-          title: 'Who gets to experiment, and who pays?',
-          ownerDisplayName: 'Athan',
-          blocks: [{ id: 'p1', type: 'paragraph', text: 'The exception arrives first.' }]
-        },
-        currentHash: 'hash'
-      })
-      .mockResolvedValueOnce({
-        shared: true,
-        slug: 'essay-slug',
-        stale: true,
-        publishable: true,
-        snapshot: {
-          title: 'Who gets to experiment, and who pays?',
-          ownerDisplayName: 'Athan',
-          blocks: [{ id: 'p1', type: 'paragraph', text: 'The exception arrives first.' }]
-        },
-        preview: {
-          title: 'Rewritten in the workshop',
-          ownerDisplayName: 'Athan',
-          blocks: [{ id: 'p1', type: 'paragraph', text: 'Rewritten in the workshop.' }]
-        },
-        currentHash: 'hash-2'
-      });
-    render(
-      <NotebookEditor
-        entry={{ _id: 'essay-1', title: 'Who gets to experiment, and who pays?', content: '', blocks: [], type: 'note', tags: [] }}
-        saving={false}
-        error=""
-        onSave={onSave}
-      />
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Share snapshot' }));
-    expect(await screen.findByTestId('notebook-share-preview')).toBeInTheDocument();
-    expect(getNotebookShare).toHaveBeenCalledTimes(1);
-
-    fireEvent.change(screen.getByPlaceholderText('Title'), { target: { value: 'Rewritten in the workshop' } });
-    await waitFor(() => expect(getNotebookShare).toHaveBeenCalledTimes(2), { timeout: 1800 });
-    expect(await screen.findByTestId('notebook-update-share')).toBeInTheDocument();
-    expect(screen.getByTestId('notebook-share-pending')).toHaveTextContent('Rewritten in the workshop.');
-    expect(screen.getByTestId('notebook-share-preview')).not.toHaveTextContent('Rewritten in the workshop.');
   });
 
   it('opens source and concept insertion from Notion-style inline triggers', async () => {

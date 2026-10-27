@@ -9,7 +9,8 @@ const mongoose = require('mongoose');
 const archiver = require('archiver');
 const {
   maintainWikiPage: defaultMaintainWikiPage,
-  evaluateWikiArticleQuality: defaultEvaluateWikiArticleQuality
+  evaluateWikiArticleQuality: defaultEvaluateWikiArticleQuality,
+  groundingSourceRefsForPage
 } = require('../services/wikiMaintenanceService');
 const { prepareOrdinaryWikiBuild: defaultPrepareOrdinaryWikiBuild } = require('../services/wikiBuildPreflightService');
 const {
@@ -46,6 +47,7 @@ const {
 const { persistNoeisReceipt, serializeStoredReceipt } = require('../services/noeisReceiptService');
 const { buildJudgmentChangeProposalRouter } = require('./judgmentChangeProposalRoutes');
 const { buildOpenSentenceAcceptRouter } = require('./openSentenceAcceptRoutes');
+const { buildSettleRouter } = require('./settleRoutes');
 const {
   buildDossierJudgmentReviewReceipt,
   listDossierJudgmentReviews,
@@ -100,6 +102,7 @@ const {
 const { runWikiMaintenanceCandidate } = require('../services/wikiMaintenancePublicationService');
 const {
   createDossierBuildRun,
+  dossierBuildAllowance,
   finishDossierBuildRun,
   isCompanyDossier,
   recordDossierBuildStage,
@@ -214,7 +217,7 @@ const {
 } = require('../services/wikiDedupeService');
 const { reviewExpired } = require('../services/reviewTriageService');
 const { lintWiki: defaultLintWiki } = require('../services/wikiLintService');
-const { wordBoundaryTrim } = require('../lib/editorialText');
+const { docText, wordBoundaryTrim } = require('../lib/editorialText');
 const {
   activeProposalsNeedClusteringRefresh,
   autoMergeProposalCandidates,
@@ -502,16 +505,6 @@ const serializeStarterPackAsPublicCollection = (pack) => {
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const extractPlainText = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return node.trim();
-  if (Array.isArray(node)) return node.map(extractPlainText).filter(Boolean).join(' ').trim();
-  if (typeof node !== 'object') return '';
-  const ownText = typeof node.text === 'string' ? node.text : '';
-  const childText = Array.isArray(node.content) ? extractPlainText(node.content) : '';
-  return [ownText, childText].filter(Boolean).join(' ').trim();
-};
-
 const countWords = (value = '') => (
   String(value || '').trim().split(/\s+/).filter(Boolean).length
 );
@@ -524,7 +517,7 @@ const extractRelevanceTextFromDoc = (node, out = [], state = { paragraphSeen: fa
   }
   if (typeof node !== 'object') return out;
   if (node.type === 'heading' || (node.type === 'paragraph' && !state.paragraphSeen)) {
-    const text = extractPlainText(node);
+    const text = docText(node);
     if (text) out.push(text);
     if (node.type === 'paragraph') state.paragraphSeen = true;
   }
@@ -687,7 +680,7 @@ const stripSourceTitlePhrases = (value = '', sources = []) => (
 );
 
 const nodeMentionsRemovedSource = (node, removedSources = []) => {
-  const text = extractPlainText(node).toLowerCase().replace(/\s+/g, ' ');
+  const text = docText(node).toLowerCase().replace(/\s+/g, ' ');
   if (!text) return false;
   return removedSources
     .map(sourceTitlePhrase)
@@ -811,7 +804,7 @@ const buildPromotedDiscussionDoc = ({ title, discussion, citationIndexMap = new 
     ? remapCitationIndexesInDoc(clonePlain(discussion.answer.content), citationIndexMap)
     : [{ type: 'paragraph', content: [{ type: 'text', text: 'No answer yet.' }] }];
   const standaloneAnswerContent = answerContent.filter((node) => {
-    const text = extractPlainText(node).trim();
+    const text = docText(node).trim();
     return !/^you asked:/i.test(text);
   });
   return {
@@ -865,7 +858,7 @@ const serializeWikiPage = (page) => {
     const id = citation?.claimId || citation?.claim?._id || citation?.claim?.id;
     if (id) claimIds.add(String(id));
   });
-  const plainText = raw.plainText || extractPlainText(raw.body || emptyDoc());
+  const plainText = raw.plainText || docText(raw.body || emptyDoc());
   const qualityReview = classifyWikiPageQuality({ ...raw, plainText });
   const presentationTitle = canonicalWikiTitle(raw);
   return {
@@ -884,7 +877,7 @@ const serializeWikiPage = (page) => {
     sourceCount: sourceIds.size,
     claimCount: claimIds.size,
     wordCount: countWords(plainText),
-    bodyWordCount: countWords(extractPlainText(raw.body || emptyDoc())),
+    bodyWordCount: countWords(docText(raw.body || emptyDoc())),
     qualityReview,
     discussions: Array.isArray(raw.discussions) ? raw.discussions : [],
     aiState: {
@@ -1168,7 +1161,7 @@ const buildAdoptableWikiPageSnapshot = (page) => {
       title: publicPage.title || 'Untitled wiki page',
       pageType: normalizePageType(publicPage.pageType || 'topic'),
       body,
-      plainText: publicPage.plainText || extractPlainText(body),
+      plainText: publicPage.plainText || docText(body),
       sourceRefs
     }
   };
@@ -2195,7 +2188,7 @@ const buildWikiRouter = ({
     const pages = [];
     for (const entry of pageEntries) {
       entry.page.body = remapWikiLinkPageIdsInDoc(clonePlain(entry.page.body || emptyDoc()), pageIdMap);
-      entry.page.plainText = extractPlainText(entry.page.body);
+      entry.page.plainText = docText(entry.page.body);
       refreshPageClaims(entry.page);
       await entry.page.save();
       await syncPageGraph(entry.page, userId);
@@ -2654,7 +2647,7 @@ const buildWikiRouter = ({
       throw error;
     }
     page.body = applied.doc;
-    page.plainText = extractPlainText(applied.doc);
+    page.plainText = docText(applied.doc);
     await page.save();
     await syncPageGraph(page, userId);
     await createWikiRevision({
@@ -2796,6 +2789,19 @@ const buildWikiRouter = ({
       })
     };
   };
+
+  router.use(buildSettleRouter({
+    authenticateToken: wikiAuth,
+    NotebookEntry,
+    TagMeta,
+    Article,
+    WikiPage,
+    WikiRevision,
+    buildUniqueSlug,
+    refreshPageClaims,
+    serializePage: serializeWikiPage,
+    onPageChanged: onOwnedPageChanged
+  }));
 
   const restorePageSnapshot = (page, snapshot = {}) => {
     if (!page || !snapshot) return;
@@ -3417,7 +3423,7 @@ const buildWikiRouter = ({
       if (applied.applied) nextBody = applied.doc;
     }
     page.body = nextBody;
-    page.plainText = extractPlainText(nextBody);
+    page.plainText = docText(nextBody);
     return result;
   };
 
@@ -3443,7 +3449,7 @@ const buildWikiRouter = ({
       const result = applyWikiAutolinkToDoc({ doc: page.body || emptyDoc(), targetPage });
       if (!result.applied) return null;
       page.body = result.doc;
-      page.plainText = extractPlainText(result.doc);
+      page.plainText = docText(result.doc);
       refreshPageClaims(page);
       await page.save();
       await syncPageGraph(page, userId);
@@ -3825,7 +3831,9 @@ const buildWikiRouter = ({
           return review.status === 'needs_review' && !reviewExpired(raw, Date.now());
         }
         if (qualityFilter === 'blocked') return review.surfaceEligible === false;
-        if (includeLowQuality) return true;
+        // A dossier is research its owner asked for; it stays in their list
+        // while its review is still out.
+        if (includeLowQuality || raw.investmentDossier?.version) return true;
         return review.surfaceEligible !== false;
       }).map(({ raw, value }) => (
         qualityFilter === 'needs_review'
@@ -3969,7 +3977,7 @@ const buildWikiRouter = ({
         sourceScope: ordinaryEvidencePreflight ? 'selected_sources' : (sourceScope?.value || 'entire_library'),
         createdFrom,
         body,
-        plainText: extractPlainText(body),
+        plainText: docText(body),
         sourceRefs: initialSourceRefs.value,
         ...(ordinaryEvidencePreflight ? {
           aiState: {
@@ -4104,6 +4112,10 @@ const buildWikiRouter = ({
         });
       }
 
+      const allowance = await dossierBuildAllowance({ WikiMaintenanceRun, userId: req.user.id });
+      if (!allowance.allowed) {
+        return res.status(409).json({ error: allowance.error, code: 'DOSSIER_WEEKLY_LIMIT', opensAt: allowance.opensAt });
+      }
       const title = normalizeTitle(`${company.companyName || company.ticker} investment dossier`);
       const body = buildCompanyDossierBody({ ...input, ...company });
       const page = new WikiPage({
@@ -4121,7 +4133,7 @@ const buildWikiRouter = ({
           label: `company-dossier:${company.ticker}`
         },
         body,
-        plainText: extractPlainText(body),
+        plainText: docText(body),
         // A dossier is maintained research. It becomes an active case only
         // after the owner explicitly chooses Track in Judgment.
         judgment: null,
@@ -4478,7 +4490,7 @@ const buildWikiRouter = ({
           page: revision.after,
           body: revision.after.body,
           claims: revision.after.claims || [],
-          sourceRefs: revision.after.sourceRefs || []
+          sourceRefs: await groundingSourceRefsForPage({ page: revision.after, userId: req.user.id, models: { WikiSourceEvent } })
         });
         if (!currentQuality?.ok) {
           return res.status(409).json({
@@ -4761,7 +4773,7 @@ const buildWikiRouter = ({
         page,
         body: page.body,
         claims: page.claims || [],
-        sourceRefs: page.sourceRefs || []
+        sourceRefs: await groundingSourceRefsForPage({ page: snapshotPage(page), userId: req.user.id, models: { WikiSourceEvent } })
       });
       if (!quality?.ok) {
         return res.status(409).json({
@@ -5128,7 +5140,7 @@ const buildWikiRouter = ({
         sourceScope: 'selected_sources',
         createdFrom,
         body,
-        plainText: extractPlainText(body),
+        plainText: docText(body),
         sourceRefs: []
       });
       if (existingPage) {
@@ -6727,7 +6739,7 @@ const buildWikiRouter = ({
           return res.status(400).json({ error: 'body must be a TipTap JSON object or a non-empty string.' });
         }
         page.body = nextBody;
-        page.plainText = extractPlainText(nextBody);
+        page.plainText = docText(nextBody);
       }
       if (req.body?.body !== undefined) refreshPageClaims(page);
       if (normalizedJudgment) {
@@ -7608,6 +7620,12 @@ const buildWikiRouter = ({
         res.end();
         return;
       }
+      if (isCompanyDossier(page)) {
+        const allowance = await dossierBuildAllowance({ WikiMaintenanceRun, userId: req.user.id, pageId: page._id });
+        if (!allowance.allowed) {
+          return res.status(409).json({ error: allowance.error, code: 'DOSSIER_WEEKLY_LIMIT', opensAt: allowance.opensAt });
+        }
+      }
       activeStreamKey = `${serializeId(req.user.id)}:${serializeId(page._id)}`;
       if (activeWikiDraftStreams.has(activeStreamKey) && !isCompanyDossier(page)) {
         return res.status(409).json({
@@ -8420,7 +8438,7 @@ const buildWikiRouter = ({
           label: sourcePage.title
         },
         body,
-        plainText: extractPlainText(body),
+        plainText: docText(body),
         sourceRefs
       });
 
@@ -8719,7 +8737,7 @@ const buildWikiRouter = ({
         || (fetched?.ok ? fetched.title : '')
         || source.url
         || sourceText.slice(0, 120)
-        || 'Untitled source';
+        || 'Untitled';
       const event = await createWikiSourceEvent({
         WikiSourceEvent,
         userId: req.user.id,
@@ -9289,7 +9307,7 @@ const buildWikiRouter = ({
         return res.status(409).json({ error: 'Could not apply link. The mention may already be linked or no longer exists.' });
       }
       page.body = result.doc;
-      page.plainText = extractPlainText(result.doc);
+      page.plainText = docText(result.doc);
       await page.save();
       await syncPageGraph(page, req.user.id);
       await createWikiRevision({
@@ -9375,7 +9393,6 @@ module.exports = {
   buildWikiRouter,
   normalizeBodyDoc,
   buildWikiDraftState,
-  extractPlainText,
   normalizeCreatedFrom,
   normalizeSourceRef,
   rejectAgentReservedWeekendReadingsCreation,

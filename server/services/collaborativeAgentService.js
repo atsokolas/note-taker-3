@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { resolveExplorationContext } = require('./authoredExplorationService');
+const { docText } = require('../lib/editorialText');
 const {
   loadQuestionContributions,
   publicQuestionPage,
@@ -13,7 +14,7 @@ const { buildLivingThesisCriticMandate } = require('./agentWorkerRoles');
 const { brokerAgentTurn, resolveAgentCapability, isSharedQuestionContext, sharedQuestionReadCapability } = require('./agentCapabilityBroker');
 const { resolveAgentModelRoute } = require('./agentModelRouter');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
-const { groundedIn, NOTE_LABEL } = require('./agentGrounding');
+const { groundedIn, quotedFrom, NOTE_LABEL } = require('./agentGrounding');
 const { retrievePassages, touches, bestPassage, readSource, readStandingContext } = require('./agentRetrieval');
 const { runAgentLoop } = require('./agentLoop');
 const { describeRevisions, MAX_TEMPORAL_REVISIONS } = require('./wikiAskService');
@@ -75,14 +76,6 @@ const truncateRawAtSentenceBoundary = (value, limit = 8000) => {
     return visible.slice(0, lastSentenceEnd + 1).trim();
   }
   return truncate(text, limit);
-};
-
-const toPlainText = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return node;
-  if (Array.isArray(node)) return node.map(toPlainText).filter(Boolean).join(' ');
-  if (typeof node !== 'object') return '';
-  return [node.text || '', toPlainText(node.content)].filter(Boolean).join(' ').trim();
 };
 
 const stripRawObjectIds = (value = '', fallback = 'this wiki page') => (
@@ -1217,6 +1210,9 @@ const buildPartnerGroundingBlock = ({
       } : null
     })}` : '',
     contextItem?.judgmentText ? `Living thesis contract:\n${contextItem.judgmentText}` : '',
+    contextItem?.margin?.paragraph ? `The paragraph the reader is at:\n"""${contextItem.margin.paragraph.fullText}"""` : '',
+    contextItem?.margin?.selection ? `The words they selected in it:\n"""${contextItem.margin.selection}"""` : '',
+    contextItem?.margin?.noted ? `Beside it, a passage they marked in ${contextItem.margin.noted.title}:\n"""${contextItem.margin.noted.fullText}"""` : '',
     anchorUserText ? `Anchor request: ${anchorUserText}` : '',
     relatedItems.length
       ? (contextItem?.type === 'shared_question' ? 'Bound shared writing:' : 'Retrieved internal material:')
@@ -1776,7 +1772,7 @@ const resolveContextItem = async ({
           };
         })
         .filter(entry => entry.claim);
-      const bodyText = truncateRaw(page.plainText || toPlainText(page.body), 10000);
+      const bodyText = truncateRaw(page.plainText || docText(page.body), 10000);
       const judgment = page.judgment && typeof page.judgment === 'object' ? page.judgment : null;
       const judgmentText = judgment?.kind ? [
         `Governing question: ${truncate(judgment.governingQuestion || 'Not recorded', 500)}`,
@@ -1872,15 +1868,20 @@ const resolveContextItem = async ({
   if (contextType === 'article') {
     if (!mongoose.Types.ObjectId.isValid(contextId)) return null;
     const article = await Article.findOne({ _id: contextId, userId: userObjectId })
-      .select('_id title content url updatedAt')
+      .select('_id title content url updatedAt highlights.text highlights.note highlights.page')
       .lean();
     if (!article) return null;
+    // A book has no body: what was marked in it and written beside it is the book in hand.
+    const marks = (article.highlights || [])
+      .map(mark => [mark.page ? `p. ${mark.page}` : '', mark.text ? `“${mark.text}”` : '', mark.note].filter(Boolean).join(' '))
+      .join('\n');
+    const text = article.content || marks || article.url || '';
     return {
       type: 'article',
       id: String(article._id),
       title: toSafeString(article.title) || 'Article',
-      snippet: truncate(article.content || article.url || ''),
-      fullText: truncateRaw(article.content || article.url || '', 10000),
+      snippet: truncate(text),
+      fullText: truncateRaw(text, 10000),
       updatedAt: article.updatedAt
     };
   }
@@ -1906,6 +1907,36 @@ const resolveContextItem = async ({
   }
 
   return null;
+};
+
+/* Asked from the reader's margin: the paragraph they are at, any words they
+   selected in it, and the passage a margin note points to. The note is read
+   from the reader's own highlight, never from what the browser says it was. */
+const MARGIN_PARAGRAPH_CHARS = 4000;
+const resolveMarginContext = async ({ userObjectId, context = {}, contextItem = null, Article }) => {
+  const asked = context?.margin;
+  if (!asked || typeof asked !== 'object' || contextItem?.type !== 'article') return null;
+  const plain = (value, limit) => truncateRaw(String(value || '').replace(/\s+/g, ' ').trim(), limit);
+  const highlightId = toSafeString(asked.highlightId);
+  const found = mongoose.Types.ObjectId.isValid(highlightId)
+    ? await Article.findOne({ userId: userObjectId, 'highlights._id': highlightId })
+      .select({ title: 1, 'highlights.$': 1 })
+      .lean()
+    : null;
+  const held = found?.highlights?.find(item => String(item?._id) === highlightId);
+  const noted = held?.text ? {
+    type: 'article',
+    id: String(found._id),
+    title: toSafeString(found.title) || 'Article',
+    fullText: [plain(held.text, MARGIN_PARAGRAPH_CHARS), held.note ? `${NOTE_LABEL} ${plain(held.note, 1000)}` : ''].filter(Boolean).join(' ')
+  } : null;
+  const paragraph = plain(asked.paragraph, MARGIN_PARAGRAPH_CHARS);
+  if (!paragraph && !noted) return null;
+  return {
+    paragraph: paragraph ? { type: 'article', id: contextItem.id, title: contextItem.title, fullText: paragraph } : null,
+    selection: plain(asked.selection, 1000),
+    noted
+  };
 };
 
 // Library names its retrieval boundary explicitly. A malformed narrow scope
@@ -2274,6 +2305,9 @@ const generateCollaborativeReply = async ({
     QuestionContribution
   });
   if (authoredExploration && contextItem) contextItem.authoredExploration = authoredExploration;
+  const margin = sharedQuestionScoped ? null : await resolveMarginContext({ userObjectId, context, contextItem, Article });
+  if (margin) contextItem.margin = margin;
+  const marginSources = [margin?.noted, margin?.paragraph].filter(Boolean);
   sharedQuestionScoped = isSharedQuestionContext(context, contextItem);
   if (sharedQuestionScoped) {
     const claim = await claimShareAgentAsk(SharedQuestion, {
@@ -2326,7 +2360,7 @@ const generateCollaborativeReply = async ({
     ? await retrievePassages({
       ...retrievalScope,
       query: conversationState.retrievalMessage || resolvedMessage,
-      about: [contextItem?.title, contextItem?.snippet].filter(Boolean).join(' ')
+      about: [contextItem?.title, margin?.paragraph?.fullText || contextItem?.snippet].filter(Boolean).join(' ')
     })
     : [];
   const graphItems = sharedQuestionScoped || libraryFilter
@@ -2404,7 +2438,7 @@ const generateCollaborativeReply = async ({
           relatedItems,
           standing
         }),
-        sources: [contextItem, ...relatedItems].filter(Boolean),
+        sources: [contextItem, ...marginSources, ...relatedItems].filter(Boolean),
         ...(sharedQuestionScoped ? {} : {
           search: async (query) => {
             const found = await retrievePassages({ ...retrievalScope, query, forModel: true });
@@ -2462,7 +2496,7 @@ const generateCollaborativeReply = async ({
     skillInvocation
   });
   const responseItems = mergeRelatedItemLists(relatedItems, loopSources.filter(item => item !== contextItem && item?.id !== contextItem?.id));
-  const grounded = groundedIn(finalReply, mergeSources(contextItem, relatedItems, loopSources))
+  const grounded = groundedIn(finalReply, mergeSources(contextItem, marginSources, relatedItems, loopSources))
     .map((item) => ({ type: item.type, id: item.id, title: item.title }));
 
   return {
@@ -2493,6 +2527,8 @@ const generateCollaborativeReply = async ({
     // source that was retrieved. Only a grounded reply can be accepted.
     citations: grounded,
     groundedIn: grounded,
+    // Each quotation with the source it was checked against.
+    quotes: quotedFrom(finalReply, [...marginSources, contextItem, ...relatedItems, ...loopSources]),
     retrieval: {
       searchedWorkspace: Boolean(shouldSearchWorkspace),
       relatedCount: responseItems.length

@@ -32,14 +32,19 @@ import TourManager from './tour/TourManager';
 import FirstRunGate from './onboarding/FirstRunGate';
 import { buildCanonicalHighlightPath } from './utils/sourceRoutes';
 import {
+  adjacentRoom,
   buildThinkPosturePath,
   consumeGoToChord,
+  focusRoomSearch,
   GO_TO_CHORD_MS,
   GO_TO_PRIMED_CLASS,
   getPrimaryNavItems,
   getSecondaryNavItems,
   getTopBarUtilityNavItems,
-  isGoToTypingTarget
+  isGoToTypingTarget,
+  openFocusedItem,
+  resolveMove,
+  walkItems
 } from './navigation/appNavigation';
 import { namesAThinkObject } from './pages/thinkNotesModel';
 import { useSystemStatus } from './system/useSystemStatus';
@@ -62,10 +67,13 @@ import './surface/surface-frame.css';
 import './styles/semantic-theme.css';
 
 const Library = lazy(() => import('./pages/Library'));
+const LibraryTrail = lazy(() => import('./pages/LibraryTrail'));
+const SaveLink = lazy(() => import('./pages/SaveLink'));
 const Editions = lazy(() => import('./pages/Editions'));
 const EditionRead = lazy(() => import('./pages/EditionRead'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
 const ThinkNotes = lazy(() => import('./pages/ThinkNotes'));
+const WorkNotes = lazy(() => import('./work/WorkNotes'));
 const AuthoredRecovery = lazy(() => import('./components/think/AuthoredRecovery'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
@@ -77,6 +85,9 @@ const Wiki = lazy(() => import('./pages/Wiki'));
    the whole way. A chunk you always need is not a chunk. */
 const WikiArticle = lazy(() => import('./components/wiki/WikiArticle'));
 const Contradictions = lazy(() => import('./pages/Contradictions'));
+const ReadingMap = lazy(() => import('./pages/ReadingMap'));
+const CommonplaceBook = lazy(() => import('./pages/CommonplaceBook'));
+const Books = lazy(() => import('./pages/Books'));
 /* Not code-split. /judgment is one of the four rooms and the one a citation
    trail ends in, so its chunk is asked for on a cold open — and splitting it
    means the browser only requests it after main.js has downloaded and parsed,
@@ -99,15 +110,11 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
 const Support = lazy(() => import('./pages/Support'));
 const OpenSentenceStoryboard = lazy(() => import('./pages/OpenSentenceStoryboard'));
-const SharedConcept = lazy(() => import('./pages/SharedConcept'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
 const SharedEdition = lazy(() => import('./pages/SharedEdition'));
-const SharedNotebook = lazy(() => import('./pages/SharedNotebook'));
-const SharedNotebookVolume = lazy(() => import('./pages/SharedNotebookVolume'));
-const NotebookSharePreview = lazy(() => import('./pages/NotebookSharePreview'));
-const NotebookVolumePreview = lazy(() => import('./pages/NotebookVolumePreview'));
+const LentBook = lazy(() => import('./pages/LentBook'));
+const RetiredShare = lazy(() => import('./pages/RetiredShare'));
 const QuestionSharePreview = lazy(() => import('./pages/QuestionSharePreview'));
-const ConceptSharePreview = lazy(() => import('./pages/ConceptSharePreview'));
 const SharedWikiPage = lazy(() => import('./pages/SharedWikiPage'));
 const SharedWikiCollectionPage = lazy(() => import('./pages/SharedWikiCollectionPage'));
 const PublicWikiComparison = lazy(() => import('./pages/PublicWikiComparison'));
@@ -290,15 +297,13 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/support" element={<Support />} />
           <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
-          <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
-          <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
           <Route path="/design-preview/question-share" element={<QuestionSharePreview />} />
-          <Route path="/design-preview/concept-share" element={<ConceptSharePreview />} />
-          <Route path="/share/concepts/:slug" element={<SharedConcept />} />
+          <Route path="/share/concepts/:slug" element={<RetiredShare kind="concepts" />} />
           <Route path="/share/questions/:slug" element={<SharedQuestion />} />
           <Route path="/share/editions/:slug" element={<SharedEdition />} />
-          <Route path="/share/notebooks/:slug" element={<SharedNotebook />} />
-          <Route path="/share/volumes/:slug" element={<SharedNotebookVolume />} />
+          <Route path="/share/books/:slug" element={<LentBook />} />
+          <Route path="/share/notebooks/:slug" element={<RetiredShare kind="notebooks" />} />
+          <Route path="/share/volumes/:slug" element={<RetiredShare kind="volumes" />} />
           <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
           <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
           <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
@@ -391,8 +396,8 @@ const AuthenticatedLayoutRuntime = ({ renderLayout, openPalette, setShortcutOver
       const next = consumeGoToChord({ primedAt }, event);
       primedAt = next.primedAt;
       showLetters(Boolean(primedAt));
+      if (next.spent) event.preventDefault();
       if (next.to) {
-        event.preventDefault();
         event.stopPropagation();
         setShortcutOverlayOpen(false);
         navigate(next.to);
@@ -406,15 +411,36 @@ const AuthenticatedLayoutRuntime = ({ renderLayout, openPalette, setShortcutOver
         setShortcutOverlayOpen(true);
       }
     };
+    /* The moves come after the room. A room listens on the document, which
+       hears a key before the window does, and claims what it owns with
+       preventDefault: J in the reader walks paragraphs, H on a nightstand row
+       sends it home. The window takes only what no room claimed. */
+    const moves = {
+      previousRoom: () => navigate(adjacentRoom(window.location, -1)),
+      nextRoom: () => navigate(adjacentRoom(window.location, 1)),
+      nextItem: () => walkItems(1),
+      previousItem: () => walkItems(-1),
+      open: openFocusedItem,
+      back: () => navigate(-1),
+      forward: () => navigate(1),
+      search: () => focusRoomSearch() || openPalette()
+    };
+    const handleMove = (event) => {
+      const move = resolveMove(event);
+      if (move && moves[move]() !== false) event.preventDefault();
+    };
     window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keydown', handleMove);
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keydown', handleMove);
       window.clearTimeout(lapse);
       document.body.classList.remove(GO_TO_PRIMED_CLASS);
     };
   }, [navigate, openPalette, setShortcutOverlayOpen]);
 
-  return renderLayout({ shellLocation, navigate, surface });
+  const storageFailure = useStorageStatus(true);
+  return renderLayout({ shellLocation, navigate, surface, storageFailure });
 };
 
 const AuthenticatedAppRuntime = ({ renderLayout, openPalette, setShortcutOverlayOpen }) => (
@@ -438,6 +464,7 @@ const AuthenticatedAppRuntime = ({ renderLayout, openPalette, setShortcutOverlay
 const AppRouterContent = ({
   isAuthenticated,
   publicRouteProps,
+  workAppearance,
   renderLayout,
   openPalette,
   setShortcutOverlayOpen
@@ -446,6 +473,9 @@ const AppRouterContent = ({
   const shouldUsePublicRoutes = !isAuthenticated || isPublicPage(location.pathname);
 
   if (shouldUsePublicRoutes) return <PublicRoutes {...publicRouteProps} />;
+  if (location.pathname === '/think' && new URLSearchParams(location.search).get('context') === 'work') {
+    return <Suspense fallback={<RouteLoadingFallback />}><WorkNotes appearance={workAppearance} /></Suspense>;
+  }
   return (
     <AuthenticatedAppRuntime
       renderLayout={renderLayout}
@@ -465,10 +495,10 @@ function App() {
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
   const [productFeedbackOpen, setProductFeedbackOpen] = useState(false);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const themeOwner = useRef(null);
+  const openThemePicker = () => { themeOwner.current = localStorage.getItem('token'); setThemePickerOpen(true); };
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
   const systemStatus = useSystemStatus();
-  const storageFailure = useStorageStatus(isAuthenticated);
-  const recoverableFailure = systemStatus.recoverableFailure || storageFailure;
   const {
     setBackgroundWork: setSystemBackgroundWork,
     setLatestReceipt: setSystemLatestReceipt,
@@ -498,14 +528,14 @@ function App() {
       backgroundWork: systemStatus.backgroundWork,
       latestReceipt: systemStatus.latestReceipt,
       recentReceipts: systemStatus.recentReceipts,
-      recoverableFailure
+      recoverableFailure: systemStatus.recoverableFailure
     }
   }), [
     systemStatusControls,
     systemStatus.backgroundWork,
     systemStatus.latestReceipt,
     systemStatus.recentReceipts,
-    recoverableFailure
+    systemStatus.recoverableFailure
   ]);
 
   // Your existing Chrome Store link
@@ -580,22 +610,25 @@ function App() {
   useEffect(() => {
     if (!isAuthenticated) return;
     let cancelled = false;
+    const ownerToken = localStorage.getItem('token');
+    const work = window.location.pathname === '/think' && new URLSearchParams(window.location.search).get('context') === 'work';
     const syncUiSettings = async () => {
       try {
-        const remote = await fetchUiSettings();
-        if (cancelled) return;
+        const remote = await fetchUiSettings({}, work ? { skipAuthHandling: true, headers: { Authorization: `Bearer ${ownerToken}` } } : {});
+        if (cancelled || localStorage.getItem('token') !== ownerToken) return;
         const normalized = normalizeUiSettings(remote);
         setUiSettings(normalized);
         persistUiSettingsToStorage(normalized);
       } catch (error) {
-        console.error('Failed to fetch UI settings:', error);
+        if (work) { if (!cancelled && localStorage.getItem('token') === ownerToken && error?.response?.status !== 401) setSystemRecoverableFailure({ stage: 'Theme', message: 'Appearance could not sync. The theme on this device stays in place.' }); }
+        else console.error('Failed to fetch UI settings:', error);
       }
     };
     syncUiSettings();
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, setSystemRecoverableFailure]);
 
   const handleLogout = () => {
     clearStoredTokens();
@@ -610,30 +643,35 @@ function App() {
 
   const handleAppearanceCommit = async (patch, nextDraft) => {
     const optimistic = normalizeUiSettings({ ...uiSettings, ...patch });
+    const ownerToken = localStorage.getItem('token');
+    const work = window.location.pathname === '/think' && new URLSearchParams(window.location.search).get('context') === 'work';
     try {
-      const saved = await saveUiSettings(optimistic);
+      const saved = await saveUiSettings(optimistic, {}, work ? { skipAuthHandling: true, headers: { Authorization: `Bearer ${ownerToken}` } } : {});
+      if (localStorage.getItem('token') !== ownerToken) return { ok: false, stale: true };
       const normalized = normalizeUiSettings(saved);
       setUiSettings(normalized);
       persistUiSettingsToStorage(normalized);
       return { ok: true, settings: normalized };
     } catch (error) {
-      console.error('Failed to save appearance settings:', error);
+      if (localStorage.getItem('token') !== ownerToken) return { ok: false, stale: true };
+      if (!work) console.error('Failed to save appearance settings:', error);
       applyUiSettingsToRoot(document.documentElement, uiSettings);
       return { ok: false };
     }
   };
 
-  const previewTheme = (theme) => applyUiSettingsToRoot(document.documentElement, { ...uiSettings, theme });
+  const previewTheme = (theme) => { if (themeOwner.current === localStorage.getItem('token')) applyUiSettingsToRoot(document.documentElement, { ...uiSettings, theme }); };
 
   const closeThemePicker = async (theme) => {
     setThemePickerOpen(false);
+    if (themeOwner.current !== localStorage.getItem('token')) return;
     if (theme === uiSettings.theme) {
       applyUiSettingsToRoot(document.documentElement, uiSettings);
       return;
     }
     systemStatus.clearRecoverableFailure();
     const result = await handleAppearanceCommit({ theme });
-    if (!result.ok) {
+    if (!result.ok && !result.stale) {
       systemStatus.setRecoverableFailure({
         stage: 'Theme',
         message: `${formatAppearanceValue('theme', theme)} did not save, so the theme you had is back.`,
@@ -716,7 +754,8 @@ function App() {
 
   if (isLoading) return <RouteLoadingFallback />;
 
-  const renderAppLayout = ({ shellLocation, surface }) => {
+  const renderAppLayout = ({ shellLocation, surface, storageFailure }) => {
+    const recoverableFailure = systemStatus.recoverableFailure || storageFailure;
     const topBarAccountMenuItems = [
       {
         label: 'Feedback',
@@ -740,13 +779,7 @@ function App() {
         <CommandPalette open={paletteOpen} onClose={closePalette} />
         <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
         <ProductFeedbackModal open={productFeedbackOpen} onClose={() => setProductFeedbackOpen(false)} />
-        <ThemePicker
-          open={themePickerOpen}
-          value={uiSettings.theme}
-          onPreview={previewTheme}
-          onConfirm={closeThemePicker}
-          onCancel={closeThemePicker}
-        />
+
         <TourManager />
         {/* A new account starts at the beginning, wherever it enters. */}
         <FirstRunGate />
@@ -762,6 +795,12 @@ function App() {
                 morning paper rather than on a menu. */}
             <Route path="/today" element={<Navigate to="/wiki" replace />} />
             <Route path="/library" element={<Library />} />
+            <Route path="/library/trail" element={<LibraryTrail />} />
+            <Route path="/library/save" element={<SaveLink />} />
+            <Route path="/library/map" element={<ReadingMap />} />
+            <Route path="/library/book" element={<CommonplaceBook />} />
+            <Route path="/library/books" element={<Books />} />
+            <Route path="/library/books/:id" element={<Books />} />
             {/* Papers an agent maintains. Not a fifth room in the nav — the
                 four rooms are what you did, and an edition is something that
                 arrived. The Paper carries the door to it. */}
@@ -801,7 +840,7 @@ function App() {
                   uiSettings={uiSettings}
                   onAppearanceCommit={handleAppearanceCommit}
                   onAppearanceUndo={handleAppearanceUndo}
-                  onOpenThemePicker={() => setThemePickerOpen(true)}
+                  onOpenThemePicker={openThemePicker}
                 />
               )}
             />
@@ -871,7 +910,7 @@ function App() {
             theme={{
               id: uiSettings.theme,
               label: formatAppearanceValue('theme', uiSettings.theme),
-              onOpen: () => setThemePickerOpen(true)
+              onOpen: openThemePicker
             }}
             systemStatus={{
               backgroundWork: systemStatus.backgroundWork,
@@ -900,10 +939,12 @@ function App() {
 
   return (
     <SystemStatusProvider value={systemStatusContextValue}>
+      <ThemePicker open={themePickerOpen} value={uiSettings.theme} onPreview={previewTheme} onConfirm={closeThemePicker} onCancel={closeThemePicker} />
       <Router>
         <Analytics />
         <AppRouterContent
           isAuthenticated={isAuthenticated}
+          workAppearance={{ theme: uiSettings.theme, onOpen: openThemePicker, error: systemStatus.recoverableFailure?.stage === 'Theme' ? systemStatus.recoverableFailure.message : '', retry: systemStatus.recoverableFailure?.stage === 'Theme' ? systemStatus.recoverableFailure.retry : null }}
           publicRouteProps={{ chromeStoreLink, handleLoginSuccess }}
           renderLayout={renderAppLayout}
           openPalette={openPalette}

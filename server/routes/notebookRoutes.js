@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { opposeFromNote, setOppositeAside } = require('../services/readingTalksBack');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
+const { settledPageFor } = require('../services/settlement');
 const {
   asObjectIdOrNull,
   attachPersistedIdentity,
@@ -20,19 +21,6 @@ const {
   attachAuthoredSourceCorrection,
   disposeAuthoredSourceCorrection
 } = require('../services/authoredSourceCorrection');
-const {
-  PREVIEW_STALE,
-  claimCorrespondenceSlot,
-  correspondenceText,
-  findCorrespondenceBlock,
-  freezeNotebookSnapshot,
-  isDuplicateKey,
-  liveNotebookPreview,
-  loadNotebookCorrespondence,
-  notebookShareState,
-  releaseCorrespondenceSlot,
-  shareSlug
-} = require('../services/authoredNotebookShare');
 
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
 
@@ -60,10 +48,7 @@ const buildNotebookRouter = ({
   Article = null,
   TagMeta = null,
   Question = null,
-  NoeisReceipt = null,
-  SharedNotebook = null,
-  NotebookCorrespondence = null,
-  User = null
+  NoeisReceipt = null
 }) => {
   const router = express.Router();
   const correctionModels = () => ({ WikiSourceEvent, NoeisReceipt });
@@ -399,7 +384,8 @@ const buildNotebookRouter = ({
         objectType: 'notebook',
         object: entry
       });
-      res.status(200).json(payload);
+      const settled = WikiPage ? await settledPageFor({ WikiPage, userId, kind: 'notebook', id: entry._id }).select('_id title') : null;
+      res.status(200).json({ ...payload, settledIn: settled ? { _id: String(settled._id), title: settled.title } : null });
     } catch (error) {
       console.error("❌ Error fetching notebook entry:", error);
       res.status(500).json({ error: "Failed to fetch notebook entry." });
@@ -913,222 +899,6 @@ const buildNotebookRouter = ({
     } catch (error) {
       console.error("❌ Error deleting notebook entry:", error);
       res.status(500).json({ error: "Failed to delete notebook entry." });
-    }
-  });
-
-  const ownedNotebook = async (userId, id) => {
-    const entry = await NotebookEntry.findOne({ _id: id, userId });
-    if (!entry) return null;
-    ensureNotebookBlocks(entry, createBlockId);
-    return entry.toObject ? entry.toObject() : entry;
-  };
-
-  const livePreviewOf = async (entry, userId) => liveNotebookPreview({
-    Article,
-    User,
-    entry,
-    userId
-  });
-
-  const lettersFor = async (userId, notebookId) => loadNotebookCorrespondence(
-    NotebookCorrespondence,
-    { userId, notebookId }
-  );
-
-  const sharePayload = async (userId, notebookId, share, extras) => notebookShareState(share, {
-    ...extras,
-    letters: await lettersFor(userId, notebookId)
-  });
-
-  /**
-   * Share a notebook essay.
-   *
-   * Same grammar as a shared edition: one URL, a frozen snapshot, an explicit
-   * later update under that URL. Asking twice returns the existing link.
-   * Private edits never rewrite the published copy on their own.
-   */
-  router.post('/api/notebook/:id/share', authenticateToken, humanOnly, async (req, res) => {
-    if (!SharedNotebook) return res.status(503).json({ error: 'Sharing is not available.' });
-    try {
-      const userId = req.user.id;
-      const entry = await ownedNotebook(userId, req.params.id);
-      if (!entry) return res.status(404).json({ error: 'Notebook entry not found.' });
-
-      const { preview, currentHash, ownerDisplayName, publishable } = await livePreviewOf(entry, userId);
-      if (!publishable) {
-        return res.status(409).json({ error: 'Nothing to share yet.', field: 'preview' });
-      }
-      const previewHash = String(req.body?.previewHash || '').trim();
-      if (previewHash && previewHash !== currentHash) {
-        return res.status(409).json({ error: PREVIEW_STALE, field: 'previewHash' });
-      }
-
-      const existing = await SharedNotebook.findOne({ userId, notebookId: entry._id }).lean();
-      if (existing) {
-        return res.status(200).json(await sharePayload(userId, entry._id, existing, { preview, currentHash }));
-      }
-
-      const now = new Date();
-      try {
-        const created = await SharedNotebook.create({
-          userId,
-          notebookId: entry._id,
-          slug: shareSlug(),
-          ownerDisplayName,
-          snapshot: freezeNotebookSnapshot(preview, now),
-          contentHash: currentHash,
-          publishedAt: now,
-          correspondenceCount: 0
-        });
-        return res.status(201).json(await sharePayload(
-          userId,
-          entry._id,
-          created.toObject ? created.toObject() : created,
-          { preview, currentHash }
-        ));
-      } catch (error) {
-        if (!isDuplicateKey(error)) throw error;
-        const raced = await SharedNotebook.findOne({ userId, notebookId: entry._id }).lean();
-        if (!raced) throw error;
-        return res.status(200).json(await sharePayload(userId, entry._id, raced, { preview, currentHash }));
-      }
-    } catch (error) {
-      console.error('❌ Error sharing notebook:', error);
-      return res.status(500).json({ error: 'Failed to share that note.' });
-    }
-  });
-
-  router.get('/api/notebook/:id/share', authenticateToken, async (req, res) => {
-    if (!SharedNotebook) return res.status(503).json({ error: 'Sharing is not available.' });
-    try {
-      const userId = req.user.id;
-      const entry = await ownedNotebook(userId, req.params.id);
-      if (!entry) return res.status(404).json({ error: 'Notebook entry not found.' });
-      const { preview, currentHash } = await livePreviewOf(entry, userId);
-      const found = await SharedNotebook.findOne({ userId, notebookId: entry._id }).lean();
-      noStore(res);
-      return res.status(200).json(await sharePayload(userId, entry._id, found, { preview, currentHash }));
-    } catch (error) {
-      console.error('❌ Error reading notebook share:', error);
-      return res.status(500).json({ error: 'Failed to read that share.' });
-    }
-  });
-
-  router.put('/api/notebook/:id/share', authenticateToken, humanOnly, async (req, res) => {
-    if (!SharedNotebook) return res.status(503).json({ error: 'Sharing is not available.' });
-    try {
-      const userId = req.user.id;
-      const entry = await ownedNotebook(userId, req.params.id);
-      if (!entry) return res.status(404).json({ error: 'Notebook entry not found.' });
-
-      const { preview, currentHash, ownerDisplayName, publishable } = await livePreviewOf(entry, userId);
-      if (!publishable) {
-        return res.status(409).json({ error: 'Nothing to share yet.', field: 'preview' });
-      }
-      const previewHash = String(req.body?.previewHash || '').trim();
-      if (!previewHash || previewHash !== currentHash) {
-        return res.status(409).json({ error: PREVIEW_STALE, field: 'previewHash' });
-      }
-
-      const existing = await SharedNotebook.findOne({ userId, notebookId: entry._id }).lean();
-      if (!existing) return res.status(404).json({ error: 'This note is not shared.' });
-
-      const now = new Date();
-      const firstPublished = existing.publishedAt || existing.snapshot?.publishedAt || now;
-      const updated = await SharedNotebook.findOneAndUpdate(
-        { userId, notebookId: entry._id },
-        {
-          $set: {
-            snapshot: freezeNotebookSnapshot(preview, firstPublished, {
-              revisedAt: now,
-              correction: req.body?.correction
-            }),
-            contentHash: currentHash,
-            publishedAt: firstPublished,
-            ownerDisplayName: ownerDisplayName || existing.ownerDisplayName || ''
-          }
-        },
-        { new: true }
-      );
-      const row = updated && typeof updated.toObject === 'function' ? updated.toObject() : updated;
-      return res.status(200).json(await sharePayload(userId, entry._id, row, { preview, currentHash }));
-    } catch (error) {
-      console.error('❌ Error updating notebook share:', error);
-      return res.status(500).json({ error: 'Failed to update that share.' });
-    }
-  });
-
-  router.delete('/api/notebook/:id/share', authenticateToken, humanOnly, async (req, res) => {
-    if (!SharedNotebook) return res.status(200).json({ revoked: true });
-    try {
-      await SharedNotebook.deleteOne({ userId: req.user.id, notebookId: req.params.id });
-      noStore(res);
-      return res.status(200).json({ revoked: true });
-    } catch (error) {
-      console.error('❌ Error revoking notebook share:', error);
-      return res.status(500).json({ error: 'Failed to revoke that share.' });
-    }
-  });
-
-  /* The public read. The snapshot, and nothing live. A revoked or never-
-     minted slug is the same unanswered link. */
-  router.get('/api/public/notebooks/:slug', async (req, res) => {
-    noStore(res);
-    if (!SharedNotebook) return res.status(404).json({ error: 'This note is not published.' });
-    try {
-      const share = await SharedNotebook.findOne({ slug: String(req.params.slug || '').trim() }).lean();
-      if (!share?.snapshot) return res.status(404).json({ error: 'This note is not published.' });
-      return res.status(200).json(share.snapshot);
-    } catch (error) {
-      console.error('❌ Error opening shared notebook:', error);
-      return res.status(500).json({ error: 'Failed to open that note.' });
-    }
-  });
-
-  /* A reader leaves a question on one published sentence. The public page
-     never stores or returns it. The author reads it later, still private. */
-  router.post('/api/public/notebooks/:slug/correspondence', async (req, res) => {
-    noStore(res);
-    if (!SharedNotebook || !NotebookCorrespondence) {
-      return res.status(404).json({ error: 'This note is not published.' });
-    }
-    try {
-      const share = await SharedNotebook.findOne({ slug: String(req.params.slug || '').trim() }).lean();
-      if (!share?.snapshot) return res.status(404).json({ error: 'This note is not published.' });
-
-      const block = findCorrespondenceBlock(share.snapshot, req.body?.blockId);
-      if (!block) {
-        return res.status(400).json({ error: 'That passage is not on this note.', field: 'blockId' });
-      }
-      const text = correspondenceText(req.body?.text);
-      if (!text) {
-        return res.status(400).json({ error: 'Write a question first.', field: 'text' });
-      }
-
-      const claimed = await claimCorrespondenceSlot(SharedNotebook, share.slug);
-      if (!claimed) {
-        const still = await SharedNotebook.findOne({ slug: share.slug }).lean();
-        if (!still?.snapshot) return res.status(404).json({ error: 'This note is not published.' });
-        return res.status(409).json({ error: 'This note cannot take another question just now.' });
-      }
-
-      try {
-        await NotebookCorrespondence.create({
-          userId: share.userId,
-          notebookId: share.notebookId,
-          slug: share.slug,
-          blockId: block.id,
-          excerpt: block.text,
-          text
-        });
-      } catch (error) {
-        await releaseCorrespondenceSlot(SharedNotebook, share.slug);
-        throw error;
-      }
-      return res.status(201).json({ sent: true });
-    } catch (error) {
-      console.error('❌ Error receiving notebook correspondence:', error);
-      return res.status(500).json({ error: 'Failed to send that question.' });
     }
   });
 

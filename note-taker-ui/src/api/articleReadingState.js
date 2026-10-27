@@ -31,3 +31,18 @@ export const saveArticleReadingState = async (
   }
   await api.put(path, place, getAuthHeaders());
 };
+
+/* Opening a passage again; the reader inks it a little deeper. */
+export const markPassageOpened = async (articleId, highlightId) => {
+  await api.post(
+    `/api/articles/${encodeURIComponent(articleId)}/highlights/${encodeURIComponent(highlightId)}/opened`,
+    null,
+    getAuthHeaders()
+  );
+};
+
+/* Open source was pressed. The server looks once (a HEAD, at most daily) and
+   answers when, if ever, the original was found gone. */
+export const checkOriginalSource = async (articleId) => (
+  await api.post(`/api/articles/${encodeURIComponent(articleId)}/source-check`, null, getAuthHeaders())
+).data?.sourceGoneAt || null;

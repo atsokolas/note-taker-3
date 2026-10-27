@@ -27,6 +27,7 @@ const { resolveClaimBornAt } = require('./claimBornAt');
 const { buildMaintenanceCitations } = require('./wikiMaintenanceCitations');
 const { wordBoundaryTrim } = require('../lib/editorialText');
 const { unstatedFigures } = require('./agentGrounding');
+const { MARKET_PLACEHOLDER } = require('./companyDossierService');
 const {
   sourceFamilyKey,
   evaluateOwnedSourceUtilization,
@@ -678,7 +679,8 @@ const isLikelyGeneratedPage = (page) => Boolean(
 );
 
 const extractManualNotes = (page) => {
-  const text = truncate(page?.plainText || toPlainText(page?.body), 1800);
+  // The dossier template's market placeholder is the template's, never the owner's.
+  const text = truncate((page?.plainText || toPlainText(page?.body)).replace(MARKET_PLACEHOLDER, ''), 1800);
   if (!text || text.length < 80 || isLikelyGeneratedPage(page)) return '';
   const repoScaffold = (
     (page?.externalWatches?.githubRepo || /GitHub repo:|github\.com\/[^/\s]+\/[^/\s]+/i.test([page?.createdFrom?.text, page?.createdFrom?.label].join(' ')))
@@ -1266,16 +1268,16 @@ Investment dossier rules:
 - Required analytical modules: ${(plan.requiredModuleIds || []).join(', ') || 'research plan is not classified yet'}.
 - Not attached: ${(plan.missingEvidenceArchetypes || []).map(describeEvidence).join('; ') || 'nothing'}.
 - For each source not attached, say plainly in the relevant section that it could not be found (use those words), and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
-- Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused.
-- For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it, and give its latest quarter alongside any year-to-date total. A figure from an older period cites the filing that reports it, and is compared only with the same length of period ("first half against first half", never a half-year against nine months).
-- A market value is the dated price times the shares outstanding stated in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity. Use the cover share count alone, not a weighted-average count beside it.
+- Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused. Write a figure as precisely as the source states it, never more: the filing's "$15.6 billion" stays "$15.6 billion", never "$15,606 million".
+- For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it, and give its latest quarter alongside any year-to-date total. A figure from an older period cites the filing that reports it, and is compared only with the same length of period ("first half against first half", never a half-year against nine months). A balance (cash, debt, backlog) is the latest balance sheet's figure wherever it appears, the opening included; a figure from another date carries that date.
+- A market value is the dated price times the shares outstanding on the filing cover or in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity. Use the cover share count alone, not a weighted-average count beside it, and count every class of common stock: pricing one class alone understates the company. Where classes differ in worth, convert at the ratio the filing states; with no stated ratio, say the total is a sensitivity. A segment keeps the filing's direction in words as well as figures: one whose operating result is a loss is never "profitable" or "income-positive", one whose revenue fell over the period discussed is never called "growing" (name the measure and period when something else grew), and a margin that fell is never "expanding". Never group a losing segment with a profitable one under a single description.
 - State the latest fiscal year's reported net income and diluted EPS from SEC Company Facts.
 - Use consolidated income-statement totals for margins and earnings; a segment total is named as one ("total segment operating income") and never called the company's total. Cite reported net income and EPS directly; never back into them.
 - Say a ratio as its number ("about 1.6x"), never as a word it is not ("roughly double"); when comparing two amounts, divide the larger by the smaller and name which is larger.
 - Never back a prior-period figure out of a growth rate. If the sources do not state the earlier figure, give the current figure and the rate.
 - Read a multi-year table by column: compare rows within the same year's column, never one row's early year against another's latest.
 - Before calling two totals a discrepancy, reconcile them from the line items (total revenue is net sales plus membership fees and other revenue).
-- Name a debt figure as the filing does (total, or net of current portion) and take it from the latest balance sheet attached. The balance sheet's "Long-term debt" line is the long-term portion; never call it "net". A cover share count is dated by its cover date ("as of"), not the filing date.
+- Name a debt figure as the filing does (total, or net of current portion) and take it from the latest balance sheet attached. The balance sheet's "Long-term debt" line is the long-term portion; never call it "net". A cover share count is dated by its cover date ("as of"), not the filing date. In a table by year, each column is that fiscal year: a cohort's first column is not its first year when the row groups years ("2017 & Before").
 - Open with the judgment and what the filings establish. Say what is missing once, where it matters (Implied Expectations for price and multiples), not in the opening.
 - Write for an investor: never use the words "evidence archetype", "module", "ledger", "maintenance test" or "dossier engine", never write internal labels with underscores, and do not name the app.
 - When a competitor's filing is attached, compare the company against it in Product and Technical Moat, citing it.
@@ -1285,7 +1287,7 @@ Investment dossier rules:
 - Cover every required analytical module explicitly. For the "${modelLabel}" adapter, name the company-specific operating evidence behind each adapter module rather than substituting generic industry language.
 - Tie every paragraph containing reported facts to citationIndexes. Use "supported" when the cited filing directly establishes the material facts, "partial" only when the paragraph mixes filing facts with interpretation, and "unsupported" only for an explicitly labeled owner judgment or unresolved question.
 - Include at least four directly filing-supported paragraphs when the supplied filings contain substantive business or financial evidence. Do not downgrade directly reported facts merely because only two primary filings are attached.
-- Make valuation an implied-expectations problem. State the price or market-value snapshot date, distinguish reported figures from calculations, and show what operating outcome must be true for a reasonable return.
+- Make valuation an implied-expectations problem. State the price or market-value snapshot date, distinguish reported figures from calculations, and show what operating outcome must be true for a reasonable return. A return over several years compounds: five years at 10% means value reaches 1.10^5 ≈ 1.61x the starting value, never one year's 10%; write the base, rate, years and result.
 - Include at least one reproducible, numeric calculation in Implied Expectations and at least one in System and Unit Economics. State the inputs, arithmetic or ratio, period, and source citations in the same paragraph so another analyst can reproduce it.
 - Never turn one quarter into a forecast. If annualizing a quarter, label it as a sensitivity boundary and compare it with the last full fiscal year.
 - Explain what the customer buys, why it chooses the company, the scarce control point, and how that control point becomes cash. Use the selected adapter's economics rather than generic technology language.
@@ -1401,7 +1403,7 @@ const buildPrompt = ({
     && structure.profile !== 'investment_dossier';
   const existingTextForPrompt = omitGeneratedOrdinaryProse
     ? 'Prior generated article prose intentionally omitted. Reconstruct from the source ledger and preserved user notes so earlier repetition or unsupported wording cannot become the template.'
-    : truncate(page.plainText || toPlainText(page.body), 2400);
+    : truncate((page.plainText || toPlainText(page.body)).replace(MARKET_PLACEHOLDER, ''), 2400);
 
   return `Maintain this Wiki page by directly rewriting it into a clean, durable Wiki article.
 
@@ -1542,6 +1544,26 @@ Return the complete repaired article. Make defensible claims, compare evidence, 
 
 // A lone CJK glyph fused to an English word ("the更 company") is a sampling
 // slip, not writing; a CJK word set apart by spaces is left alone.
+// What the editor checks: the slips a writer makes with true numbers.
+const DOSSIER_EDITOR_BRIEF = `Above are the sources and the brief the writer was given. Below is the writer's draft. Check every figure in it against the sources and fix only what is wrong:
+- a figure given to the wrong period, line, segment or company (one quarter's margin given to another; a segment total called the company's);
+- a label the filing does not use (the balance sheet's "Long-term debt" is the long-term portion, never "net"; a filing date is not an "as of" date);
+- a comparison that names the wrong side as larger, or a ratio called by a word it is not ("double" for 1.6x);
+- two totals called a discrepancy when the line items reconcile them;
+- a paragraph that repeats another;
+- a sentence that stops before it ends ("under-disclosed by"): finish it from the sources or remove it;
+- a balance (cash, debt, backlog) in the opening or a summary that differs from the latest balance sheet's: use the balance sheet's, or give the other figure its date;
+- a figure computed without its inputs beside it: write them in ("98% ($297.25bn / $303.15bn)");
+- a market value that counts only one class of common stock when the filing reports several: count every class, at the filing's conversion ratio where it states one;
+- a segment described against its own figures: one with an operating loss called "profitable" or "income-positive" (alone or grouped with another segment), one whose revenue fell over the period discussed called "growing" without naming the measure and period that did grow, a margin that fell called "expanding": keep the filing's direction;
+- a multi-year return hurdle that does not compound: five years at 10% is 1.10^5 ≈ 1.61x the starting value, not one year's 10%;
+- a figure worked out from a percentage when the filing states it (operating income, gross profit): use the stated figure; and a span of periods that does not match its figures ("the last four quarters" naming a fifth);
+- a figure more precise than its source ("$15,606 million" where the filing says "$15.6 billion"), or rounded to a different value (74.9% given as 75.0%): write it as the source does;
+- a figure cited to a source that does not state it: cite the one that does, and cite every filing a sentence draws on (an earlier quarter's figure cites that quarter's filing);
+- a claim or question with no citation: cite the source it rests on;
+Change nothing else: keep every other sentence, citation, heading and field exactly as written, and return the complete draft in the same JSON shape.
+Draft:`;
+
 const STRAY_GLYPH = /(?<=[A-Za-z])[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]|[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af](?=[A-Za-z])/g;
 
 // The text client's own reading: fences, a sentence around the object, and
@@ -1688,11 +1710,16 @@ const extractSecFilingEvidenceText = (value = '', limit = SEC_FILING_EVIDENCE_TE
     windows.push(`[Filing excerpt: ${label}]\n${text.slice(safeStart, Math.min(safeEnd, safeStart + remaining))}`);
   };
   addWindow({ start: 0, end: 2400, label: 'filing identity and period' });
+  // The cover states every class's outstanding share count; a market value
+  // needs all of them, and Company Facts omits them for some filers.
+  const cover = text.slice(0, 20000).search(/\b(?:latest practicable date|registrant had [\d,]+ shares|shares of (?:the registrant['’]s )?(?:Class [A-Z] )?common stock outstanding)/i);
+  if (cover >= 0) addWindow({ start: Math.max(cover - 200, 2400), end: cover + 900, label: 'shares outstanding on the cover' });
   [
     // Most decision-bearing first: windows are taken in this order until the
     // excerpt is full, so a long 10-Q keeps its results, buybacks and
     // concentration before its descriptions.
     ['results of operations', /\b(?:management['’]s discussion and analysis|results of operations)\b/ig],
+    ['segment results', /\b(?:segment operating (?:income|loss)|operating (?:income|loss) by segment|reportable segments?)\b/ig],
     ['revenue and cost structure', /\b(?:cost of revenue|gross profit|gross margin|operating loss)\b/ig],
     // The reported rows, with prior years, and the year's renewal rate.
     ['membership fees and renewal', /\bmembership fees \$|\brenewal rates? (?:was|were|of)\b/ig],
@@ -1727,7 +1754,8 @@ const hydrateSecFilingCandidates = async ({
   candidates = [],
   userId,
   models = {},
-  onProgress = null
+  onProgress = null,
+  fetchMissing = true
 } = {}) => {
   const WikiSourceEvent = models?.WikiSourceEvent;
   if (!WikiSourceEvent?.find) return candidates;
@@ -1753,7 +1781,8 @@ const hydrateSecFilingCandidates = async ({
     const expectedLength = Number(event?.metadata?.filingTextLength || source?.metadata?.filingTextLength || 0);
     const filingUrl = asString(event?.url || source?.url);
     if (
-      expectedLength > eventText.length
+      fetchMissing
+      && expectedLength > eventText.length
       && /^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\//i.test(filingUrl)
     ) {
       try {
@@ -1782,6 +1811,20 @@ const hydrateSecFilingCandidates = async ({
     };
   }));
 };
+
+/* A page keeps only snippets of what it cites; the figure check needs the
+   text the build read. A later check of a built page (accepting a held
+   candidate, adopting a head) reloads that text from what was saved, never
+   from SEC: an owner's click does not wait on someone else's server. */
+const groundingSourceRefsForPage = async ({ page = {}, userId, models = {} } = {}) => groundingSourceRefsForCandidates({
+  sourceRefs: page?.sourceRefs,
+  candidates: await hydrateSecFilingCandidates({
+    candidates: collectExistingSourceCandidates({ page }),
+    userId,
+    models,
+    fetchMissing: false
+  })
+});
 
 const dedupeSourceRefs = (existing = [], next = []) => {
   const seen = new Set();
@@ -3863,6 +3906,15 @@ const evaluateWikiArticleQuality = ({
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
     if (pattern.test(plainText)) failures.push(`Article contains ${label}.`);
   });
+  // A written paragraph ends its sentence; one that stops anywhere else, or
+  // trails off in an ellipsis, was cut off ("under-disclosed by[2]").
+  const unfinished = ((body || page?.body)?.content || [])
+    .filter(node => node?.type === 'paragraph' && node.content?.some(child => child.marks?.some(mark => mark?.type === 'claim')))
+    .map(toPlainText)
+    .filter(text => !/(?<!\.\.)[.!?:]["'”’)\]]*$/.test(text));
+  if (unfinished.length) {
+    failures.push(`Article has sentences that stop before they end: ${unfinished.slice(0, 3).map(text => `"…${text.slice(-80)}"`).join('; ')}. Finish each from its sources or remove it.`);
+  }
   // A number is checked only against sources the writer was given the text
   // of; a citation to a source with no text is not evidence either way.
   unstatedFigureClaims = docClaims.flatMap((claim) => {
@@ -4564,6 +4616,23 @@ const maintainWikiPage = async ({
       // A dossier is written by the model or not at all; the generic fallback
       // would publish the empty template under the model's name.
       if (investmentDossier && !result) throw Object.assign(new Error('The research model returned no readable draft.'), { status: 502 });
+      // A figure under the wrong label passes the figure check, because the
+      // number itself is stated somewhere. An editor rereads the draft against
+      // the same filings and corrects only what is wrong; if it cannot answer,
+      // the writer's draft goes to the gate as it was.
+      if (investmentDossier) {
+        await emitProgress({ stage: 'model_editing', summary: 'An editor is checking each figure and its label against the filings.' });
+        try {
+          const edited = extractJson((await chat({
+            ...draftRequest,
+            messages: [
+              { role: 'system', content: 'You are the editor of an investment dossier. Check it against its sources and return the corrected draft. Return JSON only.' },
+              { role: 'user', content: `${draftRequest.messages[1].content}\n\n${DOSSIER_EDITOR_BRIEF}\n${JSON.stringify(result)}` }
+            ]
+          }))?.text);
+          if (edited) result = edited;
+        } catch (_error) { /* keep the writer's draft */ }
+      }
       await emitProgress({
         stage: 'model_drafted',
         summary: 'Draft response received from the maintenance model.',
@@ -5003,6 +5072,7 @@ const maintainWikiPage = async ({
 module.exports = {
   maintainWikiPage,
   evaluateWikiArticleQuality,
+  groundingSourceRefsForPage,
   isGitHubRepoPage,
   deriveClaimsFromDoc,
   buildSectionMaintenancePlan,
@@ -5010,6 +5080,7 @@ module.exports = {
   selectCandidateSources,
   fallbackMaintenance,
   __testables: {
+    extractManualNotes,
     perSourceTextBudget,
     applySourceTextBudget,
     extractJson,

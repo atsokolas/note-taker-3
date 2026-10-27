@@ -93,6 +93,17 @@ const server = app.listen(0, '127.0.0.1', async () => {
     assert.ok(later.body.placementAt);
     assert.strictEqual(later.body.evergreen, true, 'Keep stays independent');
 
+    // "Keep it" on a piece that has waited a month: same pile, the wait starts over,
+    // and a why can be added without moving it.
+    stored.placementAt = new Date('2026-01-01T00:00:00.000Z');
+    const still = await request(`/articles/${ARTICLE_ID}/placement`, {
+      method: 'PATCH',
+      body: { placement: 'later', reason: 'Sam sent this' }
+    });
+    assert.strictEqual(still.body.placement, 'later');
+    assert.ok(new Date(still.body.placementAt) > new Date('2026-01-02'), 'keeping it renews the wait');
+    assert.strictEqual(still.body.placementReason, 'Sam sent this');
+
     const aside = await request(`/articles/${ARTICLE_ID}/placement`, {
       method: 'PATCH',
       body: { placement: 'setAside', reason: 'at hand this week' }

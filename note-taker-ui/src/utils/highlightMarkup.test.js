@@ -97,4 +97,24 @@ describe('renderArticleContentWithHighlights', () => {
     expect(text).toContain('Margin of Safety protects against mistakes.');
     expect(text).not.toMatch(/attr\(href\)|Read Caption|Thought and Opinion|URL:/i);
   });
+  it('keeps the paragraphs of pasted text and drops a first line that repeats the title', () => {
+    const html = renderArticleContentWithHighlights(
+      {
+        title: 'Why checklists beat expertise',
+        content: 'Why checklists beat expertise\n\nIn fields where <failure> costs lives,\nprocedure helps.\n\nJudgment still matters.',
+        url: 'import://manual/1'
+      },
+      [{ _id: 'h-3', text: 'Judgment still' }]
+    );
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const paragraphs = [...doc.querySelectorAll('p')];
+
+    expect(paragraphs.map(p => p.textContent)).toEqual([
+      'In fields where <failure> costs lives,procedure helps.',
+      'Judgment still matters.'
+    ]);
+    expect(paragraphs[0].querySelector('br')).not.toBeNull();
+    expect(doc.querySelector('mark[data-highlight-id="highlight-h-3"]')?.textContent).toBe('Judgment still');
+  });
 });

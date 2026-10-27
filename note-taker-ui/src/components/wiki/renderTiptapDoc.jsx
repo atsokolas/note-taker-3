@@ -264,7 +264,7 @@ const renderTextNode = (node, key, options = {}) => {
         >
           {wikiLinkedText}
         </span>
-        {visibleIndexes ? (
+        {visibleIndexes && !options.claimContinues ? (
           <sup className="wiki-claim-citation-wrap">
             <button
               type="button"
@@ -287,10 +287,16 @@ const renderTextNode = (node, key, options = {}) => {
   return <React.Fragment key={key}>{wikiLinkedText}</React.Fragment>;
 };
 
+const claimIdOf = node => node?.marks?.find?.(mark => mark?.type === 'claim')?.attrs?.claimId;
+
+// A claim split across text nodes (a date, a link) cites once, after its
+// last piece that shows.
 const renderInline = (content = [], keyPrefix = '', options = {}) => content
   .map((child, index) => {
     if (!child) return null;
-    if (child.type === 'text') return renderTextNode(child, `${keyPrefix}-${index}`, options);
+    const next = content.slice(index + 1).find(node => stripModelSourceRangeCitations(node?.text || ''));
+    const claimContinues = Boolean(claimIdOf(child)) && claimIdOf(next) === claimIdOf(child);
+    if (child.type === 'text') return renderTextNode(child, `${keyPrefix}-${index}`, { ...options, claimContinues });
     return null;
   })
   .filter(Boolean);

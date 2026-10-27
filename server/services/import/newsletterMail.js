@@ -150,6 +150,24 @@ const newsletterFromMail = ({ from, subject, html, text, date, readerEmail = '' 
   };
 };
 
+/* A mail that is a link and little else: what someone sends themselves from
+   a phone. Exactly one web address, and whatever else was written short
+   enough to be a note about it (the subject when nothing was). A newsletter
+   carries many links and a page of prose, so it is never mistaken for one. */
+const WEB_ADDRESS = /https?:\/\/[^\s<>"')\]]+/gi;
+const SIGNATURE = /^(sent from my .*|get outlook for .*|--\s*)$/gim;
+const linkFromMail = ({ subject = '', html = '', text = '' } = {}) => {
+  const written = (html ? bodyFrom(String(html)) : String(text || '')).replace(/\r/g, '').replace(SIGNATURE, '');
+  const hrefs = [...String(html || '').matchAll(/\bhref=["'](https?:[^"']+)["']/gi)].map(match => match[1]);
+  const addresses = [...`${subject}\n${written}`.matchAll(WEB_ADDRESS)].map(match => match[0]);
+  const links = [...new Set([...hrefs, ...addresses].map(withoutTracking).filter(Boolean))];
+  if (links.length !== 1) return null;
+  const words = value => String(value || '').replace(WEB_ADDRESS, ' ').replace(/\s+/g, ' ').trim();
+  const note = words(written);
+  if (note.length > 280) return null;
+  return { url: links[0], note: note || words(stripForwardPrefix(subject)) };
+};
+
 /* The webhook carries the envelope; the body is fetched by id unless the
    payload already holds it (a provider-neutral post, or a test). */
 const receivedMail = async (payload = {}, { apiKey = '', fetchImpl = global.fetch } = {}) => {
@@ -197,6 +215,7 @@ const readerForMail = async ({ User, mail, inboundAddress = '' }) => {
 module.exports = {
   dayOf,
   inboundMailConfig,
+  linkFromMail,
   newsletterFromMail,
   parseAddress,
   readerForMail,

@@ -38,7 +38,7 @@ This PRD reshapes the wiki around the correct primitive — a **reading-first, l
 - Replacing Library, Notebook, or Concepts — those stay. The wiki is a **synthesis layer above** the existing library, not a replacement for it.
 - Multi-user collaboration on a single wiki page (lock contention, real-time presence, etc.). Single-user for now.
 - A general markdown editor that competes with Notion / Obsidian. Edit mode is a fallback, not the focus.
-- Auto-publishing to a public surface (sharing the wiki publicly is a future concern — `/share/concepts/:slug` is the model when we get there).
+- Auto-publishing to a public surface (a wiki page is shared publicly only by its owner, from the page, at `/share/wiki/:idOrSlug`; Think no longer publishes concepts or notes, they settle into Wiki first).
 - Building our own search engine over markdown files. Existing search across the user's library covers it.
 - Mobile-first design for v1. Desktop-first; mobile is a follow-up.
 

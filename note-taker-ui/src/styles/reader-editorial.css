@@ -34,6 +34,22 @@ body.noeis-editorial .article-reader-decisions {
   margin-top: 10px;
 }
 
+/* Every word in this row is the same kind of word: a decision with a rule
+   under it (evergreen.css). Only the switch differs, because it is a place. */
+body.noeis-editorial .article-reader-decisions .read-fresh-toggle {
+  min-height: 0;
+  padding: 0;
+  border-bottom: 1px solid currentColor;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  text-decoration: none;
+}
+
+body.noeis-editorial .article-reader-decisions .read-fresh-toggle:hover {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
 body.noeis-editorial .article-folio {
   margin-top: 10px;
   max-width: 38rem;
@@ -65,12 +81,21 @@ body.noeis-editorial .magnetic-reading-rail.is-shown {
   transition: opacity 200ms ease;
 }
 
-body.noeis-editorial .magnetic-reading-rail__track {
+/* The pill and the hairline are one tab of paper, the same width, with the
+   line as its bottom edge. A bare line wider than the pill crossed whatever
+   sentence was passing under it. */
+body.noeis-editorial .magnetic-reading-rail__track,
+body.noeis-editorial .magnetic-reading-rail__pill-outer {
   width: min(240px, 100%);
+  background: var(--noeis-canvas, var(--surface-card));
+}
+
+body.noeis-editorial .magnetic-reading-rail__track {
+  --rail-rule: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   height: 1px;
   border-radius: 0;
   opacity: 1;
-  background: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
+  background-image: linear-gradient(var(--rail-rule), var(--rail-rule));
 }
 
 body.noeis-editorial .magnetic-reading-rail__fill {
@@ -78,15 +103,16 @@ body.noeis-editorial .magnetic-reading-rail__fill {
   background: var(--wiki-warm-accent);
 }
 
+/* The words may drift toward the pointer, but only across their own paper. */
 body.noeis-editorial .magnetic-reading-rail__pill-outer {
-  width: auto;
+  overflow: hidden;
 }
 
 body.noeis-editorial .magnetic-reading-rail__pill {
   padding: 6px 16px 8px;
   border: 0;
   border-radius: 0;
-  background: var(--noeis-canvas, var(--surface-card));
+  background: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
@@ -124,22 +150,23 @@ body.noeis-editorial .magnetic-reading-rail__hint {
    is the agent's half-step warmer. Capture itself is one yellow wash,
    never a crayon box and never the old cool blue. */
 body.noeis-editorial .article-reader-content mark.highlight {
-  background: color-mix(in srgb, var(--highlight-color, #f6e27a) 62%, transparent) !important;
+  background: color-mix(in srgb, var(--highlight-color, #f6e27a) calc(62% + var(--ink-deepen, 0%)), transparent) !important;
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--highlight-color, #f6e27a) 40%, transparent);
 }
 
-body.noeis-editorial .article-highlight-edition__item blockquote {
-  color: var(--ink-human, var(--vellum-ink));
-}
-
-body.noeis-editorial .article-highlight-edition__note {
-  color: var(--ink-agent, var(--vellum-ink));
-  font-style: italic;
-}
-
 html[data-ui-scheme='dark'] body.noeis-editorial .article-reader-content mark.highlight {
-  background: color-mix(in srgb, var(--highlight-color, #f6e27a) 46%, transparent) !important;
+  background: color-mix(in srgb, var(--highlight-color, #f6e27a) calc(46% + var(--ink-deepen, 0%)), transparent) !important;
 }
+
+/* J and K: the paragraph you are on, a pencil line in the margin. */
+body.noeis-editorial .article-reader-content .is-reader-here {
+  box-shadow: -14px 0 0 -12px var(--noeis-action);
+}
+
+/* Deeper ink: a passage you keep returning to, a step at a time. */
+.article-reader-content mark.highlight[data-ink='1'] { --ink-deepen: 8%; }
+.article-reader-content mark.highlight[data-ink='2'] { --ink-deepen: 16%; }
+.article-reader-content mark.highlight[data-ink='3'] { --ink-deepen: 24%; }
 
 /* A selection in the reader is the house bronze, lightly: the browser's blue
    read as somebody else's mark on the page. */
@@ -188,4 +215,85 @@ body.noeis-editorial .selection-menu__key {
   body.noeis-editorial .selection-menu__key {
     display: none;
   }
+}
+
+/* The reader dresses for the source (readerDress.js). Long essays get a
+   slightly wider measure and a slower line; filings set their figures in
+   columns; pasted text is left as written. Tokens only. */
+.article-reader[data-source-kind='essay'] {
+  --reader-measure: 820px;
+  --reader-leading: 1.94;
+}
+.article-reader[data-source-kind='filing'] .article-reader-content {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Your highlight greets you on return: the line in pull-quote type, which
+   then settles away. Reduced motion keeps it, still, for this visit. */
+.return-greeting {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin: 22px 0 6px;
+  transition: grid-template-rows 700ms ease, opacity 500ms ease, margin 700ms ease;
+}
+.return-greeting.is-settling {
+  grid-template-rows: 0fr;
+  margin: 0;
+  opacity: 0;
+}
+.return-greeting__inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.return-greeting figcaption {
+  color: var(--text-muted);
+  font: 12px/1.5 var(--noeis-ui-font, sans-serif);
+}
+.return-greeting blockquote {
+  margin: 6px 0 0;
+  padding: 0 0 0 18px;
+  border-left: 2px solid color-mix(in srgb, var(--noeis-thread) 55%, transparent);
+}
+.return-greeting blockquote button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-human, var(--text-primary));
+  font-family: var(--font-serif);
+  font-size: clamp(1.3rem, 2.2vw, 1.62rem);
+  font-style: italic;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .return-greeting { transition: none; }
+}
+
+/* Footnotes open in place: a small note on its own paper by the reference. */
+.footnote-peek {
+  position: absolute;
+  z-index: 40;
+  width: min(360px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--noeis-rule) 80%, transparent);
+  border-radius: 6px;
+  background: var(--noeis-canvas, var(--surface-card));
+  box-shadow: var(--shadow-subtle);
+  color: var(--text-primary);
+  font: 14px/1.55 var(--noeis-ui-font, sans-serif);
+}
+.footnote-peek:focus { outline: none; }
+.footnote-peek:focus-visible { outline: 2px solid color-mix(in srgb, var(--noeis-thread) 60%, transparent); }
+.article-reader-content a[aria-expanded='true'] {
+  text-decoration-thickness: 2px;
+}
+
+/* The original is gone. Your copy isn't. */
+.article-reader-meta .article-source-gone {
+  color: var(--text-muted);
+  font-family: var(--font-serif);
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
 }

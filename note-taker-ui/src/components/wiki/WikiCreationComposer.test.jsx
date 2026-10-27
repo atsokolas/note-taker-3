@@ -31,7 +31,7 @@ test('offers Wiki, Repo wiki, and Investment dossier as peer creation modes', ()
   fireEvent.click(dossierTab);
   expect(dossierTab).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByText('Investment Dossier form · embedded true')).toBeInTheDocument();
-  expect(screen.getByText(/free SEC filings and your judgment/i)).toBeInTheDocument();
+  expect(screen.getByText(/SEC filings, checked figure by figure/i)).toBeInTheDocument();
 
   fireEvent.click(wikiTab);
   fireEvent.click(screen.getByRole('button', { name: 'Start Wiki' }));

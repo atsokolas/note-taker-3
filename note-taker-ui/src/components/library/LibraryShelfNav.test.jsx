@@ -141,7 +141,7 @@ describe('LibraryShelfNav', () => {
 
     it('keeps placement and Keepers directly available at every width', () => {
       renderNav({});
-      expect(screen.getByRole('button', { name: /^Later/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Nightstand/ })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /^On the desk/ })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /^Keepers/ })).toBeInTheDocument();
     });
@@ -157,7 +157,7 @@ describe('LibraryShelfNav', () => {
     it('offers collection scopes only once', () => {
       renderNav({});
       const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
-      expect(labels).toEqual(['All sources', 'On the desk', 'Later', 'Keepers', 'Unfiled6', 'Passages']);
+      expect(labels).toEqual(['All sources', 'On the desk', 'Nightstand', 'Keepers', 'Unfiled6', 'Passages']);
     });
 
     it('leaves the cabinet to the shelves and the ways of narrowing', () => {

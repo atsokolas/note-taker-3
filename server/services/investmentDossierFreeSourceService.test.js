@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const {
   annualPointsForFact,
   buildCompanyFactsOperatingBenchmark,
+  latestSharesOutstanding,
   metricSeriesFromCompanyFacts
 } = require('./investmentDossierFreeSourceService');
 
@@ -103,6 +104,13 @@ const run = () => {
   assert.match(built.sourceRef.snippet, /Shares outstanding: 119 million as of 2025-08-01 \(cover of the 10-Q filed 2025-08-06\)\./);
   assert.match(built.sourceRef.url, /CIK0000123456\.json$/);
   assert.match(built.sourceRef.metadata.provenance.contentHash, /^[a-f0-9]{64}$/);
+
+  // A cover with Class A and Class B rows keeps both, separately.
+  assert.deepEqual(latestSharesOutstanding({ facts: { dei: { EntityCommonStockSharesOutstanding: { units: { shares: [
+    { end: '2026-04-30', val: 7500000000, form: '10-Q', filed: '2026-05-05', accn: 'q1' },
+    { end: '2026-07-28', val: 7696293669, form: '10-Q', filed: '2026-08-04', accn: 'q2' },
+    { end: '2026-07-28', val: 5485486276, form: '10-Q', filed: '2026-08-04', accn: 'q2' }
+  ] } } } } }), { classes: [7696293669, 5485486276], asOf: '2026-07-28', form: '10-Q', filed: '2026-08-04' });
 
   const unavailable = buildCompanyFactsOperatingBenchmark({
     companyFacts: {

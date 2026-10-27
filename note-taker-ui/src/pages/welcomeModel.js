@@ -180,10 +180,15 @@ export const linkLabel = (url = '') => {
   }
 };
 
-/* A pasted passage is named by how it begins. "Pasted text" twice in a row
-   tells a reader nothing about which is which. */
+/* A pasted passage is named by how it begins: its headline when the first line
+   stands alone, else its first sentence. "Pasted text" twice in a row tells a
+   reader nothing about which is which. */
 export const passageTitle = (prose = '', max = 60) => {
-  const first = String(prose || '').trim().replace(/\s+/g, ' ').split(/(?<=[.!?])\s/)[0];
+  const text = String(prose || '').trim();
+  const headline = text.match(/^([^\n]+)\n[ \t]*\n/)?.[1].trim();
+  const first = headline && !/[.,;:!?]$/.test(headline)
+    ? headline
+    : text.replace(/\s+/g, ' ').split(/(?<=[.!?])\s/)[0];
   if (first.length <= max) return first.replace(/[.!?]$/, '');
   const cut = first.slice(0, max);
   return `${cut.slice(0, cut.lastIndexOf(' ') > 20 ? cut.lastIndexOf(' ') : max).replace(/[,;:]$/, '')}…`;

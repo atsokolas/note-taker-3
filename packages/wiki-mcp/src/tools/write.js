@@ -18,6 +18,7 @@ const editionItemShape = z.object({
   sourceDate: z.string().optional().describe('When it was published.'),
   note: z.string().optional().describe('Anything else worth saying: how it works, how strong the evidence is.'),
   plain: z.string().max(280).optional().describe('The finding in one plain sentence for someone outside the field: what it means, not what it measured.'),
+  why: z.string().max(280).optional().describe('Why you picked this for this reader, in a sentence or two in your own voice: what it adds to what they follow or already hold. Printed under the headline.'),
   passage: z.string().max(1200).optional().describe('The source\'s own words the finding rests on, copied exactly; mark a cut with "…". Checked word for word when the reader saves the source, and never shown as a quotation unless it is there.'),
   sourceKind: z.enum(['preprint', 'peer_reviewed', 'company', 'news', 'other']).optional().describe('What kind of source this is: an unreviewed preprint, peer-reviewed work, a company\'s own post, news reporting, or other.'),
   confidence: z.enum(['high', 'moderate', 'low']).optional().describe('How sure the reader should be of the finding, given the source and its boundary.'),

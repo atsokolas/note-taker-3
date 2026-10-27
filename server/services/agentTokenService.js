@@ -2,7 +2,15 @@ const crypto = require('crypto');
 const { CHATGPT_ACCESS_PROFILE, isChatgptRequestAllowed } = require('./chatgptAccessPolicy');
 
 const AGENT_TOKEN_PREFIX = 'ntk_at_';
-const AGENT_TOKEN_SCOPES = ['read', 'agent-write'];
+/* What each scope lets a token do. `capture` is a person's own desktop: it
+   brings links, files and text in and sees the nightstand, and writes
+   nothing else. */
+const SCOPE_GRANTS = {
+  read: ['read'],
+  capture: ['capture'],
+  'agent-write': ['read', 'capture', 'agent-write']
+};
+const AGENT_TOKEN_SCOPES = Object.keys(SCOPE_GRANTS);
 const AGENT_TOKEN_SCOPE_SET = new Set(AGENT_TOKEN_SCOPES);
 
 const createAgentTokenSecret = () => (
@@ -67,9 +75,7 @@ const requiredScopeForRequest = (req = {}) => {
 };
 
 const hasRequiredScope = (token = {}, scope = 'read') => {
-  const scopes = normalizeAgentTokenScopes(token.scopes || []);
-  if (scope === 'read') return scopes.includes('read') || scopes.includes('agent-write');
-  return scopes.includes('agent-write');
+  return normalizeAgentTokenScopes(token.scopes || []).some(held => SCOPE_GRANTS[held].includes(scope));
 };
 
 const buildAuthenticateAgentToken = ({
@@ -171,6 +177,8 @@ const buildAuthenticateAgentToken = ({
 module.exports = {
   AGENT_TOKEN_PREFIX,
   AGENT_TOKEN_SCOPES,
+  AGENT_TOKEN_SCOPE_SET,
+  getBearerToken,
   createAgentTokenSecret,
   hashAgentTokenSecret,
   normalizeAgentTokenScopes,

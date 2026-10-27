@@ -35,6 +35,31 @@ const normalizeSpaces = (value = '') => String(value || '').replace(/\s+/g, ' ')
  */
 const plainTextFrom = (value = '') => normalizeSpaces(String(value || '').replace(/<[^>]*>/g, ' '));
 
+/**
+ * A rich-text document as prose. Inline pieces join as written, because a
+ * text node already carries its own spaces: "word" then ", next" is
+ * "word, next", never "word , next". Blocks (a heading, a paragraph, a list
+ * item) each end their line, so a heading stays its own line instead of
+ * running into the sentence after it.
+ */
+const isBlockNode = node => Boolean(node) && typeof node === 'object' && Array.isArray(node.content);
+
+const docText = (node) => {
+  if (!node) return '';
+  if (typeof node === 'string') return node;
+  if (typeof node !== 'object') return '';
+  if (!Array.isArray(node)) {
+    if (typeof node.text === 'string') return node.text;
+    if (node.type === 'hardBreak') return '\n';
+  }
+  const children = Array.isArray(node) ? node : (node.content || []);
+  return children.reduce((text, child) => {
+    const piece = docText(child);
+    if (!piece) return text;
+    return text && isBlockNode(child) ? `${text.trimEnd()}\n${piece.trim()}` : `${text}${piece}`;
+  }, '').trim();
+};
+
 const sentenceBoundaryTrim = (value = '', {
   maxLength = 280,
   fallback = ''
@@ -83,6 +108,7 @@ const wordBoundaryTrim = (value = '', {
 };
 
 module.exports = {
+  docText,
   normalizeSpaces,
   plainTextFrom,
   sentenceBoundaryTrim,

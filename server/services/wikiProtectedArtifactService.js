@@ -1,4 +1,6 @@
-const HUMAN_ONLY_WIKI_LABEL_PATTERN = /^(?:weekend-readings|this-week-in-ai|research-ledger):/;
+// Pages maintenance never rewrites. A settled note, concept or book is the
+// reader's own finished words; only settling again changes them.
+const HUMAN_ONLY_WIKI_LABEL_PATTERN = /^(?:weekend-readings|this-week-in-ai|research-ledger|settled-[a-z]+):/;
 const RESEARCH_LEDGER_LABEL_PATTERN = /^research-ledger:/;
 
 const labelOf = page => String(page?.createdFrom?.label || '');

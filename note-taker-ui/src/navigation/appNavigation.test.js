@@ -1,6 +1,8 @@
 import {
+  adjacentRoom,
   buildThinkPosturePath,
   consumeGoToChord,
+  focusRoomSearch,
   getPrimaryNavItems,
   getSecondaryNavItems,
   getTopBarUtilityNavItems,
@@ -8,7 +10,11 @@ import {
   goToKeyFor,
   isGoToTypingTarget,
   NOEIS_GO_TO_SHORTCUTS,
-  resolveGoToShortcut
+  NOEIS_MOVES,
+  openFocusedItem,
+  resolveGoToShortcut,
+  resolveMove,
+  walkItems
 } from './appNavigation';
 
 describe('appNavigation', () => {
@@ -228,5 +234,132 @@ describe('where the newsstand sits', () => {
     expect(resolveGoToShortcut('e')?.to).toBe('/editions');
     expect(goToKeyFor('/editions')).toBe('e');
     expect(resolveGoToShortcut('w')?.to).toBe('/wiki');
+  });
+});
+
+/* The window has no browser around it, so the keys are the only way about. */
+describe('moving around the app', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  it('reads each move off the one list the help prints', () => {
+    expect(resolveMove(bodyEvent('['))).toBe('previousRoom');
+    expect(resolveMove(bodyEvent(']'))).toBe('nextRoom');
+    expect(resolveMove(bodyEvent('j'))).toBe('nextItem');
+    expect(resolveMove(bodyEvent('k'))).toBe('previousItem');
+    expect(resolveMove(bodyEvent('Enter'))).toBe('open');
+    expect(resolveMove(bodyEvent('h'))).toBe('back');
+    expect(resolveMove(bodyEvent('ArrowLeft', { altKey: true }))).toBe('back');
+    expect(resolveMove(bodyEvent('ArrowRight', { altKey: true }))).toBe('forward');
+    expect(resolveMove(bodyEvent('/'))).toBe('search');
+    expect(new Set(NOEIS_MOVES.map(item => item.move)).size).toBe(8);
+  });
+
+  /* L means later on a nightstand row and in Power through, so it is not
+     forward. Arrows without Alt are the page's own scrolling. */
+  it('leaves alone what it does not own', () => {
+    expect(resolveMove(bodyEvent('l'))).toBeNull();
+    expect(resolveMove(bodyEvent('ArrowLeft'))).toBeNull();
+    expect(resolveMove(bodyEvent('h', { altKey: true }))).toBeNull();
+    expect(resolveMove(bodyEvent('j', { metaKey: true }))).toBeNull();
+    expect(resolveMove(bodyEvent('[', { ctrlKey: true }))).toBeNull();
+    expect(resolveMove(bodyEvent('j', { defaultPrevented: true }))).toBeNull();
+    const field = document.createElement('input');
+    document.body.appendChild(field);
+    expect(resolveMove({ key: 'j', target: field })).toBeNull();
+    expect(resolveMove({ key: '/', target: field })).toBeNull();
+  });
+
+  /* G then a letter no room has fails silently, as it always did: the key
+     is the chord's, so the moves never see it as back or as the walk. */
+  it('spends the key after G on the chord, room or not', () => {
+    const primed = consumeGoToChord({}, bodyEvent('g'), 1000);
+    expect(consumeGoToChord(primed, bodyEvent('h'), 1100)).toEqual({ primedAt: 0, to: null, spent: true });
+    expect(consumeGoToChord(primed, bodyEvent('l'), 1100)).toEqual({ primedAt: 0, to: '/library', spent: true });
+    expect(consumeGoToChord({}, bodyEvent('h'), 1100).spent).toBeUndefined();
+    expect(consumeGoToChord(primed, bodyEvent('h'), 1000 + GO_TO_CHORD_MS + 1).spent).toBeUndefined();
+  });
+
+  /* The ? overlay, the palette, a move-to-folder box: whatever is open on
+     top has the keys, so H cannot navigate away underneath it. */
+  it('does nothing while a modal is open over the room', () => {
+    ['modal-overlay kbd-overlay', 'palette-overlay'].forEach((className) => {
+      const overlay = document.body.appendChild(document.createElement('div'));
+      overlay.className = className;
+      expect(resolveMove(bodyEvent('h'))).toBeNull();
+      expect(resolveMove(bodyEvent('j'))).toBeNull();
+      overlay.remove();
+    });
+    const dialog = document.body.appendChild(document.createElement('div'));
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    expect(resolveMove(bodyEvent('['))).toBeNull();
+    dialog.remove();
+    expect(resolveMove(bodyEvent('h'))).toBe('back');
+  });
+
+  it('steps along the masthead with [ and ], wrapping at its ends', () => {
+    expect(adjacentRoom({ pathname: '/library' }, 1)).toBe('/think');
+    expect(adjacentRoom({ pathname: '/think' }, -1)).toBe('/library');
+    expect(adjacentRoom({ pathname: '/library' }, -1)).toBe('/judgment');
+    expect(adjacentRoom({ pathname: '/judgment/view-1' }, 1)).toBe('/library');
+    expect(adjacentRoom({ pathname: '/' }, 1)).toBe('/editions');
+    expect(adjacentRoom({ pathname: '/settings' }, 1)).toBe('/library');
+    expect(adjacentRoom({ pathname: '/settings' }, -1)).toBe('/judgment');
+  });
+
+  const list = (...titles) => {
+    const ul = document.createElement('ul');
+    titles.forEach((title) => {
+      const button = document.createElement('button');
+      button.textContent = title;
+      button.setAttribute('data-noeis-item', '');
+      ul.appendChild(document.createElement('li')).appendChild(button);
+    });
+    document.body.appendChild(ul);
+    return ul;
+  };
+
+  it('walks the marked items with J and K, holding at the ends', () => {
+    list('First', 'Second', 'Third');
+    expect(walkItems(-1)).toBe(true);
+    expect(document.activeElement).toHaveTextContent('First');
+    walkItems(1);
+    walkItems(1);
+    expect(document.activeElement).toHaveTextContent('Third');
+    walkItems(1);
+    expect(document.activeElement).toHaveTextContent('Third');
+    walkItems(-1);
+    expect(document.activeElement).toHaveTextContent('Second');
+  });
+
+  it('walks only what is on the page, and claims nothing where nothing is marked', () => {
+    expect(walkItems(1)).toBe(false);
+    list('Hidden').hidden = true;
+    expect(walkItems(1)).toBe(false);
+    list('Shown');
+    walkItems(1);
+    expect(document.activeElement).toHaveTextContent('Shown');
+  });
+
+  it('opens the item the walk is on, and nothing else', () => {
+    const opened = jest.fn();
+    list('Piece').querySelector('button').addEventListener('click', opened);
+    expect(openFocusedItem()).toBe(false);
+    walkItems(1);
+    expect(openFocusedItem()).toBe(true);
+    expect(opened).toHaveBeenCalledTimes(1);
+  });
+
+  it('finds the room’s search with /, or says there is none', () => {
+    expect(focusRoomSearch()).toBe(false);
+    const hidden = document.createElement('div');
+    hidden.hidden = true;
+    hidden.appendChild(document.createElement('input')).type = 'search';
+    document.body.appendChild(hidden);
+    expect(focusRoomSearch()).toBe(false);
+    const field = document.body.appendChild(document.createElement('input'));
+    field.type = 'search';
+    expect(focusRoomSearch()).toBe(true);
+    expect(document.activeElement).toBe(field);
   });
 });

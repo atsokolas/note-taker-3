@@ -16,6 +16,7 @@ class WikiClaimBodyPatchError extends Error {
 
 const bodyHash = body => digest(body || null);
 
+// Hashed into stored version-1 patch manifests: keep this extractor exactly as is.
 const extractPlainText = node => {
   if (!node) return '';
   if (typeof node === 'string') return clean(node);

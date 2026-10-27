@@ -183,7 +183,7 @@ const articleRow = article => ({
   source: {
     type: 'article',
     id: id(article),
-    title: clean(article?.title || 'Untitled source'),
+    title: clean(article?.title || 'Untitled'),
     href: `/library?articleId=${encodeURIComponent(id(article))}`,
     sourceUrl: safeSourceUrl(article?.url)
   },

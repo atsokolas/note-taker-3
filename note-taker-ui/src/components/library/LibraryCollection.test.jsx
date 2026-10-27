@@ -64,7 +64,7 @@ test('a title opens directly while Peek never saves a reading position and Escap
     })
   );
   expect(saveArticleReadingState).not.toHaveBeenCalled();
-  fireEvent.keyDown(window, { key: 'Escape' });
+  fireEvent.keyDown(document, { key: 'Escape' });
   expect(trigger).toHaveFocus();
   expect(
     screen.queryByRole('button', { name: 'Read from here →' })
@@ -102,7 +102,7 @@ test('one Peek at a time, including keyboard search access', async () => {
     expect(document.querySelectorAll('.library-inline-peek')).toHaveLength(1)
   );
   expect(document.getElementById('peek-b')).toBeInTheDocument();
-  fireEvent.keyDown(window, { key: '/' });
+  fireEvent.keyDown(document, { key: '/' });
   expect(screen.getByRole('searchbox')).toHaveFocus();
 });
 test('a row opens its peek when tapped, without a label to aim at', async () => {
@@ -165,4 +165,46 @@ test('missing kept pages are not claimed to be an empty canon', async () => {
   renderCollection({ scope: 'kept', keptPages: null });
   await waitFor(() => expect(getLibraryCollection).toHaveBeenCalled());
   expect(screen.queryByText('Nothing here yet.')).not.toBeInTheDocument();
+});
+
+test('a search offers a trail on the same words', async () => {
+  renderCollection({ query: 'attention ' });
+  expect(await screen.findByRole('link', { name: 'What to read next on it →' }))
+    .toHaveAttribute('href', '/library/trail?subject=attention');
+});
+
+test('the nightstand reads by the evening: minutes, why, tonight, and a month asked about', async () => {
+  const daysAgo = n => new Date(Date.now() - n * 86400000).toISOString();
+  getLibraryCollection.mockResolvedValue({
+    items: [
+      { _id: 'old', title: 'Waited A Month', placement: 'later', placementAt: daysAgo(40), minutes: 30 },
+      { _id: 'short', title: 'The Shape of Attention', placement: 'later', placementAt: daysAgo(3), minutes: 12, placementReason: 'Sam sent this' },
+      { _id: 'long', title: 'The Long Read on Chips', placement: 'later', placementAt: daysAgo(5), minutes: 45 }
+    ],
+    total: 3,
+    nextOffset: null
+  });
+  const onPlace = jest.fn().mockResolvedValue({});
+  const onSelectArticle = jest.fn();
+  renderCollection({ scope: 'later', onPlace, onSelectArticle });
+
+  const line = await screen.findByText(/^Tonight:/);
+  expect(line).toHaveTextContent('Tonight: The Shape of Attention (12 min). For the weekend: Waited A Month (30 min).');
+  fireEvent.click(screen.getAllByRole('button', { name: 'The Shape of Attention' })[0]);
+  expect(onSelectArticle).toHaveBeenCalledWith('short', {});
+  expect(screen.getByText('Sam sent this')).toBeInTheDocument();
+  expect(screen.getByText('12 min')).toBeInTheDocument();
+
+  // The month-old piece waits at the bottom, asked about, never removed.
+  const titles = [...document.querySelectorAll('.library-collection-row .library-source-title')].map(node => node.textContent);
+  expect(titles).toEqual(['The Shape of Attention', 'The Long Read on Chips', 'Waited A Month']);
+  expect(screen.getByText('Been waiting a while')).toBeInTheDocument();
+  expect(screen.getAllByText(/Still want this\?/)).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
+  expect(onPlace).toHaveBeenCalledWith('old', 'later');
+  fireEvent.click(screen.getByRole('button', { name: 'Let it go' }));
+  expect(onPlace).toHaveBeenCalledWith('old', 'stream');
+  expect(await screen.findByText(/It stays in your Library\./)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+  expect(onPlace).toHaveBeenLastCalledWith('old', 'later');
 });

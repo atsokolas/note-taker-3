@@ -17,8 +17,7 @@
    the response, a few at a time, through the public-URL guard. */
 
 const { canonicalSourceUrl, urlPattern } = require('./librarySource');
-
-const FETCH_CONCURRENCY = 3;
+const { fillArticleBodies } = require('./readableArticle');
 
 const publicLink = (value) => {
   try {
@@ -27,22 +26,6 @@ const publicLink = (value) => {
   } catch (_error) {
     return '';
   }
-};
-
-const fillBodies = async ({ Article, userId, urls, fetchBody }) => {
-  const queue = [...urls];
-  const worker = async () => {
-    while (queue.length) {
-      const url = queue.shift();
-      try {
-        const content = await fetchBody(url);
-        if (content) await Article.updateOne({ userId, url, content: { $in: [null, ''] } }, { $set: { content } });
-      } catch (error) {
-        console.warn(`Could not fetch a body for ${url}:`, error?.message || error);
-      }
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(FETCH_CONCURRENCY, queue.length) }, worker));
 };
 
 /**
@@ -97,7 +80,7 @@ const takeSourcesIntoLibrary = async ({ Article, userId, pages = [], label = '',
   });
 
   if (fetchBody && arrived.length) {
-    fillBodies({ Article, userId, urls: arrived.map(source => source.url), fetchBody })
+    fillArticleBodies({ Article, userId, urls: arrived.map(source => source.url), fetchBody })
       .catch(error => console.error('Failed fetching taken sources:', error));
   }
   return { sources: sources.size, alreadyHad };

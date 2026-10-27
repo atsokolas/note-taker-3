@@ -1,5 +1,6 @@
 import { applySemanticThemeSnapshot, buildSemanticThemeSnapshot } from './semanticTheme';
 import { THEME_CATALOG } from './themeCatalog';
+import { applyOmarchyColors, loadOmarchyColors } from './omarchyColors';
 
 export const UI_SETTINGS_STORAGE_KEY = 'ui-settings.v1';
 
@@ -98,6 +99,9 @@ export const applyUiSettingsToRoot = (root, settings) => {
     density: normalized.density,
     typographyScale: normalized.typographyScale
   }));
+  const omarchy = loadOmarchyColors();
+  applyOmarchyColors(root, omarchy);
+  if (activeTheme === 'omarchy') root.setAttribute('data-ui-scheme', omarchy.scheme);
 
   const reducedMotion = effectiveReducedMotion(normalized.motion);
   root.setAttribute('data-ui-motion', reducedMotion ? 'reduced' : 'system');

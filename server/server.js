@@ -7,9 +7,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const PDFDocument = require('pdfkit');
 const archiver = require('archiver');
-const multer = require('multer');
-const Papa = require('papaparse');
-const path = require('path');
+const upload = require('./services/import/upload');
+const { buildHostedMcpRouter, parseHostedMcpBody } = require('./routes/hostedMcpRoutes');
 const crypto = require('crypto');
 const { ensureWorkspace } = require('./utils/workspaceUtils');
 const {
@@ -54,6 +53,7 @@ app.use(buildOpenaiAppsChallengeRouter());
 const { buildChatgptOAuthIngress } = require('./services/chatgptOAuthIngress');
 app.use(buildChatgptOAuthIngress());
 // The raw bytes stay on the request for webhooks that sign them (email-in).
+app.use('/mcp', parseHostedMcpBody);
 app.use(express.json({ limit: '50mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -74,14 +74,10 @@ app.get('/api/version', (_req, res) => {
     commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || 'unknown',
     branch: process.env.RENDER_GIT_BRANCH || '',
     service: process.env.RENDER_SERVICE_NAME || '',
+    node: process.version,
     bootedAt: SERVER_BOOTED_AT,
     uptimeSeconds: Math.round(process.uptime())
   });
-});
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 }
 });
 
 mongoose.connect(process.env.MONGODB_URI) // useNewUrlParser and useUnifiedTopology are deprecated in recent Mongoose versions
@@ -140,8 +136,6 @@ const {
   MorningPaperRecord,
   SharedEdition,
   SharedNotebook,
-  SharedNotebookVolume,
-  NotebookCorrespondence,
   ReadingLoopEdition,
   VectorItem,
   SharedConcept,
@@ -576,9 +570,10 @@ if (mongoose.connection.readyState === 1) {
 }
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
+const { buildWorkNoteRouter } = require('./routes/workNoteRoutes');
 const { buildNotebookRouter } = require('./routes/notebookRoutes');
 const { buildEntryHistoryRouter } = require('./routes/entryHistoryRoutes');
-const { buildNotebookVolumeRouter } = require('./routes/notebookVolumeRoutes');
+const { buildRetiredShareRouter } = require('./routes/retiredShareRoutes');
 const { buildAuthoredExplorationRouter } = require('./routes/authoredExplorationRoutes');
 const { buildWikiRouter } = require('./routes/wikiRoutes');
 const { buildUiTourRouter } = require('./routes/uiTourRoutes');
@@ -595,7 +590,6 @@ const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
 const { buildWikiClaimDispositionRouter } = require('./routes/wikiClaimDispositionRoutes');
-const { buildSharedConceptRouter } = require('./routes/sharedConceptRoutes');
 const { buildSharedQuestionRouter } = require('./routes/sharedQuestionRoutes');
 const { buildConceptMaterialRouter } = require('./routes/conceptMaterialRoutes');
 const { buildAgentNotionFetchRouter } = require('./routes/agentNotionFetchRoutes');
@@ -614,7 +608,6 @@ const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes
 const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
-const { buildHostedMcpRouter } = require('./routes/hostedMcpRoutes');
 const { buildChatgptOAuthRouter } = require('./routes/chatgptOAuthRoutes');
 const { readChatgptOAuthConfig } = require('./services/chatgptOAuthConfig');
 const { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl } = require('./models/chatgptOAuthModels');
@@ -633,6 +626,10 @@ const requireHumanReader = (req, res, next) => {
   }
   return next();
 };
+// Your own desktop, approved with `capture`, may see the Library's lists (the nightstand).
+const requireHumanOrDesktop = (req, res, next) => (
+  (req.agentToken?.scopes || []).includes('capture') ? next() : requireHumanReader(req, res, next)
+);
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
 const { buildAgentConnectRouter } = require('./routes/agentConnectRoutes');
 const { buildAgentTaskLinkRouter } = require('./routes/agentTaskLinkRoutes');
@@ -644,6 +641,7 @@ const { buildAgentProposedChangeRouter } = require('./routes/agentProposedChange
 const { buildAgentStructureProposalRouter } = require('./routes/agentStructureProposalRoutes');
 const { buildArticleReadingStateRouter } = require('./routes/articleReadingStateRoutes');
 const { buildLibraryCollectionRouter } = require('./routes/libraryCollectionRoutes');
+const { buildReadingRoomRouter } = require('./routes/readingRoomRoutes');
 const { buildAgentChatRouter } = require('./routes/agentChatRoutes');
 const {
   createAgentTokenSecret,
@@ -4421,16 +4419,19 @@ const authenticateMcpToken = buildAuthenticateAgentToken({
   resourceMetadataUrl: chatgptOAuthConfig ? `${chatgptOAuthConfig.issuer}/.well-known/oauth-protected-resource` : null
 });
 
-function authenticateUserOrAgentToken(req, res, next) {
+// A browser session, or an agent token checked by `agentAuth`.
+const userOr = agentAuth => function authenticateUserOrAgent(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   const headerToken = authHeader.startsWith('Bearer ')
     ? authHeader.slice(7).trim()
     : '';
   if (headerToken.startsWith(AGENT_TOKEN_PREFIX)) {
-    return authenticateAgentToken(req, res, next);
+    return agentAuth(req, res, next);
   }
   return authenticateToken(req, res, next);
-}
+};
+const authenticateUserOrAgentToken = userOr(authenticateAgentToken);
+const authenticateCapture = userOr(buildAuthenticateAgentToken({ AgentToken, requiredScope: 'capture', ...oauthTokenOptions }));
 
 async function authenticatePersonalAgentKey(req, res, next) {
   try {
@@ -4539,23 +4540,6 @@ async function authenticateAgentBridgeToken(req, res, next) {
     return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });
   }
 }
-
-const findRowValue = (row, keys) => {
-  if (!row) return '';
-  for (const key of keys) {
-    if (row[key] !== undefined && row[key] !== null) return row[key];
-    const match = Object.keys(row).find(k => k.toLowerCase() === String(key).toLowerCase());
-    if (match && row[match] !== undefined && row[match] !== null) return row[match];
-  }
-  return '';
-};
-
-const parseTagList = (value) => (
-  String(value || '')
-    .split(',')
-    .map(tag => tag.trim())
-    .filter(Boolean)
-);
 
 const slugify = (value) => (
   String(value || '')
@@ -4848,6 +4832,7 @@ app.use(buildLibraryFilingRouter({
   })
 }));
 app.use(buildEntryHistoryRouter({ authenticateToken, EntryRevision }));
+app.use(buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder }));
 app.use(buildNotebookRouter({
   authenticateToken: authenticateUserOrAgentToken,
   NotebookEntry,
@@ -4874,17 +4859,9 @@ app.use(buildNotebookRouter({
   Article,
   TagMeta,
   Question,
-  NoeisReceipt,
-  SharedNotebook,
-  NotebookCorrespondence,
-  User
+  NoeisReceipt
 }));
-app.use(buildNotebookVolumeRouter({
-  authenticateToken,
-  SharedNotebook,
-  SharedNotebookVolume,
-  User
-}));
+app.use(buildRetiredShareRouter({ SharedNotebook, SharedConcept, TagMeta, WikiPage }));
 
 app.use(buildAuthoredExplorationRouter({
   authenticateToken,
@@ -4988,7 +4965,9 @@ app.use(buildLibraryRelevanceRouter({
   WikiSourceEvent,
   NoeisReceipt,
   Connection,
-  ReferenceEdge
+  ReferenceEdge,
+  Question,
+  VectorItem
 }));
 
 app.use(buildReadingLoopRouter({
@@ -5257,7 +5236,7 @@ const toSafeObjectId = (value) => (
 
 app.use(buildSearchRetrievalRouter({
   mongoose,
-  authenticateToken,
+  authenticateToken: authenticateUserOrAgentToken,
   Article,
   NotebookEntry,
   ItemViewEvent,
@@ -5369,6 +5348,7 @@ app.use(buildConceptMetaRouter({
   updateConceptMeta,
   getConceptRelated,
   TagMeta,
+  WikiPage,
   User,
   EntryRevision,
   conceptReferences: { Article, NotebookEntry, Question, ConceptNote, ReferenceEdge, SharedConcept, ConceptPath, Connection, ReturnQueueEntry },
@@ -5390,16 +5370,6 @@ app.use(buildWikiClaimDispositionRouter({
   NotebookEntry,
   Question,
   WikiSourceEvent
-}));
-
-app.use(buildSharedConceptRouter({
-  authenticateToken,
-  SharedConcept,
-  TagMeta,
-  ConceptNote,
-  User,
-  escapeRegExp,
-  getConceptRelated
 }));
 
 app.use(buildSharedQuestionRouter({
@@ -5469,7 +5439,8 @@ app.use(buildPersonalAgentRouter({
    rewrite what it told you last week. */
 app.use(buildEditionThoughtRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Edition, Note }));
 app.use(buildArticleReadingStateRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Article, ArticleReadingState }));
-app.use(buildLibraryCollectionRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, mongoose, Article, ArticleReadingState }));
+app.use(buildLibraryCollectionRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanOrDesktop, mongoose, Article, ArticleReadingState }));
+app.use(buildReadingRoomRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, mongoose, Article, ArticleReadingState }));
 
 app.use(buildEditionRouter({
   auth: authenticateUserOrAgentToken,
@@ -5847,16 +5818,14 @@ app.use(buildImportSessionRouter({
 
 const importRouter = buildImportRouter({
   authenticateToken,
+  authenticateCapture,
   isAccountActive,
   upload,
-  Papa,
-  findRowValue,
   slugify,
-  parseTagList,
   Article,
+  Folder,
   trackEvent,
   EVENT_NAMES,
-  path,
   crypto,
   TagMeta,
   NotebookEntry,

@@ -189,3 +189,14 @@ describe('save-article body', () => {
     expect(result.body.contentSource).toBe('request');
   });
 });
+
+describe('save-article learns a dead original only from its own fetch', () => {
+  test.each([[404, true], [410, true], [403, false], [0, false]])('a fetch answering %s records gone: %s', async (status, gone) => {
+    const result = await saveArticle(
+      { title: 'Gone piece', url: 'https://example.com/gone' },
+      { fetchReadableArticle: async () => ({ ok: false, content: '', error: `HTTP ${status}`, status }) }
+    );
+    expect(result.status).toBe(200);
+    expect(Boolean(result.saved[0].data.sourceGoneAt)).toBe(gone);
+  });
+});

@@ -22,10 +22,18 @@
     "text": "NOEIS_OPENAI_REVIEW_FICTIONAL_ONLY. This is fictional synthetic test material about replication limits in synthetic evaluation, written solely for a dedicated sample-only reviewer fixture. No real experiment, researcher, institution or publication is represented. Measurement design is the specific mechanism considered in this source.",
     "note": "My synthetic reader thought: this bounded result still needs independent replication.",
     "textHash": "e7f517785782e2334508f6102e54fb877e14b913a5e2cc8da10baf293f035488",
-    "noteHash": "ba8a00c28a2ab0f2b6ff6acac9e9a885f35cb89773ce474e108d571060a8df91"
+    "noteHash": "ba8a00c28a2ab0f2b6ff6acac9e9a885f35cb89773ce474e108d571060a8df91",
+    "reviewedAppend": {
+      "sourceId": "6ad5293ef118732bfdef3e09",
+      "highlightId": "6ad52cc913221be2170de3b2",
+      "text": "My synthetic reader thought: stable repetition can still preserve a flawed scoring rule.",
+      "noteRevision": 1,
+      "noteHash": "795f8093e2d1fd15322387195fcb0c6c7e29b5b57ade16238fbfe9252dee1ac2"
+    }
   },
   "wiki": {
     "title": "Replication limits in synthetic evaluation",
+    "readbackTitle": "Replication Limits in Synthetic Evaluation",
     "visibility": "private",
     "status": "draft",
     "body": "NOEIS_OPENAI_REVIEW_FICTIONAL_ONLY: retained private wording about replication limits in synthetic evaluation.",
@@ -34,5 +42,36 @@
       "source-2"
     ],
     "bodyHash": "71eac715579745fda48508e53c76bbd8b8e6adc5913c979e3b77604b700f7979"
+  },
+  "edition": {
+    "ownerId": "6acaddb425462ec49bd0866f",
+    "profile": {
+      "key": "noeis_reviewer_synthetic_20261018",
+      "title": "NOEIS reviewer synthetic fixture",
+      "cadence": "weekly",
+      "issueLabel": "Synthetic issue",
+      "sections": [
+        {
+          "key": "synthetic_evidence",
+          "label": "Synthetic evidence"
+        }
+      ],
+      "minItems": 1,
+      "maxItems": 4
+    },
+    "issue": {
+      "title": "NOEIS reviewer synthetic baseline — fictional only",
+      "standfirst": "Sample-only reviewer fixture. No real study or publication is represented.",
+      "writtenBy": "Synthetic reviewer setup"
+    },
+    "item": {
+      "itemId": "noeis_reviewer_baseline_source_1",
+      "section": "synthetic_evidence",
+      "finding": "This fictional fixture distinguishes the result of a measurement from a justified general claim and describes independent replication as repeating the procedure with new material.",
+      "boundary": "Fictional sample-only material; it reports no real experiment and supports no empirical or general claim.",
+      "note": "Setup baseline only. Keep the source in the existing Library; do not use the Edition Save action or fetch the example.com URL.",
+      "sourceKind": "other",
+      "sourceDate": ""
+    }
   }
 }

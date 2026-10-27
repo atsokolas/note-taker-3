@@ -691,7 +691,7 @@ const enqueueArticleEmbedding = async (article, options = {}) => {
 };
 
 const buildNotebookEmbeddingJob = (entry) => {
-  if (!entry) return null;
+  if (!entry || entry.knowledgeContext === 'work') return null;
   const updatedAt = entry.updatedAt || entry.createdAt || new Date().toISOString();
   return {
     collection: COLLECTIONS.notebook,

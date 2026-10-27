@@ -1,0 +1,72 @@
+#!/bin/bash
+# Makes Noeis the reader on this Omarchy machine, once. Each step checks
+# first, so running it again changes nothing that is already in place.
+#
+#   - noeis-open on your PATH, and two launcher entries: Noeis, all of
+#     noeis.io as an app, and Noeis reader, the reading window, which also
+#     opens EPUB, PDF and Markdown files
+#   - the Noeis browser extension loaded into Omarchy's Chromium
+#   - keys: Super+Alt+N opens Noeis, Super+Alt+R reads, Super+Ctrl+Alt+N
+#     opens the panel, and three more save a link, highlighted text, or text
+#     off the screen
+#   - "Noeis" in the Share menu (Super+Ctrl+S) saves the clipboard's link
+set -euo pipefail
+
+PLUGIN=$(cd "$(dirname "$0")/.." && pwd)
+APP=${NOEIS_APP_URL:-https://www.noeis.io}
+[[ $APP == https://* ]] || APP=https://www.noeis.io
+BINDINGS=$HOME/.config/hypr/bindings.lua
+FLAGS=$HOME/.config/chromium-flags.conf
+MENU=$HOME/.config/omarchy/extensions/omarchy-menu.jsonc
+# Two folders down: the marketplace reads a manifest.json within one folder of
+# the root as a second plugin.
+EXTENSION=$PLUGIN/browser/chromium
+SAVE="omarchy-shell noeis saveClipboard"
+
+done_() { printf '  %s\n' "$1"; }
+
+# A binding is added once; an older Noeis binding on the same keys gives way.
+bind() {
+  local keys=$1 label=$2 command=$3
+  grep -qF "o.bind(\"$keys\", \"$label\", \"$command\")" "$BINDINGS" && return
+  sed -i "/o.bind(\"$keys\",.*noeis/d" "$BINDINGS"
+  grep -q '^-- Noeis' "$BINDINGS" || printf '\n-- Noeis\n' >>"$BINDINGS"
+  printf 'o.bind("%s", "%s", "%s")\n' "$keys" "$label" "$command" >>"$BINDINGS"
+}
+
+mkdir -p "$HOME/.local/bin"
+ln -sf "$PLUGIN/bin/noeis-open" "$HOME/.local/bin/noeis-open"
+done_ "noeis-open is on your PATH"
+
+omarchy-webapp-install Noeis "$APP" "" "noeis-open --web" >/dev/null
+omarchy-webapp-install "Noeis reader" "$APP" noeis "noeis-open %U" \
+  "application/epub+zip;application/pdf;text/markdown;" >/dev/null
+done_ "Noeis is in the launcher as its own app; Noeis reader is the reading window, and opens EPUB, PDF and Markdown files"
+
+if [[ -d $EXTENSION ]] && ! grep -q "$EXTENSION" "$FLAGS" 2>/dev/null; then
+  if grep -q '^--load-extension=' "$FLAGS" 2>/dev/null; then
+    sed -i "s|^--load-extension=.*|&,$EXTENSION|" "$FLAGS"
+  else
+    echo "--load-extension=$EXTENSION" >>"$FLAGS"
+  fi
+  done_ "The extension loads the next time Chromium starts (Alt+Shift+N saves the tab)"
+fi
+
+bind "SUPER + ALT + N" "Noeis" "noeis-open --web"
+bind "SUPER + ALT + R" "Noeis reader" "omarchy-shell noeis read"
+bind "SUPER + CTRL + ALT + N" "Noeis panel" "omarchy-shell shell toggle io.noeis"
+bind "SUPER + ALT + SHIFT + N" "Save link to Noeis" "$SAVE"
+bind "SUPER + ALT + T" "Save highlighted text to Noeis" "omarchy-shell noeis saveSelection"
+bind "SUPER + CTRL + ALT + PRINT" "Save text on screen to Noeis" "omarchy-shell noeis saveScreenText"
+done_ "Super+Alt+N opens Noeis; Super+Alt+R reads; Super+Ctrl+Alt+N opens the panel; Super+Alt+Shift+N saves the link on your clipboard"
+done_ "Super+Alt+T saves the text you highlighted; Super+Ctrl+Alt+Print saves text from a part of the screen"
+
+if ! grep -q 'trigger.share.noeis' "$MENU" 2>/dev/null; then
+  mkdir -p "$(dirname "$MENU")"
+  [[ -f $MENU ]] || echo '{}' >"$MENU"
+  # The file is JSONC, so the entry goes in before its closing brace.
+  sed -i "\$s|}\s*\$|  \"trigger.share.noeis\": {\"icon\":\"󰂺\",\"label\":\"Noeis\",\"description\":\"Save the link on your clipboard to read later\",\"action\":\"$SAVE\"},\n}|" "$MENU"
+fi
+done_ "Share → Noeis saves the link on your clipboard"
+
+done_ "To give noeis.io your Omarchy colours, choose Omarchy in its theme settings once"

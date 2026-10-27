@@ -27,7 +27,7 @@ describe('streamChatWithAgent', () => {
       idleTimeoutMs: 100
     })).rejects.toMatchObject({
       code: 'AGENT_STREAM_TIMEOUT',
-      message: expect.stringMatching(/ask again to retry/i)
+      message: 'Partner took too long to answer, so nothing changed. Ask again.'
     });
     expect(cancel).toHaveBeenCalledTimes(1);
   });

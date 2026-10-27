@@ -2,14 +2,41 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getEditionHeld } from '../../api/editions';
 import { buildPassagePath } from '../../utils/sourceRoutes';
-import { barsOf } from '../../pages/editionModel';
+import { barsOf, passageHref, sourceNote } from '../../pages/editionModel';
 import AgentMark from './AgentMark';
+import { agentOf } from './editionAgent';
 
 /**
  * The reader's layer of a finding: the numbers that carry it, the words in
  * the source it rests on, and what you already hold that it touches. All are
  * optional, and a finding without them reads exactly as it always did.
  */
+
+/* Why the agent picked it for this reader, signed by the agent. */
+export function Why({ item }) {
+  if (!item.why) return null;
+  const agent = agentOf({ runtime: item.filedByRuntime, label: item.filedBy });
+  return (
+    <p className="reading-why">
+      {item.why}
+      {agent ? <cite>{agent.name}</cite> : null}
+    </p>
+  );
+}
+
+/* The original, one click away, opened at the passage when it was checked;
+   then where it comes from. */
+export function SourceLink({ item }) {
+  const href = passageHref(item);
+  const name = item.plain ? item.title : 'Read the source';
+  const note = sourceNote(item);
+  return (
+    <p className="reading-source">
+      {href ? <a href={href} target="_blank" rel="noopener noreferrer">{name} ↗</a> : item.plain ? name : null}
+      {note ? <span>{note}</span> : null}
+    </p>
+  );
+}
 
 /* Up to three numbers. Shares of the same kind are drawn against each other
    on one scale; anything else is set large, each with what it counts. */

@@ -1,8 +1,10 @@
+const { knowledgeContext, workOperationIndex } = require('./knowledgeContext');
 const mongoose = require('mongoose');
 const {
   WIKI_PAGE_TYPES
 } = require('../services/wikiPageStructureService');
 const { buildAuthoredExplorationModel } = require('./authoredExploration');
+const { AGENT_TOKEN_SCOPES } = require('../services/agentTokenService');
 
 // --- AUTHENTICATION ADDITIONS: User Schema and Model ---
 const userAgentProfileSchema = new mongoose.Schema({
@@ -158,6 +160,8 @@ const importMetaSchema = new mongoose.Schema({
   draftTemplateLabel: { type: String, default: '', trim: true },
   externalId: { type: String, default: '', trim: true },
   parentExternalId: { type: String, default: '', trim: true },
+  // Tags the source carried where it came from (Pocket, Instapaper), kept as written.
+  tags: { type: [String], default: undefined },
   importSessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'ImportSession', default: null },
   importedAt: { type: Date, default: null },
   searchableAt: { type: Date, default: null },
@@ -198,6 +202,12 @@ const articleSchema = new mongoose.Schema({
       startOffsetApprox: Number
     },
     createdAt: { type: Date, default: Date.now },
+    /* How many times its passage has been opened. The reader deepens the ink
+       a step or two; the number itself is never shown. */
+    opens: { type: Number, default: 0, min: 0 },
+    /* The printed page, for a mark made at the reading desk. A Kindle mark
+       has a location instead, kept where its import put it. */
+    page: { type: Number, min: 1 },
     importMeta: { type: importMetaSchema, default: () => ({}) }
   }],
   pdfs: { type: [pdfAttachmentSchema], default: [] },
@@ -213,6 +223,23 @@ const articleSchema = new mongoose.Schema({
      the human sets and no agent may. */
   evergreen: { type: Boolean, default: false },
   evergreenAt: { type: Date, default: null },
+  /* Closing a book: the day you finished it, as your own calendar named it
+     ("2026-10-19"), and the one sentence you said you would remember. The
+     sentence comes back to you on that day a year later. */
+  finishedOn: { type: String, default: '' },
+  closingLine: { type: String, default: '', trim: true },
+  /* Each earlier reading of a book read again: its day, its sentence, and
+     the moment you started over. Marks made before that moment belong to
+     it and stay, in fainter ink. */
+  readBefore: [{
+    _id: false,
+    finishedOn: String,
+    closingLine: String,
+    until: Date
+  }],
+  /* Lending a book: the address a friend reads your copy at, your marks and
+     your sentence as they stand, until you take it back. Empty when not lent. */
+  lentAs: { type: String, default: '' },
   /* Placement is the Hey pile. Keep is forever and orthogonal. Later is owed
      a move; set aside is at hand this week; stream is home. The agent may not
      write this. */
@@ -221,10 +248,23 @@ const articleSchema = new mongoose.Schema({
   placementReason: { type: String, default: '', trim: true },
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
-  archived: { type: Boolean, default: false }
+  archived: { type: Boolean, default: false },
+  // A book moved onto the shelf from a second copy: where its marks went.
+  mergedInto: { type: mongoose.Schema.Types.ObjectId, default: null },
+  /* Stamped by GET /articles/:id. lastOpenedAt is read by the reading loop.
+     Opens within half an hour are one visit; previousVisitAt is when the
+     visit before this one began, which the reader's return greeting reads. */
+  lastOpenedAt: { type: Date, default: null },
+  visitStartedAt: { type: Date, default: null },
+  previousVisitAt: { type: Date, default: null },
+  /* Set only when we already learned it: a fetch, or the reader's own Open
+     source check, answered 404 or 410. Never crawled for. */
+  sourceGoneAt: { type: Date, default: null },
+  sourceCheckedAt: { type: Date, default: null }
 }, { timestamps: true });
 
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });
+articleSchema.index({ lentAs: 1 }, { unique: true, partialFilterExpression: { lentAs: { $gt: '' } } });
 articleSchema.index({ userId: 1, evergreen: 1, updatedAt: -1 });
 articleSchema.index({ userId: 1, placement: 1, placementAt: -1 });
 articleSchema.index({ userId: 1, createdAt: -1 });
@@ -459,6 +499,22 @@ notebookEntrySchema.index({ userId: 1, type: 1, updatedAt: -1 });
 notebookEntrySchema.index({ userId: 1, tags: 1, updatedAt: -1 });
 notebookEntrySchema.index({ userId: 1, linkedHighlightIds: 1 });
 
+notebookEntrySchema.plugin(knowledgeContext);
+notebookEntrySchema.add({
+  revision: { type: Number, default: 0, min: 0 },
+  occurredOn: { type: String, default: '' },
+  withText: { type: String, default: '' },
+  capturedAt: { type: Date, immutable: true },
+  takenOn: { type: String, immutable: true },
+  timeZone: { type: String, immutable: true },
+  workItem: { type: mongoose.Schema.Types.Mixed, default: undefined },
+  operationId: { type: String, immutable: true },
+  operationSource: { type: String, immutable: true },
+  continuesFromEntryId: { type: mongoose.Schema.Types.ObjectId, default: null, immutable: true },
+  continuationFence: { type: Number, select: false },
+  continuationBridge: { type: mongoose.Schema.Types.Mixed, default: null, immutable: true }
+});
+notebookEntrySchema.index(workOperationIndex.keys, workOperationIndex.options);
 const NotebookEntry = mongoose.model('NotebookEntry', notebookEntrySchema);
 
 const notebookFolderSchema = new mongoose.Schema({
@@ -466,11 +522,17 @@ const notebookFolderSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   parentFolderId: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
   sortOrder: { type: Number, default: 0 },
+  revision: { type: Number, default: 0, min: 0 },
+  archivedAt: { type: Date, default: null },
+  operationId: { type: String, immutable: true },
+  lastMutationId: { type: String },
   importMeta: { type: importMetaSchema, default: () => ({}) }
 }, { timestamps: true });
 
 notebookFolderSchema.index({ userId: 1, parentFolderId: 1, sortOrder: 1, name: 1 });
 
+notebookFolderSchema.plugin(knowledgeContext);
+notebookFolderSchema.index(workOperationIndex.keys, workOperationIndex.options);
 const NotebookFolder = mongoose.model('NotebookFolder', notebookFolderSchema);
 
 /* What a note, concept or question said at a moment, kept so its history can
@@ -1892,8 +1954,10 @@ const editionItemSchema = new mongoose.Schema({
   note: { type: String, default: '', trim: true },
   /* The reader's layer, written by the agent: the finding in one plain
      sentence, the source's own words it rests on, what kind of source it is,
-     how sure to be, and the numbers it turns on. All optional. */
+     how sure to be, the numbers it turns on, and why the agent picked it for
+     this reader. All optional. */
   plain: { type: String, default: '', trim: true },
+  why: { type: String, default: '', trim: true },
   passage: { type: String, default: '', trim: true },
   /* Set by the server when the reader saves the source: whether the passage
      is there, word for word. Empty until then. */
@@ -2175,7 +2239,8 @@ const uiSettingsSchema = new mongoose.Schema({
     enum: [
       'auto', 'light', 'dark', 'tokyo-midnight',
       'tokyo-night', 'catppuccin', 'dracula', 'nord', 'gruvbox-dark',
-      'rose-pine', 'everforest', 'monokai', 'solarized-dark', 'solarized-light'
+      'rose-pine', 'everforest', 'monokai', 'solarized-dark', 'solarized-light',
+      'omarchy'
     ],
     default: 'auto'
   },
@@ -2401,7 +2466,7 @@ const agentTokenSchema = new mongoose.Schema({
   oauthResource: { type: String, default: '' },
   hashedSecret: { type: String, required: true, trim: true },
   secretPrefix: { type: String, default: '', trim: true },
-  scopes: { type: [String], enum: ['read', 'agent-write'], default: ['read'] },
+  scopes: { type: [String], enum: AGENT_TOKEN_SCOPES, default: ['read'] },
   dailyQuota: { type: Number, default: null, min: 0 },
   callsToday: { type: Number, default: 0, min: 0 },
   quotaWindowStartedAt: { type: Date, default: null },
@@ -2422,7 +2487,7 @@ const agentConnectSessionSchema = new mongoose.Schema({
   deviceCode: { type: String, required: true, trim: true, index: true },
   runtime: { type: String, default: 'agent', trim: true },
   label: { type: String, default: '', trim: true },
-  scopes: { type: [String], enum: ['read', 'agent-write'], default: ['read', 'agent-write'] },
+  scopes: { type: [String], enum: AGENT_TOKEN_SCOPES, default: ['read', 'agent-write'] },
   requestedApiUrl: { type: String, default: '', trim: true },
   requestedAppUrl: { type: String, default: '', trim: true },
   status: { type: String, enum: ['pending', 'approved', 'expired', 'cancelled'], default: 'pending', index: true },
@@ -3238,22 +3303,13 @@ readingLoopEditionSchema.index({ userId: 1, 'history.key': 1 });
 
 const ReadingLoopEdition = mongoose.model('ReadingLoopEdition', readingLoopEditionSchema);
 
-/**
- * SharedConcept — a frozen public snapshot of a concept.
- *
- * Same URL contract as a shared notebook: the slug is the URL, the snapshot
- * is the version. Private workbench edits do not move the public copy. An
- * explicit owner update replaces the snapshot under the same URL. Revoking
- * deletes the row. ConceptNote and private source trails never enter.
- */
+/* A concept Think once shared at a link. Think no longer publishes; the rows
+   stay (and follow a rename) so an old link can still find the wiki page the
+   concept settled into (routes/retiredShareRoutes.js). */
 const sharedConceptSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   conceptName: { type: String, required: true, trim: true },
-  slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' },
-  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
-  contentHash: { type: String, default: '' },
-  publishedAt: { type: Date, default: null }
+  slug: { type: String, required: true, unique: true, index: true }
 }, { timestamps: true });
 
 sharedConceptSchema.index({ userId: 1, conceptName: 1 }, { unique: true });
@@ -3263,7 +3319,7 @@ const SharedConcept = mongoose.model('SharedConcept', sharedConceptSchema);
 /**
  * SharedQuestion — a frozen public snapshot of a question thread.
  *
- * Same URL contract as a shared notebook. Public reads expose only authored
+ * The slug is the URL, the snapshot is the version. Public reads expose only authored
  * paragraph blocks; highlight refs and library material stay private.
  * A later reading sits beside the snapshot, counted on this door.
  * A brief may close the page; it is not inside the snapshot.
@@ -3374,64 +3430,27 @@ sharedEditionSchema.index({ userId: 1, editionId: 1 }, { unique: true });
 
 const SharedEdition = mongoose.model('SharedEdition', sharedEditionSchema);
 
-/* A notebook essay, shared at a link.
-
-   Same contract as a shared edition: the slug is the URL, the snapshot is the
-   version. Private edits do not move the public copy. An explicit owner update
-   replaces the snapshot under the same URL. Revoking deletes the row, so a
-   later publish mints a new address and the old one stays unanswered. */
+/* A notebook essay Think once shared at a link. Think no longer publishes;
+   the rows stay so an old link can still find the wiki page its note settled
+   into (routes/retiredShareRoutes.js). */
 const sharedNotebookSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   notebookId: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookEntry', required: true },
-  slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' },
-  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
-  contentHash: { type: String, default: '' },
-  publishedAt: { type: Date, default: null },
-  correspondenceCount: { type: Number, default: 0 }
+  slug: { type: String, required: true, unique: true, index: true }
 }, { timestamps: true });
 
 sharedNotebookSchema.index({ userId: 1, notebookId: 1 }, { unique: true });
 
 const SharedNotebook = mongoose.model('SharedNotebook', sharedNotebookSchema);
 
-/* A question a reader left on one published passage.
-
-   It belongs to the author, not to the public page. Revoking the share
-   closes the door; the letter stays so the sentence it answered still
-   has its reply. Inclusion in a later edition is a later, explicit act. */
-const notebookCorrespondenceSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  notebookId: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookEntry', required: true, index: true },
-  slug: { type: String, default: '', index: true },
-  blockId: { type: String, default: '' },
-  excerpt: { type: String, default: '' },
-  text: { type: String, required: true }
-}, { timestamps: true });
-
-notebookCorrespondenceSchema.index({ userId: 1, notebookId: 1, createdAt: 1 });
-
-const NotebookCorrespondence = mongoose.model('NotebookCorrespondence', notebookCorrespondenceSchema);
-
-/* Selected published notebook essays, frozen as one volume.
-
-   Same contract as a shared notebook: the slug is the URL, the snapshot is
-   the version. The catalog is finished public copies, not workshop drafts.
-   Private edits do not move the public collection. An explicit owner update
-   replaces the snapshot under the same URL. Revoking deletes the row. */
-const sharedNotebookVolumeSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' },
-  notebookIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
-  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
-  contentHash: { type: String, default: '' },
-  publishedAt: { type: Date, default: null }
-}, { timestamps: true });
-
-sharedNotebookVolumeSchema.index({ userId: 1 }, { unique: true });
-
-const SharedNotebookVolume = mongoose.model('SharedNotebookVolume', sharedNotebookVolumeSchema);
+/* Volumes and the reader letters left on shared notes, from when Think
+   published. Nothing reads or writes them now; the models stay so account
+   erasure still finds every row that belongs to a reader. */
+const retiredShareRows = (name) => mongoose.model(name, new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true }));
+const SharedNotebookVolume = retiredShareRows('SharedNotebookVolume');
+const NotebookCorrespondence = retiredShareRows('NotebookCorrespondence');
 
 /**
  * CasebookLineage — follow, fork, and adopt with frozen origin provenance.

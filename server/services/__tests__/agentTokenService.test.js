@@ -6,8 +6,15 @@ const {
   normalizeAgentTokenScopes,
   sanitizeAgentToken,
   buildAuthenticateAgentToken,
-  requiredScopeForRequest
+  requiredScopeForRequest,
+  AGENT_TOKEN_SCOPES
 } = require('../agentTokenService');
+const { AgentToken: AgentTokenModel, AgentConnectSession } = require('../../models');
+
+// Every scope a token may hold is one the database will store.
+for (const Model of [AgentTokenModel, AgentConnectSession]) {
+  assert.deepStrictEqual(Model.schema.path('scopes').caster.enumValues, AGENT_TOKEN_SCOPES, `${Model.modelName} stores every scope`);
+}
 
 const createResponse = () => {
   const headers = {};
@@ -117,6 +124,22 @@ const run = async () => {
   await runMiddleware(gatewayMiddleware, gatewayReq, gatewayRes);
   assert.strictEqual(gatewayReq.user.id, 'user-1');
   assert.strictEqual(activeToken.callsToday, 0);
+
+  // A capture token saves links and nothing else; agent-write covers capture.
+  const captureMiddleware = buildAuthenticateAgentToken({ isAccountActive: async () => true,
+    AgentToken, now: () => now, requiredScope: 'capture', consume: false
+  });
+  const captureRes = createResponse();
+  await runMiddleware(captureMiddleware, { method: 'POST', headers: { authorization: 'Bearer ntk_at_active' } }, captureRes);
+  assert.strictEqual(captureRes.statusCode, 403);
+  activeToken.scopes = ['capture'];
+  const captureReq = { method: 'POST', headers: { authorization: 'Bearer ntk_at_active' } };
+  await runMiddleware(captureMiddleware, captureReq, createResponse());
+  assert.strictEqual(captureReq.user.id, 'user-1');
+  const captureWriteRes = createResponse();
+  await runMiddleware(middleware, { method: 'POST', headers: { authorization: 'Bearer ntk_at_active' } }, captureWriteRes);
+  assert.strictEqual(captureWriteRes.statusCode, 403);
+  activeToken.scopes = ['read'];
 
   const revokedToken = {
     ...activeToken,

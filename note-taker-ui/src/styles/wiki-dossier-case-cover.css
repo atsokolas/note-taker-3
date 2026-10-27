@@ -53,6 +53,7 @@ body.noeis-editorial .wiki-dossier-cover__actions {
 }
 
 body.noeis-editorial .wiki-dossier-cover__actions a,
+body.noeis-editorial .wiki-dossier-cover__primary,
 body.noeis-editorial .wiki-dossier-cover__text-action {
   padding: 0 0 3px;
   border: 0;
@@ -67,6 +68,19 @@ body.noeis-editorial .wiki-dossier-cover__text-action {
 
 body.noeis-editorial .wiki-dossier-cover__primary {
   font-weight: 700;
+  border-radius: 2px;
+}
+
+/* A research update waiting for its owner breathes, once every few seconds. */
+@media (prefers-reduced-motion: no-preference) {
+  body.noeis-editorial .wiki-dossier-cover__primary {
+    animation: wiki-dossier-update-glow 3.2s ease-in-out infinite;
+  }
+}
+
+@keyframes wiki-dossier-update-glow {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 14px 2px color-mix(in srgb, var(--accent) 45%, transparent); }
 }
 
 body.noeis-editorial .wiki-dossier-cover__facts {

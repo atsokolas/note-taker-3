@@ -1,4 +1,4 @@
-import { collectWikiText } from './wikiPageMetrics';
+import { docText } from '../../utils/editorialText';
 import { surroundingFromArticle } from './open-sentence/openSentenceJourney';
 import { citationOccurrence } from './wikiCopyReference';
 
@@ -121,8 +121,8 @@ export const compareWikiPages = (current = null, next = null) => {
     if (!after.has(id)) changes.push({ id, kind: 'Removed passage', before: claim, after: null });
   });
   if (!changes.length) {
-    const currentText = collectWikiText(current.body || current.plainText || '');
-    const nextText = collectWikiText(next.body || next.plainText || '');
+    const currentText = docText(current.body || current.plainText || '');
+    const nextText = docText(next.body || next.plainText || '');
     if (currentText !== nextText) {
       changes.push({
         id: 'body',
@@ -171,7 +171,7 @@ export const candidateFootprint = ({ current = null, candidate = null } = {}) =>
     .filter(source => !currentSourceIds.has(String(source?._id || source?.id || source?.url || '')));
   const currentPassages = Math.max(
     (Array.isArray(current?.claims) ? current.claims : []).length,
-    collectWikiText(current?.body || '').split(/\n+/).filter(Boolean).length
+    docText(current?.body || '').split(/\n+/).filter(Boolean).length
   );
   return {
     changes,
@@ -184,7 +184,7 @@ export const candidateFootprint = ({ current = null, candidate = null } = {}) =>
 export const historicalRevisionSnapshot = (revision = null) => {
   const after = revision?.after || null;
   const before = revision?.before || null;
-  const hasArticle = (page) => Boolean(collectWikiText(page?.body || page?.plainText || ''));
+  const hasArticle = (page) => Boolean(docText(page?.body || page?.plainText || ''));
   const retained = hasArticle(after) ? 'after' : (hasArticle(before) ? 'before' : null);
   const snapshot = retained === 'after' ? after : (retained === 'before' ? before : null);
   if (!snapshot) return null;

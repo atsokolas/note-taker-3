@@ -28,11 +28,48 @@ const rendered = renderMorningPaperEmail({ briefing, unsubscribeUrl: 'https://ww
 assert.match(rendered.html, /NVDA filed a 10-Q/);
 assert.match(rendered.html, /Unsubscribe instantly/i);
 assert.match(rendered.text, /CLAIM CHECK-IN/);
+assert.doesNotMatch(rendered.html, /WORTH SAYING/);
+
+/* Friday's three lines: quoted passages with their sources, all three or none. */
+const worthSaying = [1, 2, 3].map((n) => ({ articleId: `a${n}`, highlightId: `h${n}`, title: `Piece ${n}`, quote: `Passage ${n} worth repeating.` }));
+const friday = renderMorningPaperEmail({ briefing, worthSaying, unsubscribeUrl: 'https://www.noeis.io/u' });
+assert.match(friday.html, /THREE THINGS WORTH SAYING THIS WEEK/);
+assert.match(friday.html, /“Passage 2 worth repeating\.”/);
+assert.match(friday.text, /library\?articleId=a3&highlightId=h3/);
+assert.doesNotMatch(renderMorningPaperEmail({ briefing, worthSaying: worthSaying.slice(0, 2), unsubscribeUrl: 'u' }).html, /WORTH SAYING/);
 assert.strictEqual(briefingIsEmpty({ counts: {} }), true);
 assert.strictEqual(briefingIsEmpty(briefing), false);
 assert.strictEqual(briefingIsEmpty({
   askedBack: [{ title: 'The Costco 10-K', href: '/library?articleId=a1' }]
 }), false);
+// A short piece waiting is the paper's last line, with why it was saved.
+const tonight = renderMorningPaperEmail({ briefing, nightstand: { articleId: 'n1', title: 'The Shape of Attention', minutes: 8, reason: 'Sam sent this' }, unsubscribeUrl: 'u' });
+assert.match(tonight.html, /On your nightstand: <a href="https:\/\/www\.noeis\.io\/library\?articleId=n1"[^>]*>The Shape of Attention<\/a>, 8 min\./);
+assert.match(tonight.text, /On your nightstand: The Shape of Attention, 8 min\. Sam sent this/);
+assert.doesNotMatch(rendered.text, /nightstand:/, 'nothing short waiting is silence');
+// A book closed a year ago today comes back with its sentence.
+const finished = renderMorningPaperEmail({ briefing, closedBook: { articleId: 'b1', title: 'Middlemarch', line: 'Nobody is only what they do.', years: 1 }, unsubscribeUrl: 'u' });
+assert.match(finished.html, /A year ago today you finished <a href="https:\/\/www\.noeis\.io\/library\/books\/b1"[^>]*>Middlemarch<\/a> and said you’d remember: “Nobody is only what they do\.” Do you\?/);
+assert.match(finished.text, /A year ago today you finished Middlemarch and said you’d remember: “Nobody is only what they do\.” Do you\?/);
+assert.match(renderMorningPaperEmail({ briefing, closedBook: { articleId: 'b1', title: 'Middlemarch', line: 'x', years: 3 }, unsubscribeUrl: 'u' }).text, /^3 years ago today/m);
+assert.doesNotMatch(rendered.text, /you finished/, 'no book coming back is silence');
+// A question answered by yesterday's marking, and the book stopped a week ago, each once.
+const reading = renderMorningPaperEmail({
+  briefing,
+  books: {
+    answered: {
+      question: { _id: 'q1', note: 'Why does Dorothea marry him?', bookId: 'b1', bookTitle: 'Middlemarch' },
+      answer: { _id: 'h9', text: 'We mistake the shape of a life for its meaning.', articleId: 'a2', articleTitle: 'Essays' }
+    },
+    stopped: { bookId: 'b2', title: 'The Power Broker', page: 212, words: 'Why roads first?' }
+  },
+  unsubscribeUrl: 'u'
+});
+assert.match(reading.text, /Beside Middlemarch you asked: “Why does Dorothea marry him\?” In the last day you marked, in Essays: “We mistake the shape of a life for its meaning\.” — https:\/\/www\.noeis\.io\/library\?articleId=a2&highlightId=h9/);
+assert.match(reading.html, /href="https:\/\/www\.noeis\.io\/library\/books\/b1\?highlight=q1"/);
+assert.match(reading.text, /A week ago you stopped at p\. 212 of The Power Broker\. The last thing you wrote: “Why roads first\?” — https:\/\/www\.noeis\.io\/library\/books\/b2/);
+assert.doesNotMatch(rendered.text, /you stopped|you asked/, 'books with nothing true this morning are silence');
+
 const askedBackMail = renderMorningPaperEmail({
   briefing: {
     askedBack: [{

@@ -22,10 +22,6 @@ jest.mock('../references/ReferencePullIn', () => (props) => (
   />
 ));
 
-jest.mock('../retrieval/SemanticRelatedPanel', () => () => (
-  <div data-testid="semantic-related-panel" />
-));
-
 const baseProps = {
   selectedArticleId: 'article-1',
   articleLoading: false,
@@ -33,7 +29,6 @@ const baseProps = {
   referencesLoading: false,
   referencesError: '',
   onHighlightClick: jest.fn(),
-  onSelectHighlight: jest.fn(),
   onAddConcept: jest.fn(),
   onAddNotebook: jest.fn(),
   onAddQuestion: jest.fn(),
@@ -95,23 +90,17 @@ describe('LibraryContext', () => {
 
     await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     expect(screen.queryByTestId('reference-pull-in')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Reference' })).toBeInTheDocument();
   });
 
-  it('exposes every highlight as a referenceable source atom', async () => {
+  it('opens a highlight by its words and files it with one Add to row', async () => {
     const onHighlightClick = jest.fn();
-    const onSelectHighlight = jest.fn();
+    const onAddNotebook = jest.fn();
 
     renderContext({
       onHighlightClick,
-      onSelectHighlight,
+      onAddNotebook,
       activeHighlightId: '',
       articleHighlights: [
-        {
-          _id: 'highlight-1',
-          text: 'Temperament and concentration are recurring source atoms.',
-          tags: ['investing']
-        },
         {
           _id: 'highlight-2',
           text: 'A second highlight can become evidence elsewhere.',
@@ -121,16 +110,32 @@ describe('LibraryContext', () => {
     });
 
     await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
-    const referenceButtons = screen.getAllByRole('button', { name: 'Reference' });
-    expect(referenceButtons).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Focus' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reference' })).not.toBeInTheDocument();
+    expect(screen.getByText('Add to')).toBeInTheDocument();
 
-    fireEvent.click(referenceButtons[1]);
+    fireEvent.click(screen.getByRole('button', { name: /A second highlight can become evidence/ }));
+    expect(onHighlightClick).toHaveBeenCalledWith(expect.objectContaining({ _id: 'highlight-2' }));
 
-    expect(onSelectHighlight).toHaveBeenCalledWith('highlight-2');
-    expect(onHighlightClick).toHaveBeenCalledWith(expect.objectContaining({
-      _id: 'highlight-2',
-      text: 'A second highlight can become evidence elsewhere.'
-    }));
+    fireEvent.click(screen.getByRole('button', { name: 'Note' }));
+    expect(onAddNotebook).toHaveBeenCalledWith(expect.objectContaining({ _id: 'highlight-2' }));
+  });
+
+  it('counts a thought written beside a highlight as marginalia', async () => {
+    renderContext({
+      references: { notebookBlocks: [{ notebookEntryId: 'n1', blockId: 'b1', notebookTitle: 'Hiring', blockPreviewText: 'Quoted.' }] },
+      articleHighlights: [
+        { _id: 'h1', text: 'Writing rewards the fluent.', note: 'True for proposals, less for code.' },
+        { _id: 'h2', text: 'No thought here.', note: '  ' }
+      ]
+    });
+
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
+    const marginalia = screen.getByRole('button', { name: /Marginalia/ });
+    expect(marginalia).toHaveTextContent('2 notes');
+    if (marginalia.getAttribute('aria-expanded') !== 'true') fireEvent.click(marginalia);
+    expect(screen.getByText('Beside your highlights')).toBeInTheDocument();
+    expect(screen.getByText('True for proposals, less for code.')).toBeInTheDocument();
   });
 
   it('whispers Why back to the claim when this feed row was filed', async () => {

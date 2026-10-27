@@ -4,7 +4,7 @@ import { handsOf, issueLine, passageHref, sourceLine } from '../../pages/edition
 import AgentMark from './AgentMark';
 import { handOf } from './editionAgent';
 import { EditionBoundary } from './EditionFinding';
-import { Figures, Passage } from './EditionLayer';
+import { Figures, Passage, Why } from './EditionLayer';
 import EditionReadings from './EditionReadings';
 import SourcePeek from './SourcePeek';
 import { useEditionThoughts } from './ThoughtComposer';
@@ -133,7 +133,7 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
         <p className="power-through__receipt" role="status">
           {receipt.action === 'kept'
             ? <>Kept <i>{receipt.row.title}</i> in your Library.</>
-            : receipt.fromSetAside ? 'Moved from Set Aside to Later.' : <>Saved <i>{receipt.row.title}</i> for later.</>}
+            : receipt.fromSetAside ? 'Moved from Set Aside to your nightstand.' : <>Put <i>{receipt.row.title}</i> on your nightstand.</>}
         </p>
       ) : null}
       {undo ? (
@@ -147,6 +147,7 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
           <p className="power-item__meta">{metaLine(row)}</p>
           <h2>{row.title}</h2>
           {row.plain ? <p className="reading-plain">{row.plain}</p> : null}
+          <Why item={row} />
           <Figures figures={row.figures} />
           {row.readings?.length ? (
             <EditionReadings item={row} finding={finding} Boundary={EditionBoundary} />
@@ -191,7 +192,7 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
         <span><kbd>J</kbd><kbd>K</kbd> Move</span>
         <span><kbd>O</kbd> Read it here</span>
         <span><kbd>Esc</kbd> Done for now</span>
-        <Link to="/library?scope=later">Open Later</Link>
+        <Link to="/library?scope=later">Open your nightstand</Link>
       </footer>
       {reading && row ? <PowerPeek row={row} onClose={() => setReading(false)} /> : null}
     </section>

@@ -390,25 +390,27 @@ const CommandPalette = ({ open, onClose }) => {
     const commandTopic = String(options.topic || '').trim();
     const commandSourceText = String(options.sourceText || '').trim();
     const seed = commandTopic || query.trim();
+    // A blank page is writing, and writing starts in Think. Wiki builds from a topic.
+    if (!seed) return;
     const isCommandBuild = Boolean(commandTopic);
     systemStatus.clearRecoverableFailure();
     systemStatus.setBackgroundWork({
       label: isCommandBuild ? 'Building wiki page from command' : 'Creating wiki page',
-      stage: seed ? `Drafting ${seed}` : 'Saving page shell'
+      stage: `Drafting ${seed}`
     });
     try {
       const page = await createWikiPage(buildWikiCreatePayload({
-        type: seed ? 'search' : 'wiki_index',
-        title: seed || 'Untitled wiki page',
+        type: 'search',
+        title: seed,
         text: commandSourceText || seed,
-        label: commandSourceText || seed || 'Command palette'
+        label: commandSourceText || seed
       }));
       systemStatus.setLatestReceipt({
         id: `command-wiki-${page._id || Date.now()}`,
         title: isCommandBuild ? 'Wiki command completed' : 'Wiki page created',
         summary: isCommandBuild
           ? `Built a wiki page for "${seed}" from your command.`
-          : (seed ? `Created "${seed}" from the command palette.` : 'Created a blank wiki page.'),
+          : `Created "${seed}" from the command palette.`,
         status: 'completed',
         href: page._id ? `/wiki/workspace?page=${page._id}` : '/wiki'
       });
@@ -420,7 +422,7 @@ const CommandPalette = ({ open, onClose }) => {
         stage: 'Command palette',
         message: 'Could not create a wiki page.',
         retryable: true,
-        retry: () => { createWiki(); }
+        retry: () => { createWiki({ ...options, topic: seed }); }
       });
       onClose?.();
       navigate('/wiki');
@@ -824,8 +826,9 @@ const CommandPalette = ({ open, onClose }) => {
           action: () => createWiki(wikiBuildCommand)
         } : null,
         { id: 'action-new-note', type: 'Action', label: 'New Think note', action: createNote },
+        { id: 'action-quick-work-note', type: 'Action', label: 'Quick Work note', path: '/think?context=work&capture=1' },
         { id: 'action-pull-reference', type: 'Action', label: 'Pull reference into current surface', path: pullReferencePath },
-        { id: 'action-new-wiki', type: 'Action', label: q ? `New Wiki page from "${q.slice(0, 48)}"` : 'New Wiki page', action: createWiki }
+        q ? { id: 'action-new-wiki', type: 'Action', label: `New Wiki page from "${q.slice(0, 48)}"`, action: createWiki } : null
       ]
     };
 

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui';
 import plan from './reviewerFixturePlan.json';
-import { createSetupClient, createFixtureSession, fixtureReceipt, verifySetupIdentity } from './reviewerFixtureSetup';
+import { createSetupClient, createFixtureSession, fixtureReceipt, verifySetupIdentity, editionFixturePayload, editionFixtureReceipt } from './reviewerFixtureSetup';
 import '../styles/reviewer-fixtures.css';
 
 const ReviewerFixtures = () => {
@@ -115,6 +115,28 @@ const ReviewerFixtures = () => {
             <textarea id="reviewer-fixture-receipt" readOnly rows={18} value={JSON.stringify(fixtureReceipt(state), null, 2)} />
             <Link to={`/wiki/workspace?page=${state.wiki._id || state.wiki.id}`}>Open the private Wiki</Link>
           </>}
+          {identity.userId === plan.edition.ownerId && <section aria-labelledby="reviewer-edition-title">
+            <h2 id="reviewer-edition-title">Fictional Edition setup</h2>
+            <p>Prepare one sample-only paper and its first issue from the existing fictional source 1. Weekly cadence only groups the issue; this creates no schedule.</p>
+            <p>Check the original fixtures and Edition before saving. Existing differences are preserved. This does not enable Wiki inference or save a source into the Library.</p>
+            <details>
+              <summary>Exact fictional profile and baseline item</summary>
+              <textarea readOnly rows={10} aria-label="Exact Edition profile" value={JSON.stringify(plan.edition.profile, null, 2)} />
+              <textarea readOnly rows={12} aria-label="Exact Edition baseline" value={JSON.stringify(editionFixturePayload(), null, 2)} />
+            </details>
+            <div className="reviewer-fixtures__actions">
+              <Button type="button" disabled={busy} onClick={() => perform('inspectEdition')}>Check Edition setup</Button>
+              <Button type="button" disabled={busy || !state?.edition || state.edition.complete || identity.fixtureBindingComplete}
+                onClick={() => perform('runEdition')}>Save fictional Edition</Button>
+            </div>
+            {state?.edition && <p role="status">{state.edition.complete ? 'Fictional Edition saved and read back exactly. Its quotation remains unchecked.'
+              : state.edition.profile ? 'Fictional profile saved; first issue not saved.' : 'Fictional profile and first issue are not saved.'}</p>}
+            {state?.edition?.complete && <>
+              <label htmlFor="reviewer-edition-receipt">Verified private Edition receipt</label>
+              <textarea id="reviewer-edition-receipt" readOnly rows={18} value={JSON.stringify(editionFixtureReceipt(state), null, 2)} />
+              <Link to={`/editions/${state.edition.issue._id || state.edition.issue.id}`}>Open the private fictional Edition</Link>
+            </>}
+          </section>}
         </>
       )}
       {error && <p role="alert">{error}</p>}
