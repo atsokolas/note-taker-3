@@ -6,10 +6,10 @@ import WorkNotes from './WorkNotes';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn() }));
-let records, folders, openTheme;
+let records, folders;
 const original = '<p>Two sites can support the pilot.</p><p>Keep these authored words.</p>';
 beforeEach(() => {
-  forgetWorkSession('owner'); localStorage.clear(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.x`); jest.clearAllMocks(); openTheme = jest.fn();
+  forgetWorkSession('owner'); localStorage.clear(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.x`); jest.clearAllMocks();
   folders = [{ _id: 'f', name: 'Customer discovery', revision: 0 }, { _id: 'g', name: 'Launch planning', revision: 0 }];
   records = [{ _id: 'note', revision: 0, title: 'Fieldwell · pilot follow-up', content: original, folder: 'f', takenOn: '2026-10-26', timeZone: 'UTC', occurredOn: '2026-10-23', withText: 'Mira Chen' }, { _id: 'task', revision: 0, title: 'Confirm service-training dates', folder: 'f', workItem: { kind: 'task', noteId: 'note', plannedOn: '2026-10-26', priority: 1, history: [] } }];
   api.get.mockImplementation(async () => ({ data: { entries: records.filter(x => !x.workItem), items: records.filter(x => x.workItem), folders } }));
@@ -27,7 +27,7 @@ beforeEach(() => {
   });
 });
 const open = async (scope = '') => {
-  render(<MemoryRouter initialEntries={['/think?context=work&date=2026-10-26&note=note' + scope]}><WorkNotes appearance={{ theme: 'light', onOpen: openTheme }} /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/think?context=work&date=2026-10-26&note=note' + scope]}><WorkNotes /></MemoryRouter>);
   const shelf = await screen.findByRole('complementary');
   fireEvent.click(await within(shelf).findByRole('button', { name: /Fieldwell · pilot follow-up/ }));
   return screen.findByRole('textbox', { name: 'Work note writing' });
@@ -39,8 +39,7 @@ test('calendar modes retain the real editor, pending prose and caret; written da
   expect(screen.getByRole('button', { name: 'Hide', exact: true })).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByRole('textbox', { name: 'Work note writing' }).editor).toBe(editor); expect(editor.state.selection.from).toBe(caret); expect(writing).toHaveTextContent('New Two sites');
   fireEvent.click(screen.getByRole('button', { name: 'Week', exact: true })); expect(editor.state.selection.from).toBe(caret);
-  expect(document.querySelector('.work-dated')).toHaveTextContent('Written Monday 26 Oct'); expect(screen.getByLabelText('Occurred on')).toHaveValue('2026-10-23');
-  fireEvent.click(screen.getByRole('button', { name: /Change theme/ })); expect(openTheme).toHaveBeenCalledTimes(1);
+  expect(document.querySelector('.work-page-top')).toHaveTextContent('Monday 26 Oct'); expect(screen.getByLabelText('Occurred on')).toHaveValue('2026-10-23');
 });
 test('completing a follow-up produces one dated top record and Undo restores the same item without changing prose', async () => {
   await open(); const section = screen.getByRole('region', { name: 'Follow-ups & open questions' });
@@ -80,16 +79,10 @@ test('filing linked items reports a partial failure honestly and Undo restores e
   await waitFor(() => expect(records.find(x => x._id === 'note').folder).toBe('f'));
   expect(records.find(x => x._id === 'task').folder).toBe('f');
 });
-test('date-arrow navigation is confined to the calendar and commands open an explicit day picker', async () => {
+test('date-arrow navigation is confined to the calendar', async () => {
   await open(); const monday = screen.getByRole('button', { name: 'Monday 26 Oct', exact: true });
   fireEvent.keyDown(monday, { key: 'ArrowRight' });
   await waitFor(() => expect(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true'));
-  fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
-  fireEvent.click(await screen.findByRole('button', { name: 'Go to day', exact: true }));
-  const picker = await screen.findByRole('dialog', { name: 'Go to day', exact: true });
-  fireEvent.change(within(picker).getByLabelText('Day'), { target: { value: '2026-10-23' } });
-  fireEvent.click(within(picker).getByRole('button', { name: 'Open day', exact: true }));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Friday 23 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true'));
   expect(records.find(x => x._id === 'note').content).toBe(original);
 });
 test('returning to a day keeps the selected folder even when another folder was used last', async () => {
@@ -111,8 +104,8 @@ test.each(['task', 'appointment'])('standalone %s conflicts open both versions r
 });
 test('concurrent day margins remain discoverable, and a conflicting margin offers both versions', async () => {
   records.push(...['First margin', 'Second margin'].map((content, index) => ({ _id: 'margin-' + index, revision: 0, title: '', content, workItem: { kind: 'jot', plannedOn: '2026-10-26', history: [] } })));
-  await open(); fireEvent.click(screen.getByLabelText('Work menu')); fireEvent.click(screen.getByRole('button', { name: 'Day margin', exact: true }));
-  const margin = await screen.findByRole('dialog', { name: /Day margin ·/ });
+  await open(); fireEvent.click(screen.getByText('Day margin', { selector: 'summary' }));
+  const margin = document.querySelector('.work-day-margin');
   expect(within(margin).getByLabelText('Notes for this day')).toHaveValue('First margin');
   fireEvent.click(within(margin).getByRole('button', { name: 'Margin 2', exact: true })); expect(within(margin).getByLabelText('Notes for this day')).toHaveValue('Second margin');
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'margin-1'), revision: 1, content: 'Remote margin version' } } } });

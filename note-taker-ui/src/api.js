@@ -48,7 +48,8 @@ const clearStoredTokens = () => {
 };
 
 const redirectToLogin = (reason = 'auth') => {
-  if (authRedirectInFlight) return;
+  // Work signs in on its own page, so writing that has not reached the server stays put.
+  if (authRedirectInFlight || window.location.pathname === '/work') return;
   authRedirectInFlight = true;
   clearStoredTokens();
   try {

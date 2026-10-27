@@ -55,7 +55,7 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, f
         </div>)}</div>
         <div className="work-day-summary">{selectedAppointments.length ? <><span>{day === today ? 'Today' : displayDay(day, { weekday: 'short' })}:</span>{selectedAppointments.map(item => <button className="work-summary-appointment" key={item.id} onClick={() => item.noteId ? onOpen(item.noteId) : onEdit(item)}>{item.startTime} {item.title}</button>)}<button className="work-mobile-appointments" onClick={() => selectMode('week')}>{selectedAppointments.length} appointments · View day</button></> : <span>A little room for what matters.</span>}<button className="work-plan-new" onClick={() => onNew({ plannedOn: day })}>Plan something</button></div>
         {earlier.length ? <button className="work-carry-review" onClick={() => onCarry(earlier)}>{earlier.length} unfinished from earlier days · Review</button> : null}
-        {mode === 'week' ? <details className="work-day-margin" open={marginOpen} onToggle={event => setMarginOpen(event.currentTarget.open)}><summary>Day margin</summary>{margin}</details> : null}
+        <details className="work-day-margin" open={marginOpen} onToggle={event => setMarginOpen(event.currentTarget.open)}><summary>Day margin</summary>{margin}</details>
       </div>
     </div>
   </section>;

@@ -471,7 +471,6 @@ const AuthenticatedAppRuntime = ({ renderLayout, openPalette, setShortcutOverlay
 const AppRouterContent = ({
   isAuthenticated,
   publicRouteProps,
-  workAppearance,
   renderLayout,
   openPalette,
   setShortcutOverlayOpen
@@ -480,8 +479,10 @@ const AppRouterContent = ({
   const shouldUsePublicRoutes = !isAuthenticated || isPublicPage(location.pathname);
 
   if (shouldUsePublicRoutes) return <PublicRoutes {...publicRouteProps} />;
+  /* Work lived at /think?context=work before it had a place in the bar. */
   if (location.pathname === '/think' && new URLSearchParams(location.search).get('context') === 'work') {
-    return <Suspense fallback={<RouteLoadingFallback />}><WorkNotes appearance={workAppearance} /></Suspense>;
+    const params = new URLSearchParams(location.search); params.delete('context');
+    return <Navigate to={`/work?${params}`} replace />;
   }
   return (
     <AuthenticatedAppRuntime
@@ -618,24 +619,22 @@ function App() {
     if (!isAuthenticated) return;
     let cancelled = false;
     const ownerToken = localStorage.getItem('token');
-    const work = window.location.pathname === '/think' && new URLSearchParams(window.location.search).get('context') === 'work';
     const syncUiSettings = async () => {
       try {
-        const remote = await fetchUiSettings({}, work ? { skipAuthHandling: true, headers: { Authorization: `Bearer ${ownerToken}` } } : {});
+        const remote = await fetchUiSettings();
         if (cancelled || localStorage.getItem('token') !== ownerToken) return;
         const normalized = normalizeUiSettings(remote);
         setUiSettings(normalized);
         persistUiSettingsToStorage(normalized);
       } catch (error) {
-        if (work) { if (!cancelled && localStorage.getItem('token') === ownerToken && error?.response?.status !== 401) setSystemRecoverableFailure({ stage: 'Theme', message: 'Appearance could not sync. The theme on this device stays in place.' }); }
-        else console.error('Failed to fetch UI settings:', error);
+        console.error('Failed to fetch UI settings:', error);
       }
     };
     syncUiSettings();
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, setSystemRecoverableFailure]);
+  }, [isAuthenticated]);
 
   const handleLogout = () => {
     clearStoredTokens();
@@ -651,9 +650,8 @@ function App() {
   const handleAppearanceCommit = async (patch, nextDraft) => {
     const optimistic = normalizeUiSettings({ ...uiSettings, ...patch });
     const ownerToken = localStorage.getItem('token');
-    const work = window.location.pathname === '/think' && new URLSearchParams(window.location.search).get('context') === 'work';
     try {
-      const saved = await saveUiSettings(optimistic, {}, work ? { skipAuthHandling: true, headers: { Authorization: `Bearer ${ownerToken}` } } : {});
+      const saved = await saveUiSettings(optimistic);
       if (localStorage.getItem('token') !== ownerToken) return { ok: false, stale: true };
       const normalized = normalizeUiSettings(saved);
       setUiSettings(normalized);
@@ -661,7 +659,7 @@ function App() {
       return { ok: true, settings: normalized };
     } catch (error) {
       if (localStorage.getItem('token') !== ownerToken) return { ok: false, stale: true };
-      if (!work) console.error('Failed to save appearance settings:', error);
+      console.error('Failed to save appearance settings:', error);
       applyUiSettingsToRoot(document.documentElement, uiSettings);
       return { ok: false };
     }
@@ -819,6 +817,7 @@ function App() {
                 addressable: a URL that names a concept, question, thread or
                 entry still opens that object in the older workspace. */}
             <Route path="/think" element={<ThinkSurface />} />
+            <Route path="/work" element={<WorkNotes />} />
             {/* /wiki is the quiet collection; the maintenance workspace stays
                 one hairline away at /wiki/workspace. */}
             {/* Judgment: the index is a list of claim sentences; opening one
@@ -953,7 +952,6 @@ function App() {
         <Analytics />
         <AppRouterContent
           isAuthenticated={isAuthenticated}
-          workAppearance={{ theme: uiSettings.theme, onOpen: openThemePicker, error: systemStatus.recoverableFailure?.stage === 'Theme' ? systemStatus.recoverableFailure.message : '', retry: systemStatus.recoverableFailure?.stage === 'Theme' ? systemStatus.recoverableFailure.retry : null }}
           publicRouteProps={{ chromeStoreLink, handleLoginSuccess }}
           renderLayout={renderAppLayout}
           openPalette={openPalette}

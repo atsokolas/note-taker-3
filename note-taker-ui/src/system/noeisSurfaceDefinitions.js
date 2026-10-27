@@ -110,6 +110,16 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     orientation: 'Make and revisit consequential calls against their evidence.',
     authenticatedPrefixes: ['/judgment', '/mirror', '/welcome']
   }),
+  /* Private writing for your job: meetings, follow-ups, the week. It is a
+     room you walk into from the bar, but no agent or Partner works in it. */
+  surface({
+    id: 'surface.work',
+    name: 'Work',
+    route: '/work',
+    navigationGroup: 'primary',
+    verb: 'Work',
+    orientation: 'Private notes for meetings, follow-ups and the week.'
+  }),
   surface({
     id: 'surface.connections',
     name: 'Connections',

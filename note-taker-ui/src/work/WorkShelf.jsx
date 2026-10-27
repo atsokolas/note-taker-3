@@ -3,7 +3,7 @@ import WorkIcon from './WorkIcon';
 import { noteTitle } from './workSession';
 import { displayDay, writtenDay } from './workPlannerModel';
 
-export default function WorkShelf({ notes, folders, selected, day, view, folder, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, loading, error, onRetry, onClose }) {
+export default function WorkShelf({ notes, folders, selected, day, view, folder, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose }) {
   const [expanded, setExpanded] = useState(new Set());
   const selectedNote = notes.find(note => note.clientId === selected || note._id === selected);
   const selectedFolder = selectedNote?.folder?._id || selectedNote?.folder;
@@ -33,6 +33,6 @@ export default function WorkShelf({ notes, folders, selected, day, view, folder,
     {query ? <div className="work-search-inbox">{notes.filter(note => !folderId(note) && matches(note)).map(leaf)}</div> : null}
     <button className="work-add-folder" onClick={onNewFolder}><WorkIcon name="plus" />Folder</button>
     {loading ? <p role="status">Opening Work notes…</p> : error ? <div role="alert"><p>{error}</p><button onClick={onRetry}>Retry</button></div> : null}
-    <div className="work-shelf-foot"><button onClick={() => onScope('notes')}><WorkIcon name="right" />All Work</button>{archived.length ? <button onClick={() => onScope('archive')}>Archive <span className="work-count">{archived.length}</span></button> : null}</div>
+    <div className="work-shelf-foot"><button onClick={() => onScope('notes')}><WorkIcon name="right" />All Work</button>{archived.length ? <button onClick={() => onScope('archive')}>Archive <span className="work-count">{archived.length}</span></button> : null}<button aria-label={`Day timezone: ${timeZone}`} onClick={onTimeZone}>{timeZone.split('/').pop().replace(/_/g, ' ')} time</button></div>
   </aside>;
 }
