@@ -326,7 +326,7 @@ const LibraryShelfNav = ({
           </RoomShelfButton>
         </li>
         {/* Books are a page of their own: each one is the desk you write at. */}
-        <li><Link className={roomShelfItemClass()} to="/library/books">Books</Link></li>
+        <li><Link className={roomShelfItemClass()} to="/books">Books</Link></li>
       </RoomShelfList>
 
       {/* The same shelves seen from above, and bound: quiet doors, not scopes. */}

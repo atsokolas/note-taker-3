@@ -548,7 +548,7 @@ const ArticleReader = ({
   };
 
   if (atDesk) {
-    return <Navigate replace to={`/library/books/${article.mergedInto || article._id}${focusedHighlightId ? `?highlight=${focusedHighlightId}` : ''}`} />;
+    return <Navigate replace to={`/books/${article.mergedInto || article._id}${focusedHighlightId ? `?highlight=${focusedHighlightId}` : ''}`} />;
   }
 
   return (

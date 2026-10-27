@@ -88,7 +88,7 @@ describe('CommonplaceBook', () => {
     render(<CommonplaceBook />);
     const shelf = await screen.findByRole('region', { name: 'The books you finished' });
     const rows = within(shelf).getAllByRole('link');
-    expect(rows.map(row => row.getAttribute('href'))).toEqual(['/library/books/b1', '/library/books/b1']);
+    expect(rows.map(row => row.getAttribute('href'))).toEqual(['/books/b1', '/books/b1']);
     expect(rows[0]).toHaveTextContent('Middlemarch, George EliotMarch 2026 · pp. 10–30 · 3 quotes');
     expect(rows[1]).toHaveTextContent('October 2026 · p. 211 · 1 quote');
   });

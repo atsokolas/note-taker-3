@@ -209,6 +209,13 @@ const LegacyConceptRedirect = () => {
   return <Navigate to={buildThinkPosturePath('concepts', conceptName)} replace />;
 };
 
+// Books had a page inside the Library; links to it (old Morning Papers) still open the book.
+const LegacyBookRedirect = () => {
+  const { id = '' } = useParams();
+  const { search } = useLocation();
+  return <Navigate to={`/books${id ? `/${id}` : ''}${search}`} replace />;
+};
+
 const LegacyNotebookRedirect = () => {
   const { entryId = '' } = useParams();
   return <Navigate to={buildThinkPosturePath('notebook', entryId)} replace />;
@@ -799,8 +806,10 @@ function App() {
             <Route path="/library/save" element={<SaveLink />} />
             <Route path="/library/map" element={<ReadingMap />} />
             <Route path="/library/book" element={<CommonplaceBook />} />
-            <Route path="/library/books" element={<Books />} />
-            <Route path="/library/books/:id" element={<Books />} />
+            <Route path="/library/books" element={<LegacyBookRedirect />} />
+            <Route path="/library/books/:id" element={<LegacyBookRedirect />} />
+            <Route path="/books" element={<Books />} />
+            <Route path="/books/:id" element={<Books />} />
             {/* Papers an agent maintains. Not a fifth room in the nav — the
                 four rooms are what you did, and an edition is something that
                 arrived. The Paper carries the door to it. */}

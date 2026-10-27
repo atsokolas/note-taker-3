@@ -50,6 +50,17 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     orientation: 'Recover source material and understand where it came from.',
     authenticatedPrefixes: ['/library', '/articles', '/all-highlights', '/tags', '/collections', '/views', '/search', '/export']
   }),
+  /* The books you read with the desk open beside them. Every mark made there
+     is a highlight in the Library like any other, so Books sits beside it:
+     a shelf of the Library's own sources, given a door of its own. */
+  surface({
+    id: 'surface.books',
+    name: 'Books',
+    route: '/books',
+    navigationGroup: 'primary',
+    verb: 'Read',
+    orientation: 'Read a book with one line typed beside it.'
+  }),
   surface({
     id: 'surface.think',
     room: 'think',
