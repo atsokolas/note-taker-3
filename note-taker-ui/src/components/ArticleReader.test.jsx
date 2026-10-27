@@ -547,7 +547,7 @@ describe('ArticleReader', () => {
       />
     );
 
-    expect(screen.getByText('to /library/books/article-1?highlight=highlight-1')).toBeInTheDocument();
+    expect(screen.getByText('to /books/article-1?highlight=highlight-1')).toBeInTheDocument();
     expect(screen.queryByText('Invert, always invert.')).not.toBeInTheDocument();
   });
 
@@ -560,7 +560,7 @@ describe('ArticleReader', () => {
         focusedHighlightId="highlight-1"
       />
     );
-    expect(screen.getByText('to /library/books/book-1?highlight=highlight-1')).toBeInTheDocument();
+    expect(screen.getByText('to /books/book-1?highlight=highlight-1')).toBeInTheDocument();
   });
 
   it('puts a deep-linked saved passage in the reader when the imported body omits it', async () => {

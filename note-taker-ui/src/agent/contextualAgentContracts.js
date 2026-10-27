@@ -33,7 +33,8 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
     room: 'library',
     capabilities: ['capability.library.retrieve', 'capability.knowledge.connect'],
     actions: ['retrieve'],
-    match: under('/library')
+    // A book is a Library source with its own page.
+    match: ({ pathname }) => under('/library')({ pathname }) || under('/books')({ pathname })
   }),
   contract({
     id: 'agent-surface.think',

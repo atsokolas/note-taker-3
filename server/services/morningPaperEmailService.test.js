@@ -49,7 +49,7 @@ assert.match(tonight.text, /On your nightstand: The Shape of Attention, 8 min\. 
 assert.doesNotMatch(rendered.text, /nightstand:/, 'nothing short waiting is silence');
 // A book closed a year ago today comes back with its sentence.
 const finished = renderMorningPaperEmail({ briefing, closedBook: { articleId: 'b1', title: 'Middlemarch', line: 'Nobody is only what they do.', years: 1 }, unsubscribeUrl: 'u' });
-assert.match(finished.html, /A year ago today you finished <a href="https:\/\/www\.noeis\.io\/library\/books\/b1"[^>]*>Middlemarch<\/a> and said you’d remember: “Nobody is only what they do\.” Do you\?/);
+assert.match(finished.html, /A year ago today you finished <a href="https:\/\/www\.noeis\.io\/books\/b1"[^>]*>Middlemarch<\/a> and said you’d remember: “Nobody is only what they do\.” Do you\?/);
 assert.match(finished.text, /A year ago today you finished Middlemarch and said you’d remember: “Nobody is only what they do\.” Do you\?/);
 assert.match(renderMorningPaperEmail({ briefing, closedBook: { articleId: 'b1', title: 'Middlemarch', line: 'x', years: 3 }, unsubscribeUrl: 'u' }).text, /^3 years ago today/m);
 assert.doesNotMatch(rendered.text, /you finished/, 'no book coming back is silence');
@@ -66,8 +66,8 @@ const reading = renderMorningPaperEmail({
   unsubscribeUrl: 'u'
 });
 assert.match(reading.text, /Beside Middlemarch you asked: “Why does Dorothea marry him\?” In the last day you marked, in Essays: “We mistake the shape of a life for its meaning\.” — https:\/\/www\.noeis\.io\/library\?articleId=a2&highlightId=h9/);
-assert.match(reading.html, /href="https:\/\/www\.noeis\.io\/library\/books\/b1\?highlight=q1"/);
-assert.match(reading.text, /A week ago you stopped at p\. 212 of The Power Broker\. The last thing you wrote: “Why roads first\?” — https:\/\/www\.noeis\.io\/library\/books\/b2/);
+assert.match(reading.html, /href="https:\/\/www\.noeis\.io\/books\/b1\?highlight=q1"/);
+assert.match(reading.text, /A week ago you stopped at p\. 212 of The Power Broker\. The last thing you wrote: “Why roads first\?” — https:\/\/www\.noeis\.io\/books\/b2/);
 assert.doesNotMatch(rendered.text, /you stopped|you asked/, 'books with nothing true this morning are silence');
 
 const askedBackMail = renderMorningPaperEmail({

@@ -183,7 +183,7 @@ const renderClosedBookLine = ({ closedBook = null, appBaseUrl }) => {
   const line = clean(closedBook?.line, 400);
   if (!line || !closedBook.title || !closedBook.articleId) return { html: '', text: '' };
   const ago = closedBook.years > 1 ? `${closedBook.years} years ago` : 'A year ago';
-  const href = absoluteHref(`/library/books/${encodeURIComponent(closedBook.articleId)}`, appBaseUrl);
+  const href = absoluteHref(`/books/${encodeURIComponent(closedBook.articleId)}`, appBaseUrl);
   return {
     html: `<p style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8;font-size:18px;line-height:1.5">${ago} today you finished <a href="${escapeHtml(href)}" style="color:#171714">${escapeHtml(closedBook.title)}</a> and said you’d remember: “${escapeHtml(line)}” Do you?</p>`,
     text: `${ago} today you finished ${closedBook.title} and said you’d remember: “${line}” Do you? — ${href}`
@@ -195,7 +195,7 @@ const renderClosedBookLine = ({ closedBook = null, appBaseUrl }) => {
    stopped writing in a week ago, at the page you stopped. */
 const renderBookLines = ({ books = {}, appBaseUrl }) => {
   const rule = 'margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8;font-size:17px;line-height:1.5';
-  const bookHref = (bookId, highlightId) => absoluteHref(`/library/books/${encodeURIComponent(bookId)}${highlightId ? `?highlight=${encodeURIComponent(highlightId)}` : ''}`, appBaseUrl);
+  const bookHref = (bookId, highlightId) => absoluteHref(`/books/${encodeURIComponent(bookId)}${highlightId ? `?highlight=${encodeURIComponent(highlightId)}` : ''}`, appBaseUrl);
   const lines = [];
   const { answered, stopped } = books || {};
   if (answered?.question?.note && answered.answer?.text) {

@@ -32,7 +32,7 @@ const MARK_BLOCKS = '.book-desk__mark > blockquote, .book-desk__mark > .book-des
 const Returning = ({ book }) => {
   const { years, days, line } = book.returning;
   return (
-    <Link to={`/library/books/${book._id}`} className="books__returning">
+    <Link to={`/books/${book._id}`} className="books__returning">
       <span className="books__author">{years > 1 ? `${years} years ago` : 'A year ago'} {days ? 'this week' : 'today'}</span>
       <span>You finished <cite>{book.title}</cite> and said you’d remember:</span>
       <q>{line}</q>
@@ -61,7 +61,7 @@ const Questions = () => {
       <ol>
         {answeredFirst.map(({ _id, note, page, bookId, bookTitle, answer }) => (
           <li key={_id}>
-            <Link to={`/library/books/${bookId}?highlight=${_id}`} className="books__question">
+            <Link to={`/books/${bookId}?highlight=${_id}`} className="books__question">
               <q className="is-own">{note}</q>
               <span className="books__asked"><cite>{bookTitle}</cite>{page ? `, p. ${page}` : ''}</span>
             </Link>
@@ -99,7 +99,7 @@ const Twice = () => {
   if (!pair) return null;
   const { mark, echo } = pair;
   const passages = [
-    { ...mark, href: `/library/books/${mark.bookId}?highlight=${mark._id}`, title: mark.bookTitle },
+    { ...mark, href: `/books/${mark.bookId}?highlight=${mark._id}`, title: mark.bookTitle },
     { ...echo, href: buildPassagePath({ articleId: echo.articleId, highlightId: echo._id }), title: echo.articleTitle }
   ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   return (
@@ -124,7 +124,7 @@ const Shelf = () => {
   const [error, setError] = useState('');
   const [name, setName] = useState('');
   const [starting, setStarting] = useState(false);
-  useDocumentTitle('Books', 'Library');
+  useDocumentTitle('Books');
 
   useEffect(() => {
     let cancelled = false;
@@ -141,7 +141,7 @@ const Shelf = () => {
     setStarting(true);
     try {
       const { article } = await startBook(book);
-      navigate(`/library/books/${article._id}`);
+      navigate(`/books/${article._id}`);
     } catch (_) {
       setStarting(false);
       setError('That book did not start. Try it again.');
@@ -177,7 +177,7 @@ const Shelf = () => {
             const setDown = setDownOn(book, book.marks);
             return (
               <li key={book._id}>
-                <Link to={`/library/books/${book._id}`} className="books__book">
+                <Link to={`/books/${book._id}`} className="books__book">
                   <span className="books__title">{book.title || 'Untitled book'}</span>
                   {book.author ? <span className="books__author">{book.author}</span> : null}
                   <span className="books__tally">
@@ -477,7 +477,7 @@ export const YearShelf = ({ year }) => {
       <ol>
         {read.map(({ book, finishedOn, marks, spine }) => (
           <li key={`${book._id}-${finishedOn}`}>
-            <Link to={`/library/books/${book._id}`}>
+            <Link to={`/books/${book._id}`}>
               <span className="books__year-title"><cite>{book.title}</cite>{book.author ? `, ${book.author}` : ''}</span>
               {spine ? (
                 <span className="books__spine-strip" aria-hidden="true">
@@ -579,7 +579,7 @@ const Book = ({ id }) => {
   const doorFor = (mark) => (!isSaved(mark) || held.has(String(mark._id)) ? null : (
     <PassageDoor articleId={id} highlightId={mark._id} pages={pages} text={mark.text || ''} />
   ));
-  useDocumentTitle(article?.title || 'A book', 'Library');
+  useDocumentTitle(article?.title || 'A book', 'Books');
   // The Partner holds this book, its marks standing for the body it has none of.
   useNoeisAgentSurface('agent-surface.library', {
     room: 'library',
@@ -596,7 +596,7 @@ const Book = ({ id }) => {
   return (
     <main ref={frameRef} className="books books--one" aria-labelledby="book-title" aria-busy={!article && !error}>
       <nav className="books__tools" aria-label="Book">
-        <Link to="/library/books">← Books</Link>
+        <Link to="/books">← Books</Link>
         {book ? <Lend book={book} onChange={change} /> : null}
         {highlights.some(mark => mark.text) ? <button type="button" className="books__quiet-button" onClick={() => window.print()}>Print as cards</button> : null}
       </nav>

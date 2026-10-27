@@ -41,7 +41,7 @@ test('the shelf shows each book with what was written in it and the last line', 
   }]);
   at();
   const book = await screen.findByRole('link', { name: /The Better Angels of Our Nature/ });
-  expect(book).toHaveAttribute('href', '/library/books/b1');
+  expect(book).toHaveAttribute('href', '/books/b1');
   expect(book).toHaveTextContent('pp. 188–190 · 1 quote, 1 question');
   expect(book).toHaveTextContent('Is he cherry-picking the base year?');
 });
@@ -53,7 +53,7 @@ test('naming a book opens its page', async () => {
   expect(await screen.findByText(/Name a book above/)).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('The book you are reading'), { target: { value: 'Middlemarch by George Eliot' } });
   fireEvent.click(screen.getByRole('button', { name: 'Open' }));
-  await waitFor(() => expect(Router.useNavigate()).toHaveBeenCalledWith('/library/books/b2'));
+  await waitFor(() => expect(Router.useNavigate()).toHaveBeenCalledWith('/books/b2'));
   expect(startBook).toHaveBeenCalledWith({ title: 'Middlemarch', author: 'George Eliot' });
 });
 
@@ -64,7 +64,7 @@ test('a book has a page of its own: its name, and the desk', () => {
   expect(screen.getByRole('heading', { level: 1, name: 'Middlemarch' })).toBeInTheDocument();
   expect(screen.getByText('George Eliot')).toBeInTheDocument();
   expect(screen.getByRole('region', { name: 'Reading desk' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: '← Books' })).toHaveAttribute('href', '/library/books');
+  expect(screen.getByRole('link', { name: '← Books' })).toHaveAttribute('href', '/books');
 });
 
 test('a book closed a year ago this week comes back at the top of the shelf with its sentence', async () => {
@@ -74,7 +74,7 @@ test('a book closed a year ago this week comes back at the top of the shelf with
   ]);
   at();
   const back = await screen.findByRole('link', { name: /A year ago today/ });
-  expect(back).toHaveAttribute('href', '/library/books/b2');
+  expect(back).toHaveAttribute('href', '/books/b2');
   expect(back).toHaveTextContent('You finished Middlemarch and said you’d remember:Nobody is only what they do.Do you?');
   expect(screen.getByRole('link', { name: /^Middlemarch/ })).toHaveTextContent(/Finished October 2025/);
 });
@@ -223,7 +223,7 @@ test('a question asked beside a book comes back first with the passage marked si
   const asked = await screen.findByRole('region', { name: 'Open questions' });
   const lines = asked.querySelectorAll('li');
   expect(lines[0]).toHaveTextContent('Why roads before parks?The Power Broker, p. 12Since then you marked, in Seeing Like a State: The parkways carried the cars out to the parks.');
-  expect(screen.getByRole('link', { name: /Why roads before parks/ })).toHaveAttribute('href', '/library/books/b3?highlight=q2');
+  expect(screen.getByRole('link', { name: /Why roads before parks/ })).toHaveAttribute('href', '/books/b3?highlight=q2');
   expect(lines[1]).toHaveTextContent('Is he cherry-picking the base year?');
 });
 
@@ -265,7 +265,7 @@ test('the shelf shows a thought you marked twice, years apart, the earlier first
   expect(twice).toHaveTextContent('You marked nearly the same thought 2 years apart.');
   const [first, second] = twice.querySelectorAll('a');
   expect(first).toHaveTextContent('This Is Water, September 2024');
-  expect(second).toHaveAttribute('href', '/library/books/b1?highlight=m1');
+  expect(second).toHaveAttribute('href', '/books/b1?highlight=m1');
   expect(second).toHaveTextContent('Middlemarch, p. 211, October 2026');
 });
 
