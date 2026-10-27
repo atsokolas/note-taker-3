@@ -18,9 +18,20 @@ const WorkLink = Mark.create({
   addPasteRules() { return [markPasteRule({ find: /https?:\/\/[^\s<>]+/g, type: this.type, getAttributes: match => ({ href: match[0] }) })]; }
 });
 
-export default function WorkNoteEditor({ note, onChange, fresh = false }) {
-  const surface = useRef(null), change = useRef(onChange), slashKey = useRef(null);
-  change.current = onChange;
+// A line that starts "[] " or "? " is a follow-up or an open question: Enter moves it below the note.
+const FOLLOW_UP = /^(\[\]|\?)\s+(\S.*)$/;
+const takeFollowUp = (view, event, onFollowUp) => {
+  if (event.key !== 'Enter' || event.shiftKey || !onFollowUp) return false;
+  const { $from } = view.state.selection, line = $from.parent.type.name === 'paragraph' && $from.parent.textContent.match(FOLLOW_UP);
+  if (!line) return false;
+  onFollowUp({ kind: line[1] === '?' ? 'question' : 'task', text: line[2] });
+  view.dispatch(view.state.tr.delete($from.start(), $from.end()));
+  return true;
+};
+
+export default function WorkNoteEditor({ note, onChange, onFollowUp, fresh = false }) {
+  const surface = useRef(null), change = useRef(onChange), followUp = useRef(onFollowUp), slashKey = useRef(null);
+  change.current = onChange; followUp.current = onFollowUp;
   const [url, setUrl] = useState('');
   const content = note.content || (note.blocks?.length ? buildDocFromBlocks(note.blocks) : '<p></p>');
   const editor = useEditor({
@@ -29,7 +40,7 @@ export default function WorkNoteEditor({ note, onChange, fresh = false }) {
     autofocus: fresh ? 'end' : false,
     editorProps: {
       attributes: { class: 'think-notebook-editor-body', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Work note writing' },
-      handleKeyDown: (view, event) => slashKey.current?.(view, event) || handleEditorStructureShortcut({ editor, event }) || false
+      handleKeyDown: (view, event) => slashKey.current?.(view, event) || takeFollowUp(view, event, followUp.current) || handleEditorStructureShortcut({ editor, event }) || false
     },
     onUpdate: ({ editor: current }) => {
       const { node, changed } = ensureBlockIds(current.getJSON());
@@ -53,7 +64,7 @@ export default function WorkNoteEditor({ note, onChange, fresh = false }) {
   const slash = useSlashCommands({ editor, containerRef: surface });
   slashKey.current = slash.onKeyDown;
   return <div className="work-writing">
-    <EditorDraftShell editor={editor} surfaceRef={surface} contextualToolbar slashCommands={slash} magnetCaretToolbar={false} hideBlockControls helperCopy="Paragraphs, headings, lists and quotes." />
+    <EditorDraftShell editor={editor} surfaceRef={surface} contextualToolbar slashCommands={slash} magnetCaretToolbar={false} hideBlockControls helperCopy="Start a line with [] for a follow-up or ? for an open question." />
     <details className="work-writing-tools"><summary>Writing tools</summary><button onClick={() => moveCurrentBlock(editor, 'up')}>Move paragraph up</button><button onClick={() => moveCurrentBlock(editor, 'down')}>Move paragraph down</button><form onSubmit={event => {
       event.preventDefault(); const href = safeLink(url.trim()); if (!href) return;
       editor.chain().focus().insertContent({ type: 'text', text: href, marks: [{ type: 'workLink', attrs: { href } }] }).run(); setUrl('');

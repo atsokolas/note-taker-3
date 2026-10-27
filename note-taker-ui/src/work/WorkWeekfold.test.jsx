@@ -174,3 +174,14 @@ test('Today lists the day’s follow-ups in Compact, titles the whole week, and 
   expect(await screen.findByText('Still open')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /Fieldwell · pilot follow-up.*Mon 26 Oct/ })).toBeInTheDocument();
 });
+test('one typed line plans an appointment, and a [] line in a note becomes its follow-up', async () => {
+  const writing = await open();
+  fireEvent.change(screen.getByLabelText('Plan something'), { target: { value: 'IC meeting 2pm' } });
+  fireEvent.submit(screen.getByLabelText('Plan something').form);
+  await waitFor(() => expect(records.find(x => x.title === 'IC meeting')?.workItem).toMatchObject({ kind: 'appointment', plannedOn: '2026-10-26', startTime: '14:00', endTime: '14:30' }));
+  act(() => { writing.editor.commands.focus('end'); writing.editor.commands.splitBlock(); writing.editor.commands.insertContent('[] Call Mira about training'); });
+  fireEvent.keyDown(writing.editor.view.dom, { key: 'Enter' });
+  expect(within(screen.getByRole('region', { name: 'Follow-ups & open questions' })).getByText('Call Mira about training')).toBeInTheDocument();
+  await waitFor(() => expect(records.find(x => x.title === 'Call Mira about training')?.workItem).toMatchObject({ kind: 'task', noteId: 'note' }));
+  expect(writing).not.toHaveTextContent('Call Mira');
+});

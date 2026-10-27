@@ -71,7 +71,10 @@
 .work-day.is-weekend .work-day-heading { font-size: 12px !important; }
 .work-day-summary { min-height: 42px; display: flex; align-items: center; flex-wrap: wrap; gap: 0 4px; border-bottom: 1px solid var(--noeis-rule); font: 15px/1.5 var(--font-serif); }
 .work-day-summary button { font: inherit; padding: 6px 4px; }
-.work-day-summary .work-plan-new { margin-left: auto; color: var(--noeis-ink-muted); font: 12px var(--font-sans); }
+.work-day-summary .work-plan-new { margin-left: auto; }
+.work-plan-new input { width: 15em; padding: 6px 4px; background: transparent; border: 0; border-bottom: 1px solid transparent; color: var(--noeis-ink); font: 13px var(--font-sans); text-align: right; }
+.work-plan-new input:focus { border-bottom-color: var(--noeis-rule-strong); outline: none; text-align: left; }
+.work-plan-new input::placeholder { color: var(--noeis-ink-muted); }
 .work-day-tasks { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 24px; padding: 4px 0; border-bottom: 1px solid var(--noeis-rule); }
 .work-day-tasks .work-planner-task { font-size: 14px; }
 .work-day-margin { font-size: 12px; color: var(--noeis-ink-muted); }

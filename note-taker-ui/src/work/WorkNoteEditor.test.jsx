@@ -50,3 +50,16 @@ test('controlled local updates preserve repeated spaces, paragraph breaks and th
   expect(editor.state.selection.from).toBe(26);
   expect(writing.querySelector('p:last-child strong')).toHaveTextContent('Recorded words');
 });
+test('a line starting [] or ? leaves the prose on Enter as a follow-up or a question', () => {
+  const followUp = jest.fn(); render(<WorkNoteEditor note={{ content: '<p>Notes</p><p>[] Request 2024 cohort churn fri</p>' }} onChange={() => {}} onFollowUp={followUp} />);
+  const writing = screen.getByRole('textbox', { name: 'Work note writing' }), view = writing.editor.view;
+  act(() => { writing.editor.commands.focus('end'); });
+  fireEvent.keyDown(view.dom, { key: 'Enter' });
+  expect(followUp).toHaveBeenCalledWith({ kind: 'task', text: 'Request 2024 cohort churn fri' });
+  expect(writing).toHaveTextContent('Notes'); expect(writing).not.toHaveTextContent('Request');
+  act(() => { view.dispatch(view.state.tr.insertText('? Do the top two renew')); });
+  fireEvent.keyDown(view.dom, { key: 'Enter' });
+  expect(followUp).toHaveBeenLastCalledWith({ kind: 'question', text: 'Do the top two renew' });
+  act(() => { view.dispatch(view.state.tr.insertText('Is this a question? Yes')); });
+  fireEvent.keyDown(view.dom, { key: 'Enter' }); expect(followUp).toHaveBeenCalledTimes(2);
+});
