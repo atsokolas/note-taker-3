@@ -95,7 +95,7 @@ test.each(['task', 'appointment'])('standalone %s conflicts open both versions r
   records.push({ _id: 'standalone', revision: 0, title: 'Standalone work', content: '', workItem: { kind, plannedOn: '2026-10-26', startTime: '15:00', endTime: '15:30', history: [] } });
   await open(); fireEvent.click(screen.getByRole('button', { name: 'Week', exact: true }));
   fireEvent.click(screen.getByRole('button', { name: kind === 'appointment' ? 'Edit appointment Standalone work' : 'Edit Standalone work', exact: true }));
-  const form = await screen.findByRole('dialog', { name: 'New Work item' });
+  const form = await screen.findByRole('dialog', { name: kind === 'appointment' ? 'Edit appointment' : 'Edit follow-up' });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'standalone'), revision: 1, title: 'Other device version' } } } });
   fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My version' } }); fireEvent.click(within(form).getByRole('button', { name: 'Save item' }));
   const review = await screen.findByRole('dialog', { name: 'Review both item versions' }); expect(review).toHaveTextContent('Other device version'); expect(review).toHaveTextContent('My version');
@@ -130,8 +130,8 @@ test('a semantically rejected action stays in review and can use the saved versi
 });
 test('review resolution stays locked while its accepted change is being acknowledged', async () => {
   await open(); const current = records.find(x => x._id === 'task'), remote = { ...current, revision: 1, title: 'Other device wording' };
-  fireEvent.click(screen.getByRole('button', { name: 'Edit Confirm service-training dates', exact: true }));
-  const form = await screen.findByRole('dialog', { name: 'New Work item' });
+  fireEvent.click(within(screen.getByRole('region', { name: 'Follow-ups & open questions' })).getByRole('button', { name: 'Edit Confirm service-training dates', exact: true }));
+  const form = await screen.findByRole('dialog', { name: 'Edit follow-up' });
   fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My reviewed wording' } });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: remote } } });
   fireEvent.click(within(form).getByRole('button', { name: 'Save item', exact: true }));
@@ -163,4 +163,14 @@ test('authentication recovery remains available if the matching server arrives a
   const signIn = await screen.findByRole('button', { name: 'Sign in to sync', exact: true });
   expect(screen.getByRole('button', { name: 'Retry Work', exact: true })).toBeDisabled();
   fireEvent.click(signIn); expect(await screen.findByRole('textbox', { name: /username/i })).toBeVisible();
+});
+test('Today lists the day’s follow-ups in Compact, titles the whole week, and keeps an earlier meeting with open work', async () => {
+  render(<MemoryRouter initialEntries={['/work?date=2026-10-27']}><WorkNotes /></MemoryRouter>);
+  expect(await screen.findByRole('heading', { name: 'October 26–Nov 1, 2026' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Monday 26 Oct', exact: true }));
+  expect(within(document.querySelector('.work-day-tasks')).getByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Today' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true }));
+  expect(await screen.findByText('Still open')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Fieldwell · pilot follow-up.*Mon 26 Oct/ })).toBeInTheDocument();
 });

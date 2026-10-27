@@ -54,9 +54,10 @@
 .work-calendar-heading nav { display: flex; align-items: center; gap: 2px; }
 .work-calendar-heading nav button { padding: 8px; }
 .work-calendar-heading nav .work-icon { width: 16px; height: 16px; flex-basis: 16px; }
-.work-calendar-modes { display: flex; border: 1px solid var(--noeis-rule-strong); border-radius: var(--noeis-radius-sm); overflow: hidden; }
-.work-calendar-modes button { min-height: 38px; min-width: 86px; padding: 7px 18px; text-align: center; font-size: 14px; }
-.work-calendar-modes [aria-pressed=true] { background: var(--noeis-paper-muted); box-shadow: inset 0 0 0 1px var(--noeis-rule); border-radius: var(--noeis-radius-sm); }
+.work-calendar-modes { display: flex; gap: 4px; }
+.work-calendar-modes button { padding: 8px 6px; font-size: 13px; color: var(--noeis-ink-muted); }
+.work-calendar-modes button:hover { background: transparent; color: var(--noeis-ink); }
+.work-calendar-modes [aria-pressed=true] { color: var(--noeis-ink); text-decoration: underline; text-decoration-color: var(--noeis-thread-strong); text-underline-offset: 6px; }
 .work-calendar-fold { overflow: hidden; }
 .work-week-days { display: grid; grid-template-columns: 1.5fr repeat(4, 1.1fr) .8fr .8fr; border-block: 1px solid var(--noeis-rule); padding: 6px 0; }
 .work-day { border-left: 1px solid var(--noeis-rule); min-width: 0; padding: 0 8px; }
@@ -71,6 +72,8 @@
 .work-day-summary { min-height: 42px; display: flex; align-items: center; flex-wrap: wrap; gap: 0 4px; border-bottom: 1px solid var(--noeis-rule); font: 15px/1.5 var(--font-serif); }
 .work-day-summary button { font: inherit; padding: 6px 4px; }
 .work-day-summary .work-plan-new { margin-left: auto; color: var(--noeis-ink-muted); font: 12px var(--font-sans); }
+.work-day-tasks { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 24px; padding: 4px 0; border-bottom: 1px solid var(--noeis-rule); }
+.work-day-tasks .work-planner-task { font-size: 14px; }
 .work-day-margin { font-size: 12px; color: var(--noeis-ink-muted); }
 .work-day-margin summary { width: fit-content; min-height: 24px; padding: 3px 4px; cursor: pointer; }
 .work-day-margin:not([open]) { margin-top: 4px; }
@@ -184,7 +187,7 @@
 .work-receipt button { text-decoration: underline; }
 .work-mobile-nav, .work-mobile-close { display: none !important; }
 @keyframes work-receipt-in { from { opacity: 0; } to { opacity: 1; } }
-@media (max-width: 1100px) { .work-calendar-modes button { min-width: 64px; padding-inline: 12px; } .work-calendar-heading { flex-wrap: wrap; } .work-note-paper { padding-left: 26px; padding-right: 0; } .work-note-title > .work-icon { left: -26px; width: 15px; } }
+@media (max-width: 1100px) { .work-calendar-heading { flex-wrap: wrap; } .work-note-paper { padding-left: 26px; padding-right: 0; } .work-note-title > .work-icon { left: -26px; width: 15px; } }
 @media (max-width: 900px) {
   .work-layout { display: block; }
   .work-shelf { display: none; }
@@ -195,8 +198,6 @@
   .work-page { padding: 14px 20px 80px; }
   .work-calendar h1 { font-size: 30px; }
   .work-calendar-heading { gap: 8px; }
-  .work-calendar-modes { width: 100%; }
-  .work-calendar-modes button { flex: 1; min-height: 44px; }
   .work-week-days { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .work-day { padding: 0 2px; }
   .work-day-heading, .work-day.is-weekend .work-day-heading { font-size: 11px !important; padding: 10px 2px !important; }
