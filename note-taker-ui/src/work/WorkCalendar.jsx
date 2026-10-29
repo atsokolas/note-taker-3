@@ -1,10 +1,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import WorkIcon from './WorkIcon';
-import { displayDay, shiftDay, weekDays } from './workPlannerModel';
+import { matchesQuery, noteTitle } from './workSession';
+import { displayDay, shiftDay, weekDays, writtenDay } from './workPlannerModel';
 
-export default function WorkCalendar({ day, today, mode, onMode, onDay, items, folders, onStart, onEdit, onAction, onNew, onPlan, onCarry, margin }) {
+// A day reads top to bottom like a page in a day book: its appointments and follow-ups, what is carried from earlier, what was written, the margin.
+export default function WorkCalendar({ day, today, mode, onMode, onDay, items, notes, query, folders, onOpen, onStart, onEdit, onAction, onNew, onPlan, margin }) {
   const frame = useRef(null), contents = useRef(null), animation = useRef(null), origin = useRef(null);
-  const [marginOpen, setMarginOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const clock = window.setInterval(() => setNow(new Date()), 30000); return () => window.clearInterval(clock); }, []);
   // "in 4 min" or "now" on today's meetings, and a way into the note for one that has none yet.
@@ -20,7 +21,10 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, f
   const priorities = date => onDate(tasks, date).filter(item => item.priority && !item.completed).sort((a, b) => a.priority - b.priority).slice(0, 3);
   const count = (list, one, many = `${one}s`) => list.length ? `${list.length} ${list.length === 1 ? one : many}` : '';
   const plan = date => [...priorities(date), ...onDate(tasks, date).filter(item => !priorities(date).includes(item))];
-  const earlier = tasks.filter(item => !item.completed && item.plannedOn && item.plannedOn < day);
+  const noteOf = item => item.noteId && notes.find(note => [note._id, note.clientId].includes(item.noteId));
+  const carried = tasks.filter(item => !item.completed && (item.plannedOn || writtenDay(noteOf(item)) || day) < day);
+  const written = notes.filter(note => writtenDay(note) === day && matchesQuery(note, query));
+  const folderName = note => folders.find(folder => folder._id === (note.folder?._id || note.folder))?.name || 'Inbox';
   const selectedAppointments = onDate(appointments, day).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
   const selectMode = next => {
     const selection = window.getSelection?.();
@@ -46,7 +50,7 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, f
     };
     request = window.requestAnimationFrame(hold);
     return () => { window.cancelAnimationFrame(request); };
-  }, [mode, day, items, marginOpen]);
+  }, [mode, day, items]);
   useLayoutEffect(() => {
     const measure = () => { if (frame.current && mode !== 'hide' && animation.current?.playState !== 'running') frame.current.style.height = `${contents.current?.scrollHeight || 0}px`; };
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
@@ -54,7 +58,9 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, f
     return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
   }, [mode]);
   const archivedLabel = item => folders.find(folder => folder._id === (item.folder?._id || item.folder))?.archivedAt ? ' · Archived folder' : '';
-  const taskRow = item => <div className={`work-planner-task ${item.completed ? 'is-done' : ''}`} key={item.id}><label><input type="checkbox" checked={item.completed} onChange={() => onAction(item.clientId, { type: item.completed ? 'reopen' : 'complete' })} /><span>{item.title}{archivedLabel(item)}{item.previousPlannedOn && item.previousPlannedOn !== item.plannedOn ? <small>From {displayDay(item.previousPlannedOn, { weekday: 'short', day: 'numeric' })}</small> : null}{item.dueOn && item.dueOn < today && !item.completed ? <small>Due {displayDay(item.dueOn)} · overdue</small> : null}{item.pending ? <small>Pending sync</small> : null}</span></label><button aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}>{item.conflicted ? 'Review both versions' : <WorkIcon name="more" />}</button></div>;
+  const taskRow = (item, aside = null) => <div className={`work-planner-task ${item.completed ? 'is-done' : ''}`} key={item.id}><label><input type="checkbox" checked={item.completed} onChange={() => onAction(item.clientId, { type: item.completed ? 'reopen' : 'complete' })} /><span>{item.title}{archivedLabel(item)}{item.previousPlannedOn && item.previousPlannedOn !== item.plannedOn ? <small>From {displayDay(item.previousPlannedOn, { weekday: 'short', day: 'numeric' })}</small> : null}{item.dueOn && item.dueOn < today && !item.completed ? <small>Due {displayDay(item.dueOn)} · overdue</small> : null}{item.pending ? <small>Pending sync</small> : null}</span></label>{aside}<button aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}>{item.conflicted ? 'Review both versions' : <WorkIcon name="more" />}</button></div>;
+  const appointmentRow = item => <div className="work-appointment" key={item.id}><button onClick={() => onStart(item)}><time>{item.startTime || '—'}</time> <span>{meeting(item)}{archivedLabel(item)}</span></button><button aria-label={`Edit appointment ${item.title}`} onClick={() => onEdit(item)}><WorkIcon name="more" /></button></div>;
+  const carriedRow = item => { const note = noteOf(item); return taskRow(item, <span className="work-carried"><time>{displayDay(item.plannedOn || writtenDay(note), { weekday: 'short', day: 'numeric', month: 'short' })}</time>{note ? <button onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : null}<button onClick={() => onAction(item.clientId, { type: 'plan', plannedOn: day })}>Move to {day === today ? 'today' : displayDay(day, { weekday: 'long' })}</button></span>); };
   const weekTitle = `${displayDay(days[0], { month: 'long' })} ${displayDay(days[0], { day: 'numeric' })}–${days[0].slice(0, 7) !== days[6].slice(0, 7) ? displayDay(days[6], { month: 'short' }) + ' ' : ''}${displayDay(days[6], { day: 'numeric' })}, ${days[6].slice(0, 4)}`;
   return <section className={`work-calendar mode-${mode}`} aria-label="Work planner">
     <header className="work-calendar-heading"><h1>{weekTitle}</h1><nav aria-label="Calendar navigation"><button aria-label="Previous week" onClick={() => onDay(shiftDay(day, -7))}><WorkIcon name="previous" /></button><button aria-label="Next week" onClick={() => onDay(shiftDay(day, 7))}><WorkIcon name="next" /></button>{day !== today ? <button aria-label="Show today in calendar" onClick={() => onDay(today)}>Today</button> : null}</nav><div role="group" aria-label="Calendar size" className="work-calendar-modes">{['week', 'compact', 'hide'].map(value => <button key={value} aria-pressed={mode === value} onClick={() => selectMode(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}</div></header>
@@ -63,13 +69,15 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, f
         <div className="work-week-days">{days.map((date, index) => <div className={`work-day ${date === day ? 'is-selected' : ''} ${index > 4 ? 'is-weekend' : ''}`} key={date}>
           <button className="work-day-heading" data-day={date} onKeyDown={event => { const offset = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key]; if (!offset) return; event.preventDefault(); const next = shiftDay(date, offset); onDay(next); window.requestAnimationFrame(() => document.querySelector(`[data-day="${next}"]`)?.focus({ preventScroll: true })); }} aria-label={displayDay(date)} aria-pressed={date === day} onClick={() => onDay(date)}><span>{displayDay(date, { weekday: 'short' })} / {displayDay(date, { day: 'numeric' })}{date.slice(5, 7) !== days[0].slice(5, 7) ? ` ${displayDay(date, { month: 'short' })}` : ''}</span></button>
           {date === day || mode === 'week' ? <small className="work-day-count">{[count(onDate(appointments, date), 'appointment'), count(priorities(date), 'priority', 'priorities')].filter(Boolean).join(' · ')}</small> : null}
-          {mode === 'week' ? <div className="work-day-plan">{onDate(appointments, date).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || '')).map(item => <div className="work-appointment" key={item.id}><button onClick={() => onStart(item)}><time>{item.startTime || '—'}</time><span>{meeting(item)}{archivedLabel(item)}</span></button><button aria-label={`Edit appointment ${item.title}`} onClick={() => onEdit(item)}><WorkIcon name="more" /></button></div>)}{plan(date).map(taskRow)}<button className="work-day-add" aria-label={`Plan work for ${displayDay(date)}`} onClick={() => onNew({ plannedOn: date })}><WorkIcon name="plus" /></button></div> : null}
+          {mode === 'week' && date !== day ? <div className="work-day-plan">{onDate(appointments, date).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || '')).map(appointmentRow)}{plan(date).map(item => taskRow(item))}<button className="work-day-add" aria-label={`Plan work for ${displayDay(date)}`} onClick={() => onNew({ plannedOn: date })}><WorkIcon name="plus" /></button></div> : null}
         </div>)}</div>
-        <div className="work-day-summary">{selectedAppointments.length ? <><span>{day === today ? 'Today' : displayDay(day, { weekday: 'short' })}:</span>{selectedAppointments.map(item => <button className="work-summary-appointment" key={item.id} onClick={() => onStart(item)}>{item.startTime} {meeting(item)}</button>)}<button className="work-mobile-appointments" onClick={() => selectMode('week')}>{count(selectedAppointments, 'appointment')} · View day</button></> : <span>A little room for what matters.</span>}<form className="work-plan-new" onSubmit={event => { event.preventDefault(); const line = event.currentTarget.elements.plan; if (line.value.trim()) onPlan(line.value); else onNew({ plannedOn: day }); line.value = ''; }}><input name="plan" aria-label="Plan something" placeholder="Plan something" title="A follow-up, or a meeting with a time: ‘IC meeting thu 2pm’. Enter on an empty line opens the full form." /></form></div>
-        {mode === 'compact' && plan(day).length ? <div className="work-day-tasks">{plan(day).map(taskRow)}</div> : null}
-        {earlier.length ? <button className="work-carry-review" onClick={() => onCarry(earlier)}>{earlier.length} unfinished from earlier days · Review</button> : null}
-        <details className="work-day-margin" open={marginOpen} onToggle={event => setMarginOpen(event.currentTarget.open)}><summary>Day margin</summary>{margin}</details>
       </div>
+    </div>
+    <div className="work-day-page">
+      <div className="work-day-lines">{selectedAppointments.map(appointmentRow)}{plan(day).map(item => taskRow(item))}<form className="work-plan-new" onSubmit={event => { event.preventDefault(); const line = event.currentTarget.elements.plan; if (line.value.trim()) onPlan(line.value); else onNew({ plannedOn: day }); line.value = ''; }}><input name="plan" aria-label="Plan something" placeholder="Plan something" title="A follow-up, or a meeting with a time: ‘IC meeting thu 2pm’. Enter on an empty line opens the full form." /></form></div>
+      {carried.length ? <section aria-labelledby="work-carried"><h2 id="work-carried">Carried from earlier</h2>{carried.map(carriedRow)}</section> : null}
+      {written.length ? <section aria-labelledby="work-written"><h2 id="work-written">Written {day === today ? 'today' : displayDay(day, { weekday: 'long' })}</h2>{written.map(note => <button className="work-index-note" key={note.clientId} onClick={() => onOpen(note.clientId)}><WorkIcon name="file" /><span>{noteTitle(note)}</span><small>{folderName(note)}</small></button>)}</section> : null}
+      <details className="work-day-margin"><summary>Day margin</summary>{margin}</details>
     </div>
   </section>;
 }
