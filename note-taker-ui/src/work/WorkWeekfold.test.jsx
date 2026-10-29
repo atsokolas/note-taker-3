@@ -32,14 +32,11 @@ const open = async (scope = '') => {
   fireEvent.click(await within(shelf).findByRole('button', { name: /Fieldwell · pilot follow-up/ }));
   return screen.findByRole('textbox', { name: 'Work note writing' });
 };
-test('calendar modes retain the real editor, pending prose and caret; written day and meeting date stay distinct', async () => {
-  const writing = await open(); const editor = writing.editor;
-  act(() => editor.view.dispatch(editor.state.tr.insertText('New '))); const caret = editor.state.selection.from;
-  fireEvent.click(screen.getByRole('button', { name: 'Hide', exact: true }));
-  expect(screen.getByRole('button', { name: 'Hide', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  expect(screen.getByRole('textbox', { name: 'Work note writing' }).editor).toBe(editor); expect(editor.state.selection.from).toBe(caret); expect(writing).toHaveTextContent('New Two sites');
-  fireEvent.click(screen.getByRole('button', { name: 'Week', exact: true })); expect(editor.state.selection.from).toBe(caret);
-  expect(document.querySelector('.work-page-top')).toHaveTextContent('Monday 26 Oct'); expect(screen.getByLabelText('Occurred on')).toHaveValue('2026-10-23');
+const today = () => render(<MemoryRouter initialEntries={['/work?date=2026-10-26']}><WorkNotes /></MemoryRouter>);
+test('an open note has the page to itself, and its written day and meeting date stay distinct', async () => {
+  await open();
+  expect(screen.queryByRole('navigation', { name: 'Calendar navigation' })).toBeNull();
+  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent('Customer discovery/Monday 26 Oct'); expect(screen.getByLabelText('Occurred on')).toHaveValue('2026-10-23');
 });
 test('completing a follow-up produces one dated top record and Undo restores the same item without changing prose', async () => {
   await open(); const section = screen.getByRole('region', { name: 'Follow-ups & open questions' });
@@ -60,6 +57,18 @@ test('new note inherits folder scope; creating an empty folder never moves the o
   fireEvent.change(within(dialog).getByLabelText('Folder name'), { target: { value: 'Supplier conversations' } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Create folder' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull()); expect(await screen.findByRole('heading', { name: 'Supplier conversations' })).toBeInTheDocument(); expect(screen.queryByRole('textbox', { name: 'Work note writing' })).toBeNull(); expect(records.find(x => x.content?.includes('Scoped writing')).folder).toBe('f');
 });
+test('a new folder from the place line is where the open note goes', async () => {
+  await open('&view=folder&folder=f'); fireEvent.click(screen.getByRole('button', { name: 'New note', exact: true }));
+  const writing = screen.getByRole('textbox', { name: 'Work note writing' }); act(() => writing.editor.commands.insertContent('Placed writing'));
+  fireEvent.click(screen.getByRole('button', { name: 'Sync now', exact: true }));
+  await waitFor(() => expect(records.find(x => x.content?.includes('Placed writing'))?.folder).toBe('f'));
+  const place = screen.getByRole('group', { name: 'Where this note lives' }); fireEvent.click(within(place).getAllByRole('button')[0]);
+  fireEvent.click(within(place).getByRole('button', { name: 'a new folder' })); const dialog = await screen.findByRole('dialog', { name: 'New folder' });
+  fireEvent.change(within(dialog).getByLabelText('Folder name'), { target: { value: 'Supplier conversations' } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Create folder' }));
+  expect(await screen.findByText('Filed in Supplier conversations.')).toBeInTheDocument();
+  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^Supplier conversations\//);
+  expect(records.find(x => x.content?.includes('Placed writing')).folder).not.toBe('f');
+});
 test('planning a new note question is explicit and retains its note identity in the day', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up or question' }));
   const dialog = await screen.findByRole('dialog', { name: 'New Work item' }); fireEvent.change(within(dialog).getByLabelText('Item'), { target: { value: 'Which site is ready first?' } });
@@ -70,30 +79,24 @@ test('planning a new note question is explicit and retains its note identity in 
 test('filing linked items reports a partial failure honestly and Undo restores each previous folder', async () => {
   await open(); const put = api.put.getMockImplementation();
   api.put.mockImplementation(async (path, body) => { if (path.endsWith('/task') && body.folder === 'g') throw Error('offline'); return put(path, body); });
-  fireEvent.change(screen.getByLabelText('Notebook'), { target: { value: 'g' } });
+  const place = screen.getByRole('group', { name: 'Where this note lives' });
+  fireEvent.click(within(place).getByRole('button', { name: 'Customer discovery' })); fireEvent.click(within(place).getByRole('button', { name: 'Launch planning' }));
   const dialog = await screen.findByRole('dialog', { name: 'Move note' }); fireEvent.click(within(dialog).getByRole('checkbox'));
   fireEvent.click(within(dialog).getByRole('button', { name: 'Move note', exact: true }));
   await waitFor(() => expect(screen.getByText(/Some filing changes need sync or review/)).toBeInTheDocument());
-  expect(screen.queryByText('Note filed. Dates and writing kept.')).toBeNull(); expect(records.find(x => x._id === 'note').content).toBe(original);
+  expect(screen.queryByText('Filed in Launch planning.')).toBeNull(); expect(records.find(x => x._id === 'note').content).toBe(original);
   fireEvent.click(screen.getByRole('button', { name: 'Undo', exact: true }));
   await waitFor(() => expect(records.find(x => x._id === 'note').folder).toBe('f'));
   expect(records.find(x => x._id === 'task').folder).toBe('f');
 });
-test('date-arrow navigation is confined to the calendar', async () => {
-  await open(); const monday = screen.getByRole('button', { name: 'Monday 26 Oct', exact: true });
+test('arrow keys move between days in the week', async () => {
+  today(); const monday = await screen.findByRole('button', { name: 'Monday 26 Oct', exact: true });
   fireEvent.keyDown(monday, { key: 'ArrowRight' });
   await waitFor(() => expect(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true'));
-  expect(records.find(x => x._id === 'note').content).toBe(original);
-});
-test('returning to a day keeps the selected folder even when another folder was used last', async () => {
-  records.push({ _id: 'elsewhere', revision: 0, folder: 'g', title: 'Another line of work', content: '<p>Other folder</p>', takenOn: '2026-10-26' });
-  localStorage.setItem('noeis:work-view:owner', JSON.stringify({ lastNotes: { '2026-10-26': 'elsewhere' } }));
-  render(<MemoryRouter initialEntries={['/think?context=work&date=2026-10-26&note=note&view=folder&folder=f']}><WorkNotes /></MemoryRouter>); await screen.findByRole('textbox', { name: 'Work note writing' }); fireEvent.click(screen.getByRole('button', { name: 'Monday 26 Oct', exact: true }));
-  expect(screen.getByRole('textbox', { name: 'Note title' })).toHaveValue('Fieldwell · pilot follow-up');
 });
 test.each(['task', 'appointment'])('standalone %s conflicts open both versions rather than a save dead end', async kind => {
   records.push({ _id: 'standalone', revision: 0, title: 'Standalone work', content: '', workItem: { kind, plannedOn: '2026-10-26', startTime: '15:00', endTime: '15:30', history: [] } });
-  await open(); fireEvent.click(screen.getByRole('button', { name: 'Week', exact: true }));
+  today(); fireEvent.click(await screen.findByRole('button', { name: 'Week', exact: true }));
   fireEvent.click(screen.getByRole('button', { name: kind === 'appointment' ? 'Edit appointment Standalone work' : 'Edit Standalone work', exact: true }));
   const form = await screen.findByRole('dialog', { name: kind === 'appointment' ? 'Edit appointment' : 'Edit follow-up' });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'standalone'), revision: 1, title: 'Other device version' } } } });
@@ -104,7 +107,7 @@ test.each(['task', 'appointment'])('standalone %s conflicts open both versions r
 });
 test('concurrent day margins remain discoverable, and a conflicting margin offers both versions', async () => {
   records.push(...['First margin', 'Second margin'].map((content, index) => ({ _id: 'margin-' + index, revision: 0, title: '', content, workItem: { kind: 'jot', plannedOn: '2026-10-26', history: [] } })));
-  await open(); fireEvent.click(screen.getByText('Day margin', { selector: 'summary' }));
+  today(); fireEvent.click(await screen.findByText('Day margin', { selector: 'summary' }));
   const margin = document.querySelector('.work-day-margin');
   expect(within(margin).getByLabelText('Notes for this day')).toHaveValue('First margin');
   fireEvent.click(within(margin).getByRole('button', { name: 'Margin 2', exact: true })); expect(within(margin).getByLabelText('Notes for this day')).toHaveValue('Second margin');
@@ -169,16 +172,18 @@ test('Today lists the day’s follow-ups in Compact, titles the whole week, and 
   expect(await screen.findByRole('heading', { name: 'October 26–Nov 1, 2026' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Monday 26 Oct', exact: true }));
   expect(within(document.querySelector('.work-day-tasks')).getByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Today' }));
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /^Today/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true }));
-  expect(await screen.findByText('Still open')).toBeInTheDocument();
+  expect(await screen.findByText('Carried from earlier')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /Fieldwell · pilot follow-up.*Mon 26 Oct/ })).toBeInTheDocument();
 });
 test('one typed line plans an appointment, and a [] line in a note becomes its follow-up', async () => {
-  const writing = await open();
-  fireEvent.change(screen.getByLabelText('Plan something'), { target: { value: 'IC meeting 2pm' } });
+  today();
+  fireEvent.change(await screen.findByLabelText('Plan something'), { target: { value: 'IC meeting 2pm' } });
   fireEvent.submit(screen.getByLabelText('Plan something').form);
   await waitFor(() => expect(records.find(x => x.title === 'IC meeting')?.workItem).toMatchObject({ kind: 'appointment', plannedOn: '2026-10-26', startTime: '14:00', endTime: '14:30' }));
+  const rail = screen.getByRole('complementary'); fireEvent.click(within(rail).getByRole('button', { name: 'Customer discovery' })); fireEvent.click(within(rail).getByRole('button', { name: /Fieldwell · pilot follow-up/ }));
+  const writing = await screen.findByRole('textbox', { name: 'Work note writing' });
   act(() => { writing.editor.commands.focus('end'); writing.editor.commands.splitBlock(); writing.editor.commands.insertContent('[] Call Mira about training'); });
   fireEvent.keyDown(writing.editor.view.dom, { key: 'Enter' });
   expect(within(screen.getByRole('region', { name: 'Follow-ups & open questions' })).getByText('Call Mira about training')).toBeInTheDocument();

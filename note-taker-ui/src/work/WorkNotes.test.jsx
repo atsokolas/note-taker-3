@@ -19,7 +19,7 @@ jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh }) => <textarea ari
 const deviceWords = () => JSON.stringify(Object.entries(localStorage).filter(([key]) => key.startsWith(draftKey('owner'))));
 const source = { _id: 'a', title: 'Charging windows', content: 'Original account', folder: 'f', revision: 2, occurredOn: '2026-10-26', withText: 'Mira', workingState: { revision: 2, nextTimeLine: { text: '  Check the window.\n', target: null } } };
 const older = { ...source, _id: 'b', title: 'Smaller depot', occurredOn: '2026-10-12', workingState: { revision: 1, nextTimeLine: { text: '' } } };
-const open = async () => { render(<WorkNotes />); await within(screen.getByRole('complementary')).findByRole('button', { name: /Charging windows/ }); fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Charging windows/ })); };
+const open = async () => { render(<WorkNotes />); const rail = screen.getByRole('complementary'); fireEvent.click(await within(rail).findByRole('button', { name: 'Pilot' })); fireEvent.click(within(rail).getByRole('button', { name: /Charging windows/ })); };
 beforeEach(() => {
   forgetWorkSession('owner'); forgetWorkSession('other'); jest.clearAllMocks(); window.history.replaceState({}, '', '/think?context=work&date=2026-10-26'); localStorage.clear(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.x`);
   api.get.mockResolvedValue({ data: { entries: [source, older], items: [], folders: [{ _id: 'f', name: 'Pilot' }] } });
@@ -68,15 +68,20 @@ test('changed source asks for re-review and a new explicit confirmation', async 
   fireEvent.click(screen.getByRole('button', { name: 'Continue →' })); await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
   expect(api.post.mock.calls[1][1].expectedRevision).toBe(3); expect(api.post.mock.calls[1][1].operationId).not.toBe(api.post.mock.calls[0][1].operationId);
 });
-test('filing changes only metadata and leaves occurrence date intact', async () => {
-  await open(); fireEvent.change(screen.getByLabelText('Notebook'), { target: { value: '' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
+test('filing from the place line changes only metadata, and the rail follows the note to its new place', async () => {
+  await open(); const place = screen.getByRole('group', { name: 'Where this note lives' });
+  fireEvent.click(within(place).getByRole('button', { name: 'Pilot' })); fireEvent.click(within(place).getByRole('button', { name: 'Inbox' }));
   await waitFor(() => expect(api.put).toHaveBeenCalled()); expect(api.put.mock.calls[0][1]).toMatchObject({ folder: null, occurredOn: '2026-10-26', content: 'Original account' });
+  expect(await screen.findByText('Filed in the inbox.')).toBeInTheDocument();
+  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^Inbox\/Monday 26 Oct\s*File in Pilot or a new folder/);
+  const rail = screen.getByRole('complementary');
+  expect(within(rail).getByRole('button', { name: /Charging windows/ })).toHaveAttribute('aria-current', 'page');
+  expect(within(rail).getByLabelText('1 unfiled')).toBeInTheDocument();
 });
 test('storage failure keeps page open with copy and recovery choices', async () => {
   await open(); const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Unsaved' } });
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Today' }));
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /^Today/ }));
   expect(screen.getByRole('dialog', { name: 'Keep your writing' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Download recovery' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Stay' })); set.mockRestore();
@@ -251,7 +256,7 @@ test('leaving under storage failure offers a copy before anything is discarded',
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: jest.fn().mockResolvedValue() } });
   try {
     fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: 'Only memory words' } });
-    fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Today' }));
+    fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /^Today/ }));
     const dialog = screen.getByRole('dialog', { name: 'Keep your writing' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Copy writing' })); await screen.findByText('Writing copied.');
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Only memory words'));

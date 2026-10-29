@@ -31,7 +31,7 @@ export default function WorkFollowups({ note, tomorrow, session, onAdd, onEdit, 
       return <React.Fragment key={item.id}>{date !== previous ? <h3><WorkIcon name="down" />Completed · {displayDay(date, { day: 'numeric', month: 'short', year: 'numeric' })}</h3> : null}{completedRecord(item)}</React.Fragment>;
     })}{completed.length > 2 ? <button onClick={() => setShowAll(value => !value)}>{showAll ? 'Show recent' : `Show all ${completed.length}`}</button> : null}</section> : null}
     {children}
-    <section className="work-followups" aria-label="Follow-ups & open questions" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setReceipts({}); }}>
+    {active.length ? <section className="work-followups" aria-label="Follow-ups & open questions" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setReceipts({}); }}>
       <h2>Follow-ups &amp; open questions <small>{items.filter(item => !item.completed).length ? `${items.filter(item => !item.completed).length} open` : 'Nothing outstanding'}</small></h2>
       {active.map(item => item.completed ? <div className="work-item-receipt" key={item.id}>Completed above <button onClick={() => onAction(item.clientId, { type: 'undo', undoOf: receipts[item.id] })}>Undo</button></div> : <div className={`work-followup-row ${item.pending ? 'is-pending' : ''}`} key={item.id}>
         <label><input type="checkbox" checked={false} disabled={Boolean(session.conflict(item.clientId))} onChange={() => change(item, 'complete')} /><span>{item.title}{item.kind === 'question' ? <small className="work-question-kind">Question</small> : null}</span></label>
@@ -40,6 +40,6 @@ export default function WorkFollowups({ note, tomorrow, session, onAdd, onEdit, 
         {item.pending || session.pending().some(([id]) => id === item.clientId) ? <small className="work-item-save">{session.status(item.clientId)}</small> : null}
       </div>)}
       <button className="work-add-followup" onClick={onAdd}><WorkIcon name="plus" />Add a follow-up or question</button>
-    </section>
+    </section> : <button className="work-add-followup is-quiet" onClick={onAdd}>Add a follow-up</button>}
   </>;
 }
