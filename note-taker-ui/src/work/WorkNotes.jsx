@@ -6,7 +6,6 @@ import WorkFollowups from './WorkFollowups';
 import WorkShelf from './WorkShelf';
 import WorkIndex from './WorkIndex';
 import WorkItemForm from './WorkItemForm';
-import WorkIcon from './WorkIcon';
 import WorkMargin from './WorkMargin';
 import { KIND_LABEL, dayInZone, deviceTimeZone, displayDay, projectItem, readPlan, shiftDay, validDay, writtenDay } from './workPlannerModel';
 import Login from '../components/Login';
@@ -79,12 +78,17 @@ export default function WorkNotes() {
   const [locked, setLocked] = useState(false);
   const [reauthenticate, setReauthenticate] = useState(false);
   const [quick, setQuick] = useState(false);
+  const [filing, setFiling] = useState('');
   const departure = useRef(null), initialized = useRef(false);
   const notes = session.entries(), note = session.entry(selected), conflict = session.conflict(selected);
   const folders = session.folders();
   const items = session.items().map(item => ({ ...projectItem(item), conflicted: Boolean(session.conflict(item.clientId)) }));
   const currentFolder = folders.find(item => item._id === folder);
   const folderScope = view === 'folder' ? folder : view === 'inbox' ? '' : null;
+  const writing = note && !quick ? note : null;
+  const home = writing && folders.find(item => item._id === (writing.folder?._id || writing.folder));
+  const elsewhere = [...folders.filter(item => !item.archivedAt && item !== home), ...(home ? [{ _id: '', name: 'Inbox' }] : [])];
+  const isWriting = entry => Boolean(writing) && (entry.clientId === selected || Boolean(writing._id && entry._id === writing._id));
   const scopedItems = items.filter(item => folderScope === null || (item.folder?._id || item.folder || '') === folderScope);
   const jots = scopedItems.filter(item => item.kind === 'jot' && item.plannedOn === day && (item.folder?._id || item.folder || '') === (folderScope || '')).sort((a, b) => String(a.capturedAt || a.createdAt || a.id).localeCompare(String(b.capturedAt || b.createdAt || b.id)));
   const jot = jots.find(item => item.clientId === jotChoice) || jots[0];
@@ -114,7 +118,6 @@ export default function WorkNotes() {
     if (!session.canLeave()) { departure.current = () => open(id); setSheet('recovery'); return; }
     session.flush(selected); setSelected(id); setMobileShelf(false); setFresh(''); setNotice('');
     const entry = session.entry(id); url({ note: entry?._id || '' }, false);
-    if (entry?._id) setPreferences(current => ({ ...current, lastNotes: { ...current.lastNotes, [day]: entry._id } }));
   };
   const capture = () => {
     if (currentFolder?.archivedAt && view === 'folder') { setNotice('Restore this folder before adding new writing.'); return; }
@@ -204,7 +207,8 @@ export default function WorkNotes() {
     catch (_) { setNotice('Copy was unavailable. Download your recovery file or select your writing.'); }
   };
   const scope = (nextView, nextFolder = 'all') => leave(() => { setView(nextView); setFolder(nextFolder); if (nextView === 'today') setDay(today); setSelected(''); setFresh(''); setMobileShelf(false); url({ view: nextView, folder: nextFolder, note: '', ...(nextView === 'today' ? { date: today } : {}) }, false); });
-  const selectDay = next => leave(() => { const remembered = preferences.lastNotes?.[next]; const inFolder = item => folderScope === null || (item.folder?._id || item.folder || '') === folderScope; const target = notes.find(item => item._id === remembered && inFolder(item)) || notes.find(item => writtenDay(item) === next && inFolder(item)); setDay(next); setSelected(target?.clientId || ''); setFresh(''); url({ date: next, note: target?._id || '' }, false); });
+  // A day is a view of its own: choosing one shows the day, never a note from it.
+  const selectDay = next => leave(() => { setDay(next); setSelected(''); setFresh(''); url({ date: next, note: '' }, false); });
   const openFolder = item => { setFolderEditing(item); setNewFolder(item.name); folderOperation.current = operationId(); setNotice(''); setSheet('manage-folder'); };
   const newFolderDialog = () => { setFolderEditing(null); setNewFolder(''); folderOperation.current = operationId(); setNotice(''); setSheet('folder'); };
   const newItem = (defaults = {}) => { if (currentFolder?.archivedAt && view === 'folder') { setNotice('Restore this folder before adding planned work.'); return; } setItemDraft({ defaults: { folder: folderScope || '', ...defaults }, intent: operationId() }); setNotice(''); setSheet('item'); };
@@ -255,7 +259,7 @@ export default function WorkNotes() {
     setReceipt({ text: 'Filing changes on this device · sync pending' });
     const accepted = await Promise.all(records.map(item => session.flush(item.clientId)));
     if (!session.isCurrent()) return;
-    setReceipt({ text: accepted.every(Boolean) ? (restoring ? 'Previous folders restored.' : 'Note filed. Dates and writing kept.') : 'Some filing changes need sync or review. Each item keeps its own saved version.',
+    setReceipt({ text: accepted.every(Boolean) ? (restoring ? 'Previous folders restored.' : `Filed in ${folders.find(item => item._id === target)?.name || 'the inbox'}.`) : 'Some filing changes need sync or review. Each item keeps its own saved version.',
       ...(restoring ? {} : { undo: () => fileRecords(previous, null, true) }) });
   };
   const fileNote = target => {
@@ -305,23 +309,23 @@ export default function WorkNotes() {
   return <div className="work-notes">
     <div inert={sheet || quick ? true : undefined}>
       <div className={`work-layout ${mobileShelf ? 'is-shelf-open' : ''}`}>
-        <WorkShelf onClose={() => setMobileShelf(false)} notes={notes} folders={folders} selected={selected} day={day} view={view} folder={folder} query={query} onQuery={setQuery} onScope={scope} onOpen={open} onCapture={capture} onNewFolder={newFolderDialog} onFolderMenu={openFolder} timeZone={timeZone} onTimeZone={() => { setZoneInput(timeZone); setSheet('timezone'); }} loading={session.loading()} error={session.error()} onRetry={() => session.load()} />
+        <WorkShelf onClose={() => setMobileShelf(false)} notes={notes} folders={folders} place={writing ? home?._id || '' : folderScope} current={isWriting} day={day} view={view} query={query} onQuery={setQuery} onScope={scope} onOpen={open} onCapture={capture} onNewFolder={newFolderDialog} onFolderMenu={openFolder} timeZone={timeZone} onTimeZone={() => { setZoneInput(timeZone); setSheet('timezone'); }} loading={session.loading()} error={session.error()} onRetry={() => session.load()} />
         <main className="work-page">
           {!sheet && !quick ? signIn : null}
           <div className="work-mobile-nav"><button onClick={() => setMobileShelf(true)}>Notes &amp; folders</button><button aria-label="New Work note" onClick={capture}>New note</button></div>
           {openedDay.current !== today && day === openedDay.current ? <p className="work-new-day">A new day is here. This note keeps its original written day. <button onClick={() => selectDay(today)}>Open today</button></p> : null}
-          <WorkCalendar day={day} today={today} mode={calendarMode} onMode={setCalendarMode} onDay={selectDay} items={scopedItems} folders={folders} onEdit={editItem} onAction={action} onStart={startMeeting} onNew={newItem} onPlan={text => plan({ text, plannedOn: day })} onCarry={value => { setCarry(value); setSheet('carry'); }} margin={<WorkMargin disabled={Boolean(currentFolder?.archivedAt && !jot)} jots={jots} jot={jot} session={session} onChoose={setJotChoice} onChange={writeJot} onReview={editItem} />} scopeLabel={view === 'folder' ? currentFolder?.name : view === 'inbox' ? 'Work inbox' : null} />
-          {note && !quick ? <article className="work-note-paper">
-            <div className="work-page-top"><p><button onClick={() => scope(note.folder ? 'folder' : 'inbox', note.folder?._id || note.folder || '')}>{folders.find(item => item._id === (note.folder?._id || note.folder))?.name || 'Work inbox'}</button><span>/</span><span>{displayDay(writtenDay(note))}</span></p><label className="work-move-control">Move folder<WorkIcon name="down" /><select aria-label="Notebook" value={note.folder?._id || note.folder || ''} onChange={event => fileNote(event.target.value)}><option value="">Work inbox</option>{folders.filter(item => !item.archivedAt || item._id === (note.folder?._id || note.folder)).map(item => <option key={item._id} value={item._id}>{item.name}{item.archivedAt ? ' · archived' : ''}</option>)}</select></label><span role="status">{noteStatus}</span>{noteStatus === 'Saved' ? null : <button className="work-sync" onClick={syncNote}>Sync now</button>}</div>
-            <div className="work-note-title"><WorkIcon name="bookmark" /><textarea className="work-title" aria-label="Note title" placeholder="Untitled note" value={note.title || ''} rows={1} onChange={event => update({ title: event.target.value })} /></div>
+          {view === 'today' && !writing ? <WorkCalendar day={day} today={today} mode={calendarMode} onMode={setCalendarMode} onDay={selectDay} items={scopedItems} folders={folders} onEdit={editItem} onAction={action} onStart={startMeeting} onNew={newItem} onPlan={text => plan({ text, plannedOn: day })} onCarry={value => { setCarry(value); setSheet('carry'); }} margin={<WorkMargin disabled={Boolean(currentFolder?.archivedAt && !jot)} jots={jots} jot={jot} session={session} onChoose={setJotChoice} onChange={writeJot} onReview={editItem} />} /> : null}
+          {writing ? <article className="work-note-paper">
+            <div className="work-page-top"><p className="work-place-line" role="group" aria-label="Where this note lives"><button aria-expanded={!home || filing === selected} onClick={() => home ? setFiling(value => value === selected ? '' : selected) : scope('inbox', '')}>{home?.name || 'Inbox'}</button><span>/</span><span>{displayDay(writtenDay(note))}</span>{!home || filing === selected ? <span className="work-file-in">{home ? 'Move to' : 'File in'} {elsewhere.map((item, index) => <React.Fragment key={item._id || 'inbox'}><button onClick={() => { setFiling(''); fileNote(item._id); }}>{item.name}</button>{index < elsewhere.length - 1 ? ', ' : ' '}</React.Fragment>)}or <button onClick={newFolderDialog}>a new folder</button></span> : null}</p><span role="status" className={noteStatus === 'Saved' ? 'work-sr-only' : undefined}>{noteStatus}</span>{noteStatus === 'Saved' ? null : <button className="work-sync" onClick={syncNote}>Sync now</button>}</div>
+            <div className="work-note-title"><textarea className="work-title" aria-label="Note title" placeholder={noteTitle(note)} value={note.title || ''} rows={1} onChange={event => update({ title: event.target.value })} /></div>
             <div className="work-metadata"><label><span className="work-sr-only">With</span><input aria-label="With" size={Math.max(10, (note.withText || '').length + 1)} placeholder="Add people, if useful" value={note.withText || ''} onChange={event => update({ withText: event.target.value })} /></label>{meetingTime ? <span className="work-note-time">{meetingTime.startTime}–{meetingTime.endTime}</span> : null}<details><summary>Details</summary><label>Meeting date<input aria-label="Occurred on" type="date" value={note.occurredOn || ''} onChange={event => update({ occurredOn: event.target.value })} /></label><p>Written {displayDay(writtenDay(note))}. Changing the meeting date or folder keeps this written day.</p></details></div>
             {note.continuesFromEntryId ? <div className="work-bridge">{note.continuationBridge ? <><span>Last time’s line</span><blockquote>{note.continuationBridge.text}</blockquote></> : null}{stillOpen.length ? <section className="work-still-open" aria-label="Still open from last time"><span>Still open from last time</span>{stillOpen.map(item => <label key={item.id}><input type="checkbox" checked={false} onChange={() => action(item.clientId, { type: 'complete' })} />{item.title}</label>)}</section> : null}{predecessor ? <button onClick={() => open(predecessor.clientId)}>Continued from {noteTitle(note.continuationBridge || predecessor)} · {noteDate(note.continuationBridge || predecessor)}</button> : <span>Continued from an unavailable note</span>}</div> : null}
             {conflict ? <section className="work-conflict" role="alert"><h2>This note changed elsewhere</h2><p>Both versions are kept. Your version remains in the editor.</p><details><summary>Review the server version</summary><h3>{noteTitle(conflict)}</h3><p className="work-server-prose">{noteWords(conflict)}</p><blockquote>{conflict.workingState?.nextTimeLine?.text}</blockquote></details><button onClick={() => { session.useServer(selected); setFresh(''); }}>Use server version</button><button onClick={() => { const id = session.saveAsNew(selected); setSelected(id); setFresh(id); }}>Save local as a new note</button></section> : null}
             <WorkFollowups key={selected} note={{ ...note, clientId: selected }} tomorrow={shiftDay(today, 1)} session={session} onAdd={() => newItem({ noteId: note._id || selected })} onEdit={editItem} onAction={action} onConflict={item => { setItemDraft({ item }); setSheet('item-conflict'); }}><WorkNoteEditor key={`${selected}:${conflict ? 'conflict' : ''}`} note={note} fresh={fresh === selected} onChange={update} onFollowUp={({ kind, text }) => plan({ text, kind, noteId: note._id || selected, folder: note.folder?._id || note.folder || null })} /></WorkFollowups>
-            <label className="work-return">Leave a line for next time<textarea rows={1} aria-label="Return line" value={note.workingState?.nextTimeLine?.text || ''} placeholder="Where would you like to pick up?" onChange={event => update({ workingState: { ...note.workingState, nextTimeLine: { text: event.target.value, target: null } } })} /></label>
-            <button className="work-continue" aria-label={`Continue this note: ${noteTitle(note)}`} disabled={busy || !note._id} onClick={() => prepareContinue(selected)}>Continue this note <WorkIcon name="right" /></button>
+            <div className="work-foot"><label className="work-return"><span className="work-sr-only">Leave a line for next time</span><textarea rows={1} aria-label="Return line" value={note.workingState?.nextTimeLine?.text || ''} placeholder="A line for next time" onChange={event => update({ workingState: { ...note.workingState, nextTimeLine: { text: event.target.value, target: null } } })} /></label>
+            <button className="work-continue" aria-label={`Continue this note: ${noteTitle(note)}`} disabled={busy || !note._id} onClick={() => prepareContinue(selected)}>Continue this note</button></div>
             {onward.length ? <nav className="work-onward" aria-label="Continued in">{onward.map(item => <button key={item.clientId} onClick={() => open(item.clientId)}>Continued in {noteTitle(item)} · {noteDate(item)}</button>)}</nav> : null}
-          </article> : <WorkIndex view={view} folder={currentFolder} folders={folders} notes={notes} items={session.items()} day={day} query={query} onOpen={open} onCapture={capture} onItem={item => editItem(item)} onNew={newItem} onFolderMenu={openFolder} />}
+          </article> : <WorkIndex view={view} folder={currentFolder} folders={folders} notes={notes} items={session.items()} day={day} query={query} onOpen={open} onItem={item => editItem(item)} onNew={newItem} onFolderMenu={openFolder} />}
           {notice && !sheet ? <p role="alert">{notice}</p> : null}
         </main>
       </div>

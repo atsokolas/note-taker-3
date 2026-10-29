@@ -8,11 +8,10 @@ import more from '../assets/work-icons/more-horizontal.svg';
 import down from '../assets/work-icons/chevron-down.svg';
 import right from '../assets/work-icons/chevron-right.svg';
 import plus from '../assets/work-icons/plus.svg';
-import bookmark from '../assets/work-icons/bookmark.svg';
 import check from '../assets/work-icons/check.svg';
 import previous from '../assets/work-icons/arrow-left.svg';
 import next from '../assets/work-icons/arrow-right.svg';
-const assets = { calendar, file, inbox, folder, lock, more, down, right, plus, bookmark, check, previous, next };
+const assets = { calendar, file, inbox, folder, lock, more, down, right, plus, check, previous, next };
 export default function WorkIcon({ name, className = '' }) {
   return <span aria-hidden="true" className={`work-icon ${className}`} style={{ maskImage: `url(${assets[name]})`, WebkitMaskImage: `url(${assets[name]})` }} />;
 }
