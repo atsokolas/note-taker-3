@@ -7,7 +7,8 @@ import { displayDay, writtenDay } from './workPlannerModel';
 export default function WorkShelf({ notes, folders, place, current, day, view, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose }) {
   const folderId = note => note.folder?._id || note.folder || '';
   const matches = note => !query || `${noteTitle(note)} ${note.content || ''}`.toLowerCase().includes(query.toLowerCase());
-  const newest = list => list.sort((a, b) => writtenDay(b).localeCompare(writtenDay(a)));
+  const written = note => `${writtenDay(note)} ${note.capturedAt || note.createdAt || ''}`;
+  const newest = list => list.sort((a, b) => written(b).localeCompare(written(a)));
   const leaf = note => <button className="work-shelf-note" key={note.clientId} aria-current={current(note) ? 'page' : undefined} onClick={() => onOpen(note.clientId)}><span>{noteTitle(note)}</span><time>{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}</time></button>;
   const inbox = newest(notes.filter(note => !folderId(note)));
   const placeRow = (id, name, contents, onName, menu) => <div className="work-place" key={id || 'inbox'}>

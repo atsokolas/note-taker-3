@@ -57,6 +57,18 @@ test('new note inherits folder scope; creating an empty folder never moves the o
   fireEvent.change(within(dialog).getByLabelText('Folder name'), { target: { value: 'Supplier conversations' } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Create folder' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull()); expect(await screen.findByRole('heading', { name: 'Supplier conversations' })).toBeInTheDocument(); expect(screen.queryByRole('textbox', { name: 'Work note writing' })).toBeNull(); expect(records.find(x => x.content?.includes('Scoped writing')).folder).toBe('f');
 });
+test('a new folder from the place line is where the open note goes', async () => {
+  await open('&view=folder&folder=f'); fireEvent.click(screen.getByRole('button', { name: 'New note', exact: true }));
+  const writing = screen.getByRole('textbox', { name: 'Work note writing' }); act(() => writing.editor.commands.insertContent('Placed writing'));
+  fireEvent.click(screen.getByRole('button', { name: 'Sync now', exact: true }));
+  await waitFor(() => expect(records.find(x => x.content?.includes('Placed writing'))?.folder).toBe('f'));
+  const place = screen.getByRole('group', { name: 'Where this note lives' }); fireEvent.click(within(place).getAllByRole('button')[0]);
+  fireEvent.click(within(place).getByRole('button', { name: 'a new folder' })); const dialog = await screen.findByRole('dialog', { name: 'New folder' });
+  fireEvent.change(within(dialog).getByLabelText('Folder name'), { target: { value: 'Supplier conversations' } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Create folder' }));
+  expect(await screen.findByText('Filed in Supplier conversations.')).toBeInTheDocument();
+  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^Supplier conversations\//);
+  expect(records.find(x => x.content?.includes('Placed writing')).folder).not.toBe('f');
+});
 test('planning a new note question is explicit and retains its note identity in the day', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up or question' }));
   const dialog = await screen.findByRole('dialog', { name: 'New Work item' }); fireEvent.change(within(dialog).getByLabelText('Item'), { target: { value: 'Which site is ready first?' } });
