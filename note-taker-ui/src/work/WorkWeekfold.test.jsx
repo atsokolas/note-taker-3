@@ -167,15 +167,20 @@ test('authentication recovery remains available if the matching server arrives a
   expect(screen.getByRole('button', { name: 'Retry Work', exact: true })).toBeDisabled();
   fireEvent.click(signIn); expect(await screen.findByRole('textbox', { name: /username/i })).toBeVisible();
 });
-test('Today lists the day’s follow-ups in Compact, titles the whole week, and keeps an earlier meeting with open work', async () => {
-  render(<MemoryRouter initialEntries={['/work?date=2026-10-27']}><WorkNotes /></MemoryRouter>);
+test('a day reads as one page: its follow-ups, what it was written, and earlier open work that can move to it', async () => {
+  render(<MemoryRouter initialEntries={['/work?date=2026-10-26']}><WorkNotes /></MemoryRouter>);
   expect(await screen.findByRole('heading', { name: 'October 26–Nov 1, 2026' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Monday 26 Oct', exact: true }));
-  expect(within(document.querySelector('.work-day-tasks')).getByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /^Today/ }));
+  const page = () => document.querySelector('.work-day-page');
+  expect(await within(page()).findByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'Written Monday' })).getByRole('button', { name: /Fieldwell · pilot follow-up.*Customer discovery/ })).toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true }));
-  expect(await screen.findByText('Carried from earlier')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /Fieldwell · pilot follow-up.*Mon 26 Oct/ })).toBeInTheDocument();
+  const carried = await screen.findByRole('region', { name: 'Carried from earlier' });
+  expect(within(carried).getByRole('button', { name: 'Fieldwell · pilot follow-up' })).toBeInTheDocument();
+  fireEvent.click(within(carried).getByRole('button', { name: 'Move to Tuesday' }));
+  await waitFor(() => expect(records.find(x => x._id === 'task').workItem.history.at(-1)).toMatchObject({ type: 'plan', plannedOn: '2026-10-27' }));
+  expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
+  expect(await within(page()).findByRole('checkbox', { name: 'Confirm service-training dates From Mon 26' })).toBeInTheDocument();
 });
 test('one typed line plans an appointment, and a [] line in a note becomes its follow-up', async () => {
   today();
