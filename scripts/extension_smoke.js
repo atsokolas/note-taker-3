@@ -41,7 +41,7 @@ const NOEIS = `<!doctype html><html data-ui-theme="${THEME}"><head><link rel="st
 const THEME_CSS = fs.readFileSync(path.join(__dirname, '..', 'note-taker-ui/src/styles/semantic-theme.css'), 'utf8');
 
 const calls = [];
-const state = { saved: null, pushback: false };
+const state = { saved: null, pushback: false, goes: '' };
 const answer = ({ method, url, body }) => {
   const { pathname, searchParams } = new URL(url);
   calls.push(`${method} ${pathname}`);
@@ -50,6 +50,7 @@ const answer = ({ method, url, body }) => {
   if (pathname === '/save-article') {
     assert.ok(body.content.includes('Reading compounds'), 'the article body is read off the page');
     assert.strictEqual(body.author, 'Jane Writer');
+    assert.strictEqual(body.placement, state.goes, 'the piece goes where the card said');
     return { _id: 'a1', title: body.title };
   }
   if (pathname === '/articles/a1/highlights') {
@@ -173,10 +174,12 @@ const shot = async (page, name) => {
     await card.waitForSelector('#folder option[value="f1"]', { state: 'attached' });
     assert.strictEqual(await card.textContent('#pageTitle'), 'Why reading compounds');
     assert.strictEqual(await card.textContent('#who'), 'Signed in as reader');
+    assert.strictEqual(await card.textContent('.route'), 'Goes on your nightstand.');
     await shot(card, 'popup-save');
     await card.selectOption('#folder', 'f1');
+    state.goes = 'later';
     await card.click('#save');
-    await card.waitForSelector('#receipt:has-text("Saved to Investing")');
+    await card.waitForSelector('#receipt:has-text("On your nightstand, in Investing")');
     await shot(card, 'popup-saved');
     await card.close();
 
@@ -236,8 +239,13 @@ const shot = async (page, name) => {
     await reader.reload();
     card = await popup();
     await card.waitForSelector('#folder option[value="f1"]', { state: 'attached' });
+    /* Holding Shift says, and saves to, the other place. */
+    await card.keyboard.down('Shift');
+    assert.strictEqual(await card.textContent('.route'), 'Goes in your Library, already read.');
+    state.goes = 'stream';
     await card.click('#save');
-    await card.waitForSelector('#receipt:has-text("Saved to your Library")');
+    await card.keyboard.up('Shift');
+    await card.waitForSelector('#receipt:has-text("In your Library")');
     await card.close();
     await reader.waitForFunction(() => document.querySelector('noeis-margin'));
     await reader.waitForTimeout(3600);
