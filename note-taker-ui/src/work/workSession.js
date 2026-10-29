@@ -9,6 +9,8 @@ export const workAccount = token => {
   catch (_) { return ''; }
 };
 export const localDay = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+// One phrase search for every Work list: a note's title and its words.
+export const matchesQuery = (note, query) => !query || `${noteTitle(note)} ${note.content || ''}`.toLowerCase().includes(query.toLowerCase());
 export const noteTitle = note => note?.title?.trim() || noteWords(note).split('\n').find(line => line.trim())?.trim().slice(0, 80) || 'Untitled note';
 export const noteDate = note => displayDay(note?.occurredOn);
 export const noteWords = note => note?.blocks?.length ? note.blocks.map(block => block.text || '').join('\n') : plainTextFrom(note?.content);

@@ -1,19 +1,18 @@
 import React from 'react';
 import WorkIcon from './WorkIcon';
-import { noteTitle } from './workSession';
+import { matchesQuery, noteTitle } from './workSession';
 import { displayDay, writtenDay } from './workPlannerModel';
 
 // The rail is a contents page: Today, then every place a note can live. Only the place you are in opens.
 export default function WorkShelf({ notes, folders, place, current, day, view, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose }) {
   const folderId = note => note.folder?._id || note.folder || '';
-  const matches = note => !query || `${noteTitle(note)} ${note.content || ''}`.toLowerCase().includes(query.toLowerCase());
   const written = note => `${writtenDay(note)} ${note.capturedAt || note.createdAt || ''}`;
   const newest = list => list.sort((a, b) => written(b).localeCompare(written(a)));
   const leaf = note => <button className="work-shelf-note" key={note.clientId} aria-current={current(note) ? 'page' : undefined} onClick={() => onOpen(note.clientId)}><span>{noteTitle(note)}</span><time>{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}</time></button>;
   const inbox = newest(notes.filter(note => !folderId(note)));
   const placeRow = (id, name, contents, onName, menu) => <div className="work-place" key={id || 'inbox'}>
     <div className="work-place-row" aria-current={place === id && !notes.some(current) ? 'page' : undefined}><button onClick={onName}>{name}</button>{id ? null : contents.length ? <small aria-label={`${contents.length} unfiled`}>{contents.length}</small> : null}{menu}</div>
-    {place === id || query ? <div className="work-place-notes">{(query ? contents : contents.slice(0, 4)).filter(matches).map(leaf)}</div> : null}
+    {place === id || query ? <div className="work-place-notes">{(query ? contents : contents.slice(0, 4)).filter(note => matchesQuery(note, query)).map(leaf)}</div> : null}
   </div>;
   const archived = folders.filter(item => item.archivedAt);
   return <aside className="work-shelf" aria-label="Work notes"><button className="work-mobile-close" onClick={onClose}>Back to writing</button>

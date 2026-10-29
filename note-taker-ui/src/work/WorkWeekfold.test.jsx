@@ -173,6 +173,8 @@ test('a day reads as one page: its follow-ups, what it was written, and earlier 
   const page = () => document.querySelector('.work-day-page');
   expect(await within(page()).findByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
   expect(within(screen.getByRole('region', { name: 'Written Monday' })).getByRole('button', { name: /Fieldwell · pilot follow-up.*Customer discovery/ })).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'depot' } }); expect(screen.queryByRole('region', { name: 'Written Monday' })).toBeNull();
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
   expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true }));
   const carried = await screen.findByRole('region', { name: 'Carried from earlier' });
