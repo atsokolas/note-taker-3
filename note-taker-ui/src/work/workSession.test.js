@@ -239,3 +239,86 @@ test('original account returning refreshes captured credentials without losing a
   expect(api.put.mock.calls[0][2].headers.Authorization).toBe(`Bearer ${renewed}`);
   expect(session.entry('a').content).toBe('Memory-only writing');
 });
+
+test('Open drafts stay outside the sync queue and are scoped to account and note across reload', async () => {
+  await session.load(); session.open.change('a', { title: 'Ask about tomorrow 2pm', kind: 'question' });
+  expect(session.pending()).toEqual([]); expect(session.items()).toEqual([]);
+  session.dispose(); session = createWorkSession({ token: token('owner'), api }); await session.load();
+  expect(session.open.draft('a')).toMatchObject({ title: 'Ask about tomorrow 2pm', kind: 'question' });
+  expect(session.open.draft('b').title).toBe('');
+  const other = createWorkSession({ token: token('other'), api });
+  expect(other.open.draft('a').title).toBe(''); other.dispose();
+});
+test.each(['task', 'question'])('Open %s handoff keeps literal title, actual folder and defaults; double submit is one item', async kind => {
+  await session.load(); const before = JSON.parse(JSON.stringify(session.entry('a')));
+  api.post.mockRejectedValue(new Error('offline'));
+  session.open.change('a', { title: 'Ask about tomorrow 2pm', kind });
+  const id = session.open.submit('a', 'UTC');
+  expect(id).toBeTruthy(); expect(session.open.submit('a', 'UTC')).toBeNull();
+  expect(session.entry(id)).toMatchObject({ title: 'Ask about tomorrow 2pm', folder: 'f', workItem: { kind, noteId: 'a', plannedOn: null, dueOn: null, priority: 0, startTime: '', endTime: '' } });
+  expect(session.entry('a')).toEqual(before); expect(session.items()).toHaveLength(1);
+  await session.flush(id); const first = api.post.mock.calls[0][1];
+  session.dispose(); session = createWorkSession({ token: token('owner'), api }); await session.load();
+  await session.flush(id); expect(api.post.mock.calls.at(-1)[1]).toEqual(first);
+  expect(session.open.draft('a').title).toBe(''); expect(session.items()).toHaveLength(1);
+});
+test('Open draft follows a local parent through acknowledgment and flush preserves parent linkage', async () => {
+  const parent = session.capture({ folder: 'f' }); session.edit(parent, { content: 'Local parent' });
+  session.open.change(parent, { title: 'Unsubmitted question', kind: 'question' });
+  api.post.mockImplementation(async (_, value) => ({ data: { ...value, _id: value.workItem ? 'child' : 'parent', revision: 0 } }));
+  api.put.mockImplementation(async (_, value) => ({ data: { ...session.entry(parent), ...value, revision: value.expectedRevision + 1 } }));
+  await session.flush(parent);
+  expect(session.open.draft('parent').title).toBe('Unsubmitted question');
+  const child = session.open.submit(parent, 'UTC'); await session.flush(child);
+  expect(session.entry(child).workItem.noteId).toBe('parent');
+  session.dispose(); session = createWorkSession({ token: token('owner'), api });
+  api.get.mockResolvedValue({ data: { entries: [note({ _id: 'parent', operationId: api.post.mock.calls[0][1].operationId })], items: [], folders: [] } }); await session.load();
+  expect(session.open.draft('parent').title).toBe('');
+});
+test('Open item waits for its unsynced parent, then retries both without replacing either identity', async () => {
+  const parent = session.capture({ folder: null }); session.edit(parent, { content: 'Local parent' });
+  session.open.change(parent, { title: 'Keep linked' }); api.post.mockRejectedValue(new Error('offline'));
+  const child = session.open.submit(parent, 'UTC'); await session.flush(child);
+  expect(api.post.mock.calls.every(([, value]) => !value.workItem)).toBe(true);
+  expect(session.entry(child).workItem.noteId).toBe(parent);
+  session.dispose(); session = createWorkSession({ token: token('owner'), api });
+  api.post.mockImplementation(async (_, value) => ({ data: { ...value, _id: value.workItem ? 'child' : 'parent', revision: 0 } }));
+  await session.flush(child); expect(session.entry(child).workItem.noteId).toBe('parent');
+  expect(session.entries().filter(item => item._id === 'parent')).toHaveLength(1); expect(session.items()).toHaveLength(1);
+});
+test('Open storage failure keeps title in memory, blocks departure and makes no request until durable', async () => {
+  await session.load(); const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  session.open.change('a', { title: 'Keep this title' });
+  expect(session.canLeave()).toBe(false); expect(session.open.submit('a', 'UTC')).toBeNull();
+  expect(session.open.draft('a').title).toBe('Keep this title'); expect(session.open.status('a')).toMatch(/not saved/i);
+  expect(api.post).not.toHaveBeenCalled(); set.mockRestore();
+  const id = session.open.submit('a', 'UTC'); expect(id).toBeTruthy(); expect(session.canLeave()).toBe(true);
+  expect(session.open.draft('a').title).toBe('');
+});
+test('interrupted Open handoff reuses its durable identity after reload, including a failed draft clear', async () => {
+  await session.load(); session.open.change('a', { title: 'Once only' });
+  const remove = jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('quota'); });
+  const id = session.open.submit('a', 'UTC'); expect(id).toBeNull(); expect(session.items()).toHaveLength(1);
+  const intent = session.pending()[0][1].operationId;
+  session.dispose(); session = createWorkSession({ token: token('owner'), api }); await session.load(); remove.mockRestore();
+  const recovered = session.open.submit('a', 'UTC'); expect(recovered).toBeTruthy();
+  expect(session.pending()[0][1].operationId).toBe(intent); expect(session.items()).toHaveLength(1);
+});
+test('cancel only discards an unsubmitted Open draft and account switch cannot submit it', async () => {
+  await session.load(); session.open.change('a', { title: 'Cancel me' }); session.open.cancel('a');
+  expect(session.open.draft('a').title).toBe(''); expect(session.items()).toEqual([]);
+  session.open.change('a', { title: 'Private' }); localStorage.setItem('token', token('other'));
+  expect(session.open.submit('a', 'UTC')).toBeNull(); expect(api.post).not.toHaveBeenCalled();
+});
+
+test('a submitted Open link survives reload after only the parent was acknowledged', async () => {
+  const parent = session.capture(); session.edit(parent, { content: 'Parent' });
+  session.open.change(parent, { title: 'Child' }); const child = session.open.submit(parent, 'UTC');
+  api.post.mockImplementation(async (_, value) => ({ data: { ...value, _id: value.workItem ? 'child' : 'parent', revision: 0 } }));
+  api.put.mockImplementation(async (_, value) => ({ data: { ...session.entry(parent), ...value, revision: value.expectedRevision + 1 } }));
+  await session.flush(parent); session.dispose();
+  session = createWorkSession({ token: token('owner'), api });
+  api.put.mockImplementation(async (_, value) => ({ data: { ...session.entry(child), ...value, revision: value.expectedRevision + 1 } }));
+  await session.flush(child); expect(session.entry(child).workItem.noteId).toBe('parent');
+  expect(api.post.mock.calls.at(-1)[1].workItem.noteId).toBe('parent');
+});

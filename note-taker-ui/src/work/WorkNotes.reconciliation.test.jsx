@@ -118,3 +118,20 @@ test.each(['none', 'insert', 'delete', 'mark', 'split'])('Undo/Redo after remote
   expect(writing.querySelector('a')).toHaveAttribute('href', 'https://tasks.example.test/42');
   expect(writing.querySelector('strong')).toHaveTextContent('words');
 });
+
+test('inline Open creation leaves the editor document, block identities, caret and scroll unchanged', async () => {
+  const writing = await open(), editor = writing.editor;
+  act(() => editor.commands.setTextSelection(5));
+  const document = editor.getJSON(), selection = editor.state.selection.toJSON();
+  writing.scrollTop = 20;
+  api.post.mockImplementation(async (_, value) => ({ data: { ...value, _id: 'item', revision: 0 } }));
+  api.put.mockImplementation(async (_, value) => ({ data: { ...value, _id: 'item', revision: value.expectedRevision + 1 } }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Ask tomorrow' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  await screen.findByText('Ask tomorrow'); await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+  expect(screen.getByRole('textbox', { name: 'Work note writing' })).toBe(writing);
+  expect(writing.editor).toBe(editor); expect(editor.getJSON()).toEqual(document);
+  expect(editor.state.selection.toJSON()).toEqual(selection); expect(writing.scrollTop).toBe(20);
+  expect(api.put.mock.calls.every(([path]) => path !== '/api/work-notes/note')).toBe(true);
+});

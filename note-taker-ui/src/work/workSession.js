@@ -1,4 +1,5 @@
 import apiClient from '../api';
+import { createWorkOpenComposer } from './workOpenDrafts';
 import { operationId, workDraftStorage, workContinuationStorage } from './workDrafts';
 import { dayInZone, deviceTimeZone, displayDay, itemMetadata } from './workPlannerModel';
 import { plainTextFrom } from '../utils/editorialText';
@@ -65,7 +66,15 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     catch (_) { draft.error = 'Saved writing could not be cleared from this device.'; return false; }
   };
   const keepSaved = (note, clientId = note._id) => {
-    if (clientId !== note._id) { aliases.set(clientId, note._id); delete saved[clientId]; }
+    if (clientId !== note._id) {
+      aliases.set(clientId, note._id); delete saved[clientId];
+      // Retain a child's canonical link before the parent's local receipt clears.
+      // Otherwise a reload between the two saves loses the in-memory alias.
+      Object.entries(drafts).forEach(([id, draft]) => {
+        if (draft.note.workItem?.noteId !== clientId) return;
+        draft.note = { ...draft.note, workItem: { ...draft.note.workItem, noteId: note._id } }; persist(id);
+      });
+    }
     if (!saved[note._id] || saved[note._id].revision <= note.revision) saved[note._id] = note;
     return note._id;
   };
@@ -78,12 +87,12 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     drafts[id] = { ...previous, changedFields, note: { ...current, ...patch }, version: (previous?.version || 0) + 1, dirty: true, error: '' };
     persist(id); emit();
   };
-  const capture = (values = {}) => {
-    const id = `local-${operationId()}`;
+  const capture = (values = {}, identity = {}) => {
+    const id = identity.id || `local-${operationId()}`;
     const capturedAt = values.capturedAt || new Date().toISOString(), timeZone = values.timeZone || deviceTimeZone();
     const takenOn = dayInZone(capturedAt, timeZone);
     saved[id] = { title: '', content: '', blocks: [], folder: null, occurredOn: takenOn, withText: '', ...values, capturedAt, takenOn, timeZone };
-    drafts[id] = { note: saved[id], operationId: operationId(), version: 0, dirty: false, durable: false };
+    drafts[id] = { note: saved[id], operationId: identity.intent || operationId(), version: 0, dirty: false, durable: false };
     emit(); return id;
   };
   const load = async () => {
@@ -156,8 +165,14 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     incoming.forEach(folder => { if (!all.has(folder._id) || (all.get(folder._id).revision || 0) <= (folder.revision || 0)) all.set(folder._id, folder); });
     folders = [...all.values()].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.name.localeCompare(b.name));
   };
+  const open = createWorkOpenComposer({
+    account, storage, isCurrent, entry, capture, edit, emit,
+    identity: id => entry(id)?.operationId || drafts[id]?.operationId || entry(id)?._id || id,
+    findItem: intent => records().find(note => note.workItem && note.operationId === intent),
+    retain: id => !drafts[id]?.dirty || persist(id)
+  });
   return {
-    account, entry, edit, capture, flush, isCurrent, refreshDrafts,
+    account, entry, edit, capture, flush, isCurrent, refreshDrafts, open,
     resume(nextToken = storage.getItem('token') || '') {
       if (workAccount(nextToken) !== account || workAccount(storage.getItem('token') || '') !== account) return false;
       if (disposed || options.headers.Authorization !== `Bearer ${nextToken}`) {
@@ -262,9 +277,9 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       return draft.saving ? 'Saving…' : 'On this device';
     },
     pending: () => Object.entries(drafts).filter(([, draft]) => draft.dirty).map(([id, draft]) => { draft.durable = device.durable(draft); return [id, draft]; }),
-    canLeave: () => Object.values(drafts).every(draft => !draft.dirty || device.durable(draft)),
+    canLeave: () => open.canLeave() && Object.values(drafts).every(draft => !draft.dirty || device.durable(draft)),
     discard(id) { forget(id); if (!saved[id]?._id) delete saved[id]; emit(); },
-    removeDrafts() { device.removeAll(); receipts.removeAll(); drafts = {}; continuations.clear(); emit(); },
+    removeDrafts() { device.removeAll(); receipts.removeAll(); open.removeAll(); drafts = {}; continuations.clear(); emit(); },
     dispose() { disposed = true; abort.abort(); listeners.clear(); }
   };
 }

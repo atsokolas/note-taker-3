@@ -91,8 +91,8 @@ test('a new folder from the place line is where the open note goes', async () =>
 });
 test('planning a new note question is explicit and retains its note identity in the day', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
-  const dialog = await screen.findByRole('dialog', { name: 'New Work item' }); fireEvent.change(within(dialog).getByLabelText('Item'), { target: { value: 'Which site is ready first?' } });
-  fireEvent.change(within(dialog).getByLabelText('Kind'), { target: { value: 'question' } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Save item' }));
+  expect(screen.queryByRole('dialog')).toBeNull(); fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Which site is ready first?' } });
+  fireEvent.change(screen.getByLabelText('Open item kind'), { target: { value: 'question' } }); fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   await waitFor(() => expect(records.some(x => x.title === 'Which site is ready first?')).toBe(true));
   const saved = records.find(x => x.title === 'Which site is ready first?'); expect(saved.workItem.noteId).toBe('note'); expect(saved.workItem.plannedOn || null).toBe(null);
 });

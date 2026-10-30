@@ -276,3 +276,15 @@ body.noeis-editorial .work-notes .work-return textarea { border-bottom: 1px soli
   .work-page > .work-note-paper { display: flex; flex-direction: column; align-items: stretch; }
   .work-note-paper > :is(.work-completed, .work-followups, .work-add-followup, .work-foot, .work-note-details, .work-onward) { order: 1; }
 }
+
+/* The Open margin keeps capture beside the writing, in the same paper and ink. */
+.work-open-composer { min-width: 0; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--noeis-rule); }
+.work-open-composer > input { width: 100%; min-width: 0; min-height: 44px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--noeis-rule-strong); border-radius: 0; background: transparent; color: var(--noeis-ink); font: 17px/1.5 var(--font-serif); }
+.work-open-composer > input::placeholder { color: var(--noeis-ink-muted); }
+.work-open-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; margin-top: 8px; }
+.work-open-controls select { flex: 1; min-width: 0; max-width: 100%; min-height: 44px; border: 0; padding: 4px 0; background: transparent; color: var(--noeis-ink-muted); font: 12px var(--font-sans); }
+.work-open-actions { display: flex; gap: 4px; margin-left: auto; }
+.work-open-actions button { padding: 8px 12px; font: 12px var(--font-sans); }
+.work-open-actions .work-open-add { background: var(--noeis-thread-strong); color: var(--noeis-paper); border-radius: 4px; }
+.work-open-actions .work-open-add:hover { background: var(--noeis-ink); }
+.work-open-error { margin: 8px 0 0; font: 12px/1.5 var(--font-sans); color: var(--noeis-ink-muted); }
