@@ -76,7 +76,9 @@ const watchedFilingProvider = (ref = {}) => {
 
 /* Save each unlinked watched filing into the reader's Library and return the
    article id for each address. The watch's event carries the filing text; the
-   ref's snippet stands in when the event is gone. */
+   ref's snippet stands in when the event is gone. A filing whose document the
+   watch could not fetch yet waits: the watch fetches it again on a later
+   check, and an article filed now would keep the announcement for good. */
 const fileWatchedFilings = async ({ Article, WikiSourceEvent, userId, refs = [] }) => {
   if (!Article?.findOneAndUpdate || !refs.length) return new Map();
   const eventIds = refs.map(ref => ref.objectId).filter(Boolean);
@@ -89,6 +91,7 @@ const fileWatchedFilings = async ({ Article, WikiSourceEvent, userId, refs = [] 
     const place = canonicalSourceUrl(ref.url);
     if (filed.has(place)) continue;
     const event = eventById.get(idOf(ref.objectId)) || null;
+    if (event?.metadata?.hasFilingText === false) continue;
     const url = String(ref.url).trim();
     const text = String(event?.text || ref.snippet || '').slice(0, MAX_CONTENT_LENGTH);
     const meta = { ...(event?.metadata || {}), ...(ref.metadata || {}) };

@@ -208,6 +208,25 @@ async function run() {
     assert.equal(String(tenK.sourceRefs[0].parentObjectId), String(saved._id));
     assert.equal((await Article.findById(saved._id).lean()).content, '<p>Mine.</p>', 'never overwritten');
     assert.equal(await Article.countDocuments({ userId: filer }), 2);
+
+    // A filing the watch could not fetch yet is not filed as its announcement; once fetched, it is.
+    const pendingUrl = 'https://www.sec.gov/Archives/edgar/data/1769628/000176962826000077/crwv-8k.htm';
+    const pendingEvent = await WikiSourceEvent.create({
+      userId: filer,
+      sourceType: 'external',
+      provider: 'sec-edgar',
+      title: 'CRWV 8-K filed 2026-06-01',
+      text: 'CoreWeave, Inc. filed 8-K on 2026-06-01.',
+      url: pendingUrl,
+      metadata: { source: 'sec-edgar', hasFilingText: false, documentError: 'SEC answered 503' }
+    });
+    const eightK = { _id: id(), userId: filer, sourceRefs: [{ ...filingRef(), objectId: pendingEvent._id, url: pendingUrl, metadata: { source: 'sec-edgar', hasFilingText: false } }] };
+    assert.equal(await linkPageSources({ Article, WikiSourceEvent, WikiPage, page: eightK }), 0, 'the watch will fetch it again');
+    assert.equal(await Article.countDocuments({ userId: filer }), 2);
+    await WikiSourceEvent.updateOne({ _id: pendingEvent._id }, { $set: { text: 'CoreWeave, Inc. filed 8-K.\n\nItem 2.02 results.', 'metadata.hasFilingText': true } });
+    assert.equal(await linkPageSources({ Article, WikiSourceEvent, WikiPage, page: eightK }), 1, 'the ref still says not fetched; the event knows better');
+    const eightKArticle = await Article.findById(eightK.sourceRefs[0].parentObjectId).lean();
+    assert.ok(eightKArticle.content.includes('Item 2.02 results.'));
   } finally {
     await mongoose.disconnect();
     await memory.stop();
