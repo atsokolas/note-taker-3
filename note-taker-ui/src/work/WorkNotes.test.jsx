@@ -55,7 +55,7 @@ test('choose another replaces the sheet; no note exists before explicit confirma
 test('confirm creates one fresh page with immutable line outside editable prose and original intact', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note/ }));
   const confirm = await screen.findByRole('button', { name: 'Continue →' }); fireEvent.click(confirm); fireEvent.click(confirm);
-  await screen.findByText('Last time’s line'); expect(api.post).toHaveBeenCalledTimes(1);
+  await screen.findByText(/you left yourself/); expect(api.post).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('');
   expect(screen.getByText('Check the window.')).toBeInTheDocument();
   fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Charging windows.*26 Oct/ }));
@@ -73,7 +73,7 @@ test('filing from the place line changes only metadata, and the rail follows the
   fireEvent.click(within(place).getByRole('button', { name: 'Pilot' })); fireEvent.click(within(place).getByRole('button', { name: 'Inbox' }));
   await waitFor(() => expect(api.put).toHaveBeenCalled()); expect(api.put.mock.calls[0][1]).toMatchObject({ folder: null, occurredOn: '2026-10-26', content: 'Original account' });
   expect(await screen.findByText('Filed in the inbox.')).toBeInTheDocument();
-  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^Inbox\/Monday 26 Oct\s*File in Pilot or a new folder/);
+  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^In your Inbox, written Monday 26 Oct, with Mira\. File in Pilot or a new folder\./);
   const rail = screen.getByRole('complementary');
   expect(within(rail).getByRole('button', { name: /Charging windows/ })).toHaveAttribute('aria-current', 'page');
   expect(within(rail).getByLabelText('1 unfiled')).toBeInTheDocument();
@@ -225,7 +225,7 @@ test('Continue expiry opens login without a second dialog and retains the operat
   fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' })); expect(screen.queryByRole('dialog')).toBeNull();
   await login(); const dialog = await screen.findByRole('dialog', { name: 'Continue from this note' });
   expect(screen.getAllByRole('dialog')).toHaveLength(1); fireEvent.click(within(dialog).getByRole('button', { name: 'Continue →' }));
-  await screen.findByText('Last time’s line');
+  await screen.findByText(/you left yourself/);
   const requests = api.post.mock.calls.filter(([path]) => path.endsWith('/continue'));
   expect(requests[1][1].operationId).toBe(requests[0][1].operationId);
   expect(requests[1][2].headers.Authorization).toBe(`Bearer ${renewedToken}`);
