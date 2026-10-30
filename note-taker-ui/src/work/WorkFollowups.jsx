@@ -4,6 +4,7 @@ import WorkOpenComposer from './WorkOpenComposer';
 import { dayInZone, displayDay, projectItem } from './workPlannerModel';
 
 export default function WorkFollowups({ carried = [], note, tomorrow, timeZone, session, onEdit, onAction, onConflict, children }) {
+  const [openRequest, setOpenRequest] = useState(null);
   const [receipts, setReceipts] = useState({});
   const undoWindows = useRef(new Map());
   const [showAll, setShowAll] = useState(false);
@@ -31,7 +32,7 @@ export default function WorkFollowups({ carried = [], note, tomorrow, timeZone, 
       const previous = index ? dayInZone(records[index - 1].completedAt, records[index - 1].completedTimeZone) : '';
       return <React.Fragment key={item.id}>{date !== previous ? <h3><WorkIcon name="down" />Completed · {displayDay(date, { day: 'numeric', month: 'short', year: 'numeric' })}</h3> : null}{completedRecord(item)}</React.Fragment>;
     })}{completed.length > 2 ? <button onClick={() => setShowAll(value => !value)}>{showAll ? 'Show recent' : `Show all ${completed.length}`}</button> : null}</section> : null}
-    {children}
+    {children(setOpenRequest)}
     <section className="work-followups" aria-label="Open" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setReceipts({}); }}>
       <h2>Open</h2>
       {carried.map(item => <div className="work-followup-row is-carried" key={item.id}><label><input type="checkbox" checked={false} onChange={() => onAction(item.clientId, { type: 'complete' })} /><span>{item.title}<small>from last time</small></span></label></div>)}
@@ -41,7 +42,7 @@ export default function WorkFollowups({ carried = [], note, tomorrow, timeZone, 
         <button className="work-followup-edit" aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}><WorkIcon name="more" /></button>
         {item.pending || session.pending().some(([id]) => id === item.clientId) ? <small className="work-item-save">{session.status(item.clientId)}</small> : null}
       </div>)}
-      <WorkOpenComposer noteId={note.clientId} session={session} timeZone={timeZone} />
+      <WorkOpenComposer noteId={note.clientId} session={session} timeZone={timeZone} request={openRequest} onFinish={() => { openRequest?.returnToWriting(); setOpenRequest(null); }} />
     </section>
   </>;
 }

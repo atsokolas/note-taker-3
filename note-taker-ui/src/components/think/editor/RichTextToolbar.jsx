@@ -7,7 +7,8 @@ const RichTextToolbar = ({
   variant = 'full',
   className = '',
   onAskSelection = null,
-  onTryWording = null
+  onTryWording = null,
+  onMakeOpen = null
 }) => {
   if (!editor) return null;
 
@@ -27,6 +28,7 @@ const RichTextToolbar = ({
           {item.label}
         </Button>
       ))}
+      {onMakeOpen ? <Button variant="quiet" type="button" className="think-rich-text-toolbar__make-open" onPointerDown={event => event.preventDefault()} onMouseDown={event => event.preventDefault()} onClick={onMakeOpen}>Make Open</Button> : null}
       {onTryWording ? (
         <Button variant="quiet"
           type="button"

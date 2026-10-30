@@ -5,13 +5,14 @@ import { operationId, workDraftStorage } from './workDrafts';
 export function createWorkOpenComposer({ account, storage, isCurrent, identity, entry, capture, edit, retain, retainParent, findItem, findNote, emit }) {
   const device = workDraftStorage(`${account}:open`, storage), writerId = operationId(), selected = new Map();
   const stored = () => device.read();
+  const blank = name => ({ note: { noteIdentity: name, title: '', kind: 'task', intent: operationId() }, version: 0, dirty: true });
   const read = id => {
     const name = identity(id);
     if (!selected.has(name)) {
       try {
         const records = stored().filter(record => record.note.noteIdentity === name);
-        selected.set(name, records.at(-1) || { note: { noteIdentity: name, title: '', kind: 'task', intent: operationId() }, version: 0, dirty: true });
-      } catch (_) { selected.set(name, { note: { noteIdentity: name, title: '', kind: 'task', intent: operationId() }, version: 0, dirty: true, error: 'The earlier Open draft could not be read. Keep this page open.' }); }
+        selected.set(name, records.at(-1) || blank(name));
+      } catch (_) { selected.set(name, { ...blank(name), error: 'The earlier Open draft could not be read. Keep this page open.' }); }
     }
     return selected.get(name);
   };
@@ -47,6 +48,14 @@ export function createWorkOpenComposer({ account, storage, isCurrent, identity, 
       if (!isCurrent()) return;
       const record = all().find(value => value.note.noteIdentity === identity(id) && (value.draftId || value.note.intent) === draftId);
       if (record) { selected.set(identity(id), record); emit(); }
+    },
+    begin(id, text) {
+      if (!isCurrent() || !entry(id)) return false;
+      const current = read(id);
+      if ((current.note.title || current.note.submission) && !device.durable(current)) {
+        current.error = 'Keep or copy this unsaved draft before making another Open item.'; emit(); return false;
+      }
+      selected.set(identity(id), blank(identity(id))); this.change(id, { title: text }); return true;
     },
     change(id, patch) {
       if (!isCurrent() || read(id).note.submission) return;

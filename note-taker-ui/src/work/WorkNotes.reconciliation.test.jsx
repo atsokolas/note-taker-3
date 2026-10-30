@@ -135,3 +135,30 @@ test('inline Open creation leaves the editor document, block identities, caret a
   expect(editor.state.selection.toJSON()).toEqual(selection); expect(writing.scrollTop).toBe(20);
   expect(api.put.mock.calls.every(([path]) => path !== '/api/work-notes/note')).toBe(true);
 });
+
+const makeOpenFromWriting = async text => {
+  const writing = await open(), editor = writing.editor;
+  let position; editor.state.doc.descendants((node, pos) => { if (node.isTextblock && node.textContent.includes(text)) position = pos + 1 + node.textContent.indexOf(text); });
+  act(() => editor.commands.setTextSelection({ from: position, to: position + text.length }));
+  const doc = editor.getJSON(), selection = editor.state.selection.toJSON();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
+  return { writing, editor, doc, selection };
+};
+test('Make Open prefills one linked draft, Add restores writing and never changes source HTML or blocks', async () => {
+  api.post.mockImplementation(async (_, value) => ({ data: { ...value, _id: 'item', revision: 0 } }));
+  api.put.mockImplementation(async (_, value) => ({ data: { ...value, _id: 'item', revision: value.expectedRevision + 1 } }));
+  const { writing, editor, doc, selection } = await makeOpenFromWriting('Cached words');
+  const title = await screen.findByLabelText('Open item title'); expect(title).toHaveValue('Cached words'); expect(title).toHaveFocus();
+  expect(api.post).not.toHaveBeenCalled(); expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.change(title, { target: { value: 'Ask tomorrow 2pm' } }); fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
+  await screen.findByText('Ask tomorrow 2pm');
+  expect(writing).toHaveFocus(); expect(editor.getJSON()).toEqual(doc); expect(editor.state.selection.toJSON()).toEqual(selection);
+  expect(api.post.mock.calls[0][1]).toMatchObject({ title: 'Ask tomorrow 2pm', workItem: { noteId: 'note', plannedOn: null, kind: 'task' } });
+  expect(api.put.mock.calls.every(([path]) => path !== '/api/work-notes/note')).toBe(true);
+});
+test('Cancel after Make Open creates nothing and restores the selected source words', async () => {
+  const { writing, editor, doc, selection } = await makeOpenFromWriting('Cached words');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel', exact: true }));
+  expect(writing).toHaveFocus(); expect(editor.getJSON()).toEqual(doc); expect(editor.state.selection.toJSON()).toEqual(selection);
+  expect(api.post).not.toHaveBeenCalled(); expect(api.put).not.toHaveBeenCalled();
+});

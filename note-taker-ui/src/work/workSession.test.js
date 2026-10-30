@@ -359,3 +359,19 @@ test('an unsubmitted draft on a blank local note remains reachable after reload 
   expect(session.entry(parent)).toBeTruthy(); expect(session.open.draft(parent).title).toBe('Not submitted');
   expect(session.pending()).toEqual([]); expect(api.post).not.toHaveBeenCalled();
 });
+
+test('Make Open begins a separate editable draft and Cancel reveals the previous draft intact', async () => {
+  await session.load(); session.open.change('a', { title: 'Earlier draft', kind: 'question' });
+  expect(session.open.begin('a', 'First line\nAsk tomorrow 2pm')).toBe(true);
+  expect(session.open.draft('a')).toMatchObject({ title: 'First line\nAsk tomorrow 2pm', kind: 'task' });
+  expect(session.open.drafts('a').map(draft => draft.title)).toEqual(expect.arrayContaining(['Earlier draft', 'First line\nAsk tomorrow 2pm']));
+  expect(session.pending()).toEqual([]); session.open.cancel('a');
+  expect(session.open.draft('a')).toMatchObject({ title: 'Earlier draft', kind: 'question' });
+});
+test('Make Open cannot overwrite an unsafe memory-only draft or cross an account boundary', async () => {
+  await session.load(); const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  session.open.change('a', { title: 'Memory only' });
+  expect(session.open.begin('a', 'Selected words')).toBe(false); expect(session.open.draft('a').title).toBe('Memory only');
+  set.mockRestore(); localStorage.setItem('token', token('other'));
+  expect(session.open.begin('a', 'Other account')).toBe(false); expect(session.open.draft('a').title).toBe('Memory only');
+});
