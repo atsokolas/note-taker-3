@@ -268,8 +268,8 @@ body.noeis-editorial .work-notes .work-return textarea { border-bottom: 1px soli
 
 @media (max-width: 900px) {
   .work-page { padding: 14px 20px 80px; }
-  .work-calendar-heading { grid-template-columns: 1fr; }
-  .work-week-toggle, .work-week-step { display: none; }
+  .work-calendar-heading { grid-template-columns: var(--work-step) 1fr var(--work-step); }
+  .work-week-toggle { display: none; }
   .work-notes .work-day-heading { padding: 6px 2px; font-size: 13px; }
   .work-day-heading span { display: block; font-size: 11px; }
   .work-page-title, .work-notes textarea.work-title { font-size: 32px; }

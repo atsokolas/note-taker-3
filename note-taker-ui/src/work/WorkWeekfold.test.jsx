@@ -40,6 +40,12 @@ test('an open note keeps the week line with its written day marked, and its meet
   fireEvent.click(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true }));
   expect(await screen.findByRole('heading', { name: 'Tuesday 27 October' })).toBeInTheDocument(); expect(screen.queryByRole('textbox', { name: 'Work note writing' })).toBeNull();
 });
+test('a note written in another week brings its own week onto the line', async () => {
+  render(<MemoryRouter initialEntries={['/work?date=2026-11-09']}><WorkNotes /></MemoryRouter>);
+  const shelf = within(await screen.findByRole('complementary')); fireEvent.click(await shelf.findByRole('button', { name: 'Customer discovery' }));
+  fireEvent.click(await shelf.findByRole('button', { name: /Fieldwell · pilot follow-up/ }));
+  expect(await screen.findByRole('button', { name: 'Monday 26 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true');
+});
 test('dragging a note onto a place in the rail shows it arriving there, and the drop files it like the place line', async () => {
   today(); const written = within(await screen.findByRole('region', { name: 'Written Monday' })).getByRole('button', { name: /Fieldwell/ });
   const dataTransfer = { setData: jest.fn(), getData: () => '', setDragImage: jest.fn() };
