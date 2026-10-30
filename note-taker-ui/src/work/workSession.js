@@ -105,7 +105,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       [...data.entries, ...data.items].forEach(note => keepSaved(note));
       mergeFolders(data.folders);
     } catch (error) { if (isCurrent() && !request.signal.aborted) loadError = requestError(error); }
-    finally { if (isCurrent() && !request.signal.aborted) { loading = false; emit(); } }
+    finally { if (isCurrent() && !request.signal.aborted) { open.restoreParents(); loading = false; emit(); } }
   };
   const requireServer = async () => { if (compatible !== true) await load(); if (compatible !== true) throw Object.assign(new Error(loadError || MATCHING_SERVER), { code: 'work_server_updating' }); };
   const flush = id => {
@@ -169,7 +169,14 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     account, storage, isCurrent, entry, capture, edit, emit,
     identity: id => entry(id)?.operationId || drafts[id]?.operationId || entry(id)?._id || id,
     findItem: intent => records().find(note => note.workItem && note.operationId === intent),
-    retain: id => !drafts[id]?.dirty || persist(id)
+    findNote: intent => records().find(note => !note.workItem && note.operationId === intent),
+    retain: id => !drafts[id]?.dirty || persist(id),
+    retainParent: id => {
+      if (entry(id)?._id) return true;
+      // Explicit Add commits a real parent even when its prose is still blank.
+      if (!drafts[id]?.dirty) edit(id, { title: entry(id)?.title || '' });
+      return persist(id);
+    }
   });
   return {
     account, entry, edit, capture, flush, isCurrent, refreshDrafts, open,

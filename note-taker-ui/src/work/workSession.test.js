@@ -322,3 +322,40 @@ test('a submitted Open link survives reload after only the parent was acknowledg
   await session.flush(child); expect(session.entry(child).workItem.noteId).toBe('parent');
   expect(api.post.mock.calls.at(-1)[1].workItem.noteId).toBe('parent');
 });
+
+test('Open on an untouched blank parent durably captures the parent before its first child', async () => {
+  const parent = session.capture(); session.open.change(parent, { title: 'First question', kind: 'question' });
+  const child = session.open.submit(parent, 'UTC');
+  session.dispose(); session = createWorkSession({ token: token('owner'), api });
+  expect(session.entry(parent)).toBeTruthy(); expect(session.entry(parent).content).toBe('');
+  api.post.mockImplementation(async (_, value) => ({ data: { ...value, _id: value.workItem ? 'child' : 'parent', revision: 0 } }));
+  api.put.mockImplementation(async (path, value) => ({ data: { ...session.entry(path.endsWith('/parent') ? parent : child), ...value, revision: value.expectedRevision + 1 } }));
+  await session.flush(child); expect(session.entry(child).workItem.noteId).toBe('parent');
+  expect(api.post.mock.calls.map(([, value]) => Boolean(value.workItem))).toEqual([false, true]);
+});
+test('two tabs preserve competing Open titles when a stale tab cancels or submits', async () => {
+  await session.load(); session.open.change('a', { title: 'First title' });
+  const second = createWorkSession({ token: token('owner'), api }); await second.load();
+  expect(second.open.draft('a').title).toBe('First title'); second.open.change('a', { title: 'Second title' });
+  session.open.change('a', { title: 'Third title' }); session.open.cancel('a');
+  const reload = createWorkSession({ token: token('owner'), api }); await reload.load();
+  expect(reload.open.drafts('a').map(value => value.title)).toContain('Second title');
+  const id = second.open.submit('a', 'UTC'); expect(id).toBeTruthy();
+  expect(second.entry(id).title).toBe('Second title'); expect(second.canLeave()).toBe(true);
+  second.dispose(); reload.dispose();
+});
+test('recovery includes unsafe Open drafts and intentional discard permits departure', async () => {
+  await session.load(); const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  session.open.change('a', { title: 'Only in this page', kind: 'question' });
+  expect(session.open.recovery()).toEqual([expect.objectContaining({ title: 'Only in this page', kind: 'question' })]);
+  expect(session.canLeave()).toBe(false); set.mockRestore();
+  expect(session.open.discardUnsafe()).toBe(true); expect(session.canLeave()).toBe(true);
+  expect(session.open.draft('a').title).toBe('');
+});
+
+test('an unsubmitted draft on a blank local note remains reachable after reload without auto-saving', async () => {
+  const parent = session.capture({ folder: 'f' }); session.open.change(parent, { title: 'Not submitted' });
+  session.dispose(); session = createWorkSession({ token: token('owner'), api }); await session.load();
+  expect(session.entry(parent)).toBeTruthy(); expect(session.open.draft(parent).title).toBe('Not submitted');
+  expect(session.pending()).toEqual([]); expect(api.post).not.toHaveBeenCalled();
+});

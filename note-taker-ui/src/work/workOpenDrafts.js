@@ -1,44 +1,63 @@
-import { operationId } from './workDrafts';
+import { operationId, workDraftStorage } from './workDrafts';
 
-// Unsubmitted words never enter the auto-flushing Work queue. A submitted
-// snapshot bridges the two stores with one identity, even if cleanup fails.
-export function createWorkOpenComposer({ account, storage, isCurrent, identity, entry, capture, edit, retain, findItem, emit }) {
-  const prefix = `noeis:work-open:${account}:`, drafts = new Map();
-  const key = id => `${prefix}${encodeURIComponent(identity(id))}`;
+// Separate namespace: these snapshots are never in the auto-flushing queue.
+// Reuse Work's immutable records so stale tabs cannot overwrite later words.
+export function createWorkOpenComposer({ account, storage, isCurrent, identity, entry, capture, edit, retain, retainParent, findItem, findNote, emit }) {
+  const device = workDraftStorage(`${account}:open`, storage), writerId = operationId(), selected = new Map();
+  const stored = () => device.read();
   const read = id => {
-    const name = key(id);
-    if (!drafts.has(name)) {
-      try { drafts.set(name, { value: JSON.parse(storage.getItem(name) || 'null') || { title: '', kind: 'task', intent: operationId() }, error: '' }); }
-      catch (_) { drafts.set(name, { value: { title: '', kind: 'task', intent: operationId() }, error: 'The earlier Open draft could not be read. Keep this page open.' }); }
+    const name = identity(id);
+    if (!selected.has(name)) {
+      try {
+        const records = stored().filter(record => record.note.noteIdentity === name);
+        selected.set(name, records.at(-1) || { note: { noteIdentity: name, title: '', kind: 'task', intent: operationId() }, version: 0, dirty: true });
+      } catch (_) { selected.set(name, { note: { noteIdentity: name, title: '', kind: 'task', intent: operationId() }, version: 0, dirty: true, error: 'The earlier Open draft could not be read. Keep this page open.' }); }
     }
-    return drafts.get(name);
+    return selected.get(name);
+  };
+  const all = () => {
+    let records = [];
+    try { records = stored(); } catch (_) { /* Read failures stay visible on the selected draft. */ }
+    const result = new Map(records.map(record => [record.draftId, record]));
+    selected.forEach(record => { if (record.note.title || record.note.submission) result.set(record.draftId || record.note.intent, record); });
+    return [...result.values()];
   };
   const persist = id => {
-    const draft = read(id), value = JSON.stringify(draft.value);
+    const previous = read(id);
     try {
-      storage.setItem(key(id), value);
-      if (storage.getItem(key(id)) !== value) throw new Error('No device receipt');
-      draft.error = ''; return true;
-    } catch (_) { draft.error = 'Open draft not saved on this device. Keep this page open and retry.'; return false; }
+      const saved = device.write(previous, writerId, identity(id)); saved.error = ''; selected.set(identity(id), saved);
+      // Supersede only the exact snapshot that was displayed. A competing tab's
+      // later immutable snapshot has a different key and remains recoverable.
+      if (previous.writerId !== writerId && previous.recordKey) { try { device.remove(previous); } catch (_) { /* Preserve both if cleanup fails. */ } }
+      return true;
+    } catch (_) { previous.error = 'Open draft not saved on this device. Keep this page open and retry.'; return false; }
   };
   const clear = id => {
+    const current = read(id);
     try {
-      storage.removeItem(key(id));
-      if (storage.getItem(key(id)) !== null) throw new Error('Draft remains');
-      drafts.delete(key(id)); emit(); return true;
-    } catch (_) { read(id).error = 'Could not finish adding or clearing this draft. Retry keeps the same item.'; emit(); return false; }
+      stored().filter(record => record.note.intent === current.note.intent).forEach(record => device.remove(record));
+      selected.delete(identity(id)); emit(); return true;
+    } catch (_) { current.error = 'Could not finish adding or clearing this draft. Retry keeps the same item.'; emit(); return false; }
   };
   return {
-    draft: id => read(id).value,
-    status: id => read(id).error,
-    change(id, patch) {
-      if (!isCurrent() || read(id).value.submission) return;
-      read(id).value = { ...read(id).value, ...patch }; persist(id); emit();
+    draft: id => read(id).note,
+    status: id => read(id).error || '',
+    drafts: id => all().filter(record => record.note.noteIdentity === identity(id)).map(record => ({ ...record.note, id: record.draftId || record.note.intent })),
+    choose(id, draftId) {
+      if (!isCurrent()) return;
+      const record = all().find(value => value.note.noteIdentity === identity(id) && (value.draftId || value.note.intent) === draftId);
+      if (record) { selected.set(identity(id), record); emit(); }
     },
-    cancel(id) { return isCurrent() && !read(id).value.submission && clear(id); },
+    change(id, patch) {
+      if (!isCurrent() || read(id).note.submission) return;
+      const record = read(id);
+      record.note = { ...record.note, ...patch, intent: operationId(), ...(!entry(id)?._id ? { parent: { id, intent: identity(id), note: entry(id) } } : {}) }; record.version += 1;
+      persist(id); emit();
+    },
+    cancel(id) { return isCurrent() && !read(id).note.submission && clear(id); },
     submit(id, timeZone) {
       if (!isCurrent() || !entry(id)) return null;
-      const draft = read(id), value = draft.value;
+      const draft = read(id), value = draft.note;
       if (!value.title.trim()) return null;
       const preparing = !value.submission;
       if (preparing) {
@@ -47,25 +66,35 @@ export function createWorkOpenComposer({ account, storage, isCurrent, identity, 
           title: value.title.trim(), folder: note.folder?._id || note.folder || null, timeZone,
           workItem: { kind: value.kind, noteId: note._id || id, plannedOn: null, dueOn: null, priority: 0, startTime: '', endTime: '' }
         } };
+        draft.version += 1;
       }
-      // Retain the immutable request before capture; a failed handoff is retryable.
+      // Retain the immutable request before capture; an interrupted handoff
+      // reuses this identity even after the server already accepted the item.
       if (!persist(id)) { if (preparing) delete value.submission; emit(); return null; }
+      const fail = () => { read(id).error = 'Open item not saved on this device. Keep this page open and retry.'; emit(); return null; };
+      if (!retainParent(id)) return fail();
       const { clientId, values } = value.submission;
-      const existing = findItem(value.intent);
-      const target = existing?.clientId || clientId;
+      const target = findItem(value.intent)?.clientId || clientId;
       if (!entry(target)) { capture(values, { id: target, intent: value.intent }); edit(target, { title: values.title }); }
-      if (!retain(target)) { draft.error = 'Open item not saved on this device. Keep this page open and retry.'; emit(); return null; }
+      if (!retain(target)) return fail();
       return clear(id) ? target : null;
     },
-    canLeave() {
-      return [...drafts.entries()].every(([name, draft]) => {
-        if (!draft.value.title && !draft.value.submission) return !draft.error;
-        try { return storage.getItem(name) === JSON.stringify(draft.value); } catch (_) { return false; }
-      });
+    restoreParents() {
+      try {
+        stored().forEach(record => {
+          const parent = record.note.parent;
+          if (parent && !entry(parent.id) && !findNote(parent.intent)) capture(parent.note, { id: parent.id, intent: parent.intent });
+        });
+      } catch (_) { /* The selected draft reports unreadable device storage. */ }
     },
-    removeAll() {
-      const names = Array.from({ length: storage.length }, (_, index) => storage.key(index));
-      names.filter(name => name?.startsWith(prefix)).forEach(name => storage.removeItem(name)); drafts.clear();
-    }
+    recovery: () => all().map(record => ({ ...record.note })),
+    canLeave: () => [...selected.values()].every(record => (!record.note.title && !record.note.submission) ? !record.error : device.durable(record)),
+    discardUnsafe() {
+      try {
+        selected.forEach((record, name) => { if (!device.durable(record)) { device.remove(record); selected.delete(name); } });
+        emit(); return true;
+      } catch (_) { return false; }
+    },
+    removeAll() { device.removeAll(); selected.clear(); }
   };
 }

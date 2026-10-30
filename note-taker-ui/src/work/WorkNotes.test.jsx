@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import WorkNotes from './WorkNotes';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
-import { draftKey } from './workSession';
+import { createWorkSession, draftKey } from './workSession';
 
 jest.mock('react-router-dom', () => {
   const React = require('react');
@@ -319,4 +319,32 @@ test('unsafe inline draft is retained through departure protection and original 
   expect(screen.getByRole('dialog', { name: 'Keep your writing' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Stay' })); set.mockRestore();
   expect(screen.getByLabelText('Open item title')).toHaveValue('Keep in this page');
+});
+
+test('recovery Copy includes unsafe Open writing and Discard and leave actually leaves', async () => {
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Recover this question' } });
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  const writeText = jest.fn().mockResolvedValue(); Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  fireEvent.click(screen.getByRole('button', { name: 'Copy writing' }));
+  await screen.findByText('Writing copied.'); expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Recover this question'));
+  set.mockRestore(); fireEvent.click(screen.getByRole('button', { name: 'Discard and leave' }));
+  expect(screen.queryByRole('dialog')).toBeNull(); expect(screen.getByLabelText('Note title')).toHaveValue('Smaller depot');
+});
+
+test('competing Open drafts remain selectable and submitting one preserves the other', async () => {
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'First tab title' } });
+  const second = createWorkSession({ token: localStorage.getItem('token'), api }); await second.load();
+  second.open.draft('a'); second.open.change('a', { title: 'Second tab title' });
+  fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Third title' } });
+  const choices = screen.getByLabelText('Open drafts');
+  expect(within(choices).getByRole('option', { name: 'Second tab title' })).toBeInTheDocument();
+  fireEvent.change(choices, { target: { value: within(choices).getByRole('option', { name: 'Second tab title' }).value } });
+  expect(screen.getByLabelText('Open item title')).toHaveValue('Second tab title');
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  await waitFor(() => expect(api.post).toHaveBeenCalled()); expect(api.post.mock.calls[0][1].title).toBe('Second tab title');
+  fireEvent.click(screen.getByRole('button', { name: 'Continue Open draft' }));
+  expect(screen.getByLabelText('Open item title')).toHaveValue('Third title'); second.dispose();
 });

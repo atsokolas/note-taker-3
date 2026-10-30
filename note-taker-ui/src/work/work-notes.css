@@ -288,3 +288,5 @@ body.noeis-editorial .work-notes .work-return textarea { border-bottom: 1px soli
 .work-open-actions .work-open-add { background: var(--noeis-thread-strong); color: var(--noeis-paper); border-radius: 4px; }
 .work-open-actions .work-open-add:hover { background: var(--noeis-ink); }
 .work-open-error { margin: 8px 0 0; font: 12px/1.5 var(--font-sans); color: var(--noeis-ink-muted); }
+.work-open-drafts { display: grid; gap: 4px; margin-bottom: 8px; color: var(--noeis-ink-muted); font: 12px var(--font-sans); }
+.work-open-drafts select { min-width: 0; width: 100%; min-height: 44px; background: var(--noeis-paper); border: 1px solid var(--noeis-rule); color: var(--noeis-ink); font: inherit; }
