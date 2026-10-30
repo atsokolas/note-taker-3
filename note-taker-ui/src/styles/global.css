@@ -25,6 +25,16 @@ p {
   margin: 0 0 1em;
 }
 
+/* A list item is one thought: its paragraph and nested list share a rhythm.
+   Only an additional paragraph inside the item needs paragraph spacing. */
+:is(.ProseMirror, .wiki-read__body, .shared-wiki-page__body, .shared-wiki-page__company-brief, .article-reader-content) li > :is(p, ul, ol) {
+  margin-block: 0;
+}
+
+:is(.ProseMirror, .wiki-read__body, .shared-wiki-page__body, .shared-wiki-page__company-brief, .article-reader-content) li > * + p {
+  margin-block-start: 1em;
+}
+
 .muted {
   color: var(--text-secondary);
 }

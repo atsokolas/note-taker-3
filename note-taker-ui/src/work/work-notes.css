@@ -90,9 +90,11 @@
 .work-completed-row .work-history-link { font: 11px var(--font-sans); text-decoration: none; color: var(--noeis-ink-muted); }
 .work-writing { max-width: 980px; }
 .work-notes .work-writing .ProseMirror { min-height: 120px; outline: none; font: 400 24px/1.55 var(--font-serif); color: var(--noeis-ink); overflow-wrap: anywhere; padding: 0; }
-.work-notes .work-writing .ProseMirror p { margin: 0 0 .8em; color: var(--noeis-ink) !important; }
+.work-notes .work-writing .ProseMirror p { color: var(--noeis-ink) !important; }
+.work-notes .work-writing .ProseMirror p:not(li > p) { margin: 0 0 .8em; }
 .work-writing .ProseMirror h1, .work-writing .ProseMirror h2, .work-writing .ProseMirror h3 { font-family: var(--font-serif); line-height: 1.3; margin: 24px 0 16px; }
-.work-writing .ProseMirror ul, .work-writing .ProseMirror ol { padding-left: 1.5em; margin: .8em 0; }
+.work-writing .ProseMirror ul, .work-writing .ProseMirror ol { padding-left: 1.5em; }
+.work-writing .ProseMirror :is(ul, ol):not(li > ul, li > ol) { margin: .8em 0; }
 .work-writing .ProseMirror pre { white-space: pre-wrap; }
 .work-writing .ProseMirror a { color: inherit; text-decoration: underline; }
 .work-writing .think-editor-slash-hint, .work-writing .think-editor-block-controls { display: none; }
