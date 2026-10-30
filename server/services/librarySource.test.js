@@ -135,6 +135,79 @@ async function run() {
     const webEvent = { _id: id(), sourceType: 'external', url: 'https://example.com/new', metadata: {} };
     await attachSourceEventEvidence({ page: target, event: webEvent });
     assert.equal(String(target.sourceRefs[2].objectId), String(webEvent._id), 'a web source is still known by its event');
+
+    // A filing a watch brought in is filed into the Library, so its citation opens the reader.
+    const filer = id();
+    const filingUrl = 'https://www.sec.gov/Archives/edgar/data/1769628/000176962826000042/crwv-20260331.htm';
+    const filingEvent = await WikiSourceEvent.create({
+      userId: filer,
+      sourceType: 'external',
+      provider: 'sec-edgar',
+      externalId: 'sec-edgar:0001769628:0001769628-26-000042',
+      title: 'CRWV 10-Q filed 2026-05-08',
+      text: 'CoreWeave, Inc. filed 10-Q on 2026-05-08.\n\nRevenue backlog was <b>large</b>.',
+      url: filingUrl,
+      metadata: { source: 'sec-edgar', ticker: 'CRWV', companyName: 'CoreWeave, Inc.', form: '10-Q' }
+    });
+    const filingRef = () => ({
+      _id: id(),
+      type: 'external',
+      objectId: filingEvent._id,
+      url: filingUrl,
+      title: 'CRWV 10-Q filed 2026-05-08',
+      snippet: 'CoreWeave, Inc. filed 10-Q on 2026-05-08.',
+      provider: 'sec-edgar',
+      metadata: { source: 'sec-edgar', ticker: 'CRWV', companyName: 'CoreWeave, Inc.' }
+    });
+    const dossierUpdatedAt = new Date('2026-05-09T00:00:00.000Z');
+    const dossierStored = await WikiPage.collection.insertOne({
+      userId: filer,
+      title: 'CoreWeave',
+      slug: 'coreweave',
+      updatedAt: dossierUpdatedAt,
+      sourceRefs: [
+        filingRef(),
+        filingRef(),
+        { _id: id(), type: 'external', url: 'https://www.nasdaq.com/market-activity/stocks/crwv' }
+      ]
+    });
+
+    const dryDossier = await WikiPage.findById(dossierStored.insertedId).lean();
+    assert.equal(await linkPageSources({ Article, WikiSourceEvent, page: dryDossier }), 0, 'a read that cannot write files nothing');
+    assert.equal(await Article.countDocuments({ userId: filer }), 0);
+
+    const dossier = await WikiPage.findById(dossierStored.insertedId).lean();
+    assert.equal(await linkPageSources({ Article, WikiSourceEvent, WikiPage, page: dossier }), 2);
+    const filed = await Article.find({ userId: filer }).lean();
+    assert.equal(filed.length, 1, 'one filing, one article, however often it is cited');
+    const [filing] = filed;
+    assert.equal(filing.url, filingUrl);
+    assert.equal(filing.title, 'CRWV 10-Q filed 2026-05-08');
+    assert.equal(filing.importMeta.provider, 'sec-edgar');
+    assert.equal(filing.importMeta.sourceType, 'watched_filing');
+    assert.equal(filing.importMeta.sourceLabel, 'CoreWeave, Inc.');
+    assert.equal(filing.importMeta.externalId, 'sec-edgar:0001769628:0001769628-26-000042');
+    assert.ok(filing.content.includes('Revenue backlog was &lt;b&gt;large&lt;/b&gt;.'), 'the watch\'s text, as text');
+    const [tenQ, again, quote] = dossier.sourceRefs;
+    assert.equal(String(tenQ.parentObjectId), String(filing._id));
+    assert.equal(String(again.parentObjectId), String(filing._id));
+    assert.equal(tenQ.type, 'external', 'the filing keeps its kind and its event');
+    assert.equal(String(tenQ.objectId), String(filingEvent._id));
+    assert.equal(quote.parentObjectId, undefined, 'a web page nobody saved is not filed');
+    const dossierReread = await WikiPage.findById(dossier._id).lean();
+    assert.equal(String(dossierReread.sourceRefs[0].parentObjectId), String(filing._id));
+    assert.equal(dossierReread.updatedAt.toISOString(), dossierUpdatedAt.toISOString(), 'filing is not an edit');
+    assert.equal(await linkPageSources({ Article, WikiSourceEvent, WikiPage, page: dossierReread }), 0, 'the second read is direct');
+    assert.equal(await Article.countDocuments({ userId: filer }), 1);
+
+    // A filing already in the Library, at another spelling, is used as it stands.
+    const savedFilingUrl = 'https://sec.gov/Archives/edgar/data/1769628/000176962826000099/crwv-10k.htm';
+    const saved = await Article.create({ userId: filer, url: `${savedFilingUrl}/`, title: 'Saved 10-K', content: '<p>Mine.</p>' });
+    const tenK = { _id: id(), userId: filer, sourceRefs: [{ ...filingRef(), objectId: null, url: savedFilingUrl.replace('://', '://www.') }] };
+    assert.equal(await linkPageSources({ Article, WikiSourceEvent, WikiPage, page: tenK }), 1);
+    assert.equal(String(tenK.sourceRefs[0].parentObjectId), String(saved._id));
+    assert.equal((await Article.findById(saved._id).lean()).content, '<p>Mine.</p>', 'never overwritten');
+    assert.equal(await Article.countDocuments({ userId: filer }), 2);
   } finally {
     await mongoose.disconnect();
     await memory.stop();
