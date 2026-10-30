@@ -66,17 +66,19 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     catch (_) { draft.error = 'Saved writing could not be cleared from this device.'; return false; }
   };
   const keepSaved = (note, clientId = note._id) => {
+    let linkedDurable = true;
     if (clientId !== note._id) {
       aliases.set(clientId, note._id); delete saved[clientId];
       // Retain a child's canonical link before the parent's local receipt clears.
       // Otherwise a reload between the two saves loses the in-memory alias.
       Object.entries(drafts).forEach(([id, draft]) => {
-        if (draft.note.workItem?.noteId !== clientId) return;
-        draft.note = { ...draft.note, workItem: { ...draft.note.workItem, noteId: note._id } }; persist(id);
+        if (![clientId, note._id].includes(draft.note.workItem?.noteId)) return;
+        draft.note = { ...draft.note, workItem: { ...draft.note.workItem, noteId: note._id } };
+        if (!persist(id)) linkedDurable = false;
       });
     }
     if (!saved[note._id] || saved[note._id].revision <= note.revision) saved[note._id] = note;
-    return note._id;
+    return linkedDurable;
   };
   const entry = id => drafts[id]?.note || saved[aliases.get(id) || id];
   const edit = (id, patch) => {
@@ -135,7 +137,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
           if (data._actionReplay && (latest.changedFields || []).some(key => JSON.stringify(key === 'workItem' ? itemMetadata(sent.workItem) : sent[key]) !== JSON.stringify(key === 'workItem' ? itemMetadata(data.workItem) : data[key]))) {
             latest.conflict = data; latest.saving = false; persist(id); emit(); return false;
           }
-          keepSaved(data, id);
+          if (!keepSaved(data, id)) { latest.saving = false; latest.error = 'Linked items could not be kept on this device. Keep this page open and retry.'; emit(); return false; }
           if (latest.version === version && !creating) { if (!forget(id)) { emit(); return false; } }
           else {
             const acknowledged = new Set((data.workItem?.history || []).map(event => event.operationId));
@@ -272,7 +274,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       }
     },
     conflict: id => drafts[id]?.conflict,
-    useServer(id) { if (!drafts[id]?.conflict) return; keepSaved(drafts[id].conflict, id); forget(id); emit(); },
+    useServer(id) { if (!drafts[id]?.conflict) return; if (keepSaved(drafts[id].conflict, id)) forget(id); emit(); },
     saveAsNew(id) { const local = body(entry(id)); const workingState = entry(id).workingState; this.useServer(id); const copy = capture(local); edit(copy, { workingState }); return copy; },
     status(id) {
       const draft = drafts[id];

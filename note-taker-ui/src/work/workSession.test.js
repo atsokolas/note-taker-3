@@ -375,3 +375,32 @@ test('Make Open cannot overwrite an unsafe memory-only draft or cross an account
   set.mockRestore(); localStorage.setItem('token', token('other'));
   expect(session.open.begin('a', 'Other account')).toBe(false); expect(session.open.draft('a').title).toBe('Memory only');
 });
+
+test('choosing an earlier draft cannot erase a memory-only Make Open title', async () => {
+  await session.load(); session.open.change('a', { title: 'Earlier durable' });
+  const earlier = session.open.drafts('a')[0].id;
+  const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  session.open.begin('a', 'Memory-only selection');
+  expect(session.canLeave()).toBe(false); session.open.choose('a', earlier);
+  expect(session.open.draft('a').title).toBe('Memory-only selection');
+  expect(session.open.recovery().map(draft => draft.title)).toContain('Memory-only selection'); expect(session.canLeave()).toBe(false);
+  set.mockRestore();
+});
+
+test('a child recovers its parent identity when device writes fail after the parent is acknowledged', async () => {
+  await session.load();
+  const parent = session.capture(); session.edit(parent, { content: 'Parent words' });
+  session.open.change(parent, { title: 'Linked child' }); const child = session.open.submit(parent, 'UTC');
+  const parentIntent = session.pending().find(([id]) => id === parent)[1].operationId;
+  let quota = false;
+  const realSet = Storage.prototype.setItem;
+  const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function(key, value) { if (quota) throw new Error('quota'); return realSet.call(this, key, value); });
+  api.post.mockImplementation(async (_, value) => { quota = !value.workItem; return { data: { ...value, _id: value.workItem ? 'child' : 'parent', revision: 0 } }; });
+  api.put.mockImplementation(async (path, value) => ({ data: { ...value, _id: path.split('/').pop(), operationId: parentIntent, revision: value.expectedRevision + 1 } }));
+  await session.flush(parent); session.dispose(); set.mockRestore(); quota = false;
+  api.get.mockResolvedValue({ data: { entries: [note({ _id: 'parent', operationId: parentIntent, content: 'Parent words' })], items: [], folders: [] } });
+  session = createWorkSession({ token: token('owner'), api }); await session.load();
+  await session.flush(child); expect(session.entry(child).workItem.noteId).toBe('parent');
+  expect(api.post.mock.calls.filter(([, value]) => value.workItem)).toHaveLength(1);
+  expect(session.pending()).toEqual([]);
+});

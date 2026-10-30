@@ -16,6 +16,11 @@ export function createWorkOpenComposer({ account, storage, isCurrent, identity, 
     }
     return selected.get(name);
   };
+  const keepUnsafe = id => {
+    const current = read(id);
+    if (!(current.note.title || current.note.submission) || device.durable(current)) return false;
+    current.error = 'Keep or copy this unsaved draft before choosing another.'; emit(); return true;
+  };
   const all = () => {
     let records = [];
     try { records = stored(); } catch (_) { /* Read failures stay visible on the selected draft. */ }
@@ -45,16 +50,12 @@ export function createWorkOpenComposer({ account, storage, isCurrent, identity, 
     status: id => read(id).error || '',
     drafts: id => all().filter(record => record.note.noteIdentity === identity(id)).map(record => ({ ...record.note, id: record.draftId || record.note.intent })),
     choose(id, draftId) {
-      if (!isCurrent()) return;
+      if (!isCurrent() || keepUnsafe(id)) return;
       const record = all().find(value => value.note.noteIdentity === identity(id) && (value.draftId || value.note.intent) === draftId);
       if (record) { selected.set(identity(id), record); emit(); }
     },
     begin(id, text) {
-      if (!isCurrent() || !entry(id)) return false;
-      const current = read(id);
-      if ((current.note.title || current.note.submission) && !device.durable(current)) {
-        current.error = 'Keep or copy this unsaved draft before making another Open item.'; emit(); return false;
-      }
+      if (!isCurrent() || !entry(id) || keepUnsafe(id)) return false;
       selected.set(identity(id), blank(identity(id))); this.change(id, { title: text }); return true;
     },
     change(id, patch) {
