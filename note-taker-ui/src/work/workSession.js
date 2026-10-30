@@ -137,7 +137,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
           if (data._actionReplay && (latest.changedFields || []).some(key => JSON.stringify(key === 'workItem' ? itemMetadata(sent.workItem) : sent[key]) !== JSON.stringify(key === 'workItem' ? itemMetadata(data.workItem) : data[key]))) {
             latest.conflict = data; latest.saving = false; persist(id); emit(); return false;
           }
-          if (!keepSaved(data, id)) { latest.saving = false; latest.error = 'Linked items could not be kept on this device. Keep this page open and retry.'; emit(); return false; }
+          if (!keepSaved(data, id)) { latest.saving = false; latest.error = 'Linked writing could not be kept on this device. Keep this page open and retry.'; emit(); return false; }
           if (latest.version === version && !creating) { if (!forget(id)) { emit(); return false; } }
           else {
             const acknowledged = new Set((data.workItem?.history || []).map(event => event.operationId));
