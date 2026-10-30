@@ -34,7 +34,7 @@ The full `CI=true npm run build` fails on the existing macOS filename-resolution
 
 Native physical mobile keyboard/IME, live server persistence/auth, and deployed behavior were not verified. Automated composition guards and synthetic browser persistence/retry paths passed.
 
-PR publication is pending the separate approval request in the parent conversation. No composer push or PR creation was attempted. The local branch and a prepared PR description remain available for publication after explicit approval.
+Historical status at the inline-composer checkpoint: publication was pending approval. The user subsequently approved Make Open, build/test and merge; current verification and publication details are in `docs/noeis-make-open-qa-2026-10-30.md` and the final task report.
 
 ## Integration with the merged spacing fix
 
