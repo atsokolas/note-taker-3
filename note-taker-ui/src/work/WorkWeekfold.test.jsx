@@ -91,8 +91,8 @@ test('a new folder from the place line is where the open note goes', async () =>
 });
 test('planning a new note question is explicit and retains its note identity in the day', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
-  const dialog = await screen.findByRole('dialog', { name: 'New Work item' }); fireEvent.change(within(dialog).getByLabelText('Item'), { target: { value: 'Which site is ready first?' } });
-  fireEvent.change(within(dialog).getByLabelText('Kind'), { target: { value: 'question' } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Save item' }));
+  expect(screen.queryByRole('dialog')).toBeNull(); fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Which site is ready first?' } });
+  fireEvent.change(screen.getByLabelText('Open item kind'), { target: { value: 'question' } }); fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   await waitFor(() => expect(records.some(x => x.title === 'Which site is ready first?')).toBe(true));
   const saved = records.find(x => x.title === 'Which site is ready first?'); expect(saved.workItem.noteId).toBe('note'); expect(saved.workItem.plannedOn || null).toBe(null);
 });
@@ -204,7 +204,7 @@ test('a day reads as one page: its follow-ups, what it was written, and earlier 
   expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
   expect(await within(page()).findByRole('checkbox', { name: 'Confirm service-training dates From Mon 26' })).toBeInTheDocument();
 });
-test('one typed line plans an appointment, and a [] line in a note becomes its follow-up', async () => {
+test('day planning reads time, while note words become Open only after explicit selection and Add', async () => {
   today();
   fireEvent.change(await screen.findByLabelText('Plan something'), { target: { value: 'IC meeting 2pm' } });
   fireEvent.submit(screen.getByLabelText('Plan something').form);
@@ -213,9 +213,17 @@ test('one typed line plans an appointment, and a [] line in a note becomes its f
   const writing = await screen.findByRole('textbox', { name: 'Work note writing' });
   act(() => { writing.editor.commands.focus('end'); writing.editor.commands.splitBlock(); writing.editor.commands.insertContent('[] Call Mira about training'); });
   fireEvent.keyDown(writing.editor.view.dom, { key: 'Enter' });
+  expect(writing).toHaveTextContent('[] Call Mira about training');
+  expect(records.some(x => x.title === 'Call Mira about training')).toBe(false);
+  let at; writing.editor.state.doc.descendants((node, pos) => { if (node.isText && node.text.includes('Call Mira')) at = pos + node.text.indexOf('Call Mira'); });
+  act(() => writing.editor.commands.setTextSelection({ from: at, to: at + 'Call Mira about training'.length }));
+  const doc = writing.editor.getJSON();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
+  expect(screen.getByLabelText('Open item title')).toHaveValue('Call Mira about training');
+  fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
   expect(within(screen.getByRole('region', { name: 'Open' })).getByText('Call Mira about training')).toBeInTheDocument();
   await waitFor(() => expect(records.find(x => x.title === 'Call Mira about training')?.workItem).toMatchObject({ kind: 'task', noteId: 'note' }));
-  expect(writing).not.toHaveTextContent('Call Mira');
+  expect(writing).toHaveTextContent('[] Call Mira about training'); expect(writing.editor.getJSON()).toEqual(doc);
 });
 test('a meeting starts its note, continuing last time’s note of the same name, dated the meeting’s day, with what is still open', async () => {
   records.push({ _id: 'meeting', revision: 0, title: 'Fieldwell · pilot follow-up', folder: 'f', withText: 'Mira Chen', workItem: { kind: 'appointment', plannedOn: '2026-10-29', startTime: '10:00', endTime: '10:30', history: [] } });

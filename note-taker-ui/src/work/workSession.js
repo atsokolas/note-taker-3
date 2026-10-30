@@ -1,4 +1,5 @@
 import apiClient from '../api';
+import { createWorkOpenComposer } from './workOpenDrafts';
 import { operationId, workDraftStorage, workContinuationStorage } from './workDrafts';
 import { dayInZone, deviceTimeZone, displayDay, itemMetadata } from './workPlannerModel';
 import { plainTextFrom } from '../utils/editorialText';
@@ -65,9 +66,19 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     catch (_) { draft.error = 'Saved writing could not be cleared from this device.'; return false; }
   };
   const keepSaved = (note, clientId = note._id) => {
-    if (clientId !== note._id) { aliases.set(clientId, note._id); delete saved[clientId]; }
+    let linkedDurable = true;
+    if (clientId !== note._id) {
+      aliases.set(clientId, note._id); delete saved[clientId];
+      // Retain a child's canonical link before the parent's local receipt clears.
+      // Otherwise a reload between the two saves loses the in-memory alias.
+      Object.entries(drafts).forEach(([id, draft]) => {
+        if (![clientId, note._id].includes(draft.note.workItem?.noteId)) return;
+        draft.note = { ...draft.note, workItem: { ...draft.note.workItem, noteId: note._id } };
+        if (!persist(id)) linkedDurable = false;
+      });
+    }
     if (!saved[note._id] || saved[note._id].revision <= note.revision) saved[note._id] = note;
-    return note._id;
+    return linkedDurable;
   };
   const entry = id => drafts[id]?.note || saved[aliases.get(id) || id];
   const edit = (id, patch) => {
@@ -78,12 +89,12 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     drafts[id] = { ...previous, changedFields, note: { ...current, ...patch }, version: (previous?.version || 0) + 1, dirty: true, error: '' };
     persist(id); emit();
   };
-  const capture = (values = {}) => {
-    const id = `local-${operationId()}`;
+  const capture = (values = {}, identity = {}) => {
+    const id = identity.id || `local-${operationId()}`;
     const capturedAt = values.capturedAt || new Date().toISOString(), timeZone = values.timeZone || deviceTimeZone();
     const takenOn = dayInZone(capturedAt, timeZone);
     saved[id] = { title: '', content: '', blocks: [], folder: null, occurredOn: takenOn, withText: '', ...values, capturedAt, takenOn, timeZone };
-    drafts[id] = { note: saved[id], operationId: operationId(), version: 0, dirty: false, durable: false };
+    drafts[id] = { note: saved[id], operationId: identity.intent || operationId(), version: 0, dirty: false, durable: false };
     emit(); return id;
   };
   const load = async () => {
@@ -96,7 +107,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       [...data.entries, ...data.items].forEach(note => keepSaved(note));
       mergeFolders(data.folders);
     } catch (error) { if (isCurrent() && !request.signal.aborted) loadError = requestError(error); }
-    finally { if (isCurrent() && !request.signal.aborted) { loading = false; emit(); } }
+    finally { if (isCurrent() && !request.signal.aborted) { open.restoreParents(); loading = false; emit(); } }
   };
   const requireServer = async () => { if (compatible !== true) await load(); if (compatible !== true) throw Object.assign(new Error(loadError || MATCHING_SERVER), { code: 'work_server_updating' }); };
   const flush = id => {
@@ -126,7 +137,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
           if (data._actionReplay && (latest.changedFields || []).some(key => JSON.stringify(key === 'workItem' ? itemMetadata(sent.workItem) : sent[key]) !== JSON.stringify(key === 'workItem' ? itemMetadata(data.workItem) : data[key]))) {
             latest.conflict = data; latest.saving = false; persist(id); emit(); return false;
           }
-          keepSaved(data, id);
+          if (!keepSaved(data, id)) { latest.saving = false; latest.error = 'Linked writing could not be kept on this device. Keep this page open and retry.'; emit(); return false; }
           if (latest.version === version && !creating) { if (!forget(id)) { emit(); return false; } }
           else {
             const acknowledged = new Set((data.workItem?.history || []).map(event => event.operationId));
@@ -156,8 +167,21 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     incoming.forEach(folder => { if (!all.has(folder._id) || (all.get(folder._id).revision || 0) <= (folder.revision || 0)) all.set(folder._id, folder); });
     folders = [...all.values()].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.name.localeCompare(b.name));
   };
+  const open = createWorkOpenComposer({
+    account, storage, isCurrent, entry, capture, edit, emit,
+    identity: id => entry(id)?.operationId || drafts[id]?.operationId || entry(id)?._id || id,
+    findItem: intent => records().find(note => note.workItem && note.operationId === intent),
+    findNote: intent => records().find(note => !note.workItem && note.operationId === intent),
+    retain: id => !drafts[id]?.dirty || persist(id),
+    retainParent: id => {
+      if (entry(id)?._id) return true;
+      // Explicit Add commits a real parent even when its prose is still blank.
+      if (!drafts[id]?.dirty) edit(id, { title: entry(id)?.title || '' });
+      return persist(id);
+    }
+  });
   return {
-    account, entry, edit, capture, flush, isCurrent, refreshDrafts,
+    account, entry, edit, capture, flush, isCurrent, refreshDrafts, open,
     resume(nextToken = storage.getItem('token') || '') {
       if (workAccount(nextToken) !== account || workAccount(storage.getItem('token') || '') !== account) return false;
       if (disposed || options.headers.Authorization !== `Bearer ${nextToken}`) {
@@ -250,7 +274,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       }
     },
     conflict: id => drafts[id]?.conflict,
-    useServer(id) { if (!drafts[id]?.conflict) return; keepSaved(drafts[id].conflict, id); forget(id); emit(); },
+    useServer(id) { if (!drafts[id]?.conflict) return; if (keepSaved(drafts[id].conflict, id)) forget(id); emit(); },
     saveAsNew(id) { const local = body(entry(id)); const workingState = entry(id).workingState; this.useServer(id); const copy = capture(local); edit(copy, { workingState }); return copy; },
     status(id) {
       const draft = drafts[id];
@@ -262,9 +286,9 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       return draft.saving ? 'Saving…' : 'On this device';
     },
     pending: () => Object.entries(drafts).filter(([, draft]) => draft.dirty).map(([id, draft]) => { draft.durable = device.durable(draft); return [id, draft]; }),
-    canLeave: () => Object.values(drafts).every(draft => !draft.dirty || device.durable(draft)),
+    canLeave: () => open.canLeave() && Object.values(drafts).every(draft => !draft.dirty || device.durable(draft)),
     discard(id) { forget(id); if (!saved[id]?._id) delete saved[id]; emit(); },
-    removeDrafts() { device.removeAll(); receipts.removeAll(); drafts = {}; continuations.clear(); emit(); },
+    removeDrafts() { device.removeAll(); receipts.removeAll(); open.removeAll(); drafts = {}; continuations.clear(); emit(); },
     dispose() { disposed = true; abort.abort(); listeners.clear(); }
   };
 }

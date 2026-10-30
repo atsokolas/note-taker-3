@@ -99,7 +99,8 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   background: color-mix(in srgb, var(--vellum-accent, #9b6a18) 10%, transparent);
 }
 
-.think-rich-text-toolbar__partner {
+.think-rich-text-toolbar__partner,
+.think-rich-text-toolbar__make-open {
   margin-left: 6px;
   padding-left: 10px !important;
   border-left: 1px solid var(--vellum-line, #ded7c9) !important;
