@@ -85,7 +85,7 @@ export function createWorkOpenComposer({ account, storage, isCurrent, identity, 
       if (!retainParent(id)) return fail();
       const { clientId, values } = value.submission;
       const target = findItem(value.intent)?.clientId || clientId;
-      if (!entry(target)) { capture(values, { id: target, intent: value.intent }); edit(target, { title: values.title }); }
+      if (!entry(target)) { capture({ ...values, workItem: { ...values.workItem, noteId: entry(id)._id || id } }, { id: target, intent: value.intent }); edit(target, { title: values.title }); }
       if (!retain(target)) return fail();
       return clear(id) ? target : null;
     },

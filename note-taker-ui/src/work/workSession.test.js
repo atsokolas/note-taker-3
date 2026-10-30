@@ -404,3 +404,25 @@ test('a child recovers its parent identity when device writes fail after the par
   expect(api.post.mock.calls.filter(([, value]) => value.workItem)).toHaveLength(1);
   expect(session.pending()).toEqual([]);
 });
+
+test('a recovered submission uses its synced parent identity after parent retention initially failed', async () => {
+  await session.load(); const parent = session.capture(); session.open.change(parent, { title: 'Recover after parent sync' });
+  const intent = session.open.draft(parent).intent, parentIntent = session.open.draft(parent).parent.intent;
+  const realSet = Storage.prototype.setItem;
+  const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(function(key, value) { if (key.startsWith(`${draftKey('owner')}:record:`)) throw new Error('quota'); return realSet.call(this, key, value); });
+  expect(session.open.submit(parent, 'UTC')).toBeNull(); expect(session.items()).toEqual([]); set.mockRestore();
+  let serverParent;
+  api.post.mockImplementation(async (_, value) => {
+    const data = { ...value, _id: value.workItem ? 'child' : 'parent', revision: 0 };
+    if (!value.workItem) serverParent = data; return { data };
+  });
+  api.put.mockImplementation(async (path, value) => ({ data: { ...(path.endsWith('/parent') ? serverParent : session.items()[0]), ...value, _id: path.split('/').pop(), revision: value.expectedRevision + 1 } }));
+  await session.flush(parent); session.dispose();
+  api.get.mockResolvedValue({ data: { entries: [note({ _id: 'parent', operationId: parentIntent, revision: 1 })], items: [], folders: [] } });
+  session = createWorkSession({ token: token('owner'), api }); await session.load();
+  expect(session.entry(parent)).toBeUndefined(); expect(session.open.draft('parent').intent).toBe(intent);
+  const child = session.open.submit('parent', 'UTC'); await session.flush(child);
+  expect(session.entry(child).workItem.noteId).toBe('parent');
+  expect(api.post.mock.calls.at(-1)[1]).toMatchObject({ operationId: intent, workItem: { noteId: 'parent' } });
+  expect(session.pending()).toEqual([]);
+});

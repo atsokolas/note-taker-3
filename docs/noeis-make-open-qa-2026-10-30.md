@@ -27,3 +27,9 @@ Browser source, result JSON, screenshots and logs are retained in `tmp/inline-op
 The full local macOS production build still fails on the pre-existing `ReturnGreeting.jsx` / `returnGreeting.js` import-resolution collision, unchanged by this branch. Hosted Linux production build and exact-head CI are required before merge. Physical mobile keyboard/selection handles and live private-note persistence are not tested; synthetic touch/IME and persistence paths are verified.
 
 Initial PR creation was automatically rejected while the first confirmed P1 was present; no PR was created by that attempt. Both P1s are now fixed and independently re-reviewed, providing new verification before publication retry. PR/merge/deployment outcomes are recorded in the final task report, not inferred from local test results. This report supersedes the earlier publication-permission limitation in `docs/noeis-inline-open-qa-2026-10-30.md`.
+
+## Hosted review follow-up
+
+The first hosted full UI run identified one product-copy violation in the new device-save message. Replaced “Linked items” with “Linked writing”; the copy rule and its tests are unchanged. The next hosted run passed all 3,107 UI tests, the Linux production build, server tests/harnesses, extension and aggregate gate on `a07c68c6`.
+
+GitHub's independent Codex review additionally found that an interrupted submission could retain its old local parent ID after the parent independently synced. Reproduced the exact failure with a reload regression, then resolved the parent from the current note before capturing the recovered submission, keeping the original title and operation identity. Work plus product-copy checks pass 141/141 after this fix. The final updated commit must rerun hosted checks before merge; earlier green checks are not reused as its gate.
