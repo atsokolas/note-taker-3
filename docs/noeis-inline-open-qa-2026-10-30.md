@@ -35,3 +35,7 @@ The full `CI=true npm run build` fails on the existing macOS filename-resolution
 Native physical mobile keyboard/IME, live server persistence/auth, and deployed behavior were not verified. Automated composition guards and synthetic browser persistence/retry paths passed.
 
 PR publication is pending the separate approval request in the parent conversation. No composer push or PR creation was attempted. The local branch and a prepared PR description remain available for publication after explicit approval.
+
+## Integration with the merged spacing fix
+
+Fetched and merged main `cbff4a8f363c8c3a20920f9b3862182e053e846e` (PR #614) into the isolated composer branch without conflicts. The composer diff against updated main contains only the intended composer changes; no spacing repair is duplicated. The integrated Work suite again passed 127/127, the scoped preview compiled, and the synthetic browser checks again passed at 1440/1280/430. Final Library screenshots were refreshed to show the integrated state. Hosted CI/build and production verification reported by the spacing task apply to that merged spacing change, not to this unpublished composer branch.
