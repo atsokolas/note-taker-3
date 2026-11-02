@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import WorkIcon from './WorkIcon';
 import { matchesQuery, noteTitle } from './workSession';
 import { displayDay, shiftDay, weekDays, writtenDay } from './workPlannerModel';
+import { listOf } from './workOutstanding';
 
 // The week line sits over every Work page. On Today it is followed by the day itself, read top to bottom like a page in a day book:
 // its appointments and follow-ups, what is carried from earlier, what was written, the margin.
@@ -24,7 +25,7 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, n
   const priorities = date => onDate(tasks, date).filter(item => item.priority && !item.completed).sort((a, b) => a.priority - b.priority).slice(0, 3);
   const plan = date => [...priorities(date), ...onDate(tasks, date).filter(item => !priorities(date).includes(item))];
   const noteOf = item => item.noteId && notes.find(note => [note._id, note.clientId].includes(item.noteId));
-  const carried = tasks.filter(item => !item.completed && (item.plannedOn || writtenDay(noteOf(item)) || day) < day);
+  const carried = tasks.filter(item => !item.completed && listOf(item, notes, today) !== 'someday' && (item.plannedOn || writtenDay(noteOf(item)) || day) < day);
   const written = notes.filter(note => writtenDay(note) === day && matchesQuery(note, query));
   const folderName = note => folders.find(folder => folder._id === (note.folder?._id || note.folder))?.name || 'Inbox';
   const selectedAppointments = onDate(appointments, day).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));

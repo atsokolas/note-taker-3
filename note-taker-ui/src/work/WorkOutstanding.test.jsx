@@ -1,9 +1,10 @@
 jest.mock('react-router-dom', () => { global.TextEncoder = require('util').TextEncoder; global.TextDecoder = require('util').TextDecoder; return jest.requireActual('react-router'); });
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WorkNotes from './WorkNotes';
 import { WorkDayClose } from './WorkOutstanding';
+import WorkCalendar from './WorkCalendar';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn() }));
@@ -99,4 +100,23 @@ test('closing the day moves what is left to tomorrow, Monday or Someday, and say
   expect(screen.getByText('Tomorrow starts with Lunch with Ana at 12:30 and draft the job post.')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Monday' })); expect(onAction).toHaveBeenLastCalledWith('a', { type: 'plan', plannedOn: '2026-11-02' });
   fireEvent.click(screen.getByRole('button', { name: 'Someday' })); expect(onSort).toHaveBeenLastCalledWith('a', { list: 'someday', sortedOn: '2026-10-29', returnOn: null });
+});
+
+test('moving the last line leaves the closing sentence on the page', () => {
+  const lines = [{ id: 'a', clientId: 'a', kind: 'task', title: 'Reply to the auditor', plannedOn: '2026-10-29' }];
+  const { rerender } = render(<WorkDayClose today="2026-10-29" onAction={() => {}} onSort={() => {}} items={lines} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Tomorrow' }));
+  rerender(<WorkDayClose today="2026-10-29" onAction={() => {}} onSort={() => {}} items={[{ ...lines[0], plannedOn: '2026-10-30' }]} />);
+  expect(screen.getByText('Today is closed.')).toBeInTheDocument();
+  expect(screen.getByText('Tomorrow starts with reply to the auditor.')).toBeInTheDocument();
+});
+
+test('a line set aside for someday is not carried on the day page until its day comes back', () => {
+  const note = { _id: 'n', clientId: 'n', takenOn: '2026-10-26' };
+  const line = { id: 'a', clientId: 'a', kind: 'task', title: 'Plan the offsite', noteId: 'n', list: 'someday', returnOn: '2026-11-03' };
+  const calendar = today => <WorkCalendar page day={today} today={today} mode="day" onMode={() => {}} onDay={() => {}} items={[line]} notes={[note]} query="" folders={[]} drag={() => ({})} onOpen={() => {}} onStart={() => {}} onEdit={() => {}} onAction={() => {}} onNew={() => {}} onPlan={() => {}} margin={null} />;
+  const { rerender } = render(calendar('2026-10-29'));
+  expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
+  rerender(calendar('2026-11-03'));
+  expect(within(screen.getByRole('region', { name: 'Carried from earlier' })).getByText('Plan the offsite')).toBeInTheDocument();
 });

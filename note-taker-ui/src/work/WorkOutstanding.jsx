@@ -95,9 +95,12 @@ export function WorkDayClose({ items, today, onAction, onSort }) {
   const first = items.filter(item => item.kind === 'appointment' && item.plannedOn === tomorrow).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))[0];
   const task = items.find(item => item.kind === 'task' && !item.completed && item.plannedOn === tomorrow);
   const starts = [first && `${first.title}${first.startTime ? ` at ${first.startTime}` : ''}`, task && task.title.charAt(0).toLowerCase() + task.title.slice(1)].filter(Boolean);
-  if (!left.length) return null;
-  return <section className="work-day-close" aria-label="Close the day"><h2>Close the day</h2><p className="work-outstanding-line">{left.length === 1 ? 'One thing from today is still open.' : `${plural(left.length, 'thing')} from today are still open.`}</p>
-    {left.map(item => <div className="work-planner-task work-outstanding-row" key={item.id}><label><input type="checkbox" checked={false} onChange={() => onAction(item.clientId, { type: 'complete' })} /><span>{item.title}</span></label><span className="work-carried"><button onClick={() => onAction(item.clientId, { type: 'plan', plannedOn: tomorrow })}>Tomorrow</button>{monday !== tomorrow ? <button onClick={() => onAction(item.clientId, { type: 'plan', plannedOn: monday })}>Monday</button> : null}<button onClick={() => { onAction(item.clientId, { type: 'plan', plannedOn: null }); onSort(item.clientId, { list: 'someday', sortedOn: today, returnOn: null }); }}>Someday</button></span></div>)}
+  // Once the last line is moved the section stays, so the closing sentence is read.
+  const [closing, setClosing] = useState(false);
+  const act = (id, values) => { setClosing(true); onAction(id, values); };
+  if (!left.length && !closing) return null;
+  return <section className="work-day-close" aria-label="Close the day"><h2>Close the day</h2><p className="work-outstanding-line">{!left.length ? 'Today is closed.' : left.length === 1 ? 'One thing from today is still open.' : `${plural(left.length, 'thing')} from today are still open.`}</p>
+    {left.map(item => <div className="work-planner-task work-outstanding-row" key={item.id}><label><input type="checkbox" checked={false} onChange={() => act(item.clientId, { type: 'complete' })} /><span>{item.title}</span></label><span className="work-carried"><button onClick={() => act(item.clientId, { type: 'plan', plannedOn: tomorrow })}>Tomorrow</button>{monday !== tomorrow ? <button onClick={() => act(item.clientId, { type: 'plan', plannedOn: monday })}>Monday</button> : null}<button onClick={() => { act(item.clientId, { type: 'plan', plannedOn: null }); onSort(item.clientId, { list: 'someday', sortedOn: today, returnOn: null }); }}>Someday</button></span></div>)}
     {starts.length ? <p className="work-outstanding-line">Tomorrow starts with {starts.join(' and ')}.</p> : null}
   </section>;
 }
