@@ -43,7 +43,7 @@
 .work-shelf-foot { margin-top: auto; padding-top: 48px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--noeis-ink-subtle); }
 .work-page { min-width: 0; padding: 18px 48px 64px; }
 /* One surface: the week line sits over every Work page; each page then has one title, one sentence, one measure. */
-.work-page > .work-calendar, .work-page > .work-note-paper, .work-page > .work-index { max-width: 820px; }
+.work-page > .work-calendar, .work-page > .work-note-paper, .work-page > .work-index, .work-page > .work-outstanding, .work-page > .work-day-close { max-width: 820px; }
 .work-calendar-fold { overflow: hidden; }
 
 .work-day { border-left: 1px solid var(--noeis-rule); min-width: 0; padding: 0 8px; }
@@ -174,14 +174,15 @@ html[data-ui-motion=reduced] .work-notes *, html[data-ui-motion=reduced] .work-d
 .work-day-lines .work-appointment time { min-width: 3.2em; }
 .work-day-lines .work-planner-task { padding: 0; font: 16px/1.5 var(--font-serif); }
 .work-day-lines .work-plan-new input { width: 100%; padding: 12px 0; text-align: left; font: 16px/1.5 var(--font-serif); }
-.work-day-page section .work-planner-task { border-bottom: 1px solid var(--noeis-rule); font-size: 14px; }
+.work-day-page section .work-planner-task, .work-outstanding .work-planner-task, .work-day-close .work-planner-task { border-bottom: 1px solid var(--noeis-rule); font-size: 14px; }
 .work-carried { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 4px 14px; padding: 9px 12px 0; font-size: 12px; color: var(--noeis-ink-muted); }
 .work-carried time { font-variant-numeric: tabular-nums; }
 .work-notes .work-carried button { min-height: 0; padding: 0; font: inherit; color: var(--noeis-ink-muted); text-decoration: underline; text-decoration-color: var(--noeis-rule); text-underline-offset: 3px; }
 .work-notes .work-carried button:hover { background: none; color: var(--noeis-ink); }
 .work-day-page .work-day-margin { margin-top: 32px; }
 @media (max-width: 700px) {
-  .work-day-page section .work-planner-task { flex-wrap: wrap; }
+  .work-day-page section .work-planner-task, .work-outstanding .work-planner-task, .work-day-close .work-planner-task { flex-wrap: wrap; }
+  .work-outstanding .work-carried, .work-day-close .work-carried { justify-content: flex-start; padding: 0 0 10px 24px; }
   .work-carried { order: 1; width: 100%; justify-content: flex-start; padding: 0 0 10px 28px; }
 }
 
@@ -190,7 +191,7 @@ html[data-ui-motion=reduced] .work-notes *, html[data-ui-motion=reduced] .work-d
 
 /* These are writing surfaces, rather than the global ruled form fields. */
 body.noeis-editorial .work-notes textarea.work-title,
-body.noeis-editorial .work-notes .work-return textarea { border-bottom: 1px solid transparent !important; font-family: var(--font-serif); }
+body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .work-notes .work-outstanding-capture input { border-bottom: 1px solid transparent !important; font-family: var(--font-serif); }
 .work-sync { opacity: .35; }
 .work-place-line:focus-within .work-sync, .work-place-line:hover .work-sync { opacity: 1; }
 .work-writing-tools:not([open]) { height: 0; position: relative; top: -4px; }
@@ -243,14 +244,14 @@ body.noeis-editorial .work-notes .work-return textarea { border-bottom: 1px soli
 .work-notes .work-place-line button { min-height: 0; padding: 0; font: inherit; color: var(--noeis-ink); text-decoration: underline; text-decoration-color: var(--noeis-rule); text-underline-offset: 3px; }
 .work-place-line button:hover { text-decoration-color: currentColor; }
 .work-note-status { font: 12px var(--font-sans); }
-.work-day-page h2, .work-followups h2, .work-index h3 { margin: 36px 0 6px; font: 400 15px/1.4 var(--font-serif); color: var(--noeis-ink-muted); }
+.work-day-page h2, .work-followups h2, .work-index h3, .work-outstanding h2, .work-day-close h2 { margin: 36px 0 6px; font: 400 15px/1.4 var(--font-serif); color: var(--noeis-ink-muted); }
 
 /* A note: the words on the left, everything about the meeting in the margin beside them. */
 .work-page > .work-note-paper { display: grid; grid-template-columns: minmax(0, 1fr) 260px; grid-auto-flow: row dense; column-gap: 56px; align-items: start; max-width: 1080px; }
 .work-note-paper > .work-note-title, .work-note-paper > .work-place-line { grid-column: 1 / -1; }
 .work-note-paper > .work-conflict { grid-column: 1; }
 .work-note-paper > .work-writing { grid-column: 1; grid-row: span 20; }
-.work-note-paper > :is(.work-last-time, .work-followups, .work-add-followup, .work-completed, .work-foot, .work-note-details, .work-onward) { grid-column: 2; }
+.work-note-paper > :is(.work-last-time, .work-owed, .work-followups, .work-add-followup, .work-completed, .work-foot, .work-note-details, .work-onward) { grid-column: 2; }
 .work-last-time { margin: 0 0 20px; padding-left: 14px; border-left: 2px solid var(--noeis-rule); font: 15px/1.5 var(--font-serif); color: var(--noeis-ink-muted); }
 .work-notes .work-last-time button { min-height: 0; padding: 0; font: inherit; color: var(--noeis-ink-muted); text-decoration: underline; text-decoration-color: var(--noeis-rule); text-underline-offset: 3px; }
 .work-last-time q { color: var(--noeis-ink); }
@@ -294,3 +295,61 @@ body.noeis-editorial .work-notes .work-return textarea { border-bottom: 1px soli
 .work-open-drafts select { min-width: 0; width: 100%; min-height: 44px; background: var(--noeis-paper); border: 1px solid var(--noeis-rule); color: var(--noeis-ink); font: inherit; }
 
 .work-open-link { display: block; margin-top: 8px; color: var(--noeis-ink-muted); font: 12px var(--font-serif); }
+
+/* Outstanding: the rail's second part, under one rule. Same serif places, same single ink mark. */
+.work-lists { display: flex; flex-direction: column; gap: 6px; margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--noeis-rule); }
+.work-shelf .work-lists > button { position: relative; display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 3px 0; font: 16px/1.35 var(--font-serif); color: var(--noeis-ink); text-align: left; }
+.work-lists small { margin-left: auto; font-size: 12px; color: var(--noeis-ink-subtle); font-variant-numeric: tabular-nums; }
+.work-outstanding h3 { margin: 22px 0 2px; font: 12px/1.4 var(--font-sans); color: var(--noeis-ink-subtle); }
+.work-notes :is(.work-outstanding, .work-day-close, .work-owed) button { min-height: 0; padding: 0; background: none; border: 0; color: inherit; font: inherit; }
+.work-outstanding .work-carried button, .work-day-close .work-carried button, .work-outstanding-line button, .work-outstanding-quiet button, .work-outstanding-draft button, .work-review-end button { color: var(--noeis-ink-muted); text-decoration: underline; text-decoration-color: var(--noeis-rule); text-underline-offset: 3px; }
+.work-outstanding .work-carried button:hover, .work-outstanding-line button:hover, .work-outstanding-quiet button:hover, .work-outstanding-draft button:hover { color: var(--noeis-ink); text-decoration-color: currentColor; }
+.work-outstanding-capture { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin: 0 0 6px; padding: 6px 0 10px; border-bottom: 1px solid var(--noeis-rule); }
+.work-notes .work-outstanding-capture input { flex: 1 1 260px; min-width: 0; padding: 4px 0; background: transparent; border: 0; color: var(--noeis-ink); font: 18px/1.4 var(--font-serif); }
+.work-outstanding-capture input::placeholder { color: var(--noeis-ink-subtle); }
+.work-outstanding-capture small { font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
+.work-one-thing { display: grid; gap: 2px; margin: 26px 0 6px; padding: 2px 0 2px 16px; border-left: 2px solid var(--noeis-thread-strong); }
+.work-one-thing small { font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
+.work-one-thing span { font: 400 24px/1.3 var(--font-serif); color: var(--noeis-ink); }
+.work-outstanding-row.is-new label > span small { margin-top: 2px; font-size: 12px; color: var(--noeis-ink-subtle); }
+.work-outstanding-sort { display: inline-flex; flex-wrap: wrap; gap: 4px 14px; }
+.work-outstanding-ask { display: inline-flex; align-items: baseline; gap: 12px; }
+.work-notes .work-outstanding-ask input { width: 150px; padding: 2px 0; background: transparent; border: 0; border-bottom: 1px solid var(--noeis-rule); color: var(--noeis-ink); font: 14px var(--font-serif); }
+.work-outstanding-row:not(:hover, :focus-within) .work-outstanding-star[aria-pressed="false"] { display: none; }
+.work-outstanding .work-outstanding-star[aria-pressed="true"] { color: var(--noeis-thread-strong); text-decoration: none; }
+.work-outstanding-row.is-quiet { border-bottom: 0 !important; }
+.work-outstanding-row.is-quiet label > span { color: var(--noeis-ink-subtle); }
+.work-notes .work-outstanding-quiet button { font: 13px var(--font-sans); }
+.work-outstanding-quiet { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 8px 0 12px 24px; border-bottom: 1px solid var(--noeis-rule); font: 14px/1.5 var(--font-serif); color: var(--noeis-ink-muted); }
+.work-outstanding-line { margin: 8px 0; font: 16px/1.55 var(--font-serif); color: var(--noeis-ink-muted); }
+.work-outstanding .is-long { color: var(--noeis-ink); }
+/* Ticking draws a short pen stroke through the words; the line waits a moment with Undo before it leaves. */
+.work-outstanding-row.is-struck label > span { color: var(--noeis-ink-muted); background: linear-gradient(currentColor, currentColor) left 58% / 0 1px no-repeat; animation: work-ink .42s cubic-bezier(.3, .7, .4, 1) forwards; }
+@keyframes work-ink { to { background-size: 100% 1px; } }
+@media (prefers-reduced-motion: reduce) { .work-outstanding-row.is-struck label > span { animation: none; background-size: 100% 1px; } }
+.work-outstanding-person header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-top: 36px; padding-bottom: 6px; border-bottom: 1px solid var(--noeis-rule); }
+.work-outstanding-person h2 { margin: 0; font: 400 24px/1.3 var(--font-serif); color: var(--noeis-ink); }
+.work-outstanding-person header small { font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
+.work-outstanding-draft { margin: 0 0 10px 24px; padding: 10px 0 10px 16px; border-left: 1px solid var(--noeis-rule); font: 16px/1.55 var(--font-serif); color: var(--noeis-ink); }
+.work-outstanding-draft p { margin: 0; }
+.work-outstanding-draft small { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
+.work-outstanding-back { display: inline-flex; align-items: baseline; gap: 6px; }
+.work-outstanding-back input { padding: 0; background: transparent; border: 0; color: var(--noeis-ink-muted); font: 12px var(--font-sans); }
+.work-ledger { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 16px; margin: 10px 0 0; font: 15px/1.6 var(--font-serif); }
+.work-ledger dt { font: 12px/2 var(--font-sans); color: var(--noeis-ink-subtle); }
+.work-ledger dd { margin: 0; color: var(--noeis-ink-muted); }
+.work-ledger s { text-decoration-color: var(--noeis-ink-subtle); }
+.work-outstanding-tally { margin: 10px 0 0; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
+.work-review-step { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 8px; padding: 18px 0 8px; border-top: 1px solid var(--noeis-rule); }
+.work-review-step > b { font: 400 22px/1.2 var(--font-serif); color: var(--noeis-ink-subtle); }
+.work-outstanding .work-review-step h2 { margin: 0 0 4px; font: 400 21px/1.3 var(--font-serif); color: var(--noeis-ink); }
+.work-review-step.is-done h2, .work-review-step.is-done .work-outstanding-line { color: var(--noeis-ink-subtle); }
+.work-review-step > div { min-width: 0; }
+.work-review-end { margin: 24px 0 0; padding-top: 14px; border-top: 1px solid var(--noeis-ink); font: 16px var(--font-serif); color: var(--noeis-ink-muted); }
+.work-day-close { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--noeis-ink); }
+.work-day-close h2 { margin-top: 0; }
+.work-day-close h2, .work-outstanding .work-day-close h2 { color: var(--noeis-ink); font-size: 22px; }
+.work-owed { padding-top: 14px; border-top: 1px solid var(--noeis-rule); }
+.work-owed h2 { margin: 0 0 6px; font: 400 15px/1.4 var(--font-serif); color: var(--noeis-ink-muted); }
+.work-owed p { margin: 4px 0; font: 15px/1.5 var(--font-serif); color: var(--noeis-ink); }
+.work-owed small { display: block; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }

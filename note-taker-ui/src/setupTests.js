@@ -12,6 +12,12 @@ if (typeof global.ResizeObserver === 'undefined') {
   };
 }
 
+// jsdom has no layout, so Range has no rects; editor menus measure a selection after a short delay.
+if (typeof Range !== 'undefined' && !Range.prototype.getClientRects) {
+  Range.prototype.getClientRects = () => [];
+  Range.prototype.getBoundingClientRect = () => ({ x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON() {} });
+}
+
 jest.mock('react-router-dom', () => {
   const React = require('react');
   const passthrough = ({ children }) => React.createElement(React.Fragment, null, children);

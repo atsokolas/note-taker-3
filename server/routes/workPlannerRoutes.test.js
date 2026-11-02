@@ -121,3 +121,12 @@ test('stale action validation returns the current version so an invalid old Undo
   const reviewed = await call('/' + task._id, 'PUT', { expectedRevision: 1, workActions: [{ ...operation('reviewed-undo'), type: 'undo', undoOf: 'different-old-action' }] });
   assert.equal(reviewed.status, 409); assert.equal(reviewed.body.current.revision, 1);
 });
+test('an Outstanding line keeps its list, the person it waits on, and the days that bring it back', async () => {
+  const line = await create('outstanding-line', { title: 'The comp bands', workItem: { kind: 'task', list: 'waiting', waitingOn: 'Sam', sortedOn: '2026-10-23' } });
+  assert.equal(line.workItem.list, 'waiting'); assert.equal(line.workItem.waitingOn, 'Sam');
+  const later = await call('/' + line._id, 'PUT', { expectedRevision: 0, workItem: { list: 'someday', waitingOn: null, returnOn: '2026-12-01', oneThingOn: null } });
+  assert.equal(later.status, 200); assert.equal(later.body.workItem.list, 'someday'); assert.equal(later.body.workItem.returnOn, '2026-12-01');
+  assert.equal((await call('', 'POST', { operationId: 'nobody', title: 'x', workItem: { kind: 'task', list: 'waiting' } })).status, 400);
+  assert.equal((await call('', 'POST', { operationId: 'odd-list', title: 'x', workItem: { kind: 'task', list: 'urgent' } })).status, 400);
+  assert.equal((await call('', 'POST', { operationId: 'bad-day', title: 'x', workItem: { kind: 'task', returnOn: '2026-13-01' } })).status, 400);
+});

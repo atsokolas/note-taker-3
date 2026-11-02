@@ -1,4 +1,6 @@
 import { operationId, workDraftStorage } from './workDrafts';
+import { dayInZone } from './workPlannerModel';
+import { waitingFrom } from './workOutstanding';
 
 // Separate namespace: these snapshots are never in the auto-flushing queue.
 // Reuse Work's immutable records so stale tabs cannot overwrite later words.
@@ -71,10 +73,11 @@ export function createWorkOpenComposer({ account, storage, isCurrent, identity, 
       if (!value.title.trim()) return null;
       const preparing = !value.submission;
       if (preparing) {
-        const note = entry(id);
+        const note = entry(id), { title, waitingOn } = waitingFrom(value.title);
+        // "@Sam the comp bands" is a line Sam owes you, so it starts on Waiting on.
         value.submission = { clientId: `local-open-${value.intent}`, values: {
-          title: value.title.trim(), folder: note.folder?._id || note.folder || null, timeZone,
-          workItem: { kind: value.kind, noteId: note._id || id, plannedOn: null, dueOn: null, priority: 0, startTime: '', endTime: '' }
+          title, folder: note.folder?._id || note.folder || null, timeZone,
+          workItem: { kind: value.kind, noteId: note._id || id, plannedOn: null, dueOn: null, priority: 0, startTime: '', endTime: '', ...(waitingOn ? { list: 'waiting', waitingOn, sortedOn: dayInZone(new Date(), timeZone) } : {}) }
         } };
         draft.version += 1;
       }
