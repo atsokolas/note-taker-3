@@ -10,7 +10,7 @@ export const shiftDay = (day, count) => { const date = new Date(`${day}T12:00:00
 export const weekDays = day => { const weekday = new Date(`${day}T12:00:00Z`).getUTCDay(); const monday = shiftDay(day, -(weekday || 7) + 1); return Array.from({ length: 7 }, (_, index) => shiftDay(monday, index)); };
 export const displayDay = (day, options = { weekday: 'long', day: 'numeric', month: 'short' }) => day ? new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...options }).format(new Date(`${day}T12:00:00Z`)).replace(',', '') : '';
 export const KIND_LABEL = { task: 'Follow-up', question: 'Open question', appointment: 'Appointment' };
-export const itemMetadata = item => Object.fromEntries(['kind', 'noteId', 'plannedOn', 'dueOn', 'priority', 'startTime', 'endTime'].filter(key => item?.[key] !== undefined).map(key => [key, item[key]]));
+export const itemMetadata = item => Object.fromEntries(['kind', 'noteId', 'plannedOn', 'dueOn', 'priority', 'startTime', 'endTime', 'list', 'waitingOn', 'sortedOn', 'returnOn', 'oneThingOn'].filter(key => item?.[key] !== undefined).map(key => [key, item[key]]));
 
 // The same record is projected into its note, day and history. Pending actions
 // carry their original identity and action time until the server acknowledges them.
