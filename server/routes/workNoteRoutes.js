@@ -18,6 +18,11 @@ function validateReferences(value, inBlocks = false) {
     validateReferences(child, inBlocks || key === 'blocks');
   }
 }
+// What a project keeps from elsewhere in Noeis: a kind, an id and the title it had. Nothing is fetched or followed.
+function projectLinks(links) {
+  if (!Array.isArray(links) || links.length > 100 || links.some(link => !['article', 'wiki', 'book'].includes(link?.kind) || typeof link.id !== 'string' || !/^[\w-]{1,64}$/.test(link.id) || typeof (link.title ?? '') !== 'string')) throw fail(400, 'Choose things from your Library, Wiki or Books.');
+  return links.map(({ kind, id, title = '' }) => ({ kind, id, title: title.slice(0, 300) }));
+}
 function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder, readiness = createWorkNoteReadiness({ NotebookEntry }) }) {
   const router = express.Router();
   router.use('/api/work-notes', authenticateToken, (req, res, next) => {
@@ -76,6 +81,10 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       inWork(NotebookFolder.find({ userId: req.user.id })).sort({ sortOrder: 1, name: 1 })
     ]); res.json({ entries: entries.filter(entry => !entry.workItem), items: entries.filter(entry => entry.workItem), folders });
   }));
+  // The other rooms ask only for the projects, to offer "Add to project".
+  router.get('/api/work-notes/folders', handle(async (req, res) => {
+    res.json(await inWork(NotebookFolder.find({ userId: req.user.id, archivedAt: null })).sort({ sortOrder: 1, name: 1 }));
+  }));
   let folderIndex;
   const ensureFolderIndex = () => folderIndex ||= NotebookFolder.collection.createIndex(workOperationIndex.keys, workOperationIndex.options).catch(() => { folderIndex = null; throw fail(503, 'Folder saving is not ready. Retry shortly.'); });
   router.post('/api/work-notes/folders', handle(async (req, res) => {
@@ -100,7 +109,10 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     }
     const values = {};
     if (req.body.name !== undefined) { if (typeof req.body.name !== 'string' || !req.body.name.trim()) throw fail(400, 'Folder name is required.'); values.name = req.body.name; }
-    if (req.body.archived !== undefined) { if (typeof req.body.archived !== 'boolean') throw fail(400, 'Choose archive or restore.'); values.archivedAt = req.body.archived ? new Date() : null; }
+    if (req.body.archived !== undefined) { if (typeof req.body.archived !== 'boolean') throw fail(400, 'Choose done or reopen.'); values.archivedAt = req.body.archived ? new Date() : null; }
+    if (req.body.paused !== undefined) { if (typeof req.body.paused !== 'boolean') throw fail(400, 'Choose pause or resume.'); values.pausedAt = req.body.paused ? new Date() : null; }
+    for (const key of ['brief', 'closingLine']) if (req.body[key] !== undefined) { if (typeof req.body[key] !== 'string') throw fail(400, `${key} must be text.`); values[key] = req.body[key]; }
+    if (req.body.links !== undefined) values.links = projectLinks(req.body.links);
     if (req.body.operationId) values.lastMutationId = req.body.operationId;
     const folder = await inWork(NotebookFolder.findOneAndUpdate({ _id: current._id, userId: req.user.id, ...folderRevision(req.body.expectedRevision) }, { $set: values, $inc: { revision: 1 } }, { new: true, runValidators: true }));
     if (!folder) throw fail(409, 'This folder changed. Reload it before trying again.', current);

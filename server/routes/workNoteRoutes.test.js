@@ -160,3 +160,16 @@ test('return lines preserve accepted words exactly and reject over-limit input w
   const boundary = await call('/' + note._id, 'PUT', { expectedRevision: 1, workingState: { nextTimeLine: { text: maximum } } });
   assert.equal(boundary.status, 200); assert.equal(boundary.body.workingState.nextTimeLine.text, maximum);
 });
+test('a project keeps its brief, pause, closing line and links, and other rooms can list projects', async () => {
+  const { body: project } = await call('/folders', 'POST', { name: 'Fund II diligence' });
+  const links = [{ kind: 'article', id: 'a1', title: 'SaaS churn benchmarks' }, { kind: 'wiki', id: 'w1', title: 'Acme Analytics' }];
+  const saved = await call(`/folders/${project._id}`, 'PUT', { expectedRevision: 0, brief: 'IC memo with a yes or no.', paused: true, links });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.brief, 'IC memo with a yes or no.'); assert.ok(saved.body.pausedAt); assert.deepEqual(saved.body.links, links);
+  const done = await call(`/folders/${project._id}`, 'PUT', { expectedRevision: 1, paused: false, archived: true, closingLine: 'We passed.' });
+  assert.equal(done.body.pausedAt, null); assert.ok(done.body.archivedAt); assert.equal(done.body.closingLine, 'We passed.');
+  assert.equal((await call(`/folders/${project._id}`, 'PUT', { expectedRevision: 2, links: [{ kind: 'email', id: 'x' }] })).status, 400);
+  const listed = await call('/folders');
+  assert.equal(listed.status, 200); assert.ok(!listed.body.some(folder => folder._id === project._id), 'done projects are not offered');
+  assert.equal((await call('/folders', 'GET', undefined, { 'x-agent': '1' })).status, 403);
+});
