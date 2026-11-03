@@ -19,7 +19,7 @@ export default function AddToProject({ kind, id, title, className = '' }) {
   if (!id) return null;
   const has = project => (project.links || []).some(link => link.kind === kind && link.id === String(id));
   const shown = (projects || []).filter(project => project.name.toLowerCase().includes(query.trim().toLowerCase()));
-  const show = () => { setStatus(''); setQuery(''); setAt(0); api.get('/api/work-notes/folders').then(({ data }) => setProjects(data)).catch(() => setStatus('Projects are unavailable right now.')); };
+  const show = () => { setStatus(''); setQuery(''); setAt(0); api.get('/api/work-notes/projects').then(({ data }) => setProjects(data)).catch(() => setStatus('Projects are unavailable right now.')); };
   const add = async project => {
     setProjects(null);
     if (has(project)) { setStatus(`Already in ${project.name}.`); return; }

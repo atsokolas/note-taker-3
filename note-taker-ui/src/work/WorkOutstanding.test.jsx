@@ -41,7 +41,7 @@ test('Outstanding sits in the rail under the folders and counts what is open and
   fireEvent.click(rail().getByRole('button', { name: /Outstanding/ }));
   expect(await screen.findByRole('heading', { name: 'Outstanding' })).toBeInTheDocument();
   expect(screen.getByText('2 things outstanding. One came from your notes and isn’t sorted yet.')).toBeInTheDocument();
-  expect(screen.getByRole('navigation', { name: 'Work projects' })).toBeInTheDocument();
+  expect(screen.getByRole('navigation', { name: 'Work folders' })).toBeInTheDocument();
 });
 
 test('a new line from a note is sorted onto Waiting on with the person, on the same record', async () => {
@@ -74,8 +74,8 @@ test('ticking a line draws it through and keeps it a moment with Undo', async ()
 
 test('a note with Mira shows what Mira owes you in its margin', async () => {
   render(<MemoryRouter initialEntries={['/work?note=note']}><WorkNotes /></MemoryRouter>);
-  fireEvent.click(await within(await screen.findByRole('complementary', { name: 'Work notes' })).findByRole('button', { name: 'Customer discovery' }));
-  fireEvent.click(await within(screen.getByRole('complementary', { name: 'Work notes' })).findByRole('button', { name: /Fieldwell/ }));
+  fireEvent.click(await within(await screen.findByRole('complementary')).findByRole('button', { name: 'Customer discovery' }));
+  fireEvent.click(await within(screen.getByRole('complementary')).findByRole('button', { name: /Fieldwell/ }));
   const owed = within(await screen.findByRole('region', { name: 'Owed to you' }));
   expect(owed.getByRole('heading', { name: 'Mira owes you' })).toBeInTheDocument(); expect(owed.getByText('The pilot numbers')).toBeInTheDocument();
 });

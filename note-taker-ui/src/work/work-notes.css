@@ -355,8 +355,6 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-owed small { display: block; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 
 /* Projects: Work's folders read whole. One ruled list, then one page per project with a slim margin. */
-.work-project-places { display: flex; flex-direction: column; gap: 8px; padding-left: 14px; }
-.work-project-places .work-place-row { font-size: 15px; }
 .work-project-tools, .work-project-row { display: grid; grid-template-columns: 18px minmax(0, 12rem) minmax(0, 1fr) 3.5rem 3.5rem 4.5rem; gap: 14px; align-items: baseline; }
 .work-project-tools { padding: 0 0 8px; border-bottom: 1px solid var(--noeis-rule); font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-project-tools [role=group] { grid-column: 1 / 4; display: flex; gap: 16px; }
@@ -395,6 +393,7 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-project-note span { flex: 1; min-width: 0; }
 .work-project-note time { font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-notes .work-project .work-project-add { margin-top: 10px; font: 15px var(--font-serif); color: var(--noeis-ink-subtle); }
+.work-notes .work-projects .work-page-sense .work-project-add { margin-left: 6px; font: inherit; color: var(--noeis-ink); text-decoration: underline; text-decoration-color: var(--noeis-rule); text-underline-offset: 3px; }
 .work-project-margin { display: flex; flex-direction: column; gap: 6px; padding-left: 18px; border-left: 1px solid var(--noeis-rule); align-self: start; }
 .work-project-margin > small, .work-project-closing label { font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-project-state { display: flex; gap: 12px; margin: 0 0 14px; font: 13px var(--font-sans); }

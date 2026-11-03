@@ -3,8 +3,8 @@ import WorkIcon from './WorkIcon';
 import { matchesQuery, noteTitle } from './workSession';
 import { displayDay, writtenDay } from './workPlannerModel';
 
-// The rail is a contents page: Today, the Inbox, every project, then what is outstanding. Only the place you are in opens.
-export default function WorkShelf({ lists, reviewed, dragging, drag, onDropNote, notes, folders, place, current, day, view, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose }) {
+// The rail is a contents page: Today, then every place a note can live, then what is outstanding. Only the place you are in opens.
+export default function WorkShelf({ lists, projects, reviewed, dragging, drag, onDropNote, notes, folders, place, current, day, view, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose }) {
   // While a note is dragged, the place under it opens and shows the note arriving.
   const [over, setOver] = React.useState(null);
   const arriving = dragging && notes.find(note => note.clientId === dragging);
@@ -22,12 +22,12 @@ export default function WorkShelf({ lists, reviewed, dragging, drag, onDropNote,
     <button className="work-shelf-new" onClick={onCapture}>New note</button>
     <input type="search" aria-label="Search Work notes" placeholder="Find a phrase" value={query} onChange={event => onQuery(event.target.value)} />
     <button className="work-shelf-today" aria-current={view === 'today' && !notes.some(current) ? 'page' : undefined} onClick={() => onScope('today')}>Today<time>{displayDay(day, { weekday: 'short', day: 'numeric' })}</time></button>
-    <nav aria-label="Work projects" className="work-places">
+    <nav aria-label="Work folders" className="work-places">
       {placeRow('', 'Inbox', inbox, () => onScope('inbox', ''))}
-      <div className="work-place-row" aria-current={view === 'projects' && !notes.some(current) ? 'page' : undefined}><button onClick={() => onScope('projects')}>Projects</button></div>
-      <div className="work-project-places">{folders.filter(item => !item.archivedAt).map(item => placeRow(item._id, item.name, newest(notes.filter(note => folderId(note) === item._id)), () => onScope('folder', item._id), <button aria-label={`Manage project ${item.name}`} onClick={() => onFolderMenu(item)}><WorkIcon name="more" /></button>))}
-        <button className="work-add-folder" onClick={onNewFolder}>New project</button></div>
+      {folders.filter(item => !item.archivedAt).map(item => placeRow(item._id, item.name, newest(notes.filter(note => folderId(note) === item._id)), () => onScope('folder', item._id), <button aria-label={`Manage folder ${item.name}`} onClick={() => onFolderMenu(item)}><WorkIcon name="more" /></button>))}
+      <button className="work-add-folder" onClick={onNewFolder}>New folder</button>
     </nav>
+    <nav aria-label="Projects" className="work-lists"><button aria-current={['projects', 'project'].includes(view) && !notes.some(current) ? 'page' : undefined} onClick={() => onScope('projects')}>Projects{projects ? <small>{projects}</small> : null}</button></nav>
     <nav aria-label="Outstanding" className="work-lists">{[['outstanding', 'Outstanding', lists.total || ''], ['waiting', 'Waiting on', lists.waiting.length || ''], ['someday', 'Someday', lists.someday.length || ''], ['review', 'Weekly review', reviewed]].map(([key, name, aside]) => <button key={key} aria-current={view === key && !notes.some(current) ? 'page' : undefined} onClick={() => onScope(key)}>{name}{aside !== '' ? <small>{aside}</small> : null}</button>)}</nav>
     {loading ? <p role="status">Opening Work notes…</p> : error ? <div role="alert"><p>{error}</p><button onClick={onRetry}>Retry</button></div> : null}
     <div className="work-shelf-foot"><button onClick={() => onScope('notes')}>All notes</button>{archived.length ? <button onClick={() => onScope('archive')}>Archive</button> : null}<button aria-label={`Day timezone: ${timeZone}`} onClick={onTimeZone}>{timeZone.split('/').pop().replace(/_/g, ' ')} time</button></div>

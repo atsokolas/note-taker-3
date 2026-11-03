@@ -3,16 +3,15 @@ import { QUIET_DAYS, daysBetween, listOf, sortedSince } from './workOutstanding'
 import { plainTextFrom } from '../utils/editorialText';
 import { buildCanonicalArticlePath } from '../utils/sourceRoutes';
 
-// A project is a Work folder read whole: its notes, the lines they left open, who owes it,
-// what was decided. Only the state, brief, closing line and links are stored; the rest is derived.
-export const DONE_LATELY_DAYS = 30;
+// A project is read whole from the notes and lines that are part of it, whatever folder they sit in:
+// what is open, who owes it, what was decided. Only the state, brief, closing line and links are stored.
 const idOf = value => value?._id || value || '';
 const day = value => value ? dayInZone(value) : '';
 
-export const projectState = folder => folder.archivedAt ? 'done' : folder.pausedAt ? 'paused' : 'active';
+export const projectState = record => record.archivedAt ? 'done' : record.pausedAt ? 'paused' : 'active';
 
-// A line belongs to its own project, or to the project of the note it came from.
-export const projectOfLine = (item, notes) => idOf(item.folder) || idOf(notes.find(note => [note._id, note.clientId].includes(item.noteId))?.folder);
+// A line is part of its own project, or of the project of the note it came from.
+export const projectOfLine = (item, notes) => idOf(item.project) || idOf(notes.find(note => [note._id, note.clientId].includes(item.noteId))?.project);
 
 // A paragraph, list item or line of a note that starts "Decided:" is a decision, dated by the note.
 const DECIDED = /^decided:\s*(.+)$/i;
@@ -22,29 +21,29 @@ export const decisionsIn = note => linesOf(note).map(line => line.trim().match(D
 export const linkHref = link => link.kind === 'article' ? buildCanonicalArticlePath(link.id) : link.kind === 'wiki' ? `/wiki/read/${encodeURIComponent(link.id)}` : `/books/${encodeURIComponent(link.id)}`;
 export const LINK_ROOM = { article: 'Library', wiki: 'Wiki', book: 'Book' };
 
-export function project(folder, notes, items, today) {
-  const id = folder._id, belongs = item => projectOfLine(item, notes) === id;
-  const own = notes.filter(note => idOf(note.folder) === id).sort((a, b) => writtenDay(b).localeCompare(writtenDay(a)));
+export function project(record, notes, items, today) {
+  const id = record._id, belongs = item => projectOfLine(item, notes) === id;
+  const own = notes.filter(note => idOf(note.project) === id).sort((a, b) => writtenDay(b).localeCompare(writtenDay(a)));
   const lines = items.filter(item => ['task', 'question'].includes(item.kind) && belongs(item));
   const open = lines.filter(item => !item.completed), list = item => listOf(item, notes, today);
   const next = open.filter(item => !['waiting', 'someday'].includes(list(item)))
     .sort((a, b) => (a.oneThingOn === today ? -1 : b.oneThingOn === today ? 1 : 0) || (a.plannedOn || '9999').localeCompare(b.plannedOn || '9999') || sortedSince(a).localeCompare(sortedSince(b)));
-  const touched = [...own, ...lines].map(record => day(record.updatedAt) || writtenDay(record)).concat(day(folder.updatedAt)).filter(Boolean).sort().at(-1) || today;
+  const touched = [...own, ...lines].map(record => day(record.updatedAt) || writtenDay(record)).concat(day(record.updatedAt)).filter(Boolean).sort().at(-1) || today;
   return {
-    id, folder, name: folder.name, state: projectState(folder),
+    id, record, name: record.name, state: projectState(record),
     notes: own, next, waiting: open.filter(item => list(item) === 'waiting'),
     decisions: own.flatMap(note => decisionsIn(note).map(text => ({ text, note }))),
-    links: folder.links || [], touched, idle: daysBetween(touched, today)
+    links: record.links || [], touched, idle: daysBetween(touched, today)
   };
 }
 
-// Active, then paused, then what was done in the last month; older finished work lives in the Archive.
-export function projects(folders, notes, items, today) {
-  const all = folders.map(folder => project(folder, notes, items, today));
+// Active, then paused, then done, the most recently finished first.
+export function projects(records, notes, items, today) {
+  const all = records.map(record => project(record, notes, items, today));
   return {
     active: all.filter(item => item.state === 'active'),
     paused: all.filter(item => item.state === 'paused'),
-    done: all.filter(item => item.state === 'done' && daysBetween(day(item.folder.archivedAt), today) <= DONE_LATELY_DAYS)
+    done: all.filter(item => item.state === 'done').sort((a, b) => String(b.record.archivedAt).localeCompare(String(a.record.archivedAt)))
   };
 }
 

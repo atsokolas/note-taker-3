@@ -73,7 +73,7 @@ test('filing from the place line changes only metadata, and the rail follows the
   fireEvent.click(within(place).getByRole('button', { name: 'Pilot' })); fireEvent.click(within(place).getByRole('button', { name: 'Inbox' }));
   await waitFor(() => expect(api.put).toHaveBeenCalled()); expect(api.put.mock.calls[0][1]).toMatchObject({ folder: null, occurredOn: '2026-10-26', content: 'Original account' });
   expect(await screen.findByText('Filed in the inbox.')).toBeInTheDocument();
-  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^In your Inbox, written Monday 26 Oct, with Mira\. File in Pilot or a new project\./);
+  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^In your Inbox, written Monday 26 Oct, with Mira\. File in Pilot or a new folder\./);
   const rail = screen.getByRole('complementary');
   expect(within(rail).getByRole('button', { name: /Charging windows/ })).toHaveAttribute('aria-current', 'page');
   expect(within(rail).getByLabelText('1 unfiled')).toBeInTheDocument();

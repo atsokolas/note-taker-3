@@ -59,9 +59,9 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       if (!date(body.occurredOn)) throw fail(400, 'occurredOn must be a calendar date.');
       result.occurredOn = body.occurredOn;
     }
-    if (body.folder !== undefined) {
-      if (body.folder && (!mongoose.isValidObjectId(body.folder) || !await inWork(NotebookFolder.exists({ _id: body.folder, userId: req.user.id, ...((current?.folder && String(current.folder) === body.folder) ? {} : { archivedAt: null }) })))) throw fail(400, 'Choose one of your Work notebooks.');
-      result.folder = body.folder || null;
+    for (const [key, kind, error] of [['folder', { $ne: 'project' }, 'Choose one of your Work notebooks.'], ['project', 'project', 'Choose one of your projects.']]) if (body[key] !== undefined) {
+      if (body[key] && (!mongoose.isValidObjectId(body[key]) || !await inWork(NotebookFolder.exists({ _id: body[key], userId: req.user.id, kind, ...((current?.[key] && String(current[key]) === body[key]) ? {} : { archivedAt: null }) })))) throw fail(400, error);
+      result[key] = body[key] || null;
     }
     return result;
   }
@@ -82,8 +82,8 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     ]); res.json({ entries: entries.filter(entry => !entry.workItem), items: entries.filter(entry => entry.workItem), folders });
   }));
   // The other rooms ask only for the projects, to offer "Add to project".
-  router.get('/api/work-notes/folders', handle(async (req, res) => {
-    res.json(await inWork(NotebookFolder.find({ userId: req.user.id, archivedAt: null })).sort({ sortOrder: 1, name: 1 }));
+  router.get('/api/work-notes/projects', handle(async (req, res) => {
+    res.json(await inWork(NotebookFolder.find({ userId: req.user.id, kind: 'project', archivedAt: null })).sort({ sortOrder: 1, name: 1 }));
   }));
   let folderIndex;
   const ensureFolderIndex = () => folderIndex ||= NotebookFolder.collection.createIndex(workOperationIndex.keys, workOperationIndex.options).catch(() => { folderIndex = null; throw fail(503, 'Folder saving is not ready. Retry shortly.'); });
@@ -94,7 +94,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     await ensureFolderIndex();
     let folder = operationId && await inWork(NotebookFolder.findOne({ userId: req.user.id, operationId }));
     if (!folder) {
-      try { folder = await NotebookFolder.create({ name: req.body.name, userId: req.user.id, knowledgeContext: 'work', ...(operationId ? { operationId } : {}) }); }
+      try { folder = await NotebookFolder.create({ name: req.body.name, userId: req.user.id, knowledgeContext: 'work', kind: req.body.kind === 'project' ? 'project' : 'folder', ...(operationId ? { operationId } : {}) }); }
       catch (error) { if (error.code !== 11000 || !operationId) throw error; folder = await inWork(NotebookFolder.findOne({ userId: req.user.id, operationId })); }
     }
     res.status(201).json(folder);
@@ -123,7 +123,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (!Array.isArray(order) || !order.length || new Set(order.map(row => row.id)).size !== order.length || order.some(row => !mongoose.isValidObjectId(row.id) || !revision(row.revision))) throw fail(400, 'Confirm the folders and their revisions.');
     const session = await NotebookFolder.db.startSession(); let folders;
     try { await session.withTransaction(async () => {
-      const current = await inWork(NotebookFolder.find({ userId: req.user.id, archivedAt: null })).session(session);
+      const current = await inWork(NotebookFolder.find({ userId: req.user.id, kind: { $ne: 'project' }, archivedAt: null })).session(session);
       if (current.length !== order.length || current.some(folder => !order.some(row => row.id === String(folder._id)))) throw fail(409, 'The active folders changed. Reload before reordering.');
       if (current.every(folder => folder.lastMutationId === operationId)) { folders = current.sort((a, b) => a.sortOrder - b.sortOrder); if (folders.some((folder, index) => String(folder._id) !== order[index].id)) throw fail(409, 'This request was used for a different order.'); return; }
       folders = [];
@@ -181,7 +181,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
         if (source.workItem) throw fail(400, 'Continue an authored note, not a planner item.');
         const line = source.workingState?.nextTimeLine;
         const continuationBridge = line?.text?.trim() ? { entryId: String(source._id), title: source.title, occurredOn: source.occurredOn, text: line.text, target: line.target?.toObject ? line.target.toObject() : line.target, revision: source.revision, workbenchRevision: source.workingState.revision } : null;
-        [entry] = await NotebookEntry.create([{ ...captureFields(req.body), userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: sourceKey, occurredOn, folder: source.folder, continuesFromEntryId: source._id, continuationBridge }], { session });
+        [entry] = await NotebookEntry.create([{ ...captureFields(req.body), userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: sourceKey, occurredOn, folder: source.folder, project: source.project, continuesFromEntryId: source._id, continuationBridge }], { session });
       });
     } catch (error) { if (error.code !== 11000) throw error; entry = await duplicate(req, operationId, sourceKey); }
     finally { await session.endSession(); }
