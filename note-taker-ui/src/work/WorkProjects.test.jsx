@@ -64,7 +64,7 @@ test('Projects lists every project and Everything open unfolds them, from the ra
   expect(await screen.findByRole('heading', { name: 'Hiring', level: 1 })).toBeInTheDocument();
 });
 
-test('a project page keeps its brief, shows decisions and notes, and asks for a closing line when done', async () => {
+test('a project page keeps its brief and state through back-to-back saves, shows decisions and notes, and asks for a closing line when done', async () => {
   work('view=project&folder=f');
   const page = within(await screen.findByRole('region', { name: 'Fund II diligence' }));
   expect(page.getByText('1 thing open, waiting on Priya, last touched today.')).toBeInTheDocument();
@@ -72,7 +72,8 @@ test('a project page keeps its brief, shows decisions and notes, and asks for a 
   expect(within(page.getByRole('region', { name: 'Notes' })).getByRole('button', { name: /Call with Priya/ })).toBeInTheDocument();
   const brief = page.getByRole('textbox', { name: 'What Fund II diligence is' });
   fireEvent.change(brief, { target: { value: 'IC memo with a yes or no.' } }); fireEvent.blur(brief);
-  await waitFor(() => expect(folders[1].brief).toBe('IC memo with a yes or no.'));
+  fireEvent.click(page.getByRole('button', { name: 'Paused' }));
+  await waitFor(() => expect(folders[1]).toMatchObject({ brief: 'IC memo with a yes or no.', pausedAt: expect.any(String) }));
   fireEvent.click(page.getByRole('button', { name: 'Done' }));
   fireEvent.change(page.getByRole('textbox', { name: 'One line on how it ended' }), { target: { value: 'We passed.' } });
   fireEvent.click(page.getByRole('button', { name: 'Mark done' }));

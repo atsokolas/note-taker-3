@@ -70,7 +70,7 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
   const [line, setLine] = useState('');
   const [closing, setClosing] = useState(null);
   const noteOf = line => line.noteId && notes.find(note => [note._id, note.clientId].includes(line.noteId));
-  useEffect(() => setBrief(record.brief || ''), [record._id, record.brief]);
+  useEffect(() => setBrief(record.brief || ''), [record.brief]);
   // The brief grows with its words, like a page, never a box with a scrollbar.
   const grow = node => { if (node) { node.style.height = 'auto'; node.style.height = `${node.scrollHeight}px`; } };
   const saveBrief = () => { if (brief !== (record.brief || '')) onSave(record, { brief }); };
@@ -90,7 +90,7 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
     </div>
     <aside className="work-project-margin" aria-label="About this project">
       <small>State</small><p className="work-project-state">{state('Active', 'active', { paused: false, archived: false })}{state('Paused', 'paused', { paused: true, archived: false })}{state('Done', 'done')}</p>
-      {closing !== null ? <form className="work-project-closing" onSubmit={event => { event.preventDefault(); onSave(record, { archived: true, paused: false, closingLine: closing.trim() }); setClosing(null); }}><label>One line on how it ended<textarea autoFocus rows={2} value={closing} onChange={event => setClosing(event.target.value)} placeholder="We passed, and the churn question answered itself." /></label><button>Mark done</button><button type="button" onClick={() => setClosing(null)}>Not yet</button></form> : null}
+      {closing !== null ? <form className="work-project-closing" onSubmit={event => { event.preventDefault(); onSave(record, { archived: true, paused: false, closingLine: closing.trim() }).then(saved => { if (saved) setClosing(null); }); }}><label>One line on how it ended<textarea autoFocus rows={2} value={closing} onChange={event => setClosing(event.target.value)} placeholder="We passed, and the churn question answered itself." /></label><button>Mark done</button><button type="button" onClick={() => setClosing(null)}>Not yet</button></form> : null}
       {item.state === 'done' && record.closingLine ? <blockquote>{record.closingLine}</blockquote> : null}
     </aside></div>
   </section>;
