@@ -15,7 +15,7 @@ export const matchesQuery = (note, query) => !query || `${noteTitle(note)} ${not
 export const noteTitle = note => note?.title?.trim() || noteWords(note).split('\n').find(line => line.trim())?.trim().slice(0, 80) || 'Untitled note';
 export const noteDate = note => displayDay(note?.occurredOn);
 export const noteWords = note => note?.blocks?.length ? note.blocks.map(block => block.text || '').join('\n') : plainTextFrom(note?.content);
-const body = (note, creating = false) => ({ ...(creating ? { capturedAt: note.capturedAt, timeZone: note.timeZone } : {}), ...(note.workItem ? { workItem: itemMetadata(note.workItem) } : {}), ...(note.workActions?.length ? { workActions: note.workActions } : {}), title: note.title || '', content: note.content || '', blocks: note.blocks || [], folder: note.folder?._id || note.folder || null, occurredOn: note.occurredOn, withText: note.withText || '' });
+const body = (note, creating = false) => ({ ...(creating ? { capturedAt: note.capturedAt, timeZone: note.timeZone } : {}), ...(note.workItem ? { workItem: itemMetadata(note.workItem) } : {}), ...(note.workActions?.length ? { workActions: note.workActions } : {}), title: note.title || '', content: note.content || '', blocks: note.blocks || [], folder: note.folder?._id || note.folder || null, project: note.project?._id || note.project || null, occurredOn: note.occurredOn, withText: note.withText || '' });
 const MATCHING_SERVER = 'Work needs its matching server before it can save. Retry shortly.';
 const message = error => error?.response?.data?.error || 'Sync paused. Retry when you are connected.';
 
@@ -93,7 +93,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     const id = identity.id || `local-${operationId()}`;
     const capturedAt = values.capturedAt || new Date().toISOString(), timeZone = values.timeZone || deviceTimeZone();
     const takenOn = dayInZone(capturedAt, timeZone);
-    saved[id] = { title: '', content: '', blocks: [], folder: null, occurredOn: takenOn, withText: '', ...values, capturedAt, takenOn, timeZone };
+    saved[id] = { title: '', content: '', blocks: [], folder: null, project: null, occurredOn: takenOn, withText: '', ...values, capturedAt, takenOn, timeZone };
     drafts[id] = { note: saved[id], operationId: identity.intent || operationId(), version: 0, dirty: false, durable: false };
     emit(); return id;
   };
@@ -201,13 +201,13 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     authNeeded: () => authNeeded,
     load,
     compatible: () => compatible,
-    async addFolder(name, intent = operationId()) {
+    async addFolder(name, intent = operationId(), kind = 'folder') {
       if (!isCurrent()) return null;
       await requireServer();
       if (!isCurrent()) return null;
       const request = { ...options };
       try {
-        const { data } = await api.post('/api/work-notes/folders', { name, operationId: intent }, request);
+        const { data } = await api.post('/api/work-notes/folders', { name, kind, operationId: intent }, request);
         if (!isCurrent() || request.signal.aborted) return null; mergeFolders([data]); emit(); return data;
       } catch (error) {
         if (isCurrent() && !request.signal.aborted) { requestError(error); emit(); }

@@ -18,6 +18,7 @@ import useArticleDetail from '../hooks/useArticleDetail';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import { buildPassagePath } from '../utils/sourceRoutes';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
+import AddToProject from '../work/AddToProject';
 import '../styles/books.css';
 
 // A book's paragraphs are what you marked in it and wrote beside it.
@@ -598,6 +599,7 @@ const Book = ({ id }) => {
       <nav className="books__tools" aria-label="Book">
         <Link to="/books">← Books</Link>
         {book ? <Lend book={book} onChange={change} /> : null}
+        {book ? <AddToProject kind="book" id={id} title={book.title} className="books__quiet-button" /> : null}
         {highlights.some(mark => mark.text) ? <button type="button" className="books__quiet-button" onClick={() => window.print()}>Print as cards</button> : null}
       </nav>
       {error ? <p className="books__quiet" role="alert">{error}</p> : null}

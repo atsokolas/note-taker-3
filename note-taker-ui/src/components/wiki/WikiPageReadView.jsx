@@ -115,6 +115,7 @@ import { buildWikiSurfaceDescriptor, wikiAllowsOpenSentence } from './wikiSurfac
 import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
 import { docText, wordBoundaryTrim } from '../../utils/editorialText';
 import { humanizeLabel } from '../../utils/humanizeLabel';
+import AddToProject from '../../work/AddToProject';
 
 const WikiChangesSinceLastVisit = lazy(() => import('./WikiChangesSinceLastVisit'));
 
@@ -3093,6 +3094,7 @@ const WikiPageReadView = ({
                 {typeof onEdit === 'function' ? <button type="button" onClick={onEdit}>Edit</button> : null}
                 <button type="button" onClick={handleOpenHistoryPanel}>History</button>
                 <button type="button" aria-expanded={shareOpen} onClick={() => setShareOpen(open => !open)}>Share</button>
+                <AddToProject kind="wiki" id={pageId} title={page?.title} />
               </nav>
             )}
             {shareOpen ? shareCard : null}

@@ -45,6 +45,7 @@ import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
 import { sourceLabel } from './library/libraryColumnModel';
 import { formatCalendarDate } from '../utils/dateDisplay';
 import { sourceTitle } from '../utils/sourceDisplayText';
+import AddToProject from '../work/AddToProject';
 
 const hasReadableContent = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
@@ -589,6 +590,7 @@ const ArticleReader = ({
             {/* When it was published. When you saved it lives in the source record. */}
             {published ? <span>{published}</span> : null}
             <OpenSource key={article._id} article={article} />
+            <AddToProject kind="article" id={article._id} title={article.title} />
           </div>
           {placement !== 'stream' && article.placementReason ? <p className="article-reader-why">{article.placementReason}</p> : null}
           {folioLine ? <ArticleFolioLine line={folioLine} articleId={article._id} /> : null}

@@ -1518,7 +1518,7 @@ describe('WikiPageReadView', () => {
     expect(mentionedRegion.textContent).not.toContain(']]');
   });
 
-  it('keeps three page actions and mentioned-in backlinks in the workspace reader', async () => {
+  it('keeps four page actions and mentioned-in backlinks in the workspace reader', async () => {
 
     render(
       <MemoryRouter>
@@ -1528,7 +1528,7 @@ describe('WikiPageReadView', () => {
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     const actions = screen.getByRole('navigation', { name: 'Page actions' });
-    expect(within(actions).getAllByRole('button').map(button => button.textContent)).toEqual(['Edit', 'History', 'Share']);
+    expect(within(actions).getAllByRole('button').map(button => button.textContent)).toEqual(['Edit', 'History', 'Share', 'Add to project']);
     expect(screen.queryByRole('tab', { name: 'Talk' })).not.toBeInTheDocument();
     expect(screen.queryByText('Claim health')).not.toBeInTheDocument();
     expect(await screen.findByText('Mentioned in')).toBeInTheDocument();

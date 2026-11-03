@@ -508,6 +508,7 @@ notebookEntrySchema.add({
   takenOn: { type: String, immutable: true },
   timeZone: { type: String, immutable: true },
   workItem: { type: mongoose.Schema.Types.Mixed, default: undefined },
+  project: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
   operationId: { type: String, immutable: true },
   operationSource: { type: String, immutable: true },
   continuesFromEntryId: { type: mongoose.Schema.Types.ObjectId, default: null, immutable: true },
@@ -524,6 +525,17 @@ const notebookFolderSchema = new mongoose.Schema({
   sortOrder: { type: Number, default: 0 },
   revision: { type: Number, default: 0, min: 0 },
   archivedAt: { type: Date, default: null },
+  /* In Work a folder is where a note is filed; a project is an effort with an end,
+     and a note in any folder can also be part of one. Paused keeps a project in
+     the list but out of the way; done is archivedAt, and the closing line is how
+     it ended. The brief is the project's one undated page; links are things
+     elsewhere in Noeis kept with it, stored only here so a personal article never
+     learns it is in Work. */
+  kind: { type: String, enum: ['folder', 'project'], default: 'folder' },
+  pausedAt: { type: Date, default: null },
+  brief: { type: String, default: '', maxlength: 8000 },
+  closingLine: { type: String, default: '', maxlength: 280 },
+  links: { type: [new mongoose.Schema({ kind: { type: String, enum: ['article', 'wiki', 'book'], required: true }, id: { type: String, required: true, maxlength: 64 }, title: { type: String, default: '', maxlength: 300 } }, { _id: false })], default: [] },
   operationId: { type: String, immutable: true },
   lastMutationId: { type: String },
   importMeta: { type: importMetaSchema, default: () => ({}) }

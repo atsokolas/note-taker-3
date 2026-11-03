@@ -160,3 +160,22 @@ test('return lines preserve accepted words exactly and reject over-limit input w
   const boundary = await call('/' + note._id, 'PUT', { expectedRevision: 1, workingState: { nextTimeLine: { text: maximum } } });
   assert.equal(boundary.status, 200); assert.equal(boundary.body.workingState.nextTimeLine.text, maximum);
 });
+test('a note sits in one folder and can be part of one project, and a project keeps its brief, pause, closing line and links', async () => {
+  const { body: folder } = await call('/folders', 'POST', { name: 'Meetings' });
+  const { body: project } = await call('/folders', 'POST', { name: 'Fund II diligence', kind: 'project' });
+  assert.equal(folder.kind, 'folder'); assert.equal(project.kind, 'project');
+  const { body: note } = await call('', 'POST', { operationId: 'filed-twice', title: 'Call with Priya', folder: folder._id, project: project._id });
+  assert.equal(note.folder, folder._id); assert.equal(note.project, project._id);
+  assert.equal((await call('/' + note._id, 'PUT', { expectedRevision: 0, folder: project._id })).status, 400);
+  assert.equal((await call('/' + note._id, 'PUT', { expectedRevision: 0, project: folder._id })).status, 400);
+  const links = [{ kind: 'article', id: 'a1', title: 'SaaS churn benchmarks' }, { kind: 'wiki', id: 'w1', title: 'Acme Analytics' }];
+  const saved = await call(`/folders/${project._id}`, 'PUT', { expectedRevision: 0, brief: 'IC memo with a yes or no.', paused: true, links });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.brief, 'IC memo with a yes or no.'); assert.ok(saved.body.pausedAt); assert.deepEqual(saved.body.links, links);
+  assert.equal((await call(`/folders/${project._id}`, 'PUT', { expectedRevision: 1, links: [{ kind: 'email', id: 'x' }] })).status, 400);
+  assert.deepEqual((await call('/projects')).body.map(item => item._id), [project._id], 'folders are not offered as projects');
+  const done = await call(`/folders/${project._id}`, 'PUT', { expectedRevision: 1, paused: false, archived: true, closingLine: 'We passed.' });
+  assert.equal(done.body.pausedAt, null); assert.ok(done.body.archivedAt); assert.equal(done.body.closingLine, 'We passed.');
+  assert.deepEqual((await call('/projects')).body, [], 'done projects are not offered');
+  assert.equal((await call('/projects', 'GET', undefined, { 'x-agent': '1' })).status, 403);
+});
