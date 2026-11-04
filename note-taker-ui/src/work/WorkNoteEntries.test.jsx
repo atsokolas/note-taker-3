@@ -41,13 +41,13 @@ test('appends meetings and continues an existing date in its own section without
   render(<Journal />); add(); type('Supplier promised six weeks.');
   expect(writing().firstChild.tagName).toBe('H2');
   date('2026-11-11'); add(); type('Customer needs four weeks.');
-  const dates = within(screen.getByRole('navigation', { name: 'Meeting dates' })).getAllByRole('button');
-  expect(dates.map(button => button.textContent)).toEqual(['11 Nov 2026', '4 Nov 2026']);
+  const dates = within(screen.getByRole('navigation', { name: 'Meeting dates' })).getAllByRole('option').slice(1);
+  expect(dates.map(option => option.textContent)).toEqual(['11 November 2026', '4 November 2026']);
   date('2026-11-04'); fireEvent.click(screen.getByRole('button', { name: 'Continue this entry' })); type(' Ask about capacity.');
   expect(writing().querySelectorAll('h2')).toHaveLength(2);
   expect(writing().querySelector('h2 + p')).toHaveTextContent('Supplier promised six weeks. Ask about capacity.');
   expect(writing().lastChild).toHaveTextContent('Customer needs four weeks.');
-  fireEvent.click(dates[0]);
+  fireEvent.change(screen.getByLabelText('Go to meeting date'), { target: { value: '2026-11-11' } });
   expect(writing().editor.state.selection.$from.parent.textContent).toBe('11 November 2026');
 });
 
@@ -57,11 +57,11 @@ test('dates and writing survive saved HTML reload and blocks-only recovery with 
   date('2025-11-04'); add(); type('Last year they said four.');
   const saved = changed.mock.calls.at(-1)[0]; first.unmount(); changed.mockClear();
   const reloaded = render(<Journal initial={saved} changed={changed} />);
-  expect(screen.getByRole('navigation', { name: 'Meeting dates' }).querySelectorAll('button')).toHaveLength(2);
+  expect(screen.getByRole('navigation', { name: 'Meeting dates' }).querySelectorAll('option')).toHaveLength(3);
   expect(writing()).toHaveTextContent('Promised six weeks.'); expect(changed).not.toHaveBeenCalled();
   reloaded.unmount();
   render(<Journal initial={{ blocks: saved.blocks }} changed={changed} />);
-  expect(screen.getByRole('button', { name: 'Go to 4 November 2025' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: '4 November 2025' })).toBeInTheDocument();
   expect(writing()).toHaveTextContent('Last year they said four.'); expect(changed).not.toHaveBeenCalled();
 });
 
@@ -69,10 +69,10 @@ test('the index follows date correction, undo and heading removal rather than ke
   render(<Journal initial={{ content: '<h2>4 November 2026</h2><p>Their first answer.</p>' }} />);
   const editor = writing().editor;
   act(() => editor.view.dispatch(editor.state.tr.insertText('5 November 2026', 1, 16)));
-  expect(screen.getByRole('button', { name: 'Go to 5 November 2026' })).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Go to 4 November 2026' })).toBeNull();
+  expect(screen.getByRole('option', { name: '5 November 2026' })).toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: '4 November 2026' })).toBeNull();
   act(() => editor.commands.undo());
-  expect(screen.getByRole('button', { name: 'Go to 4 November 2026' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: '4 November 2026' })).toBeInTheDocument();
   act(() => editor.chain().setTextSelection(1).setParagraph().run());
   expect(screen.queryByRole('navigation', { name: 'Meeting dates' })).toBeNull();
   expect(writing()).toHaveTextContent('Their first answer.');

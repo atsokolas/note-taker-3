@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 
-export default function WorkOpenComposer({ noteId, session, timeZone, request, onFinish }) {
+export default function WorkOpenComposer({ noteId, session, timeZone, request, onFinish, folders = [] }) {
   const draft = session.open.draft(noteId), error = session.open.status(noteId);
   const drafts = session.open.drafts(noteId);
   const [expanded, setExpanded] = useState(() => Boolean(draft.title || draft.submission));
@@ -8,7 +8,7 @@ export default function WorkOpenComposer({ noteId, session, timeZone, request, o
   const input = useRef(null), trigger = useRef(null), focus = useRef(false), composing = useRef(false);
   useLayoutEffect(() => {
     if (!request || handled.current === request) return;
-    handled.current = request; session.open.begin(noteId, request.text); setExpanded(true);
+    handled.current = request; session.open.begin(noteId, request.text, request.origin); setExpanded(true);
     input.current?.focus();
     focus.current = 'composer';
   }, [request, session, noteId]);
@@ -33,9 +33,10 @@ export default function WorkOpenComposer({ noteId, session, timeZone, request, o
     }} />
     <div className="work-open-controls">
       <select aria-label="Open item kind" disabled={Boolean(draft.submission)} value={draft.kind} onChange={event => session.open.change(noteId, { kind: event.target.value })}><option value="task">Follow-up</option><option value="question">Open question</option></select>
+      <label className="work-open-destination">Notebook<select aria-label="Follow-up notebook" disabled={Boolean(draft.submission)} value={draft.folder !== undefined ? draft.folder : session.entry(noteId)?.folder?._id || session.entry(noteId)?.folder || ''} onChange={event => session.open.change(noteId, { folder: event.target.value })}><option value="">Work inbox</option>{folders.filter(folder => !folder.archivedAt).map(folder => <option key={folder._id} value={folder._id}>{folder.name}</option>)}</select></label>
       <div className="work-open-actions"><button type="button" onClick={() => { if (draft.submission || session.open.cancel(noteId)) collapse(); }}>{draft.submission ? 'Close' : 'Cancel'}</button><button className="work-open-add" type="submit" disabled={!draft.title.trim()}>{draft.submission ? 'Retry' : 'Add'}</button></div>
     </div>
-    <small className="work-open-link">Linked to this note</small>
+    <small className="work-open-link">Source words stay in this note</small>
     {error ? <p className="work-open-error" role="alert">{error}</p> : null}
   </form>;
 }

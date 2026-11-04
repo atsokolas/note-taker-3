@@ -56,9 +56,9 @@ export function createWorkOpenComposer({ account, storage, isCurrent, identity, 
       const record = all().find(value => value.note.noteIdentity === identity(id) && (value.draftId || value.note.intent) === draftId);
       if (record) { selected.set(identity(id), record); emit(); }
     },
-    begin(id, text) {
+    begin(id, text, origin) {
       if (!isCurrent() || !entry(id) || keepUnsafe(id)) return false;
-      selected.set(identity(id), blank(identity(id))); this.change(id, { title: text }); return true;
+      selected.set(identity(id), blank(identity(id))); this.change(id, { title: text, ...(origin ? { origin } : {}) }); return true;
     },
     change(id, patch) {
       if (!isCurrent() || read(id).note.submission) return;
@@ -76,8 +76,8 @@ export function createWorkOpenComposer({ account, storage, isCurrent, identity, 
         const note = entry(id), { title, waitingOn } = waitingFrom(value.title);
         // "@Sam the comp bands" is a line Sam owes you, so it starts on Waiting on.
         value.submission = { clientId: `local-open-${value.intent}`, values: {
-          title, folder: note.folder?._id || note.folder || null, timeZone,
-          workItem: { kind: value.kind, noteId: note._id || id, plannedOn: null, dueOn: null, priority: 0, startTime: '', endTime: '', ...(waitingOn ? { list: 'waiting', waitingOn, sortedOn: dayInZone(new Date(), timeZone) } : {}) }
+          title, folder: value.folder !== undefined ? value.folder || null : note.folder?._id || note.folder || null, timeZone,
+          workItem: { kind: value.kind, ...(value.origin ? { origin: value.origin } : {}), noteId: note._id || id, plannedOn: null, dueOn: null, priority: 0, startTime: '', endTime: '', ...(waitingOn ? { list: 'waiting', waitingOn, sortedOn: dayInZone(new Date(), timeZone) } : {}) }
         } };
         draft.version += 1;
       }

@@ -121,9 +121,10 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     const run = async () => {
       while (isCurrent() && drafts[id]?.dirty && !drafts[id].conflict) {
         const linked = drafts[id].note.workItem?.noteId;
-        if (typeof linked === 'string' && linked.startsWith('local-')) {
-          if (!await flush(linked) || !entry(linked)?._id) { drafts[id].error = 'This linked note is waiting to sync. Both remain on this device.'; persist(id); emit(); return false; }
-          drafts[id].note = { ...drafts[id].note, workItem: { ...drafts[id].note.workItem, noteId: entry(linked)._id } }; persist(id);
+        const parentDraft = typeof linked === 'string' && (linked.startsWith('local-') ? linked : drafts[id].note.workItem?.origin && Object.entries(drafts).find(([, value]) => value.note._id === linked && !value.note.workItem)?.[0]);
+        if (parentDraft && drafts[parentDraft]?.dirty) {
+          if (!await flush(parentDraft) || !entry(parentDraft)?._id) { drafts[id].error = 'This linked note is waiting to sync. Both remain on this device.'; persist(id); emit(); return false; }
+          drafts[id].note = { ...drafts[id].note, workItem: { ...drafts[id].note.workItem, noteId: entry(parentDraft)._id } }; persist(id);
         }
         const draft = drafts[id], version = draft.version, sent = draft.note, request = { ...options };
         draft.saving = true; draft.error = ''; emit();
@@ -149,7 +150,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
             const acknowledged = new Set((data.workItem?.history || []).map(event => event.operationId));
             // A replay can return newer remote metadata. Carry only actual local edits into it.
             const pending = data._actionReplay ? Object.fromEntries((latest.changedFields || []).map(key => [key, latest.note[key]])) : latest.note;
-            latest.note = { ...data, ...pending, ...(data.workItem ? { workItem: { ...data.workItem, ...pending.workItem, history: data.workItem.history }, workActions: (latest.note.workActions || []).filter(action => !acknowledged.has(action.operationId)) } : {}), _id: data._id, revision: data.revision }; persist(id);
+            latest.note = { ...data, ...pending, ...(data.workItem ? { workItem: { ...data.workItem, ...pending.workItem, ...(data.workItem.origin ? { origin: data.workItem.origin } : {}), history: data.workItem.history }, workActions: (latest.note.workActions || []).filter(action => !acknowledged.has(action.operationId)) } : {}), _id: data._id, revision: data.revision }; persist(id);
           }
           emit();
         } catch (error) {
