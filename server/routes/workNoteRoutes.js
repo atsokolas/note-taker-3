@@ -44,7 +44,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (!current) Object.assign(result, captureFields(body));
     if (body.workItem !== undefined) {
       if (current && !current.workItem) throw fail(400, 'A note cannot become a planner item.');
-      result.workItem = await workItemFields(body.workItem, current?.workItem, id => mongoose.isValidObjectId(id) && inWork(NotebookEntry.findOne({ _id: id, userId: req.user.id, workItem: { $exists: false } })));
+      result.workItem = await workItemFields(body.workItem, current?.workItem, id => mongoose.isValidObjectId(id) && inWork(NotebookEntry.findOne({ _id: id, userId: req.user.id, workItem: { $exists: false } })), id => inWork(NotebookFolder.findOne({ _id: id, userId: req.user.id })));
     }
     if (body.workActions?.length) result.workItem = applyWorkActions(result.workItem || current?.workItem, body.workActions);
     for (const key of ['title', 'content', 'withText']) if (body[key] !== undefined) {

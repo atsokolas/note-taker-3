@@ -91,3 +91,23 @@ test('Make Open does nothing during IME composition or on an empty paragraph', (
   act(() => writing.editor.commands.clearContent()); fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
   expect(makeOpen).not.toHaveBeenCalled();
 });
+
+test.each([
+  ['<ul><li data-block-id="bullet"><p data-block-id="inner">Six<br>weeks</p></li></ul>', 'bullet'],
+  ['<blockquote data-block-id="quote"><p data-block-id="inner">Six<br>weeks</p></blockquote>', 'quote']
+])('Make Open keeps the serialized identity for rich-text source %s', (content, blockId) => {
+  const makeOpen = jest.fn(); render(<WorkNoteEditor note={{ content }} onChange={() => {}} onMakeOpen={makeOpen} />);
+  const editor = screen.getByRole('textbox', { name: 'Work note writing' }).editor;
+  act(() => { let from; editor.state.doc.descendants((node, position) => { if (node.isTextblock) from = position + 1; }); editor.commands.setTextSelection({ from, to: from + 9 }); });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
+  expect(makeOpen.mock.calls[0][0].origin).toMatchObject({ blockId, quote: 'Six\nweeks' });
+});
+
+test('a selection beginning at the preceding heading boundary links to its first selected words', () => {
+  const makeOpen = jest.fn(); render(<WorkNoteEditor note={{ content: '<h2 data-block-id="date">3 November 2026</h2><p data-block-id="passage">Customer words.</p>' }} onChange={() => {}} onMakeOpen={makeOpen} />);
+  const editor = screen.getByRole('textbox', { name: 'Work note writing' }).editor;
+  const heading = editor.state.doc.firstChild;
+  act(() => editor.commands.setTextSelection({ from: heading.nodeSize - 1, to: editor.state.doc.content.size - 1 }));
+  fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
+  expect(makeOpen.mock.calls[0][0].origin).toMatchObject({ blockId: 'passage', day: '2026-11-03' });
+});

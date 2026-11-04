@@ -1,10 +1,11 @@
 import React from 'react';
+import WorkItemSource from './WorkItemSource';
 import WorkIcon from './WorkIcon';
 import { displayDay } from './workPlannerModel';
 
 export function WorkTaskRow({ item, today, folders = [], onAction, onEdit, aside = null }) {
   const archived = folders.find(folder => folder._id === (item.folder?._id || item.folder))?.archivedAt;
-  return <div className={`work-planner-task ${item.completed ? 'is-done' : ''}`}><label><input type="checkbox" checked={item.completed} onChange={() => onAction(item.clientId, { type: item.completed ? 'reopen' : 'complete' })} /><span>{item.title}{archived ? <small>Archived folder</small> : null}{item.previousPlannedOn && item.previousPlannedOn !== item.plannedOn ? <small>From {displayDay(item.previousPlannedOn, { weekday: 'short', day: 'numeric' })}</small> : null}{item.dueOn && item.dueOn < today && !item.completed ? <small>Due {displayDay(item.dueOn)} · overdue</small> : null}{item.pending ? <small>Pending sync</small> : null}</span></label>{aside}<button aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}>{item.conflicted ? 'Review both versions' : <WorkIcon name="more" />}</button></div>;
+  return <div className={`work-planner-task ${item.completed ? 'is-done' : ''}`}><label><input type="checkbox" checked={item.completed} onChange={() => onAction(item.clientId, { type: item.completed ? 'reopen' : 'complete' })} /><span>{item.title}{archived ? <small>Archived folder</small> : null}{item.previousPlannedOn && item.previousPlannedOn !== item.plannedOn ? <small>From {displayDay(item.previousPlannedOn, { weekday: 'short', day: 'numeric' })}</small> : null}{item.dueOn && item.dueOn < today && !item.completed ? <small>Due {displayDay(item.dueOn)} · overdue</small> : null}{item.pending ? <small>Pending sync</small> : null}</span></label><WorkItemSource origin={item.origin} />{aside}<button aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}>{item.conflicted ? 'Review both versions' : <WorkIcon name="more" />}</button></div>;
 }
 
 export function WorkAppointmentRow({ item, folders = [], projects = [], onStart, onEdit, status = '' }) {

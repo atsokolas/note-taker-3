@@ -130,3 +130,59 @@ test('an Outstanding line keeps its list, the person it waits on, and the days t
   assert.equal((await call('', 'POST', { operationId: 'odd-list', title: 'x', workItem: { kind: 'task', list: 'urgent' } })).status, 400);
   assert.equal((await call('', 'POST', { operationId: 'bad-day', title: 'x', workItem: { kind: 'task', returnOn: '2026-13-01' } })).status, 400);
 });
+
+test('cross-notebook follow-ups keep server-derived source notebook, meeting section and passage through edits and reload', async () => {
+  const customer = await NotebookFolder.create({ userId: user, name: 'Customer notes', knowledgeContext: 'work' });
+  const software = await NotebookFolder.create({ userId: user, name: 'Software team', knowledgeContext: 'work' });
+  const source = await create('provenance-source', { title: 'Fictional supplier', folder: String(customer._id), occurredOn: '2026-10-01', content: '<h2 data-block-id="date">3 November 2026</h2><p data-block-id="promise">We need offline access.</p>', blocks: [{ id: 'date', type: 'heading', level: 2, text: '3 November 2026' }, { id: 'promise', type: 'paragraph', text: 'We need offline access.' }] });
+  const task = await create('provenance-task', { title: 'Plan offline access', folder: String(software._id), workItem: { kind: 'task', noteId: source._id, origin: { blockId: 'promise', quote: 'offline access' } } });
+  assert.equal(task.folder, String(software._id));
+  assert.deepEqual(task.workItem.origin, { noteId: source._id, notebookId: String(customer._id), notebookName: 'Customer notes', noteTitle: 'Fictional supplier', day: '2026-11-03', blockId: 'promise', quote: 'offline access' });
+  const again = await create('provenance-task', { title: 'Ignored duplicate', workItem: { kind: 'task' } }); assert.equal(again._id, task._id);
+  assert.equal((await call()).body.entries.find(note => note._id === source._id).content, source.content);
+  await call('/' + source._id, 'PUT', { expectedRevision: 0, title: 'Renamed source', folder: String(software._id), occurredOn: '2026-11-20', content: '<p>Later writing.</p>', blocks: [] });
+  const edited = await call('/' + task._id, 'PUT', { expectedRevision: 0, title: 'Design offline access', workItem: { kind: 'task', noteId: source._id, origin: task.workItem.origin } });
+  assert.equal(edited.status, 200); assert.deepEqual(edited.body.workItem.origin, task.workItem.origin);
+  assert.deepEqual((await call()).body.items.find(item => item._id === task._id).workItem.origin, task.workItem.origin);
+  assert.equal((await call('/' + task._id, 'PUT', { expectedRevision: 1, workItem: { kind: 'task', noteId: source._id, origin: { ...task.workItem.origin, day: '2026-11-20' } } })).status, 400);
+  assert.equal((await call('/' + task._id, 'PUT', { expectedRevision: 1, workItem: { kind: 'task', noteId: null } })).status, 400);
+});
+test('source provenance rejects other owners, stale passages and foreign destinations; legacy HTML keeps its date', async () => {
+  const source = await create('legacy-provenance-source', { title: 'Legacy', occurredOn: '2026-10-01', content: '<h2>20 October 2026</h2><p>Four weeks.</p><h2>3 November 2026</h2><p>Now six weeks &amp; installation.</p>' });
+  const origin = { quote: 'six weeks & installation.' };
+  const legacy = await create('legacy-provenance-task', { title: 'Check timing', workItem: { kind: 'task', noteId: source._id, origin } });
+  assert.equal(legacy.workItem.origin.day, '2026-11-03'); assert.equal(legacy.workItem.origin.blockId, null);
+  const bad = await call('', 'POST', { operationId: 'stale-provenance', workItem: { kind: 'task', noteId: source._id, origin: { quote: 'Words never recorded' } } }); assert.equal(bad.status, 400);
+  const other = String(new mongoose.Types.ObjectId());
+  assert.equal((await call('', 'POST', { operationId: 'foreign-provenance', workItem: { kind: 'task', noteId: source._id, origin } }, { 'x-user': other })).status, 400);
+  const foreignFolder = await NotebookFolder.create({ userId: other, name: 'Private', knowledgeContext: 'work' });
+  assert.equal((await call('', 'POST', { operationId: 'foreign-destination', folder: String(foreignFolder._id), workItem: { kind: 'task', noteId: source._id, origin } })).status, 400);
+  assert.equal((await call('', 'POST', { operationId: 'agent-provenance', workItem: { kind: 'task', noteId: source._id, origin } }, { 'x-agent': '1' })).status, 403);
+});
+
+test('rich-text bullet and quote receipts accept hard-break selections using their serialized source identity', async () => {
+  for (const type of ['bullet', 'quote']) {
+    const tag = type === 'bullet' ? 'li' : 'blockquote';
+    const source = await create('rich-source-' + type, { content: `<${tag} data-block-id="saved-${type}"><p>Six<br>weeks</p></${tag}>`, blocks: [{ id: 'saved-' + type, type, text: 'Sixweeks' }] });
+    const task = await create('rich-task-' + type, { workItem: { kind: 'task', noteId: source._id, origin: { blockId: 'saved-' + type, quote: 'Six\nweeks' } } });
+    assert.equal(task.workItem.origin.quote, 'Six\nweeks'); assert.equal(task.workItem.origin.blockId, 'saved-' + type);
+  }
+});
+
+test('identical legacy passages keep the selected original date and inline formatting does not invent spaces', async () => {
+  const source = await create('repeated-source', { occurredOn: '2026-10-01', content: '<h2>20 October 2026</h2><p>Six<strong>weeks</strong>.</p><h2>3 November 2026</h2><p>Six<strong>weeks</strong>.</p>' });
+  const task = await create('repeated-task', { workItem: { kind: 'task', noteId: source._id, origin: { quote: 'Sixweeks.', day: '2026-11-03' } } });
+  assert.equal(task.workItem.origin.day, '2026-11-03');
+  assert.equal((await call('', 'POST', { operationId: 'forged-meeting-date', workItem: { kind: 'task', noteId: source._id, origin: { quote: 'Sixweeks.', day: '2026-12-01' } } })).status, 400);
+});
+
+test('source validation preserves word boundaries when the saved wording has changed', async () => {
+  const source = await create('word-boundary-source', { content: '<p data-block-id="words">nowhere</p>', blocks: [{ id: 'words', type: 'paragraph', text: 'nowhere' }] });
+  assert.equal((await call('', 'POST', { operationId: 'stale-word-boundary', workItem: { kind: 'task', noteId: source._id, origin: { blockId: 'words', quote: 'now here' } } })).status, 400);
+});
+
+test('HTML passage identity remains linkable when a legacy flat bullet omits a nested quote', async () => {
+  const source = await create('nested-source', { occurredOn: '2026-10-01', content: '<h2>3 November 2026</h2><ul><li data-block-id="outer"><p>Plan</p><blockquote data-block-id="nested-quote"><p>They need offline access.</p></blockquote></li></ul>', blocks: [{ id: 'date', type: 'heading', level: 2, text: '3 November 2026' }, { id: 'outer', type: 'bullet', text: 'Plan' }] });
+  const task = await create('nested-quote-task', { workItem: { kind: 'task', noteId: source._id, origin: { blockId: 'nested-quote', quote: 'offline access', day: '2026-11-03' } } });
+  assert.equal(task.workItem.origin.blockId, 'nested-quote'); assert.equal(task.workItem.origin.day, '2026-11-03');
+});

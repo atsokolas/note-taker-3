@@ -426,3 +426,20 @@ test('a recovered submission uses its synced parent identity after parent retent
   expect(api.post.mock.calls.at(-1)[1]).toMatchObject({ operationId: intent, workItem: { noteId: 'parent' } });
   expect(session.pending()).toEqual([]);
 });
+
+test('cross-notebook draft recovers its original selection and waits for source edits before saving the receipt', async () => {
+  await session.load();
+  const origin = { quote: 'Original', blockId: null };
+  session.open.begin('a', 'Original', origin); session.open.change('a', { title: 'Follow up with software', folder: 'software' });
+  session.dispose(); session = createWorkSession({ token: token('owner'), api }); await session.load();
+  expect(session.open.draft('a')).toMatchObject({ title: 'Follow up with software', folder: 'software', origin });
+  session.edit('a', { content: '<p>Original plus details</p>' });
+  const receipt = { ...origin, noteId: 'a', notebookId: 'f', notebookName: 'Customers', day: '2026-10-26', noteTitle: 'Charging windows' };
+  api.post.mockImplementation(async (_, data) => { expect(api.put).toHaveBeenCalledWith('/api/work-notes/a', expect.objectContaining({ content: '<p>Original plus details</p>' }), expect.anything()); return { data: { ...data, _id: 'follow-up', revision: 0, workItem: { ...data.workItem, origin: receipt } } }; });
+  const id = session.open.submit('a', 'UTC'); expect(await session.flush(id)).toBe(true);
+  expect(api.post.mock.calls[0][1]).toMatchObject({ folder: 'software', workItem: { noteId: 'a', origin } });
+  expect(session.entry(id).workItem.origin).toEqual(receipt);
+  expect(session.entry('a').content).toBe('<p>Original plus details</p>');
+  session.edit(id, { title: 'Edited task' }); await session.flush(id);
+  expect(api.put.mock.calls.at(-1)[1].workItem.origin).toEqual(receipt);
+});

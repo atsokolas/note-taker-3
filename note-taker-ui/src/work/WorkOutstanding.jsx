@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import WorkItemSource from './WorkItemSource';
 import { noteTitle } from './workSession';
 import { displayDay, shiftDay, writtenDay } from './workPlannerModel';
 import { CHASE_DAYS, daysBetween, nudge, outstanding, sortedSince } from './workOutstanding';
@@ -22,7 +23,7 @@ export default function WorkOutstanding({ view, items, notes, folders, today, in
   // Ticking draws a pen stroke through the words and leaves the line in place a moment, with Undo.
   const tick = item => { const operation = onAction(item.clientId, { type: 'complete' }); if (!operation) return; setStruck(current => ({ ...current, [item.id]: { item, operation } })); window.setTimeout(() => setStruck(({ [item.id]: _, ...rest }) => rest), 5000); };
   const sort = (item, patch) => { setAsking(null); onSort(item.clientId, { sortedOn: today, ...patch }); };
-  const source = item => { const note = noteOf(item); return note ? <button className="work-outstanding-source" onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : null; };
+  const source = item => { if (item.origin) return <WorkItemSource origin={item.origin} />; const note = noteOf(item); return note ? <button className="work-outstanding-source" onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : null; };
   const row = (item, aside, extra = null) => <React.Fragment key={item.id}><div className={`work-planner-task work-outstanding-row ${item.quiet ? 'is-quiet' : ''}`}>
     <label><input type="checkbox" checked={false} onChange={() => tick(item)} /><span>{item.list === 'waiting' && view !== 'waiting' ? `${item.waitingOn} · ` : ''}{item.title}</span></label>
     <span className="work-carried">{aside}</span></div>{extra}</React.Fragment>;
@@ -30,7 +31,7 @@ export default function WorkOutstanding({ view, items, notes, folders, today, in
   const sorting = item => asking === item.id
     ? <form className="work-outstanding-ask" onSubmit={event => { event.preventDefault(); const name = event.currentTarget.elements.person.value.trim(); if (name) sort(item, { list: 'waiting', waitingOn: name }); }}><input name="person" aria-label={`Who is ${item.title} waiting on?`} placeholder="Waiting on whom?" autoFocus /><button>Save</button><button type="button" onClick={() => setAsking(null)}>Cancel</button></form>
     : <span className="work-outstanding-sort"><button onClick={() => sort(item, { list: 'next', returnOn: null })}>Next</button><button onClick={() => setAsking(item.id)}>Waiting on…</button><button onClick={() => sort(item, { list: 'someday', returnOn: null })}>Someday</button><button onClick={() => tick(item)}>Done</button></span>;
-  const freshRow = item => <div className="work-planner-task work-outstanding-row is-new" key={item.id}><label><input type="checkbox" checked={false} onChange={() => tick(item)} /><span>{item.title}<small>{item.list === 'someday' ? `Back from Someday, set aside ${short(item.sortedOn)}` : noteOf(item) ? `From ${noteTitle(noteOf(item))}` : 'Added here'}</small></span></label><span className="work-carried">{sorting(item)}</span></div>;
+  const freshRow = item => <div className="work-planner-task work-outstanding-row is-new" key={item.id}><label><input type="checkbox" checked={false} onChange={() => tick(item)} /><span>{item.title}<small>{item.list === 'someday' ? `Back from Someday, set aside ${short(item.sortedOn)}` : noteOf(item) ? `From ${noteTitle(noteOf(item))}` : 'Added here'}</small></span></label><span className="work-carried"><WorkItemSource origin={item.origin} />{sorting(item)}</span></div>;
   const star = item => <button className="work-outstanding-star" aria-label={`Make ${item.title} today’s one thing`} aria-pressed={item.oneThingOn === today} onClick={() => { if (lists.oneThing && lists.oneThing.id !== item.id) onSort(lists.oneThing.clientId, { oneThingOn: null }); onSort(item.clientId, { oneThingOn: item.oneThingOn === today ? null : today }); }}>{item.oneThingOn === today ? 'Today’s one thing' : 'Make it today’s'}</button>;
   const quietAsk = item => <p className="work-outstanding-quiet">Untouched for {plural(daysBetween(sortedSince(item), today), 'day')}. Still want it?<button onClick={() => sort(item, { list: 'next' })}>Keep</button><button onClick={() => sort(item, { list: 'someday' })}>Someday</button><button onClick={() => tick(item)}>Let it go</button></p>;
   const nextMeeting = person => items.filter(item => item.kind === 'appointment' && !item.completed && item.plannedOn >= today && `${item.title} ${item.withText || ''}`.toLowerCase().includes(person.toLowerCase().split(/\s+/)[0])).sort((a, b) => `${a.plannedOn}${a.startTime}`.localeCompare(`${b.plannedOn}${b.startTime}`))[0];

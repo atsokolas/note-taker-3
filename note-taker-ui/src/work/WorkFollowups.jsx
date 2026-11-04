@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import WorkItemSource from './WorkItemSource';
 import WorkIcon from './WorkIcon';
 import WorkOpenComposer from './WorkOpenComposer';
 import { dayInZone, displayDay, projectItem } from './workPlannerModel';
 
-export default function WorkFollowups({ carried = [], note, tomorrow, timeZone, session, onEdit, onAction, onConflict, children }) {
+export default function WorkFollowups({ carried = [], folders = [], note, tomorrow, timeZone, session, onEdit, onAction, onConflict, children }) {
   const [openRequest, setOpenRequest] = useState(null);
   const [receipts, setReceipts] = useState({});
   const undoWindows = useRef(new Map());
@@ -32,17 +33,17 @@ export default function WorkFollowups({ carried = [], note, tomorrow, timeZone, 
       const previous = index ? dayInZone(records[index - 1].completedAt, records[index - 1].completedTimeZone) : '';
       return <React.Fragment key={item.id}>{date !== previous ? <h3><WorkIcon name="down" />Completed · {displayDay(date, { day: 'numeric', month: 'short', year: 'numeric' })}</h3> : null}{completedRecord(item)}</React.Fragment>;
     })}{completed.length > 2 ? <button onClick={() => setShowAll(value => !value)}>{showAll ? 'Show recent' : `Show all ${completed.length}`}</button> : null}</section> : null}
-    {children(setOpenRequest)}
+    {children(request => setOpenRequest({ ...request, origin: { ...request.origin, noteId: note._id || note.clientId, notebookId: note.folder?._id || note.folder || null, notebookName: folders.find(folder => folder._id === (note.folder?._id || note.folder))?.name || 'Work inbox', noteTitle: note.title || 'Untitled note', day: request.origin?.day || note.occurredOn || note.takenOn || '' } }))}
     <section className="work-followups" aria-label="Open" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setReceipts({}); }}>
       <h2>Open</h2>
       {carried.map(item => <div className="work-followup-row is-carried" key={item.id}><label><input type="checkbox" checked={false} onChange={() => onAction(item.clientId, { type: 'complete' })} /><span>{item.title}<small>from last time</small></span></label></div>)}
       {active.map(item => item.completed ? <div className="work-item-receipt" key={item.id}>Completed above <button onClick={() => onAction(item.clientId, { type: 'undo', undoOf: receipts[item.id] })}>Undo</button></div> : <div className={`work-followup-row ${item.pending ? 'is-pending' : ''}`} key={item.id}>
         <label><input type="checkbox" checked={false} disabled={Boolean(session.conflict(item.clientId))} onChange={() => change(item, 'complete')} /><span>{item.title}{item.kind === 'question' ? <small className="work-question-kind">Question</small> : null}</span></label>
         {session.conflict(item.clientId) ? <button onClick={() => onConflict(item)}>Review both versions</button> : <button className="work-plan-link" onClick={() => item.plannedOn ? onEdit(item) : onAction(item.clientId, { type: 'plan', plannedOn: tomorrow })}>{item.plannedOn ? `Planned ${displayDay(item.plannedOn, { weekday: 'short', day: 'numeric', month: 'short' })}` : 'Plan for tomorrow'}</button>}
-        <button className="work-followup-edit" aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}><WorkIcon name="more" /></button>
+        <WorkItemSource origin={item.origin} /><button className="work-followup-edit" aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}><WorkIcon name="more" /></button>
         {item.pending || session.pending().some(([id]) => id === item.clientId) ? <small className="work-item-save">{session.status(item.clientId)}</small> : null}
       </div>)}
-      <WorkOpenComposer noteId={note.clientId} session={session} timeZone={timeZone} request={openRequest} onFinish={() => { openRequest?.returnToWriting(); setOpenRequest(null); }} />
+      <WorkOpenComposer folders={folders} noteId={note.clientId} session={session} timeZone={timeZone} request={openRequest} onFinish={() => { openRequest?.returnToWriting(); setOpenRequest(null); }} />
     </section>
   </>;
 }
