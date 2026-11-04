@@ -3,6 +3,7 @@ import { createWorkOpenComposer } from './workOpenDrafts';
 import { operationId, workDraftStorage, workContinuationStorage } from './workDrafts';
 import { dayInZone, deviceTimeZone, displayDay, itemMetadata } from './workPlannerModel';
 import { plainTextFrom } from '../utils/editorialText';
+import { entryDay } from './workNoteEntries';
 export { draftKey, operationId } from './workDrafts';
 
 export const workAccount = token => {
@@ -12,7 +13,12 @@ export const workAccount = token => {
 export const localDay = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 // One phrase search for every Work list: a note's title and its words.
 export const matchesQuery = (note, query) => !query || `${noteTitle(note)} ${note.content || ''}`.toLowerCase().includes(query.toLowerCase());
-export const noteTitle = note => note?.title?.trim() || noteWords(note).split('\n').find(line => line.trim())?.trim().slice(0, 80) || 'Untitled note';
+export const noteTitle = note => {
+  if (note?.title?.trim()) return note.title.trim();
+  const blocks = note?.blocks?.filter(block => !(block.type === 'heading' && block.level === 2 && entryDay(block.text?.trim())));
+  const content = note?.content?.replace(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi, (heading, text) => entryDay(plainTextFrom(text)) ? '' : heading);
+  return noteWords({ blocks, content }).split('\n').find(line => line.trim())?.trim().slice(0, 80) || 'Untitled note';
+};
 export const noteDate = note => displayDay(note?.occurredOn);
 export const noteWords = note => note?.blocks?.length ? note.blocks.map(block => block.text || '').join('\n') : plainTextFrom(note?.content);
 const body = (note, creating = false) => ({ ...(creating ? { capturedAt: note.capturedAt, timeZone: note.timeZone } : {}), ...(note.workItem ? { workItem: itemMetadata(note.workItem) } : {}), ...(note.workActions?.length ? { workActions: note.workActions } : {}), title: note.title || '', content: note.content || '', blocks: note.blocks || [], folder: note.folder?._id || note.folder || null, project: note.project?._id || note.project || null, occurredOn: note.occurredOn, withText: note.withText || '' });

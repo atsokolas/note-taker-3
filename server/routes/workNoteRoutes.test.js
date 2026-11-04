@@ -179,3 +179,22 @@ test('a note sits in one folder and can be part of one project, and a project ke
   assert.deepEqual((await call('/projects')).body, [], 'done projects are not offered');
   assert.equal((await call('/projects', 'GET', undefined, { 'x-agent': '1' })).status, 403);
 });
+
+test('dated meeting sections round-trip in existing content and blocks without restamping the note', async () => {
+  const original = '<p data-block-id="original"><strong>Supplier said six weeks.</strong></p>';
+  const created = await call('', 'POST', { operationId: 'meeting-journal', title: 'Supplier meetings', content: original, occurredOn: '2026-10-20', capturedAt: '2026-10-20T23:30:00Z', timeZone: 'America/Chicago' });
+  assert.equal(created.status, 201);
+  const note = created.body;
+  const content = original + '<h2 data-block-id="meeting">4 November 2026</h2><p data-block-id="answer">Now they said four weeks.</p>';
+  const blocks = [{ id: 'original', type: 'paragraph', text: 'Supplier said six weeks.' }, { id: 'meeting', type: 'heading', level: 2, text: '4 November 2026' }, { id: 'answer', type: 'paragraph', text: 'Now they said four weeks.' }];
+  const saved = await call('/' + note._id, 'PUT', { expectedRevision: note.revision, content, blocks });
+  assert.equal(saved.status, 200);
+  const loaded = await call('/' + note._id);
+  assert.equal(loaded.body.content, content);
+  assert.deepEqual(loaded.body.blocks.map(({ id, type, text, level }) => ({ id, type, text, level })), blocks.map(block => ({ level: 1, ...block })));
+  for (const field of ['capturedAt', 'takenOn', 'timeZone', 'occurredOn']) assert.equal(loaded.body[field], note[field]);
+  assert.equal((await call('/' + note._id, 'PUT', { expectedRevision: note.revision, content: 'stale replacement' })).status, 409);
+  assert.equal((await call('/' + note._id, 'GET', undefined, { 'x-user': String(new mongoose.Types.ObjectId()) })).status, 404);
+  assert.equal((await call('/' + note._id, 'PUT', { expectedRevision: saved.body.revision, content: 'other user' }, { 'x-user': String(new mongoose.Types.ObjectId()) })).status, 404);
+  assert.equal((await call('/' + note._id)).body.content, content);
+});

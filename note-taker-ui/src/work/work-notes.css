@@ -417,3 +417,15 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
   .work-project-page { grid-template-columns: 1fr; gap: 24px; }
   .work-project-margin { padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--noeis-rule); }
 }
+
+/* Meeting dates live with the words; the index is only a way back into them. */
+.work-entry-tools { margin: 0 0 24px; padding-bottom: 12px; border-bottom: 1px solid var(--noeis-rule); color: var(--noeis-ink-muted); font: 12px/1.5 var(--font-sans); }
+.work-entry-tools nav { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 8px; }
+.work-notes .work-entry-tools nav button, .work-dialog .work-entry-tools nav button { padding: 4px 0; min-height: 32px; text-decoration: underline; text-decoration-color: var(--noeis-rule); text-underline-offset: 4px; }
+.work-entry-tools form { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.work-entry-tools label { display: flex; align-items: center; gap: 8px; }
+.work-entry-tools input { max-width: 100%; min-height: 44px; border: 0; border-bottom: 1px solid var(--noeis-rule); border-radius: 0; padding: 4px 0; background: transparent; color: var(--noeis-ink); font: inherit; }
+.work-notes .work-entry-tools form button, .work-dialog .work-entry-tools form button { padding: 4px 0; min-height: 44px; }
+.work-notes .work-writing .ProseMirror h2.work-entry-date, .work-dialog .work-writing .ProseMirror h2.work-entry-date { margin: 36px 0 16px; padding-top: 20px; border-top: 1px solid var(--noeis-rule); color: var(--noeis-ink-muted); font: 400 19px/1.4 var(--font-serif); letter-spacing: 0; }
+.work-writing .ProseMirror h2.work-entry-date:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+@media (max-width: 900px) { .work-notes .work-entry-tools nav button { min-height: 44px; } }
