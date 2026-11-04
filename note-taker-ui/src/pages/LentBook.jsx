@@ -4,7 +4,7 @@ import { getLentBook } from '../api/imports';
 /* Books first: its stylesheets come before the desk's everywhere else, and
    a lent copy that loaded them the other way round fails the build. */
 import { Colophon, Spine } from './Books';
-import { BookPages } from '../components/reader/BookDesk';
+import { BookPages } from '../components/reader/BookDesk.jsx';
 import { isEarlier, readingSince } from '../components/reader/bookDesk';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 

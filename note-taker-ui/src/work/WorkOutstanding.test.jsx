@@ -3,7 +3,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WorkNotes from './WorkNotes';
-import { WorkDayClose } from './WorkOutstanding';
+import { WorkDayClose } from './WorkOutstanding.jsx';
 import WorkCalendar from './WorkCalendar';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';

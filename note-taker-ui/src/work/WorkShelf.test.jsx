@@ -1,0 +1,46 @@
+import React from 'react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import WorkShelf from './WorkShelf';
+
+const notes = Array.from({ length: 6 }, (_, i) => ({ clientId: `n${i}`, title: `Note ${i}`, folder: i === 1 ? { _id: 'f' } : 'f', project: i === 1 ? { _id: 'p' } : 'p', takenOn: '2026-11-04' }));
+const props = { notes, folders: [{ _id: 'f', name: 'Meetings' }], projects: [{ _id: 'p', name: 'Launch' }, { _id: 'paused', name: 'Later', pausedAt: '2026-11-01' }], lists: { waiting: [], someday: [] }, current: () => false, drag: () => ({}), onScope: jest.fn(), onOpen: jest.fn(), onQuery: jest.fn(), onDropNote: jest.fn(), timeZone: 'UTC', day: '2026-11-04', query: '', place: null, view: 'today' };
+
+test('folders and projects disclose all children independently with native keyboard controls', () => {
+  render(<WorkShelf {...props} />);
+  expect(screen.queryByRole('button', { name: /Note 5/ })).toBeNull();
+  const expand = screen.getByRole('button', { name: 'Expand Meetings' });
+  expand.focus(); userEvent.keyboard('{Enter}');
+  expect(expand).toHaveAttribute('aria-expanded', 'true');
+  expect(within(screen.getByRole('list', { name: 'Notes in Meetings' })).getAllByRole('button')).toHaveLength(6);
+  fireEvent.click(screen.getByRole('button', { name: 'Expand Launch' }));
+  const children = screen.getByRole('list', { name: 'Notes in Launch' });
+  fireEvent.click(within(children).getByRole('button', { name: /Note 1/ }));
+  expect(props.onOpen).toHaveBeenCalledWith('n1');
+  fireEvent.click(screen.getByRole('button', { name: 'Launch' }));
+  expect(props.onScope).toHaveBeenCalledWith('project', 'p');
+  expand.focus(); userEvent.keyboard(' ');
+  expect(expand).toHaveAttribute('aria-expanded', 'false');
+  expect(screen.queryByRole('list', { name: 'Notes in Meetings' })).toBeNull();
+  expect(screen.getByRole('list', { name: 'Notes in Launch' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Later' })).toBeInTheDocument();
+});
+
+test('current child reveals its parents on reload and search exposes matches beyond four notes', () => {
+  const { rerender } = render(<WorkShelf {...props} current={note => note.clientId === 'n5'} />);
+  expect(screen.getAllByRole('button', { name: /Note 5/ })).toHaveLength(2);
+  expect(screen.getAllByRole('button', { current: 'page' })).toHaveLength(2);
+  rerender(<WorkShelf {...props} query="Note 5" />);
+  expect(screen.getAllByRole('button', { name: /Note 5/ })).toHaveLength(2);
+  expect(screen.queryByRole('button', { name: /Note 0/ })).toBeNull();
+});
+
+
+test('the active project alone marks the current page in the Projects navigation', () => {
+  const { rerender } = render(<WorkShelf {...props} view="project" place="p" />);
+  const navigation = screen.getByRole('navigation', { name: 'Projects' });
+  expect(navigation.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+  expect(navigation.querySelector('[aria-current="page"]')).toHaveTextContent('Launch');
+  rerender(<WorkShelf {...props} view="projects" />);
+  expect(within(navigation).getByRole('button', { name: /Projects/ })).toHaveAttribute('aria-current', 'page');
+});
