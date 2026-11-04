@@ -6,7 +6,7 @@ import {
 } from '../api/imports';
 import { ArticleMargins } from '../components/margins/LibraryMargins';
 import { useSettleIntoWiki } from '../components/think/settleIntoWiki';
-import BookDesk from '../components/reader/BookDesk';
+import BookDesk from '../components/reader/BookDesk.jsx';
 import PassageDoor from '../components/reader/PassageDoorView';
 import useSourceWhereabouts from '../components/reader/useSourceWhereabouts';
 import {

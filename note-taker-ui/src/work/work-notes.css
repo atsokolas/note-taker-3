@@ -31,10 +31,14 @@
 .work-shelf time, .work-place-row > small { margin-left: auto; font-size: 12px; color: var(--noeis-ink-subtle); font-variant-numeric: tabular-nums; }
 .work-places { display: flex; flex-direction: column; gap: 10px; }
 .work-place-row > button:first-child { flex: 1; min-width: 0; }
-.work-place-row > button[aria-label] { opacity: 0; }
+.work-place-row > button[aria-label]:not(.work-place-toggle) { opacity: 0; }
 .work-place-row > button[aria-label] .work-icon { width: 14px; height: 14px; }
 .work-place-row:hover > button[aria-label], .work-place-row > button[aria-label]:focus-visible { opacity: .7; }
-.work-place-notes { display: flex; flex-direction: column; padding-bottom: 6px; }
+.work-place-notes { display: flex; flex-direction: column; list-style: none; margin: 6px 0 6px 8px; padding: 0 0 0 16px; border-left: 1px solid var(--noeis-rule); }
+.work-place-notes[hidden] { display: none; }
+.work-place-notes > li { min-width: 0; }
+.work-shelf .work-place-toggle { display: grid; place-items: center; flex: 0 0 28px; min-height: 28px; color: var(--noeis-ink-muted); }
+.work-place-toggle .work-icon { width: 14px; height: 14px; }
 .work-shelf .work-shelf-note { padding: 3px 0; font-size: 13.5px; color: var(--noeis-ink-muted); }
 .work-shelf-note > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .work-shelf-note:hover, .work-shelf-note[aria-current] { color: var(--noeis-ink); }
@@ -71,6 +75,7 @@
 .work-appointment .work-icon { width: 13px; height: 13px; flex-basis: 13px; }
 .work-day-add { color: var(--noeis-ink-muted) !important; }
 .work-note-paper { min-width: 0; }
+.work-note-date { grid-column: 1 / -1; margin: 0 0 16px; color: var(--noeis-ink-muted); font: 12px/1.5 var(--font-sans); letter-spacing: .04em; }
 
 .work-sync { font-size: 11px !important; padding-inline: 0 !important; }
 .work-note-title { position: relative; }
@@ -271,6 +276,8 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 
 @media (max-width: 900px) {
   .work-page { padding: 14px 20px 80px; }
+  .work-shelf .work-place-row > button, .work-shelf .work-shelf-note { min-height: 44px; }
+  .work-shelf .work-place-toggle { flex-basis: 44px; }
   .work-calendar-heading { grid-template-columns: var(--work-step) 1fr var(--work-step); }
   .work-week-toggle { display: none; }
   .work-notes .work-day-heading { padding: 6px 2px; font-size: 13px; }

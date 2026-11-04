@@ -348,3 +348,27 @@ test('competing Open drafts remain selectable and submitting one preserves the o
   fireEvent.click(screen.getByRole('button', { name: 'Continue Open draft' }));
   expect(screen.getByLabelText('Open item title')).toHaveValue('Third title'); second.dispose();
 });
+
+test('a new page shows one original written date through save, edits and reload without changing prose', async () => {
+  localStorage.setItem('noeis:work-view:owner', JSON.stringify({ timeZone: 'America/Los_Angeles' }));
+  api.put.mockImplementation(async (_, body) => ({ data: { ...api.post.mock.calls[0][1], ...body, _id: 'new', revision: body.expectedRevision + 1 } }));
+  const mounted = render(<WorkNotes />);
+  await screen.findByRole('button', { name: 'Pilot' });
+  fireEvent.click(screen.getByRole('button', { name: 'New note' }));
+  const day = screen.getByLabelText(/^Written on/).getAttribute('datetime');
+  fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: 'Only my words' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
+  await waitFor(() => expect(api.post).toHaveBeenCalled());
+  expect(api.post.mock.calls[0][1].content).toBe('Only my words');
+  expect(screen.getAllByLabelText(/^Written on/)).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText('Occurred on'), { target: { value: '2020-01-01' } });
+  expect(screen.getByLabelText(/^Written on/)).toHaveAttribute('datetime', day);
+  const saved = { _id: 'new', revision: 0, ...api.post.mock.calls[0][1] };
+  mounted.unmount(); forgetWorkSession('owner');
+  api.get.mockResolvedValue({ data: { entries: [saved], items: [], folders: [{ _id: 'f', name: 'Pilot' }] } });
+  window.history.replaceState({}, '', '/work?note=new');
+  render(<WorkNotes />);
+  expect(await screen.findByLabelText(/^Written on/)).toHaveAttribute('datetime', day);
+  expect(screen.getAllByLabelText(/^Written on/)).toHaveLength(1);
+  expect(screen.getByLabelText('Work note writing')).toHaveValue('Only my words');
+});

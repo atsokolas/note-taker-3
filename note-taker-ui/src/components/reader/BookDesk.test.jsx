@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import BookDesk from './BookDesk';
+import BookDesk from './BookDesk.jsx';
 import { sittingLabel } from './bookDesk';
 import { createHighlight, deleteHighlight, updateHighlight } from '../../api/highlights';
 import { readBookPage } from '../../api/imports';

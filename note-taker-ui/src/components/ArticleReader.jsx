@@ -13,7 +13,7 @@ import ReadFresh, { useReadFresh } from './reader/ReadFresh';
 import { PASSAGES, walkPassages } from './reader/passageWalk';
 import useArticleReadingPlace from './reader/useArticleReadingPlace';
 import MagneticReadingRail from './reader/MagneticReadingRail';
-import ReturnGreeting from './reader/ReturnGreeting';
+import ReturnGreeting from './reader/ReturnGreeting.jsx';
 import FootnotePeek from './reader/FootnotePeek';
 import OpenSource from './reader/OpenSource';
 import usePassageOpens from './reader/usePassageOpens';
