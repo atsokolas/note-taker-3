@@ -44,3 +44,26 @@ test('the active project alone marks the current page in the Projects navigation
   rerender(<WorkShelf {...props} view="projects" />);
   expect(within(navigation).getByRole('button', { name: /Projects/ })).toHaveAttribute('aria-current', 'page');
 });
+
+test('Projects and Notes collapse independently without losing nested folders, selection or orphan records', () => {
+  const folders = [{ _id: 'parent', name: 'Customers' }, { _id: 'f', name: 'Meetings', parentFolderId: 'parent' }, { _id: 'orphan', name: 'Research', parentFolderId: 'missing' }];
+  render(<WorkShelf {...props} folders={folders} current={note => note.clientId === 'n0'} />);
+  const branch = screen.getByRole('list', { name: 'Places in Customers' });
+  expect(within(branch).getByRole('button', { name: 'Meetings' })).toBeInTheDocument();
+  expect(within(branch).getByRole('button', { name: /Note 0/ })).toHaveAttribute('aria-current', 'page');
+  expect(screen.getByRole('button', { name: 'Research' })).toBeInTheDocument();
+  const toggle = screen.getByRole('button', { name: 'Collapse notes' });
+  toggle.focus(); userEvent.keyboard('{Enter}');
+  expect(screen.queryByRole('button', { name: 'Meetings' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Launch' })).toBeInTheDocument();
+  userEvent.keyboard(' '); expect(screen.getByRole('button', { name: 'Meetings' })).toBeInTheDocument();
+});
+
+test('cyclic legacy places stay reachable and the notebook filter uses existing navigation', () => {
+  render(<WorkShelf {...props} folders={[{ _id: 'a', name: 'A', parentFolderId: 'b' }, { _id: 'b', name: 'B', parentFolderId: 'a' }]} />);
+  expect(screen.getByRole('button', { name: 'A' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Expand A' }));
+  expect(screen.getByRole('button', { name: 'B' })).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Filter by notebook' }), { target: { value: 'b' } });
+  expect(props.onScope).toHaveBeenCalledWith('folder', 'b');
+});
