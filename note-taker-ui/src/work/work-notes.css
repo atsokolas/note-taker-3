@@ -1,7 +1,7 @@
 /* Work owns the rail and reading gutter; let its sticky rail follow the document. */
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes) { max-width: none; padding: var(--noeis-topbar-height, 88px) 0 0; overflow: visible; }
 .work-notes {
-  --work-font: "Helvetica Neue", var(--noeis-font-ui);
+  --font-sans: "Helvetica Neue", var(--noeis-font-ui);
   --work-date-gutter: 112px;
   --work-reading-width: 32rem;
   --work-fold-ms: 260;
@@ -23,7 +23,7 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
 .work-icon { display: inline-block; width: 20px; height: 20px; flex: 0 0 20px; background: currentColor; mask-size: contain; mask-repeat: no-repeat; mask-position: center; -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; vertical-align: middle; }
 .work-sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; clip-path: inset(50%); white-space: nowrap; overflow: hidden; }
 .work-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100svh - var(--noeis-topbar-height, 64px)); }
-.work-shelf { position: sticky; top: var(--noeis-topbar-height, 64px); align-self: start; height: calc(100svh - var(--noeis-topbar-height, 64px)); overflow-y: auto; background: var(--noeis-canvas); color: var(--noeis-ink-muted); padding: 20px 18px 24px; display: flex; flex-direction: column; font: 13px/1.5 var(--work-font); min-width: 0; }
+.work-shelf { position: sticky; top: var(--noeis-topbar-height, 64px); align-self: start; height: calc(100svh - var(--noeis-topbar-height, 64px)); overflow-y: auto; background: var(--noeis-canvas); color: var(--noeis-ink-muted); padding: 20px 18px 24px; display: flex; flex-direction: column; font: 13px/1.5 var(--font-sans); min-width: 0; }
 .work-shelf button { min-height: 44px; padding: 8px 6px; }
 .work-shelf button:hover { background: var(--noeis-active); }
 .work-shelf-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
@@ -104,16 +104,16 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
 .work-completed-row button { text-decoration: underline; text-underline-offset: 3px; font: 13px var(--font-serif); color: var(--noeis-thread-strong); }
 .work-completed-row .work-history-link { font: 11px var(--font-sans); text-decoration: none; color: var(--noeis-ink-muted); }
 .work-writing { max-width: 980px; }
-.work-notes .work-writing .ProseMirror { min-height: 120px; outline: none; font: 400 calc(var(--noeis-type-body) * 1.25)/1.65 var(--work-font); font-family: var(--work-font) !important; color: var(--noeis-ink); overflow-wrap: anywhere; padding: 0; }
+.work-notes .work-writing .ProseMirror { min-height: 120px; outline: none; font: 400 calc(var(--noeis-type-body) * 1.25)/1.65 var(--font-sans); font-family: var(--font-sans) !important; color: var(--noeis-ink); overflow-wrap: anywhere; padding: 0; }
 .work-notes .work-writing .ProseMirror p { color: var(--noeis-ink) !important; }
 .work-notes .work-writing .ProseMirror p:not(li > p) { margin: 0 0 .8em; }
-.work-writing .ProseMirror h1, .work-writing .ProseMirror h2, .work-writing .ProseMirror h3 { font-family: var(--work-font); line-height: 1.3; margin: 24px 0 16px; }
+.work-writing .ProseMirror h1, .work-writing .ProseMirror h2, .work-writing .ProseMirror h3 { font-family: var(--font-sans); line-height: 1.3; margin: 24px 0 16px; }
 .work-writing .ProseMirror ul, .work-writing .ProseMirror ol { padding-left: 1.5em; }
 .work-writing .ProseMirror :is(ul, ol):not(li > ul, li > ol) { margin: .8em 0; }
 .work-writing .ProseMirror pre { white-space: pre-wrap; }
 .work-writing .ProseMirror a { color: inherit; text-decoration: underline; }
 .work-writing .think-editor-slash-hint, .work-writing .think-editor-block-controls { display: none; }
-.work-followups { padding: 0; margin-top: 32px; color: var(--noeis-ink-muted); font: 13px/1.5 var(--work-font); }
+.work-followups { padding: 0; margin-top: 32px; color: var(--noeis-ink-muted); font: 13px/1.5 var(--font-sans); }
 .work-followup-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font: 18px/1.5 var(--font-serif); min-height: 38px; }
 .work-followup-row label { display: flex; gap: 14px; align-items: center; min-height: 44px; flex: 1; cursor: pointer; }
 .work-followup-row > button { margin-left: auto; font: 13px var(--font-serif); text-decoration: underline; text-underline-offset: 3px; }
@@ -444,7 +444,7 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 }
 
 /* Meeting dates live with the words; the index is only a way back into them. */
-.work-entry-tools { display: flex; align-items: center; gap: 4px; margin-left: auto; color: var(--noeis-ink-muted); font: 13px/1.5 var(--work-font); }
+.work-entry-tools { display: flex; align-items: center; gap: 4px; margin-left: auto; color: var(--noeis-ink-muted); font: 13px/1.5 var(--font-sans); }
 .work-contents { position: relative; }
 .work-contents > summary { min-height: 44px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .work-contents > summary small { font: 11px var(--font-sans); }
@@ -471,7 +471,7 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
   .work-contents { margin-left: auto; }
   .work-item-source a { min-height: 44px; padding-block: 12px; }
 }
-.work-writing .ProseMirror h2.work-entry-date { float: left; clear: left; width: var(--work-date-gutter); margin: 0 0 0 calc(-1 * var(--work-date-gutter)); padding: 0 24px 0 0; color: var(--noeis-ink-muted); font: 400 12px/1.6 var(--work-font); letter-spacing: 0; overflow-wrap: normal; }
+.work-writing .ProseMirror h2.work-entry-date { float: left; clear: left; width: var(--work-date-gutter); margin: 0 0 0 calc(-1 * var(--work-date-gutter)); padding: 0 24px 0 0; color: var(--noeis-ink-muted); font: 400 12px/1.6 var(--font-sans); letter-spacing: 0; overflow-wrap: normal; }
 
 /* One quiet header; occasional tools remain native, keyboard-operable disclosures. */
 .work-shelf-search-row { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; }
@@ -497,7 +497,7 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-menu[open] { z-index: 2; }
 .work-menu > summary { display: flex; align-items: center; gap: 8px; width: fit-content; cursor: pointer; list-style: none; }
 .work-menu > summary::-webkit-details-marker { display: none; }
-.work-menu-body { position: absolute; top: 100%; right: 0; width: min(360px, calc(100vw - 40px)); max-height: min(65svh, 600px); overflow: auto; padding: 16px; background: var(--noeis-paper); color: var(--noeis-ink); border: 1px solid var(--noeis-rule); box-shadow: var(--noeis-shadow-soft); font: 13px/1.6 var(--work-font); }
+.work-menu-body { position: absolute; top: 100%; right: 0; width: min(360px, calc(100vw - 40px)); max-height: min(65svh, 600px); overflow: auto; padding: 16px; background: var(--noeis-paper); color: var(--noeis-ink); border: 1px solid var(--noeis-rule); box-shadow: var(--noeis-shadow-soft); font: 13px/1.6 var(--font-sans); }
 .work-note-information .work-menu-body { left: 0; right: auto; }
 .work-menu-body :is(input,select,textarea) { max-width: 100%; min-width: 0; min-height: 44px; border: 0; border-bottom: 1px solid var(--noeis-rule); background: transparent; color: var(--noeis-ink); font: inherit; }
 .work-menu-body :is(form,label) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -507,19 +507,19 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-menu-body .work-week-days { grid-column: 1 / -1; grid-row: 2; }
 .work-menu-body .work-week-step:first-child { grid-column: 1; grid-row: 1; }
 .work-menu-body .work-week-step:not(:first-child) { grid-column: 3; grid-row: 1; }
-.work-menu-body .work-day-heading { padding-inline: 2px; font: 12px/1.4 var(--work-font); }
+.work-menu-body .work-day-heading { padding-inline: 2px; font: 12px/1.4 var(--font-sans); }
 .work-menu-body .work-week-toggle { grid-column: 1 / -1; }
 .work-menu-body .work-return { width: 100%; }
 .work-notes .work-menu-body .work-return textarea { font: inherit; }
 .work-save-state:has(.work-sr-only:only-child) { height: 0; }
-.work-save-state { font: 12px var(--work-font); }
+.work-save-state { font: 12px var(--font-sans); }
 .work-writing.has-dates .think-editor-draft-surface { padding-left: var(--work-date-gutter); max-width: calc(var(--work-reading-width) + var(--work-date-gutter)); }
 .work-writing .ProseMirror > h2.work-entry-date:not(:first-child) { margin-top: 32px; }
 .work-writing .ProseMirror > h2.work-entry-date:not(:first-child) + * { padding-top: 32px; }
 .work-writing .ProseMirror > h2.work-entry-date:first-child + * { margin-top: 0; }
 .work-followups > details > summary { width: fit-content; min-height: 44px; cursor: pointer; padding: 8px 0; }
 .work-note-paper:has(.work-writing.has-dates) > .work-followups { margin-left: var(--work-date-gutter); }
-.work-followups .work-followup-row, .work-followups .work-completed-row { font-family: var(--work-font); }
+.work-followups .work-followup-row, .work-followups .work-completed-row { font-family: var(--font-sans); }
 @media (min-width: 901px) {
   body.noeis-editorial:has(.work-notes) { --noeis-topbar-height: 64px; }
   body.noeis-editorial:has(.work-notes) .topbar { padding-block: 0 !important; }

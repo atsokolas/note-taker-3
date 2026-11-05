@@ -27,7 +27,7 @@ The source and rendered implementation were opened and paired for comparison. Th
 
 ### Fidelity review and iteration
 
-- Initial P1: shared Think `!important` styling forced serif prose. Fixed with a Work-owned sans-serif rule, scoped to Work. Computed family is Helvetica Neue with platform fallbacks; desktop reading size 20px (derived from the existing body-size input), 33px leading; mobile uses the body-size input directly. One 28px regular Newsreader title, 24px on mobile.
+- Initial P1: shared Think `!important` styling forced serif prose. Fixed with a Work-owned sans-serif rule, scoped to Work. Computed family is Helvetica Neue with platform fallbacks, scoped through the existing house `--font-sans` token; desktop reading size 20px (derived from the existing body-size input), 33px leading; mobile uses the body-size input directly. One 28px regular Newsreader title, 24px on mobile.
 - Initial P2: sidebar/paper tones put more emphasis on the rail. Reassigned existing semantic canvas/paper roles so the writing leads; no fixed light-only palette.
 - Initial P2: the shared masthead padding did not match its sticky-height variable. Work's desktop masthead now measures 64px; rail and note header use that same variable.
 - Initial P2: mobile note-information menu could cross the viewport and paint beneath sibling controls. Final popovers stay between x20 and x410 at 430px width, with the open menu above adjacent controls.
@@ -58,6 +58,8 @@ Measured contrast from rendered semantic colors:
 ## Engineering verification
 
 Affected selection: all `src/work` suites plus `src/api/uiSettings.work.test.js`: 203 tests across 22 files pass. The final week-focus regression also passes in the 20-test WorkWeekfold suite. Covers data durability, account changes, conflict recovery, original dates, rich-text blocks/selection, planner state, nested navigation and provenance. New tests cover native menu dismissal/focus, recovery disclosure transitions, unprojected-note visibility and the retained full week.
+
+CI initially caught a separate Work font alias violating the house-token guard. Removed that alias and routed Work through the existing scoped `--font-sans` token, preserving the rendered family. The font guard and Work selection passed together: 205 tests in 23 files. The full production UI build passed again before pushing.
 
 Full production UI build with original app entry and built-in lint; `git diff --check`. Local Node is 22.22.3, below the declared 22.23.4 minimum; remote exact-head CI is the supported-runtime release gate. Test runner may emit Tippy development-only destroyed-instance teardown warnings; these are retained in raw receipts, not suppressed. No browser errors were observed.
 
