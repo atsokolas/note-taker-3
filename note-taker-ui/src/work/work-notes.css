@@ -1,6 +1,9 @@
 /* Work owns the rail and reading gutter; let its sticky rail follow the document. */
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes) { max-width: none; padding: var(--noeis-topbar-height, 88px) 0 0; overflow: visible; }
 .work-notes {
+  --work-font: "Helvetica Neue", var(--noeis-font-ui);
+  --work-date-gutter: 112px;
+  --work-reading-width: 32rem;
   --work-fold-ms: 260;
   --work-check-duration: 140ms;
   --work-receipt-duration: 120ms;
@@ -19,51 +22,40 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
 .work-notes a { color: inherit; text-underline-offset: 4px; }
 .work-icon { display: inline-block; width: 20px; height: 20px; flex: 0 0 20px; background: currentColor; mask-size: contain; mask-repeat: no-repeat; mask-position: center; -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; vertical-align: middle; }
 .work-sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; clip-path: inset(50%); white-space: nowrap; overflow: hidden; }
-.work-layout { display: grid; grid-template-columns: 244px minmax(0, 1fr); min-height: calc(100svh - var(--noeis-topbar-height, 64px)); }
-.work-shelf { position: sticky; top: var(--noeis-topbar-height, 64px); align-self: start; height: calc(100svh - var(--noeis-topbar-height, 64px)); overflow-y: auto; border-right: 1px solid var(--noeis-rule); background: var(--noeis-chrome); padding: 20px 18px 24px; display: flex; flex-direction: column; font-size: 14px; min-width: 0; }
-.work-shelf button { min-height: 32px; padding: 4px 6px; }
+.work-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100svh - var(--noeis-topbar-height, 64px)); }
+.work-shelf { position: sticky; top: var(--noeis-topbar-height, 64px); align-self: start; height: calc(100svh - var(--noeis-topbar-height, 64px)); overflow-y: auto; background: var(--noeis-canvas); color: var(--noeis-ink-muted); padding: 20px 18px 24px; display: flex; flex-direction: column; font: 13px/1.5 var(--work-font); min-width: 0; }
+.work-shelf button { min-height: 44px; padding: 8px 6px; }
 .work-shelf button:hover { background: var(--noeis-active); }
-.work-shelf-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 0 6px; }
-.work-shelf-heading strong { font: 600 15px/1.4 var(--font-serif); }
-.work-shelf .work-shelf-new { font: 12px/1.4 var(--font-sans); color: var(--noeis-ink-muted); padding-inline: 0; }
-.work-shelf-search { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--noeis-rule); margin: 0 6px 16px; }
-.work-shelf-search input { width: 100%; min-width: 0; min-height: 40px; border: 0; background: transparent; color: var(--noeis-ink); padding: 6px 0; font: 12px var(--font-sans); }
+.work-shelf-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.work-shelf-search input { width: 100%; min-width: 0; min-height: 44px; border: 0; background: transparent; color: var(--noeis-ink); padding: 6px 0; font: inherit; }
 .work-shelf-search input::placeholder { color: var(--noeis-ink-muted); }
-.work-notebook-filter { display: grid; gap: 4px; margin: 0 6px 16px; color: var(--noeis-ink-muted); font: 11px/1.4 var(--font-sans); }
-.work-notebook-filter select { width: 100%; min-width: 0; min-height: 36px; border: 0; border-bottom: 1px solid var(--noeis-rule); border-radius: 0; padding: 4px 0; background: transparent; color: var(--noeis-ink); font: 14px var(--font-serif); }
+.work-notebook-filter { display: grid; gap: 4px; margin: 12px 0; color: var(--noeis-ink-muted); font: inherit; }
+.work-notebook-filter select { width: 100%; min-width: 0; min-height: 44px; border: 0; border-bottom: 1px solid var(--noeis-rule); border-radius: 0; padding: 4px 0; background: transparent; color: var(--noeis-ink); font: inherit; }
 .work-primary-nav { display: grid; gap: 2px; }
-.work-primary-nav button, .work-section-heading > button:first-child { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; border-radius: var(--noeis-radius-sm); font: 15px/1.4 var(--font-serif); }
+.work-primary-nav button, .work-section-heading > button:first-child { position: relative; display: flex; align-items: center; gap: 8px; width: 100%; font: inherit; }
 .work-primary-nav button > span:not(.work-icon), .work-section-heading > button:first-child > span:not(.work-icon) { flex: 1; min-width: 0; }
 .work-primary-nav small, .work-shelf time, .work-section-heading small, .work-place-row > small { margin-left: auto; font: 11px var(--font-sans); color: var(--noeis-ink-muted); font-variant-numeric: tabular-nums; }
-.work-shelf [aria-current=page] { background: var(--noeis-active); color: var(--noeis-ink); border-radius: var(--noeis-radius-sm); }
-.work-shelf-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--noeis-rule); }
+.work-shelf [aria-current=page] { color: var(--noeis-ink); font-weight: 500; }
+.work-shelf-section { margin-top: 32px; }
 .work-section-heading, .work-place-row { position: relative; display: flex; align-items: center; gap: 2px; min-width: 0; }
 .work-section-heading > button:first-child { flex: 1; min-width: 0; }
-.work-place-row > button:first-child { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; font: 14px/1.4 var(--font-serif); }
+.work-place-row > button:first-child { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; font: inherit; }
 .work-place-row > button:first-child > span:not(.work-icon) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.work-place-row > button[aria-label]:not(.work-place-toggle) { opacity: 0; }
+.work-place-row > button[aria-label]:not(.work-place-toggle) { opacity: 0; min-width: 44px; }
 .work-place-row > button[aria-label] .work-icon { width: 14px; height: 14px; }
 .work-place-row:hover > button[aria-label], .work-place-row > button[aria-label]:focus-visible { opacity: .7; }
-.work-place-notes, .work-place-branches { display: flex; flex-direction: column; list-style: none; margin: 2px 0 6px 13px; padding: 0 0 0 12px; border-left: 1px solid var(--noeis-rule); }
+.work-place-notes, .work-place-branches { display: flex; flex-direction: column; list-style: none; margin: 0 0 6px 12px; padding: 0 0 0 12px; }
 .work-place-notes:empty { display: none; }
 .work-place-notes > li, .work-place-branches > li { min-width: 0; }
 .work-place-children[hidden], .work-shelf-section > [hidden] { display: none; }
-.work-shelf .work-place-toggle { display: grid; place-items: center; flex: 0 0 26px; min-height: 32px; padding: 0; color: var(--noeis-ink-muted); }
+.work-shelf .work-place-toggle { display: grid; place-items: center; flex: 0 0 44px; min-height: 44px; padding: 0; color: var(--noeis-ink-muted); }
 .work-place-toggle .work-icon { width: 13px; height: 13px; }
-.work-shelf .work-shelf-note { position: relative; display: flex; align-items: center; gap: 6px; width: 100%; font: 12px/1.4 var(--font-sans); color: var(--noeis-ink-muted); }
-.work-shelf-note > span:not(.work-icon) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.work-shelf-note .work-nav-icon { width: 14px; height: 14px; flex-basis: 14px; }
+.work-shelf .work-shelf-note { position: relative; display: flex; align-items: center; gap: 6px; width: 100%; font: inherit; color: var(--noeis-ink-muted); }
+.work-shelf-note > span:not(.work-icon) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .work-shelf .work-add-folder { margin-top: 4px; font: 12px var(--font-sans); color: var(--noeis-ink-muted); }
 .work-shelf-foot { margin-top: auto; padding: 28px 6px 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font: 11px var(--font-sans); color: var(--noeis-ink-muted); }
 .work-shelf-foot button { padding-inline: 0; }
-.work-notes { --work-blue: color-mix(in srgb, #527bb2 76%, var(--noeis-ink)); --work-violet: color-mix(in srgb, #9471b5 75%, var(--noeis-ink)); }
-.work-nav-icon { width: 18px; height: 18px; flex-basis: 18px; }
-.work-nav-icon.is-today, .work-nav-icon.is-waiting, .work-nav-icon.is-folder { color: var(--noeis-warning); }
-.work-nav-icon.is-upcoming, .work-nav-icon.is-notes { color: var(--work-blue); }
-.work-nav-icon.is-outstanding, .work-nav-icon.is-projects { color: var(--work-violet); }
-.work-nav-icon.is-review { color: var(--noeis-success); }
-.work-nav-icon.is-someday, .work-nav-icon.is-quiet { color: var(--noeis-ink-muted); }
-.work-page { min-width: 0; padding: 32px clamp(24px, 4vw, 64px) 80px; }
+.work-page { background: var(--noeis-paper); min-width: 0; padding: 40px clamp(24px, 6.25vw, 96px) 80px; }
 /* One surface: the week line sits over every Work page; each page then has one title, one sentence, one measure. */
 .work-page > .work-upcoming, .work-page > .work-calendar, .work-page > .work-note-paper, .work-page > .work-index, .work-page > .work-outstanding, .work-page > .work-day-close { max-width: 820px; }
 .work-calendar-fold { overflow: hidden; }
@@ -97,7 +89,7 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
 
 .work-sync { font-size: 11px !important; padding-inline: 0 !important; }
 .work-note-title { position: relative; }
-.work-notes textarea.work-title { field-sizing: content; display: block; width: 100%; min-height: 1.22em; border: 0; padding: 0; margin: 0; resize: none; overflow: hidden; background: transparent; color: var(--noeis-ink); font: 500 clamp(1.75rem, 3.35vw, 3.2rem)/1.14 var(--font-serif); letter-spacing: -.025em; }
+.work-notes textarea.work-title { field-sizing: content; display: block; width: auto; max-width: 100%; min-height: 1.4em; border: 0; padding: 0; margin: 0; resize: none; overflow: hidden; background: transparent; color: var(--noeis-ink); font: 400 28px/1.4 var(--font-serif); letter-spacing: -.015em; }
 .work-title::placeholder { color: var(--noeis-ink-muted); }
 .work-note-details { font: 12px var(--font-sans); color: var(--noeis-ink-muted); }
 .work-note-details summary { min-height: 32px; display: flex; align-items: center; cursor: pointer; width: fit-content; }
@@ -112,20 +104,16 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
 .work-completed-row button { text-decoration: underline; text-underline-offset: 3px; font: 13px var(--font-serif); color: var(--noeis-thread-strong); }
 .work-completed-row .work-history-link { font: 11px var(--font-sans); text-decoration: none; color: var(--noeis-ink-muted); }
 .work-writing { max-width: 980px; }
-.work-notes .work-writing .ProseMirror { min-height: 120px; outline: none; font: 400 20px/1.7 var(--font-serif); color: var(--noeis-ink); overflow-wrap: anywhere; padding: 0; }
+.work-notes .work-writing .ProseMirror { min-height: 120px; outline: none; font: 400 calc(var(--noeis-type-body) * 1.25)/1.65 var(--work-font); font-family: var(--work-font) !important; color: var(--noeis-ink); overflow-wrap: anywhere; padding: 0; }
 .work-notes .work-writing .ProseMirror p { color: var(--noeis-ink) !important; }
 .work-notes .work-writing .ProseMirror p:not(li > p) { margin: 0 0 .8em; }
-.work-writing .ProseMirror h1, .work-writing .ProseMirror h2, .work-writing .ProseMirror h3 { font-family: var(--font-serif); line-height: 1.3; margin: 24px 0 16px; }
+.work-writing .ProseMirror h1, .work-writing .ProseMirror h2, .work-writing .ProseMirror h3 { font-family: var(--work-font); line-height: 1.3; margin: 24px 0 16px; }
 .work-writing .ProseMirror ul, .work-writing .ProseMirror ol { padding-left: 1.5em; }
 .work-writing .ProseMirror :is(ul, ol):not(li > ul, li > ol) { margin: .8em 0; }
 .work-writing .ProseMirror pre { white-space: pre-wrap; }
 .work-writing .ProseMirror a { color: inherit; text-decoration: underline; }
 .work-writing .think-editor-slash-hint, .work-writing .think-editor-block-controls { display: none; }
-.work-writing-tools { color: var(--noeis-ink-muted); font-size: 11px; }
-.work-writing-tools summary { min-height: 28px; padding: 4px 0; cursor: pointer; width: fit-content; }
-.work-writing-tools form { display: flex; flex-wrap: wrap; gap: 8px; }
-.work-writing-tools input { min-width: 0; flex: 1; background: transparent; border: 1px solid var(--noeis-rule); min-height: 44px; font: inherit; color: inherit; }
-.work-followups { border-top: 1px solid var(--noeis-rule); padding: 14px 0 0; margin-top: 20px; }
+.work-followups { padding: 0; margin-top: 32px; color: var(--noeis-ink-muted); font: 13px/1.5 var(--work-font); }
 .work-followup-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font: 18px/1.5 var(--font-serif); min-height: 38px; }
 .work-followup-row label { display: flex; gap: 14px; align-items: center; min-height: 44px; flex: 1; cursor: pointer; }
 .work-followup-row > button { margin-left: auto; font: 13px var(--font-serif); text-decoration: underline; text-underline-offset: 3px; }
@@ -136,7 +124,7 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
 .work-add-followup { display: inline-flex; gap: 16px; align-items: center; padding: 8px 0 !important; font-size: 12px !important; color: var(--noeis-ink-muted) !important; }
 .work-item-receipt { min-height: 44px; padding-left: 34px; font-size: 13px; color: var(--noeis-ink-muted); animation: work-receipt-in var(--work-receipt-duration) ease-out; }
 .work-item-receipt button { text-decoration: underline; }
-.work-foot { display: flex; align-items: baseline; gap: 24px; border-top: 1px solid var(--noeis-rule); padding-top: 14px; }
+.work-foot { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--noeis-rule); padding-top: 12px; }
 .work-return { flex: 1; min-width: 0; }
 .work-notes .work-return textarea { display: block; width: 100%; min-height: 32px; field-sizing: content; resize: vertical; padding: 4px 0; margin-top: 3px; border: 0; background: transparent; font: 18px/1.55 var(--font-serif); color: var(--noeis-ink); }
 .work-continue { white-space: nowrap; padding-left: 0 !important; font-size: 13px !important; color: var(--noeis-ink-muted); }
@@ -179,7 +167,7 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
   .work-mobile-nav { display: flex !important; align-items: center; justify-content: space-between; margin: -6px 0 16px; font-size: 13px; }
   .work-mobile-close { display: block !important; }
   .work-week-columns { display: none; }
-  .work-notes .work-writing .ProseMirror { font-size: 19px; line-height: 1.65; }
+
   .work-completed-row { margin-left: 0; gap: 6px 10px; font-size: 16px; }
   .work-completed-row time { font-size: 11px; }
   .work-followup-row { font-size: 17px; }
@@ -239,11 +227,7 @@ html[data-ui-motion=reduced] .work-notes *, html[data-ui-motion=reduced] .work-d
 /* These are writing surfaces, rather than the global ruled form fields. */
 body.noeis-editorial .work-notes textarea.work-title,
 body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .work-notes .work-outstanding-capture input { border-bottom: 1px solid transparent !important; font-family: var(--font-serif); }
-.work-sync { opacity: .35; }
-.work-place-line:focus-within .work-sync, .work-place-line:hover .work-sync { opacity: 1; }
-.work-writing-tools:not([open]) { height: 0; position: relative; top: -4px; }
-.work-writing-tools:not([open]) summary { position: absolute; right: 0; top: -8px; opacity: .4; }
-.work-writing-tools:focus-within summary, .work-writing-tools:hover summary { opacity: 1; }
+.work-sync { font-size: 12px; }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) { .work-dialog { background: var(--noeis-paper); backdrop-filter: none; } }
 
 .work-completed-check { display: inline-flex; align-items: center; justify-content: center; width: 44px; min-height: 44px; margin-left: -12px; margin-right: -12px; cursor: pointer; }
@@ -289,7 +273,7 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-calendar.mode-week .work-day-page { max-width: 820px; margin-top: 44px; }
 
 /* Every page opens the same way: a title, then one sentence in the reading face. Section headings below share one quiet style. */
-.work-page-title, .work-notes textarea.work-title { margin: 0; color: var(--noeis-ink); font: 500 40px/1.12 var(--font-serif); letter-spacing: -.022em; }
+.work-page-title { margin: 0; color: var(--noeis-ink); font: 400 32px/1.2 var(--font-serif); letter-spacing: -.022em; }
 .work-page-sense, .work-place-line { margin: 8px 0 32px; font: 16px/1.5 var(--font-serif); color: var(--noeis-ink-muted); }
 .work-notes .work-place-line button { min-height: 0; padding: 0; font: inherit; color: var(--noeis-ink); text-decoration: underline; text-decoration-color: var(--noeis-rule); text-underline-offset: 3px; }
 .work-place-line button:hover { text-decoration-color: currentColor; }
@@ -297,14 +281,12 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-day-page h2, .work-followups h2, .work-index h3, .work-outstanding h2, .work-day-close h2 { margin: 36px 0 6px; font: 400 15px/1.4 var(--font-serif); color: var(--noeis-ink-muted); }
 
 /* The note keeps one reading measure; follow-ups remain with its words. */
-.work-page > .work-note-paper { display: flex; flex-direction: column; align-items: stretch; max-width: 860px; }
-.work-note-paper > .work-completed { order: 1; }
-.work-note-paper > .work-writing { max-width: 780px; }
-.work-note-paper > .work-followups, .work-note-paper > .work-foot, .work-note-paper > .work-note-details, .work-note-paper > .work-onward { order: 2; }
+.work-page > .work-note-paper { display: flex; flex-direction: column; align-items: stretch; max-width: 1040px; }
+.work-note-paper > .work-writing { max-width: none; }
 .work-last-time { margin: 0 0 20px; padding-left: 14px; border-left: 2px solid var(--noeis-rule); font: 15px/1.5 var(--font-serif); color: var(--noeis-ink-muted); }
 .work-notes .work-last-time button { min-height: 0; padding: 0; font: inherit; color: var(--noeis-ink-muted); text-decoration: underline; text-decoration-color: var(--noeis-rule); text-underline-offset: 3px; }
 .work-last-time q { color: var(--noeis-ink); }
-.work-note-paper .work-followups { margin-top: 0; }
+.work-note-paper .work-followups { margin-top: 32px; max-width: 760px; }
 .work-note-paper .work-followups h2 { margin-top: 0; }
 .work-note-paper .work-followup-row { font-size: 15px; }
 .work-note-paper .work-followup-row .work-plan-link { flex-basis: 100%; order: 1; margin: -8px 0 4px 34px; font-size: 12px; text-align: left; }
@@ -329,8 +311,8 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
   .work-week-toggle { display: none; }
   .work-notes .work-day-heading { padding: 6px 2px; font-size: 13px; }
   .work-day-heading span { display: block; font-size: 11px; }
-  .work-page-title, .work-notes textarea.work-title { font-size: 32px; }
-  .work-note-paper > :is(.work-completed, .work-followups, .work-add-followup, .work-foot, .work-note-details, .work-onward) { order: 1; }
+  .work-page-title { font-size: 28px; }
+
 }
 
 /* The Open margin keeps capture beside the writing, in the same paper and ink. */
@@ -462,19 +444,10 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 }
 
 /* Meeting dates live with the words; the index is only a way back into them. */
-.work-entry-tools { position: sticky; top: var(--noeis-topbar-height, 88px); z-index: 12; margin: 0 0 24px; padding: 8px 0; border-block: 1px solid var(--noeis-rule); background: var(--noeis-canvas); color: var(--noeis-ink-muted); font: 12px/1.5 var(--font-sans); }
-.work-dialog .work-entry-tools { top: 0; background: var(--noeis-paper); }
-.work-entry-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
-.work-entry-tools form, .work-entry-tools label { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.work-entry-tools form { margin-right: auto; }
-.work-entry-tools :is(select, input) { max-width: 100%; min-height: 44px; border: 0; border-radius: 0; padding: 4px 0; background: transparent; color: var(--noeis-ink); font: inherit; }
-.work-entry-tools input { width: 126px; }
-.work-entry-tools nav > select { max-width: 180px; }
-.work-notes .work-entry-tools button { min-height: 44px; padding: 4px 0; font: inherit; }
+.work-entry-tools { display: flex; align-items: center; gap: 4px; margin-left: auto; color: var(--noeis-ink-muted); font: 13px/1.5 var(--work-font); }
 .work-contents { position: relative; }
 .work-contents > summary { min-height: 44px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .work-contents > summary small { font: 11px var(--font-sans); }
-.work-contents > nav { position: absolute; top: 100%; right: 0; width: min(400px, calc(100vw - 40px)); max-height: 55svh; overflow: auto; padding: 12px 16px; background: var(--noeis-paper); border: 1px solid var(--noeis-rule); box-shadow: var(--noeis-shadow-soft); }
 .work-outline-levels { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--noeis-rule); }
 .work-contents ol { margin: 8px 0 0; padding: 0; list-style: none; }
 .work-contents li { display: flex; align-items: start; gap: 8px; padding-left: calc((var(--heading-level) - 1) * 12px); }
@@ -482,7 +455,7 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-notes .work-contents li > button:last-child { flex: 1; overflow-wrap: anywhere; }
 .work-fold-status { margin: 0; }
 .work-folded-block { display: none !important; }
-.work-writing .ProseMirror :is(h1,h2,h3,p,ul,ol,li,blockquote,pre) { scroll-margin-top: calc(var(--noeis-topbar-height, 88px) + 160px); }
+.work-writing .ProseMirror :is(h1,h2,h3,p,ul,ol,li,blockquote,pre) { scroll-margin-top: calc(var(--noeis-topbar-height, 88px) + 88px); }
 .work-source-missing { font: 12px/1.5 var(--font-sans); color: var(--noeis-ink-muted); }
 .work-item-source { display: block; color: var(--noeis-ink-muted); font: 12px/1.5 var(--font-sans); }
 .work-item-source a { display: inline-block; min-height: 32px; padding-block: 6px; color: inherit; text-decoration: underline; text-decoration-color: var(--noeis-rule); text-underline-offset: 3px; }
@@ -498,5 +471,70 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
   .work-contents { margin-left: auto; }
   .work-item-source a { min-height: 44px; padding-block: 12px; }
 }
-.work-entry-date, .work-dialog .work-writing .ProseMirror h2.work-entry-date { margin: 36px 0 16px; padding-top: 20px; border-top: 1px solid var(--noeis-rule); color: var(--noeis-ink-muted); font: 400 19px/1.4 var(--font-serif); letter-spacing: 0; }
-.work-writing .ProseMirror h2.work-entry-date:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.work-writing .ProseMirror h2.work-entry-date { float: left; clear: left; width: var(--work-date-gutter); margin: 0 0 0 calc(-1 * var(--work-date-gutter)); padding: 0 24px 0 0; color: var(--noeis-ink-muted); font: 400 12px/1.6 var(--work-font); letter-spacing: 0; overflow-wrap: normal; }
+
+/* One quiet header; occasional tools remain native, keyboard-operable disclosures. */
+.work-shelf-search-row { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; }
+.work-shelf-search-row > button { min-width: 44px; }
+.work-shelf-search-row .work-icon { width: 16px; height: 16px; flex-basis: 16px; }
+.work-shelf-more > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 6px; cursor: pointer; }
+.work-shelf-more > summary .work-icon { width: 12px; height: 12px; }
+.work-shelf-more > nav { padding-left: 12px; }
+.work-section-heading small { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.work-shelf .work-shelf-note[aria-current=page]::before { content: ''; position: absolute; left: -8px; width: 5px; height: 5px; border-radius: 50%; background: var(--noeis-thread-strong); }
+.work-shelf-foot > button:last-child { margin-left: auto; min-width: 44px; }
+.work-shelf-foot .work-icon { width: 14px; height: 14px; }
+.work-layout.is-shelf-collapsed { grid-template-columns: 1fr; }
+.work-layout.is-shelf-collapsed > .work-shelf { display: none; }
+.work-layout.is-shelf-collapsed .work-mobile-nav { display: flex !important; }
+.work-note-header { position: sticky; top: var(--noeis-topbar-height, 88px); z-index: 14; display: flex; align-items: center; gap: 16px; padding: 8px 0 24px; margin-bottom: 40px; background: var(--noeis-paper); }
+.work-note-heading { display: flex; align-items: center; flex: 1; gap: 4px; min-width: 0; }
+.work-note-title { flex: 0 1 auto; min-width: 0; }
+.work-note-heading > .work-menu { flex: 0 0 auto; }
+.work-notes .work-note-header :is(button,summary) { min-height: 44px; min-width: 44px; padding: 8px; }
+.work-note-header .work-icon { width: 14px; height: 14px; flex-basis: 14px; }
+.work-menu { position: relative; }
+.work-menu[open] { z-index: 2; }
+.work-menu > summary { display: flex; align-items: center; gap: 8px; width: fit-content; cursor: pointer; list-style: none; }
+.work-menu > summary::-webkit-details-marker { display: none; }
+.work-menu-body { position: absolute; top: 100%; right: 0; width: min(360px, calc(100vw - 40px)); max-height: min(65svh, 600px); overflow: auto; padding: 16px; background: var(--noeis-paper); color: var(--noeis-ink); border: 1px solid var(--noeis-rule); box-shadow: var(--noeis-shadow-soft); font: 13px/1.6 var(--work-font); }
+.work-note-information .work-menu-body { left: 0; right: auto; }
+.work-menu-body :is(input,select,textarea) { max-width: 100%; min-width: 0; min-height: 44px; border: 0; border-bottom: 1px solid var(--noeis-rule); background: transparent; color: var(--noeis-ink); font: inherit; }
+.work-menu-body :is(form,label) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.work-menu-body > :is(button,nav,label,form) { margin-bottom: 8px; }
+.work-menu-body .work-place-line { font: inherit; margin: 8px 0 16px; }
+.work-menu-body .work-calendar-heading { grid-template-columns: 44px minmax(0, 1fr) 44px; }
+.work-menu-body .work-week-days { grid-column: 1 / -1; grid-row: 2; }
+.work-menu-body .work-week-step:first-child { grid-column: 1; grid-row: 1; }
+.work-menu-body .work-week-step:not(:first-child) { grid-column: 3; grid-row: 1; }
+.work-menu-body .work-day-heading { padding-inline: 2px; font: 12px/1.4 var(--work-font); }
+.work-menu-body .work-week-toggle { grid-column: 1 / -1; }
+.work-menu-body .work-return { width: 100%; }
+.work-notes .work-menu-body .work-return textarea { font: inherit; }
+.work-save-state:has(.work-sr-only:only-child) { height: 0; }
+.work-save-state { font: 12px var(--work-font); }
+.work-writing.has-dates .think-editor-draft-surface { padding-left: var(--work-date-gutter); max-width: calc(var(--work-reading-width) + var(--work-date-gutter)); }
+.work-writing .ProseMirror > h2.work-entry-date:not(:first-child) { margin-top: 32px; }
+.work-writing .ProseMirror > h2.work-entry-date:not(:first-child) + * { padding-top: 32px; }
+.work-writing .ProseMirror > h2.work-entry-date:first-child + * { margin-top: 0; }
+.work-followups > details > summary { width: fit-content; min-height: 44px; cursor: pointer; padding: 8px 0; }
+.work-note-paper:has(.work-writing.has-dates) > .work-followups { margin-left: var(--work-date-gutter); }
+.work-followups .work-followup-row, .work-followups .work-completed-row { font-family: var(--work-font); }
+@media (min-width: 901px) {
+  body.noeis-editorial:has(.work-notes) { --noeis-topbar-height: 64px; }
+  body.noeis-editorial:has(.work-notes) .topbar { padding-block: 0 !important; }
+  body.noeis-editorial:has(.work-notes) .topbar__content { min-height: 63px; padding-block: 0; }
+  body.noeis-editorial:has(.work-notes) .topbar__primary-link { font: 14px/1.5 var(--font-sans); }
+}
+@media (max-width: 900px) {
+  .work-note-header { flex-wrap: wrap; gap: 4px 12px; padding-bottom: 12px; margin-bottom: 20px; }
+  .work-note-heading { flex-basis: 100%; }
+  .work-entry-tools { margin-left: 0; }
+  .work-note-header .work-menu-body { position: fixed; top: auto; left: 20px; right: 20px; width: auto; }
+  .work-writing.has-dates .think-editor-draft-surface { padding-left: 0; max-width: 100%; }
+  .work-notes .work-writing .ProseMirror { font-size: var(--noeis-type-body); }
+  .work-writing .ProseMirror h2.work-entry-date { float: none; width: auto; margin: 32px 0 12px; padding: 0; }
+  .work-writing .ProseMirror > h2.work-entry-date:not(:first-child) + * { padding-top: 0; }
+  .work-note-paper:has(.work-writing.has-dates) > .work-followups { margin-left: 0; }
+  .work-notes textarea.work-title { font-size: 24px; }
+}

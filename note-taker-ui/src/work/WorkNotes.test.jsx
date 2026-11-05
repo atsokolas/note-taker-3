@@ -15,11 +15,11 @@ jest.mock('react-router-dom', () => {
   } };
 });
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn(() => global.localStorage.removeItem('token')) }));
-jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh }) => <textarea aria-label="Work note writing" autoFocus={fresh} value={note.content || ''} onChange={e => onChange({ content: e.target.value })} />);
+jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh, heading, tools }) => <>{heading}<textarea aria-label="Work note writing" autoFocus={fresh} value={note.content || ''} onChange={e => onChange({ content: e.target.value })} />{tools}</>);
 const deviceWords = () => JSON.stringify(Object.entries(localStorage).filter(([key]) => key.startsWith(draftKey('owner'))));
 const source = { _id: 'a', title: 'Charging windows', content: 'Original account', folder: 'f', revision: 2, occurredOn: '2026-10-26', withText: 'Mira', workingState: { revision: 2, nextTimeLine: { text: '  Check the window.\n', target: null } } };
 const older = { ...source, _id: 'b', title: 'Smaller depot', occurredOn: '2026-10-12', workingState: { revision: 1, nextTimeLine: { text: '' } } };
-const open = async () => { render(<WorkNotes />); const rail = screen.getByRole('complementary'); fireEvent.click(await within(rail).findByRole('button', { name: 'Pilot' })); fireEvent.click(within(rail).getByRole('button', { name: /Charging windows/ })); };
+const open = async () => { render(<WorkNotes />); const rail = screen.getByRole('complementary'); fireEvent.click(await within(rail).findByRole('button', { name: 'Pilot' })); fireEvent.click(within(rail).getByRole('button', { name: /Charging windows/ })); fireEvent.click(screen.getByLabelText('Note information')); fireEvent.click(screen.getByRole('region', { name: 'Open' }).querySelector('summary')); };
 beforeEach(() => {
   forgetWorkSession('owner'); forgetWorkSession('other'); jest.clearAllMocks(); window.history.replaceState({}, '', '/think?context=work&date=2026-10-26'); localStorage.clear(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.x`);
   api.get.mockResolvedValue({ data: { entries: [source, older], items: [], folders: [{ _id: 'f', name: 'Pilot' }] } });

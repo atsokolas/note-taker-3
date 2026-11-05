@@ -32,9 +32,9 @@ beforeEach(() => {
   });
 });
 const work = view => render(<MemoryRouter initialEntries={[`/work?view=${view}`]}><WorkNotes /></MemoryRouter>);
-const rail = () => within(screen.getByRole('navigation', { name: 'Outstanding' }));
+const rail = () => { const shelf = screen.getByRole('complementary'); const more = shelf.querySelector('.work-shelf-more'); if (!more.open) fireEvent.click(within(shelf).getByText('More')); return within(shelf); };
 
-test('Outstanding sits in the rail under the folders and counts what is open and who owes you', async () => {
+test('the quiet rail retains Outstanding counts and exposes Waiting on through More', async () => {
   work('today');
   await waitFor(() => expect(rail().getByRole('button', { name: /Outstanding/ })).toHaveTextContent('Outstanding2'));
   expect(rail().getByRole('button', { name: /Waiting on/ })).toHaveTextContent('Waiting on1');
