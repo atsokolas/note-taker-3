@@ -1,3 +1,11 @@
+# Current design QA — Work, 5 November 2026
+
+The approved Quiet Canvas implementation and acceptance evidence are in [Work acceptance](docs/design-qa-work-quiet-2026-11-05.md). Source: Library `libfile_02005754a734819199a79ffeeb9819f0`. Chrome desktop, 1280px and 430px, paired visual comparison, themes, keyboard/disclosure/source flows, contrast and regression checks completed.
+
+final result: passed
+
+---
+
 # Design QA
 
 Scope: strict rail and collection-list correction for Library, Think, and Wiki against the checksummed 1672×941 Imagen references.

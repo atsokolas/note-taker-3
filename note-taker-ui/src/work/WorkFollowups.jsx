@@ -5,12 +5,14 @@ import WorkOpenComposer from './WorkOpenComposer';
 import { dayInZone, displayDay, projectItem } from './workPlannerModel';
 
 export default function WorkFollowups({ carried = [], folders = [], note, tomorrow, timeZone, session, onEdit, onAction, onConflict, children }) {
+  const disclosure = useRef(null);
   const [openRequest, setOpenRequest] = useState(null);
   const [receipts, setReceipts] = useState({});
   const undoWindows = useRef(new Map());
   const [showAll, setShowAll] = useState(false);
   const [, tick] = useState(0);
   useEffect(() => { const timer = window.setInterval(() => tick(value => value + 1), 1000); return () => window.clearInterval(timer); }, []);
+  const pending = new Set(session.pending().map(([id]) => id));
   const items = session.items().filter(item => ['task', 'question'].includes(item.workItem?.kind) && [note._id, note.clientId].filter(Boolean).includes(item.workItem.noteId)).map(projectItem).sort((a, b) => String(a.capturedAt || a.createdAt || a.id).localeCompare(String(b.capturedAt || b.createdAt || b.id)));
   const completed = items.filter(item => item.completed).sort((a, b) => b.completedAt.localeCompare(a.completedAt));
   const active = items.filter(item => !item.completed || receipts[item.id]);
@@ -27,23 +29,35 @@ export default function WorkFollowups({ carried = [], folders = [], note, tomorr
     return <div className="work-completed-row" key={item.id} onMouseEnter={holdUndo} onMouseLeave={event => { if (!event.currentTarget.contains(document.activeElement)) releaseUndo(); }} onFocus={holdUndo} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget) && !event.currentTarget.matches(':hover')) releaseUndo(); }}><label className="work-completed-check"><input type="checkbox" checked aria-label={`Reopen ${item.title}`} onChange={() => change(item, 'reopen')} /></label><span className="work-done-title">{item.title}</span><time dateTime={event.actionAt} title={`${displayDay(dayInZone(event.actionAt, event.timeZone))} · ${event.timeZone}`}>{item.pending ? 'Pending sync' : (dayInZone(event.actionAt, event.timeZone) === dayInZone(new Date(), event.timeZone) ? 'Today, ' : '') + new Intl.DateTimeFormat('en', { timeZone: event.timeZone, hour: 'numeric', minute: '2-digit' }).format(new Date(event.actionAt))}</time><button onClick={() => recent ? onAction(item.clientId, { type: 'undo', undoOf: event.operationId }) : change(item, 'reopen')}>{recent ? 'Undo' : 'Reopen'}</button><button className="work-history-link" onClick={() => onEdit(item, 'history')}>History</button></div>;
   };
   const records = showAll ? completed : completed.slice(0, 2);
+  const draft = session.open.draft(note.clientId);
+  const attention = [
+    draft.title || draft.submission ? `draft:${draft.intent}` : '',
+    session.open.status(note.clientId),
+    ...items.map(item => {
+      const conflict = session.conflict(item.clientId);
+      if (conflict) return `${item.clientId}:conflict:${conflict.revision}`;
+      return pending.has(item.clientId) ? `${item.clientId}:${session.status(item.clientId)}` : '';
+    })
+  ].filter(Boolean).join('\n');
+  useEffect(() => { if ((openRequest || attention) && disclosure.current) disclosure.current.open = true; }, [openRequest, attention]);
   return <>
+    {children(request => { disclosure.current.open = true; setOpenRequest({ ...request, origin: { ...request.origin, noteId: note._id || note.clientId, notebookId: note.folder?._id || note.folder || null, notebookName: folders.find(folder => folder._id === (note.folder?._id || note.folder))?.name || 'Work inbox', noteTitle: note.title || 'Untitled note', day: request.origin?.day || note.occurredOn || note.takenOn || '' } }); })}
+    <section className="work-followups" aria-label="Open" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setReceipts({}); }}>
+      <details ref={disclosure}><summary>Open{active.length + carried.length ? ` · ${active.length + carried.length}` : ''}</summary>
+      {carried.map(item => <div className="work-followup-row is-carried" key={item.id}><label><input type="checkbox" checked={false} onChange={() => onAction(item.clientId, { type: 'complete' })} /><span>{item.title}<small>from last time</small></span></label></div>)}
+      {active.map(item => item.completed ? <div className="work-item-receipt" key={item.id}>Completed below <button onClick={() => onAction(item.clientId, { type: 'undo', undoOf: receipts[item.id] })}>Undo</button></div> : <div className={`work-followup-row ${item.pending ? 'is-pending' : ''}`} key={item.id}>
+        <label><input type="checkbox" checked={false} disabled={Boolean(session.conflict(item.clientId))} onChange={() => change(item, 'complete')} /><span>{item.title}{item.kind === 'question' ? <small className="work-question-kind">Question</small> : null}</span></label>
+        {session.conflict(item.clientId) ? <button onClick={() => onConflict(item)}>Review both versions</button> : <button className="work-plan-link" onClick={() => item.plannedOn ? onEdit(item) : onAction(item.clientId, { type: 'plan', plannedOn: tomorrow })}>{item.plannedOn ? `Planned ${displayDay(item.plannedOn, { weekday: 'short', day: 'numeric', month: 'short' })}` : 'Plan for tomorrow'}</button>}
+        <WorkItemSource origin={item.origin} /><button className="work-followup-edit" aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}><WorkIcon name="more" /></button>
+        {item.pending || pending.has(item.clientId) ? <small className="work-item-save">{session.status(item.clientId)}</small> : null}
+      </div>)}
     {completed.length ? <section className="work-completed" aria-label="Completed follow-ups">{records.map((item, index) => {
       const date = dayInZone(item.completedAt, item.completedTimeZone);
       const previous = index ? dayInZone(records[index - 1].completedAt, records[index - 1].completedTimeZone) : '';
       return <React.Fragment key={item.id}>{date !== previous ? <h3><WorkIcon name="down" />Completed · {displayDay(date, { day: 'numeric', month: 'short', year: 'numeric' })}</h3> : null}{completedRecord(item)}</React.Fragment>;
     })}{completed.length > 2 ? <button onClick={() => setShowAll(value => !value)}>{showAll ? 'Show recent' : `Show all ${completed.length}`}</button> : null}</section> : null}
-    {children(request => setOpenRequest({ ...request, origin: { ...request.origin, noteId: note._id || note.clientId, notebookId: note.folder?._id || note.folder || null, notebookName: folders.find(folder => folder._id === (note.folder?._id || note.folder))?.name || 'Work inbox', noteTitle: note.title || 'Untitled note', day: request.origin?.day || note.occurredOn || note.takenOn || '' } }))}
-    <section className="work-followups" aria-label="Open" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setReceipts({}); }}>
-      <h2>Open</h2>
-      {carried.map(item => <div className="work-followup-row is-carried" key={item.id}><label><input type="checkbox" checked={false} onChange={() => onAction(item.clientId, { type: 'complete' })} /><span>{item.title}<small>from last time</small></span></label></div>)}
-      {active.map(item => item.completed ? <div className="work-item-receipt" key={item.id}>Completed above <button onClick={() => onAction(item.clientId, { type: 'undo', undoOf: receipts[item.id] })}>Undo</button></div> : <div className={`work-followup-row ${item.pending ? 'is-pending' : ''}`} key={item.id}>
-        <label><input type="checkbox" checked={false} disabled={Boolean(session.conflict(item.clientId))} onChange={() => change(item, 'complete')} /><span>{item.title}{item.kind === 'question' ? <small className="work-question-kind">Question</small> : null}</span></label>
-        {session.conflict(item.clientId) ? <button onClick={() => onConflict(item)}>Review both versions</button> : <button className="work-plan-link" onClick={() => item.plannedOn ? onEdit(item) : onAction(item.clientId, { type: 'plan', plannedOn: tomorrow })}>{item.plannedOn ? `Planned ${displayDay(item.plannedOn, { weekday: 'short', day: 'numeric', month: 'short' })}` : 'Plan for tomorrow'}</button>}
-        <WorkItemSource origin={item.origin} /><button className="work-followup-edit" aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}><WorkIcon name="more" /></button>
-        {item.pending || session.pending().some(([id]) => id === item.clientId) ? <small className="work-item-save">{session.status(item.clientId)}</small> : null}
-      </div>)}
       <WorkOpenComposer folders={folders} noteId={note.clientId} session={session} timeZone={timeZone} request={openRequest} onFinish={() => { openRequest?.returnToWriting(); setOpenRequest(null); }} />
+      </details>
     </section>
   </>;
 }

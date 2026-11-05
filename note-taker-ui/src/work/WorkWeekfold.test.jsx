@@ -30,7 +30,10 @@ const open = async (scope = '') => {
   render(<MemoryRouter initialEntries={['/think?context=work&date=2026-10-26&note=note' + scope]}><WorkNotes /></MemoryRouter>);
   const shelf = await screen.findByRole('complementary');
   fireEvent.click(await within(shelf).findByRole('button', { name: /Fieldwell · pilot follow-up/ }));
-  return screen.findByRole('textbox', { name: 'Work note writing' });
+  const writing = await screen.findByRole('textbox', { name: 'Work note writing' });
+  fireEvent.click(screen.getByLabelText('Note information'));
+  fireEvent.click(screen.getByRole('region', { name: 'Open' }).querySelector('summary'));
+  return writing;
 };
 const today = () => render(<MemoryRouter initialEntries={['/work?date=2026-10-26']}><WorkNotes /></MemoryRouter>);
 test('an open note keeps the week line with its written day marked, and its meeting date stays distinct', async () => {
@@ -44,7 +47,23 @@ test('a note written in another week brings its own week onto the line', async (
   render(<MemoryRouter initialEntries={['/work?date=2026-11-09']}><WorkNotes /></MemoryRouter>);
   const shelf = within(await screen.findByRole('complementary')); fireEvent.click(await shelf.findByRole('button', { name: 'Customer discovery' }));
   fireEvent.click(await shelf.findByRole('button', { name: /Fieldwell · pilot follow-up/ }));
+  fireEvent.click(await screen.findByLabelText('Note information'));
   expect(await screen.findByRole('button', { name: 'Monday 26 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true');
+});
+test('the note information calendar still opens a full week without replacing the writing', async () => {
+  const writing = await open();
+  fireEvent.click(screen.getByText('Choose a day'));
+  const week = screen.getByRole('button', { name: 'Week', exact: true }); week.focus(); fireEvent.click(week);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Week', exact: true })).toHaveFocus());
+  expect(document.querySelector('.work-page > .work-calendar.mode-week')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Week', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(writing).toHaveTextContent('Keep these authored words.');
+  fireEvent.click(screen.getByLabelText('Note information'));
+  const closeWeek = screen.getByRole('button', { name: 'Close week' }); closeWeek.focus(); fireEvent.click(closeWeek);
+  await waitFor(() => expect(screen.getByLabelText('Note information')).toHaveFocus());
+  expect(document.querySelector('.work-page > .work-calendar')).toBeNull();
+  expect(writing).toHaveTextContent('Keep these authored words.');
+  expect(api.put).not.toHaveBeenCalled();
 });
 test('dragging a note onto a place in the rail shows it arriving there, and the drop files it like the place line', async () => {
   today(); const written = within(await screen.findByRole('region', { name: 'Written Monday' })).getByRole('button', { name: /Fieldwell/ });
