@@ -229,7 +229,7 @@ describe('TopBar help menu', () => {
       <MemoryRouter>
         <TopBar
           accountMenuItems={[
-            { label: 'Logout', onClick: onLogout }
+            { label: 'Log out', onClick: onLogout }
           ]}
         />
       </MemoryRouter>
@@ -238,7 +238,7 @@ describe('TopBar help menu', () => {
     fireEvent.click(screen.getByTestId('topbar-account-button'));
     const menu = screen.getByTestId('topbar-account-menu');
     expect(menu).toHaveClass('topbar__menu-popover--portal');
-    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Logout' }));
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Log out' }));
     expect(onLogout).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('topbar-account-menu')).toBeNull();
   });

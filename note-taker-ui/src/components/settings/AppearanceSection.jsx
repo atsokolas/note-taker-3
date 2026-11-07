@@ -215,7 +215,7 @@ const AppearanceSection = ({
             onClick={() => startTemporary(draft)}
             style={{ marginLeft: '1rem' }}
           >
-            Try across NOEIS briefly
+            Try across Noeis briefly
           </button>
         </div>
 

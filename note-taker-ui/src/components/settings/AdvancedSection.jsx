@@ -1,15 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { resetTourState } from '../../api/tourApi';
 import { TOUR_CACHE_KEY } from '../../tour/tourConfig';
 import SystemInventoryCard from './SystemInventoryCard';
 import { Button, Card } from '../ui';
 import { buildSettingsDiagnosticReport } from '../../settings/settingsDiagnostics';
+import { getAccount } from '../../api/account';
 
 const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
   const [diagnosticOpen, setDiagnosticOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
   const [status, setStatus] = useState('');
+  /* Operator tools are for the admin list only; a reader never sees them. */
+  const [admin, setAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAccount().then(account => { if (!cancelled) setAdmin(Boolean(account?.admin)); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const diagnosticReport = buildSettingsDiagnosticReport({
     section,
@@ -62,17 +71,17 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
         </Button>
       </div>
 
-      <div style={{ marginTop: '1.5rem' }}>
+      {admin ? <div style={{ marginTop: '1.5rem' }}>
         <h3>Product administration</h3>
         <p className="settings-redesign__help">Operator analytics and growth tools stay on their own routes.</p>
         <Link to="/marketing-analytics" className="settings-redesign__link">Marketing analytics ↗</Link>
         {' · '}
         <Link to="/search-console-opportunities" className="settings-redesign__link">Search Console importer ↗</Link>
-      </div>
+      </div> : null}
 
-      <div style={{ marginTop: '1.5rem' }}>
+      {admin ? <div style={{ marginTop: '1.5rem' }}>
         <SystemInventoryCard Card={Card} theme={uiSettings.theme} />
-      </div>
+      </div> : null}
 
       {status ? <div className="settings-redesign__receipt" role="status">{status}</div> : null}
 

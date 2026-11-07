@@ -49,7 +49,7 @@ const DataSection = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `note-taker-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `noeis-export-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
       setStatus('Structured export download requested. Check your downloads folder to confirm the file landed.');
@@ -75,7 +75,7 @@ const DataSection = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'note-taker-export-pdfs.zip';
+      a.download = 'noeis-export-pdfs.zip';
       a.click();
       URL.revokeObjectURL(url);
       setStatus('PDF bundle download requested.');
@@ -111,7 +111,7 @@ const DataSection = () => {
         <div className="settings-redesign__eyebrow" style={{ border: '1px solid var(--settings-rule)', padding: '0.5rem', textAlign: 'center' }}>PDF</div>
         <div>
           <h3 style={{ margin: '0 0 0.35rem' }}>Reading copy</h3>
-          <p className="settings-redesign__help">A readable bundle for keeping outside NOEIS. A reading copy is not the same as a restorable workspace.</p>
+          <p className="settings-redesign__help">A readable bundle for keeping outside Noeis. A reading copy is not the same as a restorable workspace.</p>
         </div>
         <button type="button" className="settings-redesign__link" onClick={downloadPdfZip} disabled={loading}>Download →</button>
       </div>

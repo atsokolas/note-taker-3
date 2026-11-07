@@ -436,6 +436,13 @@ html[data-ui-family='palette'] body.noeis-editorial .settings-redesign {
   }
   .settings-redesign__sidebar {
     position: static;
+    margin-bottom: 2rem;
+  }
+  .settings-redesign__sidelinks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 1.25rem;
+    border-top: 0 !important;
   }
   .settings-redesign__nav {
     display: flex;
@@ -474,3 +481,56 @@ body.noeis-reduced-motion .settings-redesign__motion-card.is-animated {
   font-family: var(--font-serif);
   font-weight: 400;
 }
+
+/* Account: ruled fields, the same as signing in. */
+.settings-account__block {
+  display: grid;
+  gap: 0.85rem;
+  max-width: 34rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--settings-rule);
+}
+
+.settings-account__block h3 { margin: 0; }
+.settings-account__block > div,
+.settings-account__block > .ui-button { justify-self: start; }
+
+.settings-account__field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.settings-account__field span,
+.settings-account__field small {
+  color: var(--settings-muted);
+  font-size: 0.8rem;
+}
+
+body.noeis-editorial .settings-account__field input,
+.settings-account__field input {
+  width: 100%;
+  padding: 0.45rem 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--settings-rule) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+body.noeis-editorial .settings-account__field input:focus,
+.settings-account__field input:focus { border-bottom-color: currentColor !important; }
+
+.settings-account__close { display: grid; gap: 0.85rem; }
+
+.settings-account__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  align-items: baseline;
+}
+
+body.noeis-editorial .settings-account .ui-button.settings-account__danger { color: var(--vellum-error, #a33) !important; }

@@ -1,4 +1,5 @@
 export const SETTINGS_SECTIONS = Object.freeze({
+  account: { id: 'account', label: 'Account' },
   appearance: { id: 'appearance', label: 'Appearance' },
   delivery: { id: 'delivery', label: 'Delivery' },
   data: { id: 'data', label: 'Your data' },
@@ -6,6 +7,22 @@ export const SETTINGS_SECTIONS = Object.freeze({
 });
 
 export const SETTINGS_REGISTRY = Object.freeze([
+  {
+    id: 'password',
+    section: 'account',
+    title: 'Change your password',
+    description: 'Give the current one and a new one.',
+    keywords: 'password change reset account security login',
+    focusId: 'account-password'
+  },
+  {
+    id: 'close-account',
+    section: 'account',
+    title: 'Close your account',
+    description: 'End access everywhere and have your data erased.',
+    keywords: 'delete close remove account erase leave cancel',
+    focusId: 'account-close'
+  },
   {
     id: 'reading-size',
     section: 'appearance',

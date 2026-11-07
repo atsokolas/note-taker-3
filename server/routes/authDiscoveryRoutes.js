@@ -2,6 +2,7 @@ const express = require('express');
 
 const PASSWORD_MIN_LENGTH = 8;
 const { sanitizeAttribution } = require('./marketingAnalyticsRoutes');
+const { isAdminUsername } = require('../utils/requireAdmin');
 
 const validateRegistration = ({ username, password }) => {
   const cleanUsername = String(username || '').trim();
@@ -151,6 +152,40 @@ const buildAuthDiscoveryRouter = ({
     } catch (error) {
       console.error("❌ Error logging in user:", error);
       res.status(500).json({ error: "Internal server error.", details: error.message });
+    }
+  });
+
+  /* Who you are signed in as, for Settings: the name, since when, and whether
+     the operator tools are yours to see. */
+  router.get('/api/account', authenticateToken, async (req, res) => {
+    try {
+      const user = await User.findById(req.user.id);
+      if (!user || user.accountDisabledAt) return res.status(404).json({ error: 'Account not found.' });
+      return res.status(200).json({
+        username: user.username,
+        since: user.createdAt || null,
+        admin: isAdminUsername(user.username)
+      });
+    } catch (error) {
+      console.error('Error reading account:', error);
+      return res.status(500).json({ error: 'Internal server error.' });
+    }
+  });
+
+  /* A new password, given the current one. The same rules as signing up. */
+  router.put('/api/account/password', authenticateToken, async (req, res) => {
+    try {
+      const user = await User.findById(req.user.id);
+      if (!user || user.accountDisabledAt) return res.status(404).json({ error: 'Account not found.' });
+      const isMatch = await bcrypt.compare(String(req.body?.password || ''), user.password);
+      if (!isMatch) return res.status(401).json({ error: 'That is not your current password.' });
+      const validation = validateRegistration({ username: user.username, password: req.body?.newPassword });
+      if (validation.error) return res.status(400).json({ error: validation.error });
+      await User.updateOne({ _id: user._id }, { $set: { password: await bcrypt.hash(validation.password, 10) } });
+      return res.status(200).json({ changed: true });
+    } catch (error) {
+      console.error('Error changing password:', error);
+      return res.status(500).json({ error: 'Internal server error.' });
     }
   });
 

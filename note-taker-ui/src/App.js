@@ -770,7 +770,7 @@ function App() {
         external: true
       },
       {
-        label: 'Logout',
+        label: 'Log out',
         onClick: handleLogout
       }
     ];
@@ -847,6 +847,7 @@ function App() {
                   onAppearanceCommit={handleAppearanceCommit}
                   onAppearanceUndo={handleAppearanceUndo}
                   onOpenThemePicker={openThemePicker}
+                  onLogout={handleLogout}
                 />
               )}
             />
