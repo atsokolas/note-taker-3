@@ -630,7 +630,7 @@ export const writeTools = [
   },
   {
     name: 'update_work_note',
-    description: 'Change a Work note or line. Only the fields you pass are touched. Pass the revision you read; if the reader changed it since, nothing is saved and you get the current version to read again. done ticks a task or question off, or reopens it.',
+    description: 'Change a Work note or line. Only the fields you pass are touched. Pass the revision you read; if the reader changed it since, nothing is saved and you get the current version to read again. done ticks a task or question off, or reopens it; plannedOn moves a line to another day.',
     inputSchema: {
       noteId: z.string().describe('Work note or line id.'),
       revision: z.number().int().min(0).describe('The revision from list_work or get_work_note.'),
@@ -639,8 +639,9 @@ export const writeTools = [
       folderId: z.string().optional().describe('Work folder id. Empty string takes it out of its folder.'),
       projectId: z.string().optional().describe('Work project id. Empty string takes it out of its project.'),
       occurredOn: z.string().optional().describe('YYYY-MM-DD.'),
-      line: workLine.omit({ kind: true, plannedOn: true }).optional().describe('Changes to a line. Its kind and planned day stay as they are.'),
-      done: z.boolean().optional()
+      line: workLine.omit({ kind: true, plannedOn: true }).optional().describe('Changes to a line. Its kind stays; move its day with plannedOn.'),
+      done: z.boolean().optional(),
+      plannedOn: z.string().optional().describe('Move a line to this day, YYYY-MM-DD. Empty string takes it off the calendar.')
     },
     handler: (client, args) => client.updateWorkNote(args)
   },

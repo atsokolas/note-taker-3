@@ -56,6 +56,27 @@ const run = async () => {
     assert.strictEqual(calls[0].body.workActions[0].type, 'complete');
     assert.strictEqual(line.done, true);
   }
+  // A line's day is its last standing plan; moving it is a plan action.
+  {
+    const { client, calls } = clientWith([
+      { entries: [], folders: [], items: [{ _id: 'l3', title: 'Call', workItem: { kind: 'task', plannedOn: '2026-11-03', history: [{ type: 'plan', operationId: 'p1', plannedOn: '2026-11-05' }, { type: 'plan', operationId: 'p2', plannedOn: '2026-11-09' }, { type: 'undo', operationId: 'u', undoOf: 'p2' }] } }] },
+      { _id: 'l3', title: 'Call', revision: 4, workItem: { kind: 'task', plannedOn: '2026-11-03', history: [{ type: 'plan', operationId: 'p3', plannedOn: '2026-11-10' }] } }
+    ]);
+    assert.strictEqual((await client.listWork()).lines[0].plannedOn, '2026-11-05', 'an undone move does not count');
+    const moved = await client.updateWorkNote({ noteId: 'l3', revision: 3, plannedOn: '2026-11-10' });
+    assert.deepStrictEqual(calls[1].body.workActions.map(action => [action.type, action.plannedOn]), [['plan', '2026-11-10']]);
+    assert.strictEqual(moved.plannedOn, '2026-11-10');
+  }
+  // A jot is kept as the plain text the day margin shows.
+  {
+    const jot = { _id: 'j1', title: '', revision: 1, content: 'a <b> & c', workItem: { kind: 'jot' } };
+    const { client, calls } = clientWith([jot, jot, jot, jot]);
+    await client.createWorkNote({ title: '', text: 'a <b> & c', line: { kind: 'jot' } });
+    assert.strictEqual(calls[0].body.content, 'a <b> & c');
+    assert.strictEqual((await client.getWorkNote({ noteId: 'j1' })).text, 'a <b> & c');
+    await client.updateWorkNote({ noteId: 'j1', revision: 1, text: 'next' });
+    assert.strictEqual(calls.at(-1).body.content, 'next');
+  }
   // A project is a folder of kind project.
   {
     const { client, calls } = clientWith([{ _id: 'p2', name: 'Launch', kind: 'project' }]);

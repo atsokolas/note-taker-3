@@ -158,7 +158,7 @@ const normalizeNotebookSummary = (entry = {}) => ({
   updatedAt: entry.updatedAt || null
 });
 
-/* Work keeps its writing as editor HTML; an agent hands over plain lines. */
+/* Work keeps a note's writing as editor HTML and a jot's as plain text; an agent hands over plain lines. */
 const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ' };
 const escapeHtml = text => text.replace(/[&<>"]/g, char => Object.keys(ENTITIES).find(entity => ENTITIES[entity] === char));
 const workHtml = text => text.split('\n').map(line => `<p>${escapeHtml(line)}</p>`).join('');
@@ -167,13 +167,20 @@ const workText = html => String(html || '')
   .replace(/<[^>]+>/g, '')
   .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, entity => ENTITIES[entity])
   .trim();
+const isJot = entry => entry.workItem?.kind === 'jot';
+const writingOf = entry => (isJot(entry) ? entry.content || '' : workText(entry.content));
+const storedAs = (jot, text) => (jot ? text : workHtml(text));
 const here = () => ({ actionAt: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' });
 
-// A line is done when its last standing complete or reopen says so; an undo takes back the action it names, as Work reads it.
-const lineDone = (history = []) => {
+/* A line's day and tick are its last standing plan and complete or reopen;
+   an undo takes back the action it names. Read the way Work reads it. */
+const projectLine = ({ history = [], ...line }) => {
   const undone = new Set();
   for (const event of [...history].reverse()) if (event.type === 'undo' && !undone.has(event.operationId)) undone.add(event.undoOf);
-  return history.filter(event => ['complete', 'reopen'].includes(event.type) && !undone.has(event.operationId)).at(-1)?.type === 'complete';
+  const standing = history.filter(event => event.type !== 'undo' && !undone.has(event.operationId));
+  const plan = standing.filter(event => event.type === 'plan').at(-1);
+  const tick = standing.filter(event => ['complete', 'reopen'].includes(event.type)).at(-1);
+  return { ...line, plannedOn: plan ? plan.plannedOn : line.plannedOn || null, done: tick?.type === 'complete' };
 };
 
 const normalizeWorkNote = (entry = {}) => ({
@@ -186,10 +193,7 @@ const normalizeWorkNote = (entry = {}) => ({
   updatedAt: entry.updatedAt || null
 });
 
-const normalizeWorkLine = (entry = {}) => {
-  const { history = [], ...line } = entry.workItem || {};
-  return { ...normalizeWorkNote(entry), ...line, done: lineDone(history) };
-};
+const normalizeWorkLine = (entry = {}) => ({ ...normalizeWorkNote(entry), ...projectLine(entry.workItem || {}) });
 
 const normalizeWork = entry => (entry.workItem ? normalizeWorkLine(entry) : normalizeWorkNote(entry));
 
@@ -810,27 +814,32 @@ export class NoeisClient {
 
   getWorkNote({ noteId }) {
     return this.request(`/api/work-notes/${encodeURIComponent(noteId)}`)
-      .then(entry => ({ ...normalizeWork(entry), text: workText(entry.content) }));
+      .then(entry => ({ ...normalizeWork(entry), text: writingOf(entry) }));
   }
 
   createWorkNote({ title, text = '', folderId, projectId, occurredOn, line } = {}) {
     const { timeZone } = here();
     return this.request('/api/work-notes', {
       method: 'POST',
-      body: { operationId: randomUUID(), timeZone, title, content: workHtml(text), folder: folderId, project: projectId, occurredOn, workItem: line }
+      body: { operationId: randomUUID(), timeZone, title, content: storedAs(line?.kind === 'jot', text), folder: folderId, project: projectId, occurredOn, workItem: line }
     }).then(normalizeWork);
   }
 
-  updateWorkNote({ noteId, revision, title, text, folderId, projectId, occurredOn, line, done } = {}) {
+  async updateWorkNote({ noteId, revision, title, text, folderId, projectId, occurredOn, line, done, plannedOn } = {}) {
+    const actions = [
+      ...(done === undefined ? [] : [{ type: done ? 'complete' : 'reopen' }]),
+      ...(plannedOn === undefined ? [] : [{ type: 'plan', plannedOn: plannedOn || null }])
+    ].map(action => ({ ...action, operationId: randomUUID(), ...here() }));
+    const jot = text !== undefined && isJot(await this.request(`/api/work-notes/${encodeURIComponent(noteId)}`));
     const body = {
       expectedRevision: revision,
       title,
-      ...(text === undefined ? {} : { content: workHtml(text), blocks: [] }),
+      ...(text === undefined ? {} : { content: storedAs(jot, text), blocks: [] }),
       folder: folderId,
       project: projectId,
       occurredOn,
       workItem: line,
-      ...(done === undefined ? {} : { workActions: [{ type: done ? 'complete' : 'reopen', operationId: randomUUID(), ...here() }] })
+      ...(actions.length ? { workActions: actions } : {})
     };
     return this.request(`/api/work-notes/${encodeURIComponent(noteId)}`, { method: 'PUT', body })
       .then(normalizeWork);
