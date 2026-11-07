@@ -265,7 +265,7 @@ export const isPublicPage = (pathname = '') => (
   isPublicSharePath(pathname) || isDesignPreviewPath(pathname) || PUBLIC_PAGES.has(pathname)
 );
 
-const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
+const PublicRoutes = ({ handleLoginSuccess }) => {
   const location = useLocation();
   const isShareRoute = isPublicSharePath(location.pathname);
   const isLongformRoute = (
@@ -321,7 +321,6 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
             path="/register"
             element={(
               <Register
-                chromeStoreLink={chromeStoreLink}
                 onLoginSuccess={handleLoginSuccess}
               />
             )}
@@ -331,7 +330,6 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
             element={(
               <Login
                 onLoginSuccess={handleLoginSuccess}
-                chromeStoreLink={chromeStoreLink}
               />
             )}
           />
@@ -952,7 +950,7 @@ function App() {
         <Analytics />
         <AppRouterContent
           isAuthenticated={isAuthenticated}
-          publicRouteProps={{ chromeStoreLink, handleLoginSuccess }}
+          publicRouteProps={{ handleLoginSuccess }}
           renderLayout={renderAppLayout}
           openPalette={openPalette}
           setShortcutOverlayOpen={setShortcutOverlayOpen}

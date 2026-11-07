@@ -23,7 +23,8 @@ const buildUserModel = () => {
     this._id = this._id || `user-${users.length + 1}`;
   }
 
-  User.exists = async ({ username } = {}) => users.some((entry) => entry.username === username);
+  User.findOne = async ({ username } = {}) => users.find((entry) => entry.username === username) || null;
+  User.find = ({ username } = {}) => ({ limit: async () => users.filter((entry) => username.test(entry.username)) });
 
   User.prototype.save = async function save() {
     users.push(this);

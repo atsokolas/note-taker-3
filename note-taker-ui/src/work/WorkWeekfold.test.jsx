@@ -202,7 +202,7 @@ test('authentication recovery remains available if the matching server arrives a
   await screen.findByRole('heading', { name: 'Work is updating', exact: true });
   api.get.mockRejectedValueOnce({ response: { status: 401, data: { error: 'Token expired' } } });
   fireEvent.click(screen.getByRole('button', { name: 'Retry Work', exact: true }));
-  const signIn = await screen.findByRole('button', { name: 'Sign in to sync', exact: true });
+  const signIn = await screen.findByRole('button', { name: 'Log in to sync', exact: true });
   expect(screen.getByRole('button', { name: 'Retry Work', exact: true })).toBeDisabled();
   fireEvent.click(signIn); expect(await screen.findByRole('textbox', { name: /username/i })).toBeVisible();
 });

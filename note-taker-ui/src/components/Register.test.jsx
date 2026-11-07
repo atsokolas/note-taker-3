@@ -43,7 +43,7 @@ describe('Register', () => {
 
     render(
       <MemoryRouter>
-        <Register chromeStoreLink="https://example.com" />
+        <Register />
       </MemoryRouter>
     );
 
@@ -82,7 +82,7 @@ describe('Register', () => {
 
     render(
       <MemoryRouter>
-        <Register chromeStoreLink="https://example.com" onLoginSuccess={onLoginSuccess} />
+        <Register onLoginSuccess={onLoginSuccess} />
       </MemoryRouter>
     );
 
@@ -110,7 +110,7 @@ describe('Register', () => {
 
     render(
       <MemoryRouter>
-        <Register chromeStoreLink="https://example.com" onLoginSuccess={jest.fn()} />
+        <Register onLoginSuccess={jest.fn()} />
       </MemoryRouter>
     );
 
@@ -124,7 +124,7 @@ describe('Register', () => {
   it('lets you read the password you typed', () => {
     render(
       <MemoryRouter>
-        <Register chromeStoreLink="https://example.com" />
+        <Register />
       </MemoryRouter>
     );
 
@@ -144,7 +144,7 @@ describe('Register', () => {
 
     render(
       <MemoryRouter>
-        <Register chromeStoreLink="https://example.com" onLoginSuccess={jest.fn()} />
+        <Register onLoginSuccess={jest.fn()} />
       </MemoryRouter>
     );
 
@@ -160,7 +160,7 @@ describe('Register', () => {
   it('blocks weak passwords before sending the request', async () => {
     render(
       <MemoryRouter>
-        <Register chromeStoreLink="https://example.com" />
+        <Register />
       </MemoryRouter>
     );
 
@@ -175,5 +175,17 @@ describe('Register', () => {
       error: 'Password must be at least 8 characters.'
     });
     expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('says a taken username under the username', async () => {
+    api.post.mockRejectedValue({ response: { status: 409, data: { error: 'That username is taken. Try another.' } } });
+    render(<MemoryRouter><Register /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret12' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('That username is taken.');
+    expect(screen.getByLabelText('Username')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login');
   });
 });

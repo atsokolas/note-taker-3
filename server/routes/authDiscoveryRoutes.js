@@ -29,6 +29,44 @@ const validateRegistration = ({ username, password }) => {
   };
 };
 
+const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/* Usernames are kept as typed but are one name whatever the case: "Athan"
+   and "athan" are the same reader. An exact match wins, so the few accounts
+   made before this that differ only by case still open as they did. */
+const findByUsername = async (User, username) => {
+  const clean = String(username || '').trim();
+  if (!clean) return null;
+  const exact = await User.findOne({ username: clean });
+  if (exact) return exact;
+  const matches = await User.find({ username: new RegExp(`^${escapeRegExp(clean)}$`, 'i') }).limit(2);
+  return matches.length === 1 ? matches[0] : null;
+};
+
+/* Failed logins, per name and per address, forgotten after a quiet quarter
+   hour. In memory: one server, and a restart forgiving everyone is fine. */
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+/* Ten wrong passwords for one name; more for one address, which can be a
+   whole office behind one router. */
+const LOGIN_MAX_FAILURES = { u: 10, ip: 50 };
+const createLoginThrottle = ({ now = () => Date.now() } = {}) => {
+  const failures = new Map();
+  const keys = (username, ip) => [`u:${String(username || '').trim().toLowerCase()}`, `ip:${ip || ''}`];
+  const live = (key) => {
+    const entry = failures.get(key);
+    if (entry && now() - entry.since > LOGIN_WINDOW_MS) failures.delete(key);
+    return failures.get(key);
+  };
+  return {
+    blocked: (username, ip) => keys(username, ip).some(key => (live(key)?.count || 0) >= LOGIN_MAX_FAILURES[key.split(':')[0]]),
+    fail: (username, ip) => keys(username, ip).forEach((key) => {
+      const entry = live(key) || { count: 0, since: now() };
+      failures.set(key, { ...entry, count: entry.count + 1 });
+    }),
+    clear: username => failures.delete(keys(username)[0])
+  };
+};
+
 const buildAuthDiscoveryRouter = ({
   bcrypt,
   jwt,
@@ -38,7 +76,8 @@ const buildAuthDiscoveryRouter = ({
   Article,
   TourState = null,
   trackEvent = () => {},
-  EVENT_NAMES = {}
+  EVENT_NAMES = {},
+  loginThrottle = createLoginThrottle()
 }) => {
   const router = express.Router();
 
@@ -50,9 +89,8 @@ const buildAuthDiscoveryRouter = ({
       }
       const { cleanUsername, password } = validation;
 
-      const existingUser = await User.exists({ username: cleanUsername });
-      if (existingUser) {
-        return res.status(409).json({ error: "Username already exists." });
+      if (await findByUsername(User, cleanUsername)) {
+        return res.status(409).json({ error: 'That username is taken. Try another.' });
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -84,20 +122,21 @@ const buildAuthDiscoveryRouter = ({
 
   router.post('/api/auth/login', async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { username, password } = req.body || {};
       if (!username || !password) {
-        return res.status(400).json({ error: "Username and password are required." });
+        return res.status(400).json({ error: 'Enter your username and password.' });
+      }
+      if (loginThrottle.blocked(username, req.ip)) {
+        return res.status(429).json({ error: 'Too many tries. Wait fifteen minutes and try again.' });
       }
 
-      const user = await User.findOne({ username });
-      if (!user || user.accountDisabledAt) {
-        return res.status(401).json({ error: "Invalid credentials." });
-      }
-
-      const isMatch = await bcrypt.compare(password, user.password);
+      const user = await findByUsername(User, username);
+      const isMatch = Boolean(user && !user.accountDisabledAt && await bcrypt.compare(String(password), user.password));
       if (!isMatch) {
-        return res.status(401).json({ error: "Invalid credentials." });
+        loginThrottle.fail(username, req.ip);
+        return res.status(401).json({ error: 'That username and password do not match.' });
       }
+      loginThrottle.clear(username);
 
       const token = jwt.sign(
         { id: user._id, username: user.username },

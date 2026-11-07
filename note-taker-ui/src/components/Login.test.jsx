@@ -33,8 +33,8 @@ describe('Login', () => {
     render(<MemoryRouter initialEntries={['/login']}><Login /></MemoryRouter>);
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Login' }));
-    await screen.findByText('Login successful.');
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
+    await waitFor(() => expect(localStorage.getItem('token')).toBe('test-token'));
     if (expected === '/login') expect(navigate).not.toHaveBeenCalled();
     else expect(navigate).toHaveBeenCalledWith(expected, { replace: true });
     expect(sessionStorage.getItem('auth_return_to')).toBeNull();
@@ -51,13 +51,13 @@ describe('Login', () => {
 
     render(
       <MemoryRouter>
-        <Login onLoginSuccess={onLoginSuccess} chromeStoreLink="https://example.com" />
+        <Login onLoginSuccess={onLoginSuccess} />
       </MemoryRouter>
     );
 
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith(
       '/api/auth/login',
@@ -69,5 +69,24 @@ describe('Login', () => {
     expect(onLoginSuccess).toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
     expect(sessionStorage.getItem('auth_return_to')).toBe('/wiki/read/p1?claimId=c1&exploration=1');
+  });
+
+  it('says under the password what the server said, and accepts any case of username', async () => {
+    api.post.mockRejectedValue({ response: { status: 401, data: { error: 'That username and password do not match.' } } });
+    render(<MemoryRouter><Login /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: ' Alice ' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'nope' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('That username and password do not match.');
+    expect(screen.getByLabelText('Password')).toHaveAttribute('aria-invalid', 'true');
+    expect(api.post).toHaveBeenCalledWith('/api/auth/login', { username: 'Alice', password: 'nope' }, { skipAuthHandling: true });
+  });
+
+  it('says why you are here after a session ends', () => {
+    sessionStorage.setItem('auth_redirect_reason', 'expired');
+    render(<MemoryRouter><Login /></MemoryRouter>);
+    expect(screen.getByRole('status')).toHaveTextContent('You were logged out.');
+    expect(screen.getByRole('link', { name: 'Create an account' })).toHaveAttribute('href', '/register');
   });
 });

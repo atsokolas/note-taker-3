@@ -332,17 +332,17 @@ export default function WorkNotes() {
   const stillOpen = items.filter(item => ['task', 'question'].includes(item.kind) && !item.completed && predecessor && item.noteId === predecessor._id);
   const meetingTime = note && items.find(item => item.kind === 'appointment' && item.noteId === note._id);
   const onward = notes.filter(item => item.continuesFromEntryId === note?._id && note?._id);
-  const signIn = session.authNeeded() ? <button onClick={() => { window.clearTimeout(timer.current); setNotice(''); setReauthenticate(true); }}>Sign in to sync</button> : null;
+  const signIn = session.authNeeded() ? <button onClick={() => { window.clearTimeout(timer.current); setNotice(''); setReauthenticate(true); }}>Log in to sync</button> : null;
   if (reauthenticate || locked || !session.isCurrent()) return <main className="work-locked">
-    <h1>{locked || !session.isCurrent() ? 'Account changed' : 'Sign in to sync'}</h1>
-    <p>{session.canLeave() ? (session.pending().length ? 'Your pending writing is on this device. Sign in to the original account to resume.' : 'Keep this page open and sign in to the original account to resume this Work session.') : 'Your latest writing is still in this page, not saved on this device. Keep this page open and sign in to the original account to recover it.'}</p>
+    <h1>{locked || !session.isCurrent() ? 'Account changed' : 'Log in to sync'}</h1>
+    <p>{session.canLeave() ? (session.pending().length ? 'Your pending writing is on this device. Log in to the original account to resume.' : 'Keep this page open and log in to the original account to resume this Work session.') : 'Your latest writing is still in this page, not saved on this device. Keep this page open and log in to the original account to recover it.'}</p>
     {reauthenticate ? <Login recovery onLoginSuccess={() => {
       if (resumeWorkSession(session, localStorage.getItem('token') || '')) { setLocked(false); setReauthenticate(false); setNotice(''); session.load(); }
-      else setNotice('That is a different account. Sign in to the original account to recover this writing.');
-    }} /> : <button onClick={() => { setNotice(''); setReauthenticate(true); }}>Sign in to the original account</button>}
+      else setNotice('That is a different account. Log in to the original account to recover this writing.');
+    }} /> : <button onClick={() => { setNotice(''); setReauthenticate(true); }}>Log in to the original account</button>}
     {notice && reauthenticate ? <p role="alert">{notice}</p> : null}
   </main>;
-  if (session.compatible() === false) return <main className="work-locked"><h1>{session.authNeeded() ? 'Sign in to sync' : 'Work is updating'}</h1><p role="alert">{session.error() || 'Work needs its matching server before it can save. Retry shortly.'}</p><p>Keep this page open if you have unsynced writing.</p>{signIn}<button disabled={session.authNeeded()} onClick={() => session.load()}>Retry Work</button></main>;
+  if (session.compatible() === false) return <main className="work-locked"><h1>{session.authNeeded() ? 'Log in to sync' : 'Work is updating'}</h1><p role="alert">{session.error() || 'Work needs its matching server before it can save. Retry shortly.'}</p><p>Keep this page open if you have unsynced writing.</p>{signIn}<button disabled={session.authNeeded()} onClick={() => session.load()}>Retry Work</button></main>;
   const changeCalendarMode = mode => {
     setCalendarMode(mode);
     if (!writing) return;

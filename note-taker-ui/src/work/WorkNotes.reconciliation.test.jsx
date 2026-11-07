@@ -31,10 +31,10 @@ const open = async () => {
 const reauthenticate = async () => {
   const refresh = deferred(); api.get.mockReturnValueOnce(refresh.promise);
   localStorage.setItem('token', token('other')); fireEvent(window, new StorageEvent('storage', { key: 'token' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Sign in to the original account' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in to the original account' }));
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-password' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
   await screen.findByRole('textbox', { name: 'Work note writing' });
   return refresh;
 };
