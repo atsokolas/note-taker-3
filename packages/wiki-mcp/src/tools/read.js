@@ -295,5 +295,19 @@ export const readTools = [
     description: 'List the Notebook\'s folders. Notebook folders are their own cabinet, separate from Library folders.',
     inputSchema: {},
     handler: (client) => client.listNotebookFolders()
+  },
+  {
+    name: 'list_work',
+    description: 'Everything in Work, the reader\'s private work notebook: notes (meeting notes and the like, with an opening snippet), lines (follow-ups, questions, appointments and jots, each on Next, Waiting on or Someday, and whether it is done), folders and projects. Needs a connection approved with --work. Read a note in full with get_work_note.',
+    inputSchema: {},
+    handler: (client) => client.listWork()
+  },
+  {
+    name: 'get_work_note',
+    description: 'Read one Work note or line in full, with its revision. Pass that revision back to update_work_note.',
+    inputSchema: {
+      noteId: z.string().describe('Work note or line id, from list_work.')
+    },
+    handler: (client, args) => client.getWorkNote(args)
   }
 ];

@@ -40,7 +40,7 @@ const nonDestructiveWrites = new Set([
   'save_source_thought',
   'create_folder', 'create_highlight', 'write_concept_note', 'create_notebook_entry',
   'add_highlight_to_notebook_entry', 'create_notebook_folder', 'create_question',
-  'pin_highlight_to_concept', 'create_page', 'create_judgment_page'
+  'pin_highlight_to_concept', 'create_page', 'create_judgment_page', 'create_work_note', 'create_work_folder'
 ]);
 const externalTools = new Set(['create_article', 'ingest_source', 'draft_page', 'add_source']);
 

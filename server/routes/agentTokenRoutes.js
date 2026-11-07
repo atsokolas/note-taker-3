@@ -111,7 +111,8 @@ const buildAgentTokenRouter = ({
       },
       capabilities: {
         read: scopes.includes('read') || scopes.includes('agent-write'),
-        agentWrite: scopes.includes('agent-write')
+        agentWrite: scopes.includes('agent-write'),
+        work: scopes.includes('work')
       },
       evidence: {
         source: 'authenticated_server_response',

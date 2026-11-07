@@ -305,6 +305,23 @@ Write tools require a token with the `agent-write` scope. Read-only tokens recei
 - `update_concept`
 - `pin_highlight_to_concept`
 
+### Work
+
+Work is the reader's private work notebook, and it stays shut to every
+connection that was not approved with `noeis connect … --work`. With it, the
+connection's own read or read-write access applies to Work too, so the last
+four need read-write:
+
+- `list_work`
+- `get_work_note`
+- `create_work_note`
+- `update_work_note`
+- `create_work_folder`
+- `update_work_folder`
+
+Every Work change names the revision it read, so an agent never saves over
+what the reader typed since. ChatGPT connections never see these tools.
+
 `delete_article`, `delete_highlight`, `delete_notebook_entry` and
 `delete_concept_note` are the tools with no undo. Each says so in its description and each expects the reader to have
 been asked first. `delete_folder` and `delete_notebook_folder` are not among them:

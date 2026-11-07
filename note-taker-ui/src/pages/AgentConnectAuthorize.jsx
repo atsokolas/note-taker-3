@@ -6,7 +6,8 @@ import { Button, Card, Page, PageHeader, buttonClass } from '../components/ui';
 const SCOPE_LABELS = {
   read: 'Read, search, and retrieve your Noeis workspace',
   capture: 'Bring links, files and text into your Library and see your nightstand, and nothing else',
-  'agent-write': 'Create drafts, write wiki updates, and add sourced material'
+  'agent-write': 'Create drafts, write wiki updates, and add sourced material',
+  work: 'Open Work, your private work notebook: its notes, follow-ups, folders and projects'
 };
 
 const AgentConnectAuthorize = ({ searchOverride = '' }) => {

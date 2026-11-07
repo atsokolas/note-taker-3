@@ -182,7 +182,7 @@ export const projectAgentGrant = (token = {}, now = new Date()) => {
   const revoked = token.status === 'revoked' || Boolean(token.revokedAt);
   const expired = Boolean(token.expiresAt && new Date(token.expiresAt).getTime() <= now.getTime());
   const observed = Boolean(token.lastUsedAt);
-  const scopeLabel = scopes.includes('agent-write') ? 'Read and write' : 'Read only';
+  const scopeLabel = `${scopes.includes('agent-write') ? 'Read and write' : 'Read only'}${scopes.includes('work') ? ', Work included' : ''}`;
 
   return {
     id: String(token.id || token._id || ''),

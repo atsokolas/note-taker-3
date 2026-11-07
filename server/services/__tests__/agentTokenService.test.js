@@ -51,6 +51,7 @@ const run = async () => {
   assert.notStrictEqual(hashAgentTokenSecret(secret), secret);
   assert.deepStrictEqual(normalizeAgentTokenScopes(['read', 'bad', 'agent-write', 'read']), ['read', 'agent-write']);
   assert.deepStrictEqual(normalizeAgentTokenScopes([]), ['read']);
+  assert.deepStrictEqual(normalizeAgentTokenScopes(['read', 'agent-write', 'work']), ['read', 'agent-write', 'work'], 'Work is kept only when asked for by name');
   assert.strictEqual(requiredScopeForRequest({ method: 'GET' }), 'read');
   assert.strictEqual(requiredScopeForRequest({ method: 'POST' }), 'agent-write');
 
@@ -139,6 +140,12 @@ const run = async () => {
   const captureWriteRes = createResponse();
   await runMiddleware(middleware, { method: 'POST', headers: { authorization: 'Bearer ntk_at_active' } }, captureWriteRes);
   assert.strictEqual(captureWriteRes.statusCode, 403);
+  // Work is never implied: a token with every other scope still holds no work.
+  const workMiddleware = buildAuthenticateAgentToken({ isAccountActive: async () => true, AgentToken, now: () => now, requiredScope: 'work', consume: false });
+  activeToken.scopes = ['read', 'capture', 'agent-write'];
+  const noWorkRes = createResponse();
+  await runMiddleware(workMiddleware, { method: 'GET', headers: { authorization: 'Bearer ntk_at_active' } }, noWorkRes);
+  assert.strictEqual(noWorkRes.statusCode, 403);
   activeToken.scopes = ['read'];
 
   const revokedToken = {

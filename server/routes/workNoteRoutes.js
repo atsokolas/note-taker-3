@@ -27,7 +27,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
   const router = express.Router();
   router.use('/api/work-notes', authenticateToken, (req, res, next) => {
     res.set('Cache-Control', 'no-store, private');
-    if (req.agentToken || req.personalAgent || req.authInfo?.tokenSource === 'agent-token') return res.status(403).json({ error: 'Only the human owner can do this.' });
+    if (req.agentToken && !req.agentToken.scopes.includes('work')) return res.status(403).json({ error: 'This connection has no Work access. Reconnect it with --work to let it into Work.' });
     if (!readiness.isReady()) return res.status(503).json({ code: 'work_unavailable', error: 'Work notes are not ready. Please retry shortly.' });
     next();
   });
