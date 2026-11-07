@@ -15,7 +15,7 @@ before(async () => {
   assert.equal(await readiness.settled, true);
   const app = express(); app.use(express.json());
   app.use(buildWorkNoteRouter({ NotebookEntry, NotebookFolder, readiness, authenticateToken(req, res, next) {
-    req.user = { id: req.headers['x-user'] || String(user) }; req.agentToken = req.headers['x-agent']; next();
+    req.user = { id: req.headers['x-user'] || String(user) }; req.agentToken = req.headers['x-agent'] && { scopes: req.headers['x-agent'].split(',') }; next();
   } }));
   server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
   base = `http://127.0.0.1:${server.address().port}/api/work-notes`;
@@ -33,6 +33,8 @@ test('durable create, guarded save, exact continuation, branching and privacy', 
   assert.equal(await NotebookEntry.findById(note._id), null);
   assert.equal((await call('/' + note._id, 'GET', null, { 'x-user': String(new mongoose.Types.ObjectId()) })).status, 404);
   assert.equal((await call('', 'GET', null, { 'x-agent': 'agent' })).status, 403);
+  assert.equal((await call('', 'GET', null, { 'x-agent': 'read,agent-write' })).status, 403, 'read-write alone does not open Work');
+  assert.equal((await call('/' + note._id, 'GET', null, { 'x-agent': 'read,work' })).body.title, 'Fictional review', 'a connection approved for Work reads it');
   assert.equal((await call('', 'POST', { operationId: 'bad', blocks: [{ type: 'highlight-ref', highlightId: String(user) }] })).status, 400);
   const save = await call('/' + note._id, 'PUT', { expectedRevision: 0, title: 'New title', content: 'saved', blocks: [], workingState: { nextTimeLine: { text: 'Return here', target: { blockId: 'p1', offset: 2, baseText: 'saved' } } } });
   assert.equal(save.status, 200); assert.equal(save.body.revision, 1);

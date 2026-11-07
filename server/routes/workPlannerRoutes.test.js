@@ -15,7 +15,7 @@ before(async () => {
   assert.equal(await readiness.settled, true);
   const app = express(); app.use(express.json());
   app.use(buildWorkNoteRouter({ NotebookEntry, NotebookFolder, readiness, authenticateToken(req, res, next) {
-    req.user = { id: req.headers['x-user'] || String(user) }; req.agentToken = req.headers['x-agent']; next();
+    req.user = { id: req.headers['x-user'] || String(user) }; req.agentToken = req.headers['x-agent'] && { scopes: req.headers['x-agent'].split(',') }; next();
   } }));
   server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
   base = `http://127.0.0.1:${server.address().port}/api/work-notes`;

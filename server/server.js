@@ -4832,7 +4832,7 @@ app.use(buildLibraryFilingRouter({
   })
 }));
 app.use(buildEntryHistoryRouter({ authenticateToken, EntryRevision }));
-app.use(buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder }));
+app.use(buildWorkNoteRouter({ authenticateToken: authenticateUserOrAgentToken, NotebookEntry, NotebookFolder }));
 app.use(buildNotebookRouter({
   authenticateToken: authenticateUserOrAgentToken,
   NotebookEntry,
