@@ -126,7 +126,8 @@ jobs:
     needs: scope
     if: always() && (needs.scope.result != 'success' || needs.scope.outputs.extension != 'false')
     name: Chrome extension
-    runs-on: ubuntu-latest
+    # Playwright 1.56.1 cannot install Chromium on ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
     steps:
       - name: Verify test scope
         working-directory: .
