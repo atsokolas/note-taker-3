@@ -43,14 +43,17 @@ const DeliverySection = () => {
   };
 
   const edit = (key) => (event) => setDraft({ ...draft, [key]: key === 'sendHourLocal' ? Number(event.target.value) : event.target.value });
+  /* Confirming rotates the unsubscribe links already sent, so it is asked
+     for only when the address is new or the reader is coming back. */
   const send = (event) => {
     event.preventDefault();
-    save({ ...draft, confirmEmail: true, enabled: true });
+    const confirming = !settings.emailConfirmed || settings.unsubscribedAt || draft.email.trim().toLowerCase() !== settings.email;
+    save({ ...draft, ...(confirming ? { confirmEmail: true } : {}), ...(settings.enabled ? {} : { enabled: true }) });
   };
 
-  const changed = settings && draft && Object.keys(draft).some(key => String(draft[key]) !== String(detailsOf(settings)[key]));
-  const sending = settings?.enabled && !changed;
-  const [next] = draft ? nextEligibleDeliveryMoments(draft.sendHourLocal, draft.timezone, new Date(), 1).moments : [];
+  const saved = settings && detailsOf(settings);
+  const changed = saved && draft && Object.keys(draft).some(key => String(draft[key]) !== String(saved[key]));
+  const [next] = saved ? nextEligibleDeliveryMoments(saved.sendHourLocal, saved.timezone, new Date(), 1).moments : [];
 
   return (
     <section>
@@ -79,16 +82,17 @@ const DeliverySection = () => {
             <input value={draft.timezone} onChange={edit('timezone')} />
           </label>
           <p className="settings-redesign__help" role="status">
-            {sending ? `On. The next one comes ${next || 'at the hour you chose'}.` : 'Off.'}
+            {settings.enabled ? `On. The next one comes ${next || 'at the hour you chose'}.` : 'Off.'}
           </p>
-          <div>
-            {sending ? (
-              <Button disabled={saving} onClick={() => save({ enabled: false })}>Stop sending</Button>
-            ) : (
+          <div className="settings-account__actions">
+            {!settings.enabled || changed ? (
               <Button type="submit" disabled={saving || !draft.email.trim()}>
-                {settings?.enabled ? 'Save the change' : 'Send it each morning'}
+                {settings.enabled ? 'Save the change' : 'Send it each morning'}
               </Button>
-            )}
+            ) : null}
+            {settings.enabled ? (
+              <Button variant="quiet" disabled={saving} onClick={() => save({ enabled: false })}>Stop sending</Button>
+            ) : null}
           </div>
         </form>
       ) : null}
