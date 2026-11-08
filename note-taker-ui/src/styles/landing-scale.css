@@ -71,7 +71,8 @@ body.noeis-editorial .landing-public__hero p {
 }
 
 /* The one thing this page wants, so it alone is set in ink. */
-body.noeis-editorial .landing-public__start {
+body.noeis-editorial .landing-public .landing-public__start {
+  display: inline-block;
   padding: 0.75rem 1.4rem;
   border: 1px solid var(--vellum-ink);
   border-radius: 2px;
@@ -80,11 +81,10 @@ body.noeis-editorial .landing-public__start {
   font-family: var(--font-sans);
   font-size: 0.95rem;
   font-weight: 500;
-  cursor: pointer;
 }
 
-body.noeis-editorial .landing-public__start:hover,
-body.noeis-editorial .landing-public__start:focus-visible {
+body.noeis-editorial .landing-public .landing-public__start:hover,
+body.noeis-editorial .landing-public .landing-public__start:focus-visible {
   border-color: var(--vellum-warm);
   background: var(--vellum-warm);
 }

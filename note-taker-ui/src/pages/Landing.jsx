@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import HOME from '../seo/homeCopy.json';
 import { trackMarketingCta } from '../utils/marketingAnalytics';
@@ -7,22 +7,17 @@ import { buildMarketingHref } from '../utils/marketingAttribution';
 import '../styles/landing-scale.css';
 
 /* One page, read top to bottom: what Noeis is, the one way in, a page of a
-   reader's wiki to show it, and the three things that make it add up. */
-const Landing = () => {
-  const navigate = useNavigate();
+   reader's wiki to show it, and the three things that make it add up.
+   Signed-in readers never see it: "/" sends them to the Wiki. */
+const SIGN_UP = buildMarketingHref('/register', { entry: 'home', cta: 'hero', pageType: 'home' });
 
+const Landing = () => {
   useSeoMetadata({
     title: HOME.title,
     description: HOME.description,
     canonicalPath: '/',
     ogType: 'website'
   });
-
-  const start = () => {
-    if (localStorage.getItem('token')) return navigate('/wiki');
-    trackMarketingCta({ page: 'home', cta: 'hero', target: '/register', pageType: 'home' });
-    navigate(buildMarketingHref('/register', { entry: 'home', cta: 'hero', pageType: 'home' }));
-  };
 
   const { specimen } = HOME;
 
@@ -40,9 +35,13 @@ const Landing = () => {
         <section className="landing-public__hero">
           <h1>{HOME.headline}</h1>
           <p>{HOME.lede}</p>
-          <button type="button" className="landing-public__start" onClick={start}>
+          <Link
+            to={SIGN_UP}
+            className="landing-public__start"
+            onClick={() => trackMarketingCta({ page: 'home', cta: 'hero', target: '/register', pageType: 'home' })}
+          >
             {HOME.primaryCta.label}
-          </button>
+          </Link>
         </section>
 
         <figure className="landing-public__specimen" aria-label={specimen.title}>

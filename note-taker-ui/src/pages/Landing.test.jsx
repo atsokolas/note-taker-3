@@ -1,7 +1,6 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
-import * as router from 'react-router-dom';
 import Landing from './Landing';
 import { trackMarketingCta } from '../utils/marketingAnalytics';
 import HOME from '../seo/homeCopy.json';
@@ -11,14 +10,7 @@ jest.mock('../utils/marketingAnalytics', () => ({
 }));
 
 describe('Landing', () => {
-  let navigate;
-
-  beforeEach(() => {
-    jest.restoreAllMocks();
-    localStorage.clear();
-    navigate = jest.fn();
-    jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
-  });
+  beforeEach(() => jest.clearAllMocks());
 
   const open = () => render(
     <MemoryRouter initialEntries={['/']}>
@@ -35,18 +27,15 @@ describe('Landing', () => {
       expect(screen.getByText(title)).toBeInTheDocument();
       expect(screen.getByText(copy)).toBeInTheDocument();
     });
-    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login');
   });
 
-  it('sends a newcomer to create an account, and a reader back to the wiki', () => {
+  it('opens account setup straight from Get started', () => {
     open();
-    fireEvent.click(screen.getByRole('button', { name: HOME.primaryCta.label }));
+    const start = screen.getByRole('link', { name: HOME.primaryCta.label });
+    expect(start.getAttribute('href')).toMatch(/^\/register\?via=marketing&entry=home&cta=hero/);
+    fireEvent.click(start);
     expect(trackMarketingCta).toHaveBeenCalledWith(expect.objectContaining({ page: 'home', cta: 'hero' }));
-    expect(navigate).toHaveBeenCalledWith(expect.stringMatching(/^\/register\?/));
-
-    localStorage.setItem('token', 'x');
-    fireEvent.click(screen.getByRole('button', { name: HOME.primaryCta.label }));
-    expect(navigate).toHaveBeenLastCalledWith('/wiki');
   });
 });

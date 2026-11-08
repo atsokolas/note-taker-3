@@ -8,22 +8,22 @@
     "href": "/register"
   },
   "specimen": {
-    "title": "Why good teams write things down",
+    "title": "How small things compound",
     "grew": "A page in your wiki, from 23 sources since March 2025",
     "entries": [
       {
         "when": "Mar 2025",
-        "line": "“Adding manpower to a late software project makes it later.”",
-        "source": "The Mythical Man-Month"
+        "line": "“Habits are the compound interest of self-improvement.”",
+        "source": "Atomic Habits"
       },
       {
         "when": "Sep 2025",
-        "line": "“Written proposals reward the fluent writer.”",
-        "source": "An essay you saved"
+        "line": "“Spend each day trying to be a little wiser than you were when you woke up.”",
+        "source": "Charlie Munger, USC Law commencement, 2007"
       },
       {
         "when": "This week",
-        "line": "A highlight from the book on your desk agrees with the first and argues with the second.",
+        "line": "A line you typed at your reading desk last night ties the two together.",
         "source": "Added to the page, with both quotes"
       }
     ]
