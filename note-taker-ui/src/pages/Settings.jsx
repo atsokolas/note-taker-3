@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import '../styles/settings-redesign.css';
@@ -41,8 +41,6 @@ const Settings = ({
   const [helpOpen, setHelpOpen] = useState(false);
   const returnMeta = readSettingsReturnPath();
 
-  useEffect(() => { setShown(normalizeUiSettings(uiSettings)); }, [uiSettings]);
-
   useEffect(() => {
     if (location.state?.returnTo) {
       captureSettingsReturnPath(location, { fromPath: location.state.returnTo, label: location.state.returnLabel });
@@ -72,15 +70,27 @@ const Settings = ({
     }
   }, [location.search, location.hash]);
 
-  const save = useCallback(async (patch) => {
+  /* Choices made while an earlier one is still saving ride along with the
+     next save: each request carries every choice not yet saved, so a quick
+     Large-then-Compact keeps both. */
+  const inFlight = useRef(0);
+  useEffect(() => {
+    if (!inFlight.current) setShown(normalizeUiSettings(uiSettings));
+  }, [uiSettings]);
+
+  const save = useCallback(async (choice, from = shown) => {
     const before = normalizeUiSettings(uiSettings);
-    const after = normalizeUiSettings({ ...before, ...patch });
+    const after = normalizeUiSettings({ ...from, ...choice });
+    const patch = pickAppearancePatch(before, after);
+    if (!Object.keys(patch).length) return;
     setShown(after);
     setSaveState('saving');
+    inFlight.current += 1;
     const result = await onAppearanceCommit(patch, after);
+    inFlight.current -= 1;
     if (result?.stale) return;
     if (result?.ok) {
-      setLastReceipt({ before, after, keys: Object.keys(patch) });
+      setLastReceipt({ before, after, keys: Object.keys(choice) });
       setFailedPatch(null);
       setSaveState('saved');
     } else {
@@ -88,12 +98,11 @@ const Settings = ({
       setFailedPatch(patch);
       setSaveState('failed');
     }
-  }, [uiSettings, onAppearanceCommit]);
+  }, [uiSettings, shown, onAppearanceCommit]);
 
   /* A field and its value, or (no field) a whole set such as the defaults. */
   const handleAppearanceChange = useCallback((key, value) => {
-    const patch = key ? { [key]: value } : pickAppearancePatch(shown, value);
-    if (Object.keys(patch).length) save(patch);
+    save(key ? { [key]: value } : pickAppearancePatch(shown, value));
   }, [shown, save]);
 
   const handleUndo = useCallback(async () => {

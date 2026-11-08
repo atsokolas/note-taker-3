@@ -75,6 +75,23 @@ describe('Settings redesign', () => {
     await waitFor(() => expect(onAppearanceUndo).toHaveBeenCalledWith(expect.objectContaining({ keys: ['typographyScale'] })));
   });
 
+  it('keeps a choice made while an earlier one is still saving', async () => {
+    let finish;
+    const onAppearanceCommit = jest.fn()
+      .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }))
+      .mockResolvedValue({ ok: true });
+    renderSettings({ onAppearanceCommit });
+    fireEvent.click(screen.getByRole('radio', { name: 'Large' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Compact' }));
+    expect(onAppearanceCommit).toHaveBeenLastCalledWith(
+      { typographyScale: 'large', density: 'compact' },
+      expect.objectContaining({ typographyScale: 'large', density: 'compact' })
+    );
+    finish({ ok: true });
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Compact' })).toBeChecked());
+    expect(screen.getByRole('radio', { name: 'Large' })).toBeChecked();
+  });
+
   it('puts the old choice back and offers to try again when a save fails', async () => {
     const onAppearanceCommit = jest.fn().mockResolvedValue({ ok: false });
     renderSettings({ onAppearanceCommit });
