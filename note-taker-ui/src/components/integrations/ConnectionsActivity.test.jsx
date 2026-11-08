@@ -52,11 +52,11 @@ describe('Connections activity', () => {
       />
     );
 
-    expect(await screen.findByRole('heading', { name: 'A record you can come back to' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Activity' })).toBeInTheDocument();
     expect((await screen.findAllByText('Saved with follow-up needed')).length).toBeGreaterThan(0);
     const rows = screen.getAllByRole('article');
-    expect(within(rows[0]).getByText('Research companion used NOEIS')).toBeInTheDocument();
-    expect(within(rows[0]).getByText(/successful request was received/i)).toBeInTheDocument();
+    expect(within(rows[0]).getByText('Research companion used Noeis')).toBeInTheDocument();
+    expect(within(rows[0]).getByText(/most recent time it read or saved/i)).toBeInTheDocument();
     expect(screen.getByText(/1 search retry needed/i)).toBeInTheDocument();
     expect(screen.getByText('No new material')).toBeInTheDocument();
     expect(screen.getByText(/4 unchanged or skipped/i)).toBeInTheDocument();

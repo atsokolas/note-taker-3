@@ -1,6 +1,6 @@
 import React from 'react';
 import useSeoMetadata from '../hooks/useSeoMetadata';
-import { CANONICAL_HOST, DEFAULT_AUTHOR_NAME, DEFAULT_LAST_UPDATED, DEFAULT_LAST_UPDATED_LABEL } from '../seo/siteMetadata';
+import { CANONICAL_HOST, DEFAULT_AUTHOR_NAME, DEFAULT_LAST_UPDATED_LABEL } from '../seo/siteMetadata';
 import publishingContent from '../seo/publishingContent.json';
 import { trackGuideCta } from '../utils/marketingAnalytics';
 import '../styles/seo-article.css';
@@ -30,9 +30,8 @@ const GuidesHub = () => {
           <div className="seo-meta">
             <span>By {DEFAULT_AUTHOR_NAME}</span>
             <span>Updated {DEFAULT_LAST_UPDATED_LABEL}</span>
-            <span>Publishing system refreshed {DEFAULT_LAST_UPDATED}</span>
           </div>
-          <h1>Practical Guides for Thinking, Writing, and Knowledge Work</h1>
+          <h1>Practical guides for thinking, writing and knowledge work</h1>
           <p className="seo-lede">
             These guides are built for founders, writers, researchers, analysts, and serious readers
             evaluating better workflows for source-grounded research, recall, synthesis, and drafts.
@@ -53,7 +52,7 @@ const GuidesHub = () => {
         </header>
 
         <section className="seo-section">
-          <h2>How to use this hub</h2>
+          <h2>Where to start</h2>
           <p>
             If you are still defining the category, start with <a href="/ai-second-brain">AI Second Brain</a>.
             If you are choosing a tool, move to <a href="/second-brain-app">Second Brain App</a>.
@@ -66,14 +65,6 @@ const GuidesHub = () => {
           </p>
         </section>
 
-        <section className="seo-section">
-          <h2>What makes these pages worth citing</h2>
-          <p>
-            Noeis publishes these guides as working operator notes, not generic SEO filler. Each page is meant
-            to define a term clearly, show the workflow in plain language, and tie the concept back to real
-            research and writing work.
-          </p>
-        </section>
       </article>
     </div>
   );

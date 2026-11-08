@@ -18,7 +18,7 @@ const Paragraph = ({ text }) => (
 const LegalDocument = ({ page }) => {
   const content = legalContent[page];
   useSeoMetadata({
-    title: `${content.title} | NOEIS`,
+    title: `${content.title} | Noeis`,
     description: content.sections[0].paragraphs[0].replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
     canonicalPath: `/${page}`,
     ogType: 'website'
@@ -37,7 +37,7 @@ const LegalDocument = ({ page }) => {
           </Card>
         ))}
       </article>
-      <nav className="legal-links" aria-label="NOEIS information">
+      <nav className="legal-links" aria-label="Noeis information">
         {Object.entries(legalContent).filter(([key]) => key !== page).map(([key, value]) => (
           <Link key={key} to={`/${key}`}>{value.title}</Link>
         ))}

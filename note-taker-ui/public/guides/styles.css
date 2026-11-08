@@ -1,15 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap');
+
 :root {
-  --bg: #eef3f8;
-  --bg-soft: #f7f9fc;
-  --surface: rgba(255, 255, 255, 0.93);
-  --surface-soft: #f5f8fc;
-  --text: #152033;
-  --muted: #425063;
-  --muted-2: #5f6b7a;
-  --border: rgba(21, 32, 51, 0.08);
-  --shadow: 0 18px 52px rgba(25, 42, 70, 0.08);
-  --primary: #155eef;
-  --primary-dark: #0f47b8;
+  --bg: #f7f4ed;
+  --surface: transparent;
+  --surface-soft: transparent;
+  --text: #332f29;
+  --muted: #5f625f;
+  --muted-2: #7a756c;
+  --border: rgba(91, 80, 63, 0.16);
+  --accent: #8b5f1d;
 }
 
 * {
@@ -20,10 +19,17 @@ body {
   margin: 0;
   font-family: "SF Pro Text", "Suisse Int'l", "Inter", "Helvetica Neue", Arial, sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(circle at top left, rgba(161, 196, 255, 0.26), transparent 28%),
-    linear-gradient(180deg, var(--bg-soft) 0%, var(--bg) 100%);
+  background: var(--bg);
   line-height: 1.65;
+}
+
+/* Ruled paper in the reading language, like the app and the front page. */
+h1,
+h2,
+h3 {
+  font-family: "Newsreader", "Iowan Old Style", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
 a {
@@ -43,25 +49,21 @@ a {
 
 .seo-hero,
 .card {
-  padding: 28px 30px;
-  border: 1px solid var(--border);
-  border-radius: 24px;
+  padding: 28px 0;
+  border-top: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: var(--shadow);
 }
 
 .seo-hero h1 {
   margin: 0 0 18px;
   font-size: clamp(2.4rem, 5vw, 4.25rem);
   line-height: 1.04;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.015em;
 }
 
 .eyebrow {
   margin: 0 0 12px;
   font-size: 0.76rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--muted-2);
 }
 
@@ -82,31 +84,20 @@ a {
 .button {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-height: 46px;
-  padding: 0 18px;
-  border-radius: 999px;
-  font-weight: 700;
-  text-decoration: none;
-  transition: transform 0.15s ease, background-color 0.15s ease;
+  min-height: 40px;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 0.4em;
 }
 
-.button:hover {
-  transform: translateY(-1px);
-}
-
+.button:hover,
 .button.primary {
-  background: var(--primary);
-  color: #fff;
-}
-
-.button.primary:hover {
-  background: var(--primary-dark);
+  text-decoration-color: var(--accent);
 }
 
 .button.secondary {
-  background: #e6edf8;
-  color: #173153;
+  color: var(--muted);
 }
 
 .grid {
@@ -116,10 +107,9 @@ a {
 }
 
 .subcard {
-  padding: 20px;
-  border-radius: 18px;
+  padding: 20px 0;
   background: var(--surface-soft);
-  border: 1px solid var(--border);
+  border-top: 1px solid var(--border);
 }
 
 .guide-card {
@@ -140,9 +130,8 @@ a {
 }
 
 .meta-row span {
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(232, 238, 247, 0.9);
+  padding: 6px 0;
+  background: transparent;
 }
 
 .trust-panel {
@@ -163,8 +152,7 @@ a {
 
   .seo-hero,
   .card {
-    padding: 22px 20px;
-    border-radius: 20px;
+    padding: 22px 0;
   }
 
   .seo-hero h1 {

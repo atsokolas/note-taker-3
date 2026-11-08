@@ -1,0 +1,97 @@
+/* A ruled page in the reading language, like Support and the 404. */
+.help-page {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  padding: clamp(40px, 7vw, 88px) 24px 96px;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--font-sans);
+}
+
+.help-page h1 {
+  margin: 0 0 10px;
+  font: 400 clamp(2rem, 4vw, 2.7rem)/1.1 var(--font-serif);
+}
+
+.help-page h2 {
+  margin: 44px 0 10px;
+  font: 400 1.3rem/1.2 var(--font-serif);
+}
+
+.help-page__lede,
+.help-page p {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.help-page .help-page__lede {
+  margin-bottom: 28px;
+}
+
+.help-page__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.help-page__rows li {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.help-page__rows li > span {
+  color: var(--text-muted, var(--vellum-subtle));
+}
+
+.help-page__rows li > span:first-child {
+  grid-column: 1 / 3;
+  color: inherit;
+}
+
+.help-page__rows a {
+  font: 400 1.05rem/1.3 var(--font-serif);
+}
+
+.help-page a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--border-subtle);
+  text-underline-offset: 0.25em;
+}
+
+.help-page a:hover,
+.help-page a:focus-visible {
+  text-decoration-color: currentColor;
+}
+
+.help-page kbd {
+  color: var(--text-muted, var(--vellum-subtle));
+  font: 0.78rem/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .help-page__rows li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 16px;
+  }
+
+  .help-page__rows li > span {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .help-page__rows li > span:first-child {
+    grid-row: auto;
+    grid-column: 1;
+  }
+}

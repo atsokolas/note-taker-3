@@ -91,9 +91,9 @@ export const SETTINGS_REGISTRY = Object.freeze([
     id: 'help',
     section: 'help',
     title: 'Help and shortcuts',
-    description: 'A refresher without resetting your workspace.',
+    description: 'What each room is for, and the keys.',
     keywords: 'help onboarding tour shortcut keyboard',
-    action: 'help'
+    externalPath: '/how-to-use'
   }
 ]);
 

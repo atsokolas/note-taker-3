@@ -764,7 +764,7 @@ function App() {
         onClick: () => setProductFeedbackOpen(true)
       },
       {
-        label: 'Chrome Extension',
+        label: 'Chrome extension',
         href: chromeStoreLink,
         external: true
       },
@@ -773,7 +773,7 @@ function App() {
         onClick: handleLogout
       }
     ];
-    const moreNavItems = secondaryNavItems.filter((item) => item.label !== 'Connections');
+    
     const utilityNavItems = getTopBarUtilityNavItems();
 
     const routes = (
@@ -900,7 +900,7 @@ function App() {
             routeLocation={shellLocation}
             primaryNav={primaryNavItems}
             utilityNav={utilityNavItems}
-            secondaryNav={moreNavItems}
+            secondaryNav={secondaryNavItems}
             searchMode="field"
             onSearchOpen={openPalette}
             accountMenuItems={topBarAccountMenuItems}

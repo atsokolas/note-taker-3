@@ -34,7 +34,7 @@ const Examples = () => {
       <article className="seo-article">
         <header className="seo-hero">
           <p className="seo-eyebrow">Examples</p>
-          <h1>Source-Grounded Wiki Examples</h1>
+          <h1>Source-grounded wiki examples</h1>
           <p className="seo-lede">
             Curated public Noeis wikis show how serious readers can turn source material into durable pages,
             claims, and reusable research structure.
@@ -60,12 +60,7 @@ const Examples = () => {
         </header>
 
         <section className="seo-section">
-          <h2>Why these examples are curated</h2>
-          <p>
-            Shared wiki pages should be indexable only when they are intentional public examples.
-            This page points search engines and readers to selected examples instead of treating every
-            shared page as a growth asset.
-          </p>
+          <h2>Start your own</h2>
           <div className="seo-cta-row">
             <a
               href="/register?via=marketing&entry=examples&cta=examples&page_type=examples"
