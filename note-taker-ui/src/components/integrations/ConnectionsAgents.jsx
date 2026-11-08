@@ -32,7 +32,7 @@ const downloadText = (filename, text, type) => {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null }) {
+export default function ConnectionsAgents({ tokenModel }) {
   const [showHandoff, setShowHandoff] = useState(false);
   const [managedGrantId, setManagedGrantId] = useState('');
   const [revokeGrantId, setRevokeGrantId] = useState('');
@@ -82,10 +82,9 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
         </button>
         <div className="connections-detail-grid">
           <div>
-            <p className="muted-label">A beginning, not a credential</p>
             <h2 id="connections-handoff-title" className="connections-display-title">Give this to your agent.</h2>
             <p className="connections-lede">
-              It prepares the supported setup. You approve the real access. Copying this grants nothing.
+              The agent sets itself up, then asks you to approve it here. Copying this gives it nothing.
             </p>
 
             <div className="connections-form-grid">
@@ -132,7 +131,7 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
                   onChange={event => updateDraft('scope', event.target.value)}
                 />
                 <span>
-                  <strong>Read NOEIS</strong>
+                  <strong>Read</strong>
                   <small>Reads what you saved. Changes nothing.</small>
                 </span>
               </label>
@@ -146,26 +145,26 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
                 />
                 <span>
                   <strong>Read and write</strong>
-                  <small>Broader access to real agent-write operations, not suggestions only.</small>
+                  <small>Also saves notes, files research to Editions and drafts wiki pages.</small>
                 </span>
               </label>
             </fieldset>
 
             <label className="connections-field">
-              <span>Optional target or context</span>
+              <span>Anything it should know (optional)</span>
               <input
                 type="text"
                 maxLength={180}
                 value={draft.target}
-                placeholder="Only include text you intend to hand over"
+                placeholder="A company, a book, a question"
                 onChange={event => updateDraft('target', event.target.value)}
               />
-              <small>Free text may be private. It is included exactly as shown below.</small>
+              <small>Goes into the instructions exactly as you type it.</small>
             </label>
 
             {draft.task === 'Prepare an Edition' && draft.scope === 'read' ? (
               <p className="connections-inline-notice">
-                Read-only can inspect Editions. Filing one requires a separate explicit write grant.
+                To file an Edition it needs Read and write.
               </p>
             ) : null}
 
@@ -208,14 +207,14 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
           </div>
 
           <aside className="connections-side-note">
-            <p className="muted-label">A handoff with a clear finish</p>
+            <h3>What happens</h3>
             <ol>
-              <li><span>01</span><p><strong>You give the instructions.</strong><br />No secret is included.</p></li>
-              <li><span>02</span><p><strong>The agent prepares access.</strong><br />It preserves other tools.</p></li>
-              <li><span>03</span><p><strong>You approve in NOEIS.</strong><br />The exact scope is visible.</p></li>
-              <li><span>04</span><p><strong>It proves one metadata read.</strong><br />Then it stops.</p></li>
+              <li><p>You paste the instructions into your agent. They hold no password.</p></li>
+              <li><p>It sets up its Noeis tools and leaves its other tools alone.</p></li>
+              <li><p>It sends you here with a code. You check the code and approve.</p></li>
+              <li><p>It reads one thing to prove it works, then stops.</p></li>
             </ol>
-            <a href="/skill.md">Read the agent-side guide →</a>
+            <a href="/skill.md">What the agent reads →</a>
           </aside>
         </div>
       </section>
@@ -272,10 +271,9 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
               {isManaged ? (
                 <div className="connections-row-detail">
                   <dl>
-                    <div><dt>Grant</dt><dd>{view.id}</dd></div>
-                    <div><dt>Permission</dt><dd>{view.scopeLabel}</dd></div>
-                    <div><dt>Readiness</dt><dd>{view.ready ? 'A request reached NOEIS' : 'No request proof yet'}</dd></div>
-                    <div><dt>Expiry</dt><dd>{view.expiresAt ? new Date(view.expiresAt).toLocaleString() : 'No expiry set'}</dd></div>
+                                        <div><dt>Permission</dt><dd>{view.scopeLabel}</dd></div>
+                    <div><dt>Working</dt><dd>{view.ready ? 'Yes, it has reached Noeis' : 'Not yet, it has not reached Noeis'}</dd></div>
+                    <div><dt>Expires</dt><dd>{view.expiresAt ? new Date(view.expiresAt).toLocaleString() : 'Never'}</dd></div>
                   </dl>
                   <div className="connections-actions">
                     <button
@@ -308,8 +306,8 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
                   ) : null}
                   {isConfirmingRevoke ? (
                     <div className="connections-revoke-confirm" role="alert">
-                      <strong>Revoke only this grant?</strong>
-                      <p>Future requests using this credential will stop. Already imported material and completed work stay. Data already retrieved cannot be recalled.</p>
+                      <strong>Revoke {view.label}?</strong>
+                      <p>It stops working at once. What it already saved stays, and what it already read cannot be taken back.</p>
                       <div className="connections-actions">
                         <Button
                           variant="primary"
@@ -318,7 +316,7 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
                             setRevokeGrantId('');
                           }}
                         >
-                          Confirm revoke
+                          Revoke
                         </Button>
                         <button
                           type="button"
@@ -340,9 +338,9 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
       {tokenModel.tokensError ? <p className="form-error">{tokenModel.tokensError}</p> : null}
 
       <details className="connections-fold connections-manual-setup">
-        <summary>Set one up by hand, with a token</summary>
+        <summary>Use a token instead</summary>
         <p>
-          Use this fallback only when the browser handoff is unavailable. A manually issued secret is shown once.
+          For an agent that cannot open the approval page. The token is shown once, so copy it straight into the agent.
         </p>
         <div className="connections-form-grid">
           <label>
@@ -377,38 +375,30 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
               checked={(tokenModel.tokenScopes || []).includes('agent-write')}
               onChange={event => tokenModel.handleScopeChange('agent-write', event.target.checked)}
             />
-            Agent write
+            Write
           </label>
         </div>
         <Button
           disabled={tokenModel.creatingToken}
           onClick={tokenModel.handleCreateToken}
         >
-          {tokenModel.creatingToken ? 'Issuing…' : 'Issue manual token'}
+          {tokenModel.creatingToken ? 'Making it…' : 'Make a token'}
         </Button>
         {tokenModel.issuedSecret ? (
           <div className="connections-secret">
-            <strong>New secret — shown once</strong>
+            <strong>Your token. It will not be shown again.</strong>
             <pre>{tokenModel.issuedSecret}</pre>
             <button
               type="button"
               className="connections-text-button"
-              onClick={() => copy(tokenModel.issuedSecret, 'Secret copied. Store it in the intended credential manager.')}
+              onClick={() => copy(tokenModel.issuedSecret, 'Copied. Paste it into the agent now.')}
             >
-              Copy secret
+              Copy token
             </button>
           </div>
         ) : null}
       </details>
 
-      <div className="connections-footer-links">
-        {onOpenTaskLink ? (
-          <button type="button" className="connections-text-button" onClick={onOpenTaskLink}>
-            Create a separate agent task link →
-          </button>
-        ) : null}
-        <a href="/.well-known/noeis-agent.json">Machine-readable connection contract →</a>
-      </div>
     </div>
   );
 }

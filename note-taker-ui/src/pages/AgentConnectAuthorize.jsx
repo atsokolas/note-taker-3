@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { approveAgentConnectSession, getAgentConnectApprovalSession } from '../api/agent';
-import { Button, Card, Page, PageHeader, buttonClass } from '../components/ui';
+import { Button, Page, PageHeader } from '../components/ui';
 
 const SCOPE_LABELS = {
-  read: 'Read, search, and retrieve your Noeis workspace',
-  capture: 'Bring links, files and text into your Library and see your nightstand, and nothing else',
-  'agent-write': 'Create drafts, write wiki updates, and add sourced material',
-  work: 'Open Work, your private work notebook: its notes, follow-ups, folders and projects'
+  read: 'Read and search everything you have saved and written',
+  capture: 'Save links, files and text to your Library, and see your Nightstand',
+  'agent-write': 'Save notes, file research to Editions and draft wiki pages',
+  work: 'Open Work: its notes, follow-ups, folders and projects'
 };
 
 const AgentConnectAuthorize = ({ searchOverride = '' }) => {
@@ -25,7 +25,7 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
     let cancelled = false;
     const load = async () => {
       if (!sessionId) {
-        setError('Connection session is missing.');
+        setError('Open this page from the link your agent gives you.');
         setLoading(false);
         return;
       }
@@ -38,7 +38,7 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
           setApproved(data.session?.status === 'approved');
         }
       } catch (err) {
-        if (!cancelled) setError(err?.response?.data?.error || 'Failed to load this connection request.');
+        if (!cancelled) setError(err?.response?.data?.error || 'This request could not be loaded.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -59,7 +59,7 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
       setSession(data.session || session);
       setApproved(true);
     } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to approve this agent.');
+      setError(err?.response?.data?.error || 'That did not go through. Try again.');
     } finally {
       setApproving(false);
     }
@@ -67,8 +67,6 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
 
   const status = session?.status || 'pending';
   const canApprove = Boolean(sessionId && session?.deviceCode && status === 'pending' && !approved);
-  const readOnly = (session?.scopes || []).length === 1 && session.scopes[0] === 'read';
-  const permissionLabel = readOnly ? 'Read only' : 'Read and write';
   const expiresAt = session?.expiresAt ? new Date(session.expiresAt) : null;
   const expiryLabel = expiresAt && !Number.isNaN(expiresAt.getTime())
     ? expiresAt.toLocaleString()
@@ -77,76 +75,60 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
   return (
     <Page className="settings-page agent-connect-authorize-page connections-approval-page">
       <PageHeader
-        eyebrow="Human approval"
         title="Is this the request you started?"
-        lede="Check the runtime, account destination, comparison code, and actual permission before approving."
+        lede="Approve only if you just asked an agent to connect, and it shows you the same code."
       />
 
-      <Card className="settings-card agent-connect-authorize-card connections-approval-card">
+      <section className="agent-connect-authorize-card connections-approval-card">
         {loading ? (
-          <p className="muted">Loading connection request...</p>
+          <p className="muted">Loading…</p>
         ) : error && !session ? (
           <>
-            <h2>Connection unavailable</h2>
+            <h2>There is no request here.</h2>
             <p className="muted">{error}</p>
-            <Link to="/connections#agents" className={buttonClass()}>Open Connections</Link>
+            <Link to="/connections#agents">Your agents in Connections →</Link>
           </>
         ) : (
           <>
             <div className="connections-approval-card__account">
               <div>
-                <p className="muted-label">Connection requesting access</p>
-                <h2>{session?.label || 'Local agent'}</h2>
-                <p>{session?.runtimeLabel || 'Agent runtime'} · self-reported</p>
+                <h2>{session?.label || 'An agent'}</h2>
+                <p>{session?.runtimeLabel || 'Agent'}, as it describes itself</p>
               </div>
-              <p className="muted-label">{status}</p>
             </div>
 
             <div className="agent-connect-authorize-card__code">
-              <span>Comparison code</span>
+              <span>Code</span>
               <strong>{session?.deviceCode || 'Unknown'}</strong>
             </div>
 
             <dl className="connections-approval-facts">
               <div>
-                <dt>Actual permission request</dt>
-                <dd>{permissionLabel}</dd>
-              </div>
-              <div>
-                <dt>NOEIS API</dt>
-                <dd>{session?.requestedApiUrl || 'Default NOEIS service'}</dd>
+                <dt>Connects to</dt>
+                <dd>{session?.requestedApiUrl || 'Noeis'}</dd>
               </div>
               <div>
                 <dt>Request expires</dt>
                 <dd>{expiryLabel}</dd>
               </div>
-              <div>
-                <dt>After connecting</dt>
-                <dd>Verify access, then stop</dd>
-              </div>
             </dl>
 
             <div className="agent-connect-authorize-card__scope-list">
-              {(session?.scopes || []).map((scope) => (
-                <div key={scope} className="agent-connect-authorize-card__scope">
-                  <strong>{scope}</strong>
-                  <p className="muted small">{SCOPE_LABELS[scope] || scope}</p>
-                </div>
-              ))}
+              <h3>It asks to</h3>
+              <ul>
+                {(session?.scopes || []).map((scope) => <li key={scope}>{SCOPE_LABELS[scope] || scope}</li>)}
+              </ul>
             </div>
-            <p className="connections-approval-note">
-              The runtime and connection name are self-reported. Approval creates this exact grant; it does not prove the runtime loaded its tools or start a task.
-            </p>
 
             {approved || status === 'approved' ? (
               <div className="agent-connect-authorize-card__success" role="status">
-                <strong>Access approved.</strong>
-                <p className="muted small">Return to the agent. It still needs to load its tools and call connection_info before the connection is verified.</p>
+                <strong>Approved.</strong>
+                <p className="muted small">Go back to the agent. It finishes connecting on its own, and shows as working in Connections once it has.</p>
               </div>
             ) : status === 'expired' ? (
               <div className="agent-connect-authorize-card__success" role="status">
-                <strong>Connection expired.</strong>
-                <p className="muted small">Run the connect command again to create a fresh approval request.</p>
+                <strong>This request has expired.</strong>
+                <p className="muted small">Ask the agent to connect again for a new one.</p>
               </div>
             ) : (
               <>
@@ -157,15 +139,15 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
                     onClick={handleApprove}
                     disabled={!canApprove || approving}
                   >
-                    {approving ? 'Approving...' : `Approve ${readOnly ? 'read access' : 'read and write access'}`}
+                    {approving ? 'Approving…' : 'Approve'}
                   </Button>
-                  <Link to="/connections#agents" className={buttonClass()}>Decline for now</Link>
+                  <Link to="/connections#agents">Not now</Link>
                 </div>
               </>
             )}
           </>
         )}
-      </Card>
+      </section>
     </Page>
   );
 };

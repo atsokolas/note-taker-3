@@ -158,7 +158,7 @@ describe('Connections center', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Agents/ }));
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Connect an agent' })).toBeInTheDocument();
-    expect(screen.getByText('Advanced')).toBeInTheDocument();
+    expect(screen.getByText('For developers')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: /Activity/ }));
     expect(screen.getByTestId('connections-activity')).toBeInTheDocument();
@@ -174,7 +174,7 @@ describe('Connections center', () => {
     try {
       render(<MemoryRouter><Integrations /></MemoryRouter>);
       expect(screen.getByRole('tab', { name: /Agents/ })).toHaveAttribute('aria-selected', 'true');
-      expect(screen.getByText('Advanced').closest('details')).toHaveAttribute('open');
+      expect(screen.getByText('For developers').closest('details')).toHaveAttribute('open');
       expect(screen.getByTestId('HandoffQueueCard')).toBeInTheDocument();
     } finally {
       window.history.replaceState({}, '', '/');

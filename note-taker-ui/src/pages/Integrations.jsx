@@ -42,7 +42,6 @@ const ForwardingLine = () => {
 
 const Integrations = () => {
   useDocumentTitle('Connections');
-  const [showTaskLinkBuilder, setShowTaskLinkBuilder] = useState(false);
   // #queue is the agents tab with the handoff queue open under Advanced.
   const [showConnectionDetails, setShowConnectionDetails] = useState(() => window.location.hash === '#queue');
   const [activeTab, setActiveTab] = useState(() => {
@@ -150,15 +149,7 @@ const Integrations = () => {
 
         {activeTab === 'agents' ? (
           <section id="agents" aria-label="Agents">
-            <ConnectionsAgents
-              tokenModel={agentTokensModel}
-              onOpenTaskLink={() => setShowTaskLinkBuilder(previous => !previous)}
-            />
-            {showTaskLinkBuilder ? (
-              <div className="connections-nested-panel">
-                <AgentLaunchLinkCard compact />
-              </div>
-            ) : null}
+            <ConnectionsAgents tokenModel={agentTokensModel} />
 
             <details
               id="advanced"
@@ -168,13 +159,14 @@ const Integrations = () => {
             >
               <summary>
                 <span>
-                  <strong>Advanced</strong>
-                  <em>For developers: bridge tokens, handoffs, routing and MCP details.</em>
+                  <strong>For developers</strong>
+                  <em>MCP setup, task links, bridges and agent queues.</em>
                 </span>
                 <b>{showConnectionDetails ? 'Hide' : 'Show'}</b>
               </summary>
               {showConnectionDetails ? (
                 <>
+                  <AgentLaunchLinkCard compact />
                   <WikiMcpConnectCard />
                   <ExternalBridgeCard
                     bridgeModel={bridgeModel}
@@ -195,6 +187,7 @@ const Integrations = () => {
                     policyModel={policyModel}
                     sortedAgents={personalAgentsModel.sortedAgents}
                   />
+                  <a className="connections-contract-link" href="/.well-known/noeis-agent.json">The connection file agents read (JSON) →</a>
                 </>
               ) : null}
             </details>
