@@ -297,7 +297,7 @@ const renderGuideHubPage = (content) => {
       <article class="seo-shell">
         <header class="seo-hero">
           <p class="eyebrow">Guides</p>
-          <h1>Practical Guides for Source-Grounded Research and Knowledge Work</h1>
+          <h1>Practical guides for source-grounded research and knowledge work</h1>
           <p class="lede">
             These guides are built for founders, writers, researchers, analysts, and serious readers evaluating better workflows for source-grounded research, recall, synthesis, and drafts.
           </p>
@@ -361,7 +361,7 @@ const renderExamplesPage = (content) => {
       <article class="seo-shell">
         <header class="seo-hero">
           <p class="eyebrow">Examples</p>
-          <h1>Source-Grounded Wiki Examples</h1>
+          <h1>Source-grounded wiki examples</h1>
           <p class="lede">
             Curated public Noeis wikis show how serious readers can turn source material into durable pages, claims, and reusable research structure.
           </p>
@@ -370,8 +370,7 @@ ${renderStarterPackCards(content)}
           </div>
         </header>
         <section class="card">
-          <h2>Why these examples are curated</h2>
-          <p>Shared wiki pages should be indexable only when they are intentional public examples. This page points search engines and readers to selected examples instead of treating every shared page as a growth asset.</p>
+          <h2>Start your own</h2>
           <div class="cta-row">
             <a class="button primary" href="/register?via=marketing&amp;entry=examples&amp;cta=examples&amp;page_type=examples">Build your own research wiki</a>
             <a class="button secondary" href="/from-saved-article-to-draft-in-noeis">See the draft workflow</a>
