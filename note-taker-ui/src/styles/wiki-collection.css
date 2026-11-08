@@ -26,18 +26,6 @@
   padding-top: 8px;
 }
 
-.wiki-collection__nav-title {
-  margin: 0 12px 11px;
-  font-size: 10px;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--muted, #676e62);
-}
-
-.wiki-collection__nav-title {
-  margin: 0 12px 18px;
-}
-
 .wiki-collection__nav-group {
   display: grid;
 }
@@ -67,14 +55,9 @@
   text-decoration: none;
 }
 
-.wiki-collection__nav-btn:hover {
-  background: var(--wash, #efeee6);
-  color: var(--ink, #30362e);
-}
-
+.wiki-collection__nav-btn:hover,
 .wiki-collection__nav-btn.is-active {
-  background: var(--noeis-active);
-  color: var(--noeis-ink);
+  color: var(--noeis-ink, var(--ink, #30362e));
 }
 
 .wiki-collection__nav-btn.is-active:before {
@@ -84,7 +67,7 @@
   top: 10px;
   bottom: 10px;
   width: 2px;
-  background: var(--noeis-action);
+  background: currentColor;
 }
 
 .wiki-collection__nav-count {

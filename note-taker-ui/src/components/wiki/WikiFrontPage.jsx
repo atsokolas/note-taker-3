@@ -124,7 +124,6 @@ const CollectionNav = ({
   onNavigate
 }) => (
   <>
-    <p className="wiki-collection__nav-title">Wiki</p>
     <div className="wiki-collection__nav-group">
       <CollectionNavButton active={wikiFilter !== 'proposed'} onClick={() => onSelect('all')}>
         <span>All pages</span>
