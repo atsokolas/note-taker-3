@@ -1,241 +1,57 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Page, Card, Button } from '../components/ui';
+import { Link } from 'react-router-dom';
+import { getNoeisNavigationDefinitions } from '../system/noeisSurfaceDefinitions';
+import { goToKeyFor } from '../navigation/appNavigation';
+import { SHORTCUT_SECTIONS } from '../components/KeyboardShortcutOverlay';
+import '../styles/help-page.css';
 
-const HowToUse = () => {
-  const navigate = useNavigate();
+/* The rooms describe themselves in the surface registry, and the keys come
+   from the same lists the keyboard obeys, so this page cannot name a room
+   or a key that is not there. */
+const ROOMS = getNoeisNavigationDefinitions('primary');
+const [ANYWHERE] = SHORTCUT_SECTIONS;
 
-  const handleTourClick = () => {
-    const section = document.getElementById('howto-tour');
-    if (section) {
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
+const HowToUse = () => (
+  <main className="help-page" aria-labelledby="help-title">
+    <h1 id="help-title">Help</h1>
+    <p className="help-page__lede">What each room is for, and the keys that get you there.</p>
 
-  return (
-    <Page>
-      <div className="page-header">
-        <p className="muted-label">How To Use</p>
-        <h1>A calm home for every idea you don’t want to lose.</h1>
-        <p className="muted">Save what you read. Pull the best lines. Turn them into thinking you can use, with optional agent help when you want it.</p>
-        <p className="muted">You read a lot. You highlight the good parts. You want those ideas to show up when you need them, not vanish into a folder. This fixes that.</p>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <Button onClick={() => navigate('/today')}>Start in Today</Button>
-          <Button onClick={() => navigate('/library')}>Build your Library</Button>
-          <Button onClick={() => navigate('/settings')}>Open Settings</Button>
-          <Button onClick={handleTourClick}>Take the 5‑minute tour</Button>
-        </div>
-      </div>
+    <ul className="help-page__rows">
+      {ROOMS.map((room) => {
+        const key = goToKeyFor(room.route);
+        return (
+          <li key={room.id}>
+            <Link to={room.route}>{room.name}</Link>
+            <span>{room.orientation}</span>
+            {key ? <kbd aria-label={`G then ${key.toUpperCase()}`}>G {key.toUpperCase()}</kbd> : null}
+          </li>
+        );
+      })}
+    </ul>
 
-      <div className="section-stack">
-        <section id="howto-tour">
-          <Card className="search-section">
-            <div className="search-section-header">
-              <span className="eyebrow">The 5-minute tour</span>
-              <span className="muted small">Do these once and the system clicks.</span>
-            </div>
-            <ol className="howto-list">
-              <li>
-                <strong>Save an article.</strong> This is the shelf. Everything starts here.
-              </li>
-              <li>
-                <strong>Highlight the parts that matter.</strong> Highlights are the atoms. Tiny. Sharp. Reusable.
-              </li>
-              <li>
-                <strong>Tag as Concepts.</strong> Concepts are idea homes: “Compounding,” “Story openings,” “AI strategy.”
-              </li>
-              <li>
-                <strong>Ask a question.</strong> Questions live inside concepts so your curiosity has a place.
-              </li>
-              <li>
-                <strong>Write a note.</strong> Think is where you turn raw highlights into your words.
-              </li>
-              <li>
-                <strong>Use Partner (optional).</strong> Ask for context, or create a handoff when you want to delegate.
-              </li>
-              <li>
-                <strong>Come back to Today.</strong> It resurfaces what matters so your brain stays warm.
-              </li>
-            </ol>
-          </Card>
-        </section>
+    <h2>Anywhere</h2>
+    <ul className="help-page__rows">
+      {ANYWHERE.items.map(({ keys, label }) => (
+        <li key={label}>
+          <span>{label}</span>
+          <kbd>{keys.join(' ')}</kbd>
+        </li>
+      ))}
+    </ul>
 
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">The latticework</span>
-            <span className="muted small">How ideas turn into thinking.</span>
-          </div>
-          <p className="muted">
-            Highlights are the raw material. Concepts and Questions are the scaffolding.
-            Notes are the synthesis. That lattice is what lets you find the exact idea in ten seconds—months later.
-          </p>
-        </Card>
+    <h2>Bringing things in</h2>
+    <p>
+      <Link to="/connections#sources">Connections</Link> brings in Readwise, Kindle, Notion and files,
+      and lets an agent such as Claude read what you keep. <Link to="/library/save">Save a link</Link> puts
+      one page on your Nightstand.
+    </p>
 
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">Your first 10 minutes</span>
-            <span className="muted small">Do this once. Feel the system click.</span>
-          </div>
-          <ol className="howto-list">
-            <li>
-              <strong>Save 2 articles.</strong> Give Library a heartbeat.
-            </li>
-            <li>
-              <strong>Pull 6 highlights.</strong> Don’t overthink it. Just grab what matters.
-            </li>
-            <li>
-              <strong>Create 2 Concepts.</strong> Name the idea home, not the source.
-            </li>
-            <li>
-              <strong>Create 1 Question.</strong> Put it under a concept.
-            </li>
-            <li>
-              <strong>Write 5 sentences.</strong> One tiny synthesis note is enough.
-            </li>
-            <li>
-              <strong>Visit Today.</strong> That’s your daily loop.
-            </li>
-          </ol>
-        </Card>
-
-        <div className="search-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-          {[
-            {
-              title: 'Today',
-              copy: 'Your calm desk. Resurfaced highlights, open questions, and your next move.',
-              intent: 'Use this when you want a 60‑second reset and a quick win.',
-              next: 'Pick one highlight and send it into a note.',
-              route: '/today'
-            },
-            {
-              title: 'Library',
-              copy: 'Your reading room. Articles, folders, highlights, and the threads between them.',
-              intent: 'Use this when you need to find something fast.',
-              next: 'Open one article and pull two highlights.',
-              route: '/library'
-            },
-            {
-              title: 'Think',
-              copy: 'Synthesis lives here: notebook, concepts, questions, handoffs, paths, and insights.',
-              intent: 'Use this when you want to make sense, not just collect.',
-              next: 'Add a question to a concept and answer it in a note.',
-              route: '/think'
-            },
-            {
-              title: 'Capture',
-              copy: 'Bring in notes without the extension: manual entry, direct paste, markdown, and Readwise CSV.',
-              intent: 'Use this when you need quick ingest from existing material.',
-              next: 'Paste one source and import it as a note.',
-              route: '/data-integrations'
-            },
-            {
-              title: 'Review',
-              copy: 'Perspective over time. Reflections, Journey, and Resurface.',
-              intent: 'Use this when you want to see progress and patterns.',
-              next: 'Open Reflections and start a weekly note.',
-              route: '/review'
-            },
-            {
-              title: 'Settings',
-              copy: 'Tune workspace density/typography, restart onboarding, and configure agents + integrations.',
-              intent: 'Use this when you want your environment and automation setup to fit your workflow.',
-              next: 'Set your preferred density, then open Agents & integrations.',
-              route: '/settings'
-            }
-          ].map(card => (
-            <Card key={card.title} className="search-card">
-              <div className="search-card-top">
-                <span className="article-title-link">{card.title}</span>
-                <span className="muted small">Mode</span>
-              </div>
-              <p className="muted">{card.copy}</p>
-              <p className="muted small"><strong>Use this when:</strong> {card.intent}</p>
-              <p className="muted small"><strong>Do this next:</strong> {card.next}</p>
-              <Button onClick={() => navigate(card.route)}>
-                Go to {card.title}
-              </Button>
-            </Card>
-          ))}
-        </div>
-
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">First-week plan</span>
-            <span className="muted small">Seven days to habit.</span>
-          </div>
-          <ul className="howto-checklist">
-            <li>Day 1: Save 3 articles, add 10 highlights.</li>
-            <li>Day 2: Create 5 concepts, pin 3 key highlights.</li>
-            <li>Day 3: Write one synthesis note using 5 highlights.</li>
-            <li>Day 4: Set up one specialist agent and create one handoff.</li>
-            <li>Day 5: Use Today, reshuffle, insert one resurfaced highlight into a note.</li>
-            <li>Day 6: Answer one open question.</li>
-            <li>Day 7: Export your data (trust ritual).</li>
-          </ul>
-        </Card>
-
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">Where to start if…</span>
-            <span className="muted small">Pick the path that fits you.</span>
-          </div>
-          <div className="section-stack">
-            <div>
-              <strong>You read a lot.</strong>
-              <p className="muted">Start in Library. Save three articles. Highlight ten lines. Then go to Today tomorrow.</p>
-            </div>
-            <div>
-              <strong>You research for work.</strong>
-              <p className="muted">Start in Think. Create two Concepts and drop highlights into one note. Add one question per concept.</p>
-            </div>
-            <div>
-              <strong>You are writing.</strong>
-              <p className="muted">Start in Think → Notebook. Make one synthesis note, then visit Review → Reflections weekly.</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">FAQ</span>
-          </div>
-          <div className="section-stack">
-            <div>
-              <strong>Is this like Notion?</strong>
-              <p className="muted">Calmer. Focused on reading, recall, and ideas. Not endless pages.</p>
-            </div>
-            <div>
-              <strong>Do I need to organize perfectly?</strong>
-              <p className="muted">No. Start messy. The system forgives you.</p>
-            </div>
-            <div>
-              <strong>Do I need AI or agents to use this?</strong>
-              <p className="muted">No. Agents are optional. You can run manual-only and still get full value from capture, Think, and review loops.</p>
-            </div>
-            <div>
-              <strong>What if I forget to tag?</strong>
-              <p className="muted">Search plus resurfacing saves you. Tag later in seconds.</p>
-            </div>
-            <div>
-              <strong>Is my data stuck here?</strong>
-              <p className="muted">No. Export is built in. Your brain stays yours.</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">Why this exists</span>
-          </div>
-          <p className="muted">
-            You read great stuff. You highlight it. Then it disappears into a folder you never open.
-            Noeis is the opposite of that. It gives your reading a real home and keeps it warm.
-            So six months from now you can find the exact idea in 10 seconds and get on with your day.
-          </p>
-        </Card>
-      </div>
-    </Page>
-  );
-};
+    <h2>Your data</h2>
+    <p>
+      Everything you keep can be exported as files from <Link to="/settings?section=data">Settings, Data</Link>.
+      Something wrong? <Link to="/support">Support</Link> says how to reach Athan.
+    </p>
+  </main>
+);
 
 export default HowToUse;

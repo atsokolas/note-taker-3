@@ -9,7 +9,6 @@ const SettingsShell = ({
   searchQuery,
   onSearchQueryChange,
   onSearchSelect,
-  onHelp,
   children
 }) => {
   const results = searchQuery ? searchSettingsRegistry(searchQuery) : [];
@@ -42,7 +41,7 @@ const SettingsShell = ({
         </nav>
         <div className="settings-redesign__sidelinks">
           <Link to="/connections">Connections <span aria-hidden="true">↗</span></Link>
-          <button type="button" onClick={onHelp}>Help & shortcuts <span aria-hidden="true">?</span></button>
+          <Link to="/how-to-use">Help & shortcuts <span aria-hidden="true">?</span></Link>
         </div>
       </aside>
       <main className="settings-redesign__main">

@@ -17,7 +17,6 @@ import {
   readSettingsReturnPath,
   returnLinkLabel
 } from '../settings/settingsReturnPath';
-import { Button } from '../components/ui';
 
 const Settings = ({
   uiSettings = normalizeUiSettings(),
@@ -38,7 +37,6 @@ const Settings = ({
   const [saveState, setSaveState] = useState('idle');
   const [lastReceipt, setLastReceipt] = useState(null);
   const [failedPatch, setFailedPatch] = useState(null);
-  const [helpOpen, setHelpOpen] = useState(false);
   const returnMeta = readSettingsReturnPath();
 
   useEffect(() => {
@@ -150,11 +148,6 @@ const Settings = ({
       navigate(entry.externalPath);
       return;
     }
-    if (entry.action === 'help') {
-      setHelpOpen(true);
-      setSearchQuery('');
-      return;
-    }
     setSearchQuery('');
     setSection(entry.section);
     navigate(`/settings?section=${entry.section}&focus=${entry.focusId || entry.id}`, { replace: true });
@@ -178,20 +171,9 @@ const Settings = ({
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         onSearchSelect={handleSearchSelect}
-        onHelp={() => setHelpOpen(true)}
       >
         {sectionContent}
       </SettingsShell>
-      {helpOpen ? (
-        <dialog className="settings-redesign__dialog" open>
-          <h2>A little help, not a reset</h2>
-          <p className="settings-redesign__help">Use the search field to find a setting. Escape closes dialogs.</p>
-          <Link to="/how-to-use" className="settings-redesign__link" onClick={() => setHelpOpen(false)}>Open full help</Link>
-          <div style={{ marginTop: '1rem' }}>
-            <Button onClick={() => setHelpOpen(false)}>Back to settings</Button>
-          </div>
-        </dialog>
-      ) : null}
     </div>
   );
 };

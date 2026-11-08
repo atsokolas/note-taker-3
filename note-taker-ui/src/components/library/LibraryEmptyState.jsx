@@ -94,7 +94,7 @@ export default function LibraryEmptyState({
             <a className={quietLink} href={TOUR_EXTENSION_URL} target="_blank" rel="noopener noreferrer">
               Install browser extension
             </a>
-            <Link className={quietLink} to="/how-to-use">See the full walkthrough</Link>
+            <Link className={quietLink} to="/how-to-use">What each room is for</Link>
           </>
         )}
       >

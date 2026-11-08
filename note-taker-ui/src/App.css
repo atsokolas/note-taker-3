@@ -900,27 +900,6 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
     }
 }
 
-.howto-list {
-    margin: 0;
-    padding-left: 20px;
-    color: var(--text-primary);
-    line-height: 1.7;
-}
-
-.howto-list li + li {
-    margin-top: 8px;
-}
-
-.howto-checklist {
-    margin: 0;
-    padding-left: 18px;
-    color: var(--text-primary);
-}
-
-.howto-checklist li + li {
-    margin-top: 6px;
-}
-
 /* ----------------------------------- */
 /* NEW: Article Highlights Sidebar Styles */
 /* ----------------------------------- */

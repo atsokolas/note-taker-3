@@ -806,11 +806,29 @@ body.noeis-editorial .topbar__menu-popover--portal {
   z-index: 220;
 }
 
+/* A menu off the masthead speaks as the masthead does: serif words, and
+   where you are underlined rather than filled. */
 body.noeis-editorial .topbar__menu-popover .topbar__menu-item {
   display: flex;
   gap: 8px;
   justify-content: flex-start;
   width: 100%;
+  min-height: 40px;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent) !important;
+  font: 400 0.98rem/1.2 var(--font-serif);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Outranks the generic menu wash in semantic-theme.css, which fills the
+   current row and draws a bar beside it. */
+body.noeis-editorial .topbar__menu-popover--portal[role='menu'] .topbar__menu-item[role='menuitem']:is(:hover, :focus-visible, .is-active) {
+  background: transparent !important;
+  box-shadow: none;
+  color: var(--vellum-ink) !important;
+  text-decoration: underline;
+  text-decoration-color: var(--vellum-accent);
+  text-underline-offset: 0.45em;
 }
 
 @media (max-width: 1480px) {
@@ -952,8 +970,8 @@ body.noeis-editorial .status-message.success-message {
    * this case. CSS chooses which copy shows, so there is no viewport state to
    * keep in sync. */
 
-body.noeis-editorial .topbar__menu-item--narrow-only,
-body.noeis-editorial .topbar__menu-item--mobile-room {
+body.noeis-editorial .topbar__menu-popover .topbar__menu-item--narrow-only,
+body.noeis-editorial .topbar__menu-popover .topbar__menu-item--mobile-room {
   display: none;
 }
 
@@ -988,7 +1006,7 @@ body.noeis-editorial .topbar__menu-item--mobile-room {
     display: none !important;
   }
 
-  body.noeis-editorial .topbar__menu-item--narrow-only {
+  body.noeis-editorial .topbar__menu-popover .topbar__menu-item--narrow-only {
     display: flex;
   }
 
@@ -1078,7 +1096,7 @@ body.noeis-editorial .topbar__menu-item--mobile-room {
     mask-image: none;
   }
 
-  body.noeis-editorial .topbar__menu-item--mobile-room {
+  body.noeis-editorial .topbar__menu-popover .topbar__menu-item--mobile-room {
     display: flex;
   }
 }
