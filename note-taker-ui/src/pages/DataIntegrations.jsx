@@ -624,11 +624,11 @@ const DataIntegrations = () => {
     systemStatus.setLatestReceipt(normalized || fallback);
   }, [systemStatus]);
   const explicitSourceSelectionRef = useRef(Boolean(getRequestedSourceFromLocation()));
-  const [selectedSource, setSelectedSource] = useState(() => getRequestedSourceFromLocation() || 'readwise');
+  const [chosenSource, setChosenSource] = useState(getRequestedSourceFromLocation);
   const selectSource = useCallback((source) => {
     if (SOURCE_OPTIONS.some(option => option.key === source)) {
       explicitSourceSelectionRef.current = true;
-      setSelectedSource(source);
+      setChosenSource(source);
       setPreviewPassageOpen(false);
     }
   }, []);
@@ -662,6 +662,10 @@ const DataIntegrations = () => {
   const [readwiseChecking, setReadwiseChecking] = useState(false);
   const [readwiseSyncing, setReadwiseSyncing] = useState(false);
   const [notionConnection, setNotionConnection] = useState(null);
+  /* Nothing opens until asked, except a source already connected: its sync is
+     what a returning reader came for. */
+  const selectedSource = chosenSource
+    || (readwiseConnection?.id || readwiseConnections.length ? 'readwise' : notionConnection?.id ? 'notion' : '');
   const [notionSetupMissingEnv, setNotionSetupMissingEnv] = useState([]);
   const [notionChecking, setNotionChecking] = useState(false);
   const [notionConnecting, setNotionConnecting] = useState(false);
@@ -701,7 +705,7 @@ const DataIntegrations = () => {
         if (cancelled) return;
         setCurrentSession(session);
         if (!explicitSourceSelectionRef.current && session?.provider && SOURCE_OPTIONS.some(option => option.key === session.provider)) {
-          setSelectedSource(session.provider);
+          setChosenSource(session.provider);
         }
       } catch (error) {
         console.error('Failed to load active import session:', error);
@@ -777,7 +781,7 @@ const DataIntegrations = () => {
         if (cancelled) return;
         setCurrentSession(session);
         if (!explicitSourceSelectionRef.current && session?.provider && SOURCE_OPTIONS.some(option => option.key === session.provider)) {
-          setSelectedSource(session.provider);
+          setChosenSource(session.provider);
         }
       } catch (error) {
         if (!cancelled) {
@@ -1004,7 +1008,7 @@ const DataIntegrations = () => {
 
   useEffect(() => {
     const hashSource = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
-    if (!['readwise', 'notion', 'evernote'].includes(hashSource) || hashSource !== selectedSource) return;
+    if (!hashSource || hashSource !== selectedSource) return;
     window.requestAnimationFrame?.(() => {
       const target = document.getElementById(hashSource);
       if (target?.scrollIntoView) {
@@ -2637,6 +2641,7 @@ const DataIntegrations = () => {
         </div>
       </section>
 
+      {connectedLoopCount || indexingWarning || embeddingJobWarning || indexRetryStatus ? (
       <details
         className="connections-fold connections-return-loop"
         data-testid="connections-return-loop"
@@ -2688,6 +2693,7 @@ const DataIntegrations = () => {
         ) : null}
         {indexRetryStatus ? <p className="connections-copy-status" role="status">{indexRetryStatus}</p> : null}
       </details>
+      ) : null}
 
       {(sessionMessage || importStatus.message || importStats || currentSession) && (
         <Card className="settings-card">
