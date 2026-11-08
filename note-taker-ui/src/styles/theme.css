@@ -6638,7 +6638,6 @@ body.noeis-editorial .ui-quiet-button {
   text-transform: uppercase;
 }
 
-body.noeis-editorial .topbar__button:hover,
 body.noeis-editorial .topbar__menu-item:hover,
 body.noeis-editorial .ui-button:hover,
 body.noeis-editorial .ui-quiet-button:hover {
@@ -6648,11 +6647,41 @@ body.noeis-editorial .ui-quiet-button:hover {
   transform: none;
 }
 
-body.noeis-editorial .topbar__button.is-active,
 body.noeis-editorial .ui-button-primary,
 body.noeis-editorial .ui-segmented-nav__item.is-active {
   background: var(--vellum-panel-stronger) !important;
   color: var(--vellum-ink) !important;
+}
+
+/* Inside first run and Settings an action is a word on a rule, said in
+   sentence case, not a tracked capital on a panel. */
+body.noeis-editorial :is(.welcome, .settings-redesign__main) :is(.ui-button, .ui-quiet-button) {
+  min-height: 0;
+  padding: 0 0 1px;
+  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line)) !important;
+  color: var(--noeis-ink, var(--text-primary)) !important;
+  font-size: 0.94rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+body.noeis-editorial :is(.welcome, .settings-redesign__main) .ui-quiet-button {
+  border-bottom-color: transparent !important;
+  color: var(--noeis-ink-muted, var(--text-secondary)) !important;
+}
+
+body.noeis-editorial :is(.welcome, .settings-redesign__main) :is(.ui-button, .ui-quiet-button):is(:hover, :focus-visible, :focus-within) {
+  border-bottom-color: currentColor !important;
+  background: transparent !important;
+  color: var(--noeis-ink, var(--text-primary)) !important;
+}
+
+body.noeis-editorial :is(.welcome, .settings-redesign__main) :is(.ui-button, .ui-quiet-button):disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* Panels embedded in the page have no chrome — the page is the surface, and a

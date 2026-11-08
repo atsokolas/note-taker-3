@@ -595,9 +595,13 @@ body.noeis-editorial .topbar__right .topbar__button {
   text-transform: none;
 }
 
+/* Where you are is underlined, as the rooms are, never filled. */
 body.noeis-editorial .topbar__right .topbar__button:hover,
 body.noeis-editorial .topbar__right .topbar__button.is-active {
   color: var(--vellum-ink) !important;
+  text-decoration: underline;
+  text-decoration-color: var(--vellum-accent);
+  text-underline-offset: 0.45em;
 }
 
 body.noeis-editorial .topbar__primary-link {

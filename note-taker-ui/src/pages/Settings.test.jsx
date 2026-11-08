@@ -102,11 +102,29 @@ describe('Settings redesign', () => {
     expect(onAppearanceCommit).toHaveBeenCalledTimes(2);
   });
 
-  it('loads delivery settings lazily in the Delivery section', async () => {
+  it('sends the morning paper to the address typed, in one step', async () => {
+    getMorningPaperSettings.mockResolvedValue({ enabled: false, email: '', timezone: 'UTC', sendHourLocal: 7 });
+    updateMorningPaperSettings.mockImplementation(async patch => ({ ...patch, enabled: true }));
     renderSettings();
     fireEvent.click(screen.getByRole('button', { name: 'Delivery' }));
-    await waitFor(() => expect(getMorningPaperSettings).toHaveBeenCalled());
-    expect(screen.getByText(/Morning paper by email/i)).toBeInTheDocument();
+    fireEvent.change(await screen.findByLabelText('Address'), { target: { value: 'me@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send it each morning' }));
+    await waitFor(() => expect(updateMorningPaperSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'me@example.com', confirmEmail: true, enabled: true })
+    ));
+    expect(await screen.findByRole('button', { name: 'Stop sending' })).toBeInTheDocument();
+  });
+
+  it('moves the hour without reconfirming the address, and stays on while editing', async () => {
+    getMorningPaperSettings.mockResolvedValue({ enabled: true, email: 'me@example.com', emailConfirmed: true, timezone: 'UTC', sendHourLocal: 7 });
+    updateMorningPaperSettings.mockImplementation(async patch => ({ enabled: true, email: 'me@example.com', emailConfirmed: true, timezone: 'UTC', ...patch }));
+    renderSettings();
+    fireEvent.click(screen.getByRole('button', { name: 'Delivery' }));
+    fireEvent.change(await screen.findByLabelText('Hour'), { target: { value: '8' } });
+    expect(screen.getByText(/^On\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Stop sending' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save the change' }));
+    await waitFor(() => expect(updateMorningPaperSettings).toHaveBeenCalledWith({ email: 'me@example.com', timezone: 'UTC', sendHourLocal: 8 }));
   });
 
   it('finds motion through setting search', async () => {

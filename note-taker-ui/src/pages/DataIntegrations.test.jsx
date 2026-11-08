@@ -973,6 +973,18 @@ describe('DataIntegrations first insight workflow', () => {
     expect(await screen.findByText('Readwise connection is healthy.')).toBeInTheDocument();
   });
 
+  it('opens nothing until a source is chosen', async () => {
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByTestId('import-source-card-readwise')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Connect with Readwise' })).not.toBeInTheDocument();
+    expect(screen.queryByText('What keeps coming in')).not.toBeInTheDocument();
+  });
+
   it('shows Readwise browser approval as the recommended connect flow with token fallback', async () => {
     render(
       <MemoryRouter>
@@ -980,6 +992,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
+    fireEvent.click(await screen.findByTestId('import-source-card-readwise'));
     expect(await screen.findByText(/You do not need to paste an API token/i)).toBeInTheDocument();
     expect(screen.getByText(/https:\/\/mcp2\.readwise\.io\/mcp/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Readwise MCP setup' })).toHaveAttribute('href', 'https://docs.readwise.io/tools/mcp');
@@ -998,6 +1011,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
+    fireEvent.click(await screen.findByTestId('import-source-card-readwise'));
     fireEvent.click(await screen.findByRole('button', { name: 'Connect with Readwise' }));
 
     await waitFor(() => expect(startReadwiseOAuth).toHaveBeenCalledTimes(1));

@@ -1,234 +1,102 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getMorningPaperSettings, updateMorningPaperSettings } from '../../api/dailyLoop';
 import { formatDeliveryHour, nextEligibleDeliveryMoments } from '../../settings/morningPaperSchedule';
 import { Button } from '../ui';
 
-const emailValid = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+const deviceZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+const detailsOf = (settings) => ({
+  email: settings.email || '',
+  timezone: settings.email ? settings.timezone : deviceZone(),
+  sendHourLocal: settings.sendHourLocal ?? 7
+});
+const problemOf = (error) => error?.response?.data?.error || 'That did not save. Try again.';
 
+/* The morning paper by email: an address, an hour, and one button. Typing
+   your own address and pressing Send is the confirmation the server asks for. */
 const DeliverySection = () => {
   const [settings, setSettings] = useState(null);
-  const [draft, setDraft] = useState({ email: '', timezone: 'UTC', sendHourLocal: 7 });
-  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [confirmAddress, setConfirmAddress] = useState(false);
+  const [problem, setProblem] = useState('');
 
   useEffect(() => {
-    let cancelled = false;
+    let live = true;
     getMorningPaperSettings()
-      .then((value) => {
-        if (cancelled) return;
-        setSettings(value);
-        setDraft({
-          email: value.email || '',
-          timezone: value.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-          sendHourLocal: value.sendHourLocal ?? 7
-        });
-      })
-      .catch((requestError) => {
-        if (!cancelled) setError(requestError?.response?.data?.error || 'Failed to load delivery settings.');
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((value) => { if (live) { setSettings(value); setDraft(detailsOf(value)); } })
+      .catch((error) => { if (live) setProblem(problemOf(error)); });
+    return () => { live = false; };
   }, []);
 
-  const dirty = settings && (
-    draft.email !== (settings.email || '')
-    || draft.timezone !== (settings.timezone || 'UTC')
-    || Number(draft.sendHourLocal) !== Number(settings.sendHourLocal ?? 7)
-  );
-
-  const schedule = useMemo(
-    () => nextEligibleDeliveryMoments(draft.sendHourLocal, draft.timezone, new Date(), 3),
-    [draft.sendHourLocal, draft.timezone]
-  );
-
-  const savePatch = async (patch, success) => {
+  const save = async (patch) => {
     setSaving(true);
-    setError('');
-    setMessage('');
+    setProblem('');
     try {
       const next = await updateMorningPaperSettings(patch);
       setSettings(next);
-      setDraft({
-        email: next.email || '',
-        timezone: next.timezone || 'UTC',
-        sendHourLocal: next.sendHourLocal ?? 7
-      });
-      setMessage(success);
-      return true;
-    } catch (requestError) {
-      setError(requestError?.response?.data?.error || 'That did not save.');
-      return false;
+      setDraft(detailsOf(next));
+    } catch (error) {
+      setProblem(problemOf(error));
     } finally {
       setSaving(false);
     }
   };
 
-  const reviewDelivery = () => {
-    if (!emailValid(draft.email)) return;
-    setConfirmAddress(false);
-    setReviewOpen(true);
+  const edit = (key) => (event) => setDraft({ ...draft, [key]: key === 'sendHourLocal' ? Number(event.target.value) : event.target.value });
+  /* Confirming rotates the unsubscribe links already sent, so it is asked
+     for only when the address is new or the reader is coming back. */
+  const send = (event) => {
+    event.preventDefault();
+    const confirming = !settings.emailConfirmed || settings.unsubscribedAt || draft.email.trim().toLowerCase() !== settings.email;
+    save({ ...draft, ...(confirming ? { confirmEmail: true } : {}), ...(settings.enabled ? {} : { enabled: true }) });
   };
 
-  const commitDeliveryDetails = async () => {
-    const changedAddress = draft.email !== (settings?.email || '');
-    if (changedAddress && !confirmAddress) return;
-    await savePatch(
-      {
-        email: draft.email,
-        timezone: draft.timezone,
-        sendHourLocal: draft.sendHourLocal,
-        ...(changedAddress ? { enabled: false } : {})
-      },
-      changedAddress
-        ? 'Delivery details saved. Delivery stays off until you turn it on separately.'
-        : 'Delivery details saved.'
-    );
-    setReviewOpen(false);
-  };
-
-  const toggleEnabled = async () => {
-    if (settings?.enabled) {
-      setSaving(true);
-      try {
-        const next = await updateMorningPaperSettings({ enabled: false });
-        setSettings(next);
-        setMessage('Email preference off. Your saved address, time and any unfinished edits are still here.');
-      } catch (requestError) {
-        setError(requestError?.response?.data?.error || 'That did not save.');
-      } finally {
-        setSaving(false);
-      }
-      return;
-    }
-    if (dirty) {
-      setError('Save the address or time changes before turning delivery on.');
-      return;
-    }
-    await savePatch({ enabled: true }, settings?.emailConfirmed ? 'Email delivery turned on.' : '');
-  };
+  const saved = settings && detailsOf(settings);
+  const changed = saved && draft && Object.keys(draft).some(key => String(draft[key]) !== String(saved[key]));
+  const [next] = saved ? nextEligibleDeliveryMoments(saved.sendHourLocal, saved.timezone, new Date(), 1).moments : [];
 
   return (
     <section>
       <div className="settings-redesign__pagehead">
-        <div>
-          <h2>Delivery</h2>
-          <p className="settings-redesign__help" style={{ marginTop: '0.45rem' }}>A useful paper, at a time you chose.</p>
-        </div>
-        <span className="settings-redesign__eyebrow">Morning paper</span>
+        <h2>Delivery</h2>
       </div>
-      <div className="settings-redesign__panel-columns">
-        <div>
-          <h3 style={{ margin: '0 0 0.5rem' }}>Morning paper by email</h3>
-          <p className="settings-redesign__help">Keep the schedule simple. Quiet days send nothing.</p>
-          {loading ? <p className="settings-redesign__help">Loading delivery settings…</p> : (
-            <>
-              <div className="settings-redesign__fact">
-                <span>{settings?.enabled ? 'Delivery preference on' : 'Delivery preference off'}</span>
-                <button type="button" className="settings-redesign__link" onClick={toggleEnabled} disabled={saving}>
-                  {settings?.enabled ? 'Turn off' : 'Turn on…'}
-                </button>
-              </div>
-              <label className="settings-redesign__label" htmlFor="delivery-email">Delivery address</label>
-              <input
-                id="delivery-email"
-                className="noeis-form-control"
-                type="email"
-                value={draft.email}
-                onChange={(event) => setDraft((prev) => ({ ...prev, email: event.target.value }))}
-                placeholder="you@example.com"
-                style={{ width: '100%', marginBottom: '0.75rem' }}
-              />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: '1rem' }}>
-                <label className="settings-redesign__label" htmlFor="delivery-timezone">Time zone</label>
-                <label className="settings-redesign__label" htmlFor="delivery-hour">Delivery hour</label>
-                <input
-                  id="delivery-timezone"
-                  className="noeis-form-control"
-                  value={draft.timezone}
-                  onChange={(event) => setDraft((prev) => ({ ...prev, timezone: event.target.value }))}
-                />
-                <select
-                  id="delivery-hour"
-                  className="noeis-form-control"
-                  value={draft.sendHourLocal}
-                  onChange={(event) => setDraft((prev) => ({ ...prev, sendHourLocal: Number(event.target.value) }))}
-                >
-                  {Array.from({ length: 24 }, (_, hour) => (
-                    <option key={hour} value={hour}>{formatDeliveryHour(hour)}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ marginTop: '1.25rem', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                <Button
-                  variant="primary"
-                  onClick={reviewDelivery}
-                  disabled={!emailValid(draft.email) || saving}
-                >
-                  Review delivery details
-                </Button>
-                <span className="settings-redesign__help" style={{ margin: 0 }}>{dirty ? 'Unsaved changes' : 'Current details'}</span>
-              </div>
-              {!settings?.emailConfirmed ? (
-                <p className="settings-redesign__help">Delivery stays off until you explicitly confirm the address.</p>
-              ) : null}
-            </>
-          )}
-          {message ? <div className="settings-redesign__receipt" role="status">{message}</div> : null}
-          {error ? <div className="settings-redesign__receipt is-error" role="alert">{error}</div> : null}
-        </div>
-        <aside className="settings-redesign__quiet">
-          <span className="settings-redesign__eyebrow">What this means</span>
-          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '1.9rem', margin: '0.5rem 0' }}>
-            {formatDeliveryHour(draft.sendHourLocal)}
-          </div>
-          <p className="settings-redesign__help">{draft.timezone}</p>
-          <div style={{ borderTop: '1px solid var(--settings-rule)', marginTop: '1rem', paddingTop: '1rem' }}>
-            <span className="settings-redesign__eyebrow">Next eligible times · preview</span>
-            {schedule.error ? (
-              <p className="settings-redesign__help">{schedule.error}</p>
-            ) : (
-              <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.1rem', fontSize: '0.75rem' }}>
-                {schedule.moments.map((moment) => <li key={moment}>{moment}</li>)}
-              </ul>
-            )}
-            <p className="settings-redesign__help">An eligible time is not a promise that an email will be sent.</p>
-            {dirty ? <p className="settings-redesign__help">Preview uses unsaved details.</p> : null}
-          </div>
-          {settings?.configuration && !settings.configuration.ready ? (
-            <p className="settings-redesign__help">Server delivery is not configured yet. Your preference is saved.</p>
-          ) : null}
-        </aside>
-      </div>
-
-      {reviewOpen ? (
-        <dialog className="settings-redesign__dialog" open>
-          <h2>Use these delivery details?</h2>
-          <p className="settings-redesign__help">Check the address and time together.</p>
-          <div className="settings-redesign__fact"><span>To</span><strong>{draft.email}</strong></div>
-          <div className="settings-redesign__fact"><span>At</span><strong>{formatDeliveryHour(draft.sendHourLocal)}</strong></div>
-          <div className="settings-redesign__fact"><span>Time zone</span><strong>{draft.timezone}</strong></div>
-          {draft.email !== (settings?.email || '') ? (
-            <label style={{ display: 'flex', gap: '0.5rem', fontSize: '0.75rem', marginTop: '1rem' }}>
-              <input type="checkbox" checked={confirmAddress} onChange={(e) => setConfirmAddress(e.target.checked)} />
-              I confirm this is the delivery address I want to use. This is not an ownership-verification email.
-            </label>
-          ) : null}
-          <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem' }}>
-            <Button
-              variant="primary"
-              onClick={commitDeliveryDetails}
-              disabled={draft.email !== (settings?.email || '') && !confirmAddress}
-            >
-              Use these delivery details
-            </Button>
-            <button type="button" className="settings-redesign__link" onClick={() => setReviewOpen(false)}>Keep editing</button>
-          </div>
-        </dialog>
+      <p className="settings-redesign__help">The morning paper by email, at an hour you choose. Quiet days send nothing.</p>
+      {settings?.configuration && !settings.configuration.ready ? (
+        <p className="settings-redesign__help">Noeis cannot send email yet, so nothing goes out for now. What you choose here is kept for when it can.</p>
       ) : null}
+
+      {draft ? (
+        <form className="settings-account__block" onSubmit={send} noValidate>
+          <label className="settings-account__field">
+            <span>Address</span>
+            <input id="delivery-email" type="email" autoComplete="email" placeholder="you@example.com" value={draft.email} onChange={edit('email')} />
+          </label>
+          <label className="settings-account__field">
+            <span>Hour</span>
+            <select value={draft.sendHourLocal} onChange={edit('sendHourLocal')}>
+              {HOURS.map(hour => <option key={hour} value={hour}>{formatDeliveryHour(hour)}</option>)}
+            </select>
+          </label>
+          <label className="settings-account__field">
+            <span>Time zone</span>
+            <input value={draft.timezone} onChange={edit('timezone')} />
+          </label>
+          <p className="settings-redesign__help" role="status">
+            {settings.enabled ? `On. The next one comes ${next || 'at the hour you chose'}.` : 'Off.'}
+          </p>
+          <div className="settings-account__actions">
+            {!settings.enabled || changed ? (
+              <Button type="submit" disabled={saving || !draft.email.trim()}>
+                {settings.enabled ? 'Save the change' : 'Send it each morning'}
+              </Button>
+            ) : null}
+            {settings.enabled ? (
+              <Button variant="quiet" disabled={saving} onClick={() => save({ enabled: false })}>Stop sending</Button>
+            ) : null}
+          </div>
+        </form>
+      ) : null}
+      {problem ? <p className="settings-redesign__receipt is-error" role="alert">{problem}</p> : null}
     </section>
   );
 };

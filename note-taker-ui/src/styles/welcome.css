@@ -172,43 +172,6 @@ body.noeis-editorial .welcome input:focus,
   padding-top: 8px;
 }
 
-/* body.noeis-editorial sets every .ui-button as a tracked uppercase word on a
-   panel, with !important; first run answers in kind. */
-body.noeis-editorial .welcome .ui-button,
-body.noeis-editorial .welcome .ui-quiet-button,
-.welcome .welcome__file-pick {
-  min-height: 0;
-  padding: 0 0 1px;
-  border: 0 !important;
-  border-bottom: 1px solid var(--welcome-rule) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  color: var(--welcome-ink) !important;
-  font-family: var(--font-sans);
-  font-size: 0.94rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-body.noeis-editorial .welcome .ui-quiet-button {
-  border-bottom-color: transparent !important;
-  color: var(--welcome-muted) !important;
-}
-
-body.noeis-editorial .welcome .ui-button:hover,
-body.noeis-editorial .welcome .ui-button:focus-visible,
-body.noeis-editorial .welcome .ui-quiet-button:hover,
-body.noeis-editorial .welcome .ui-quiet-button:focus-visible,
-.welcome .welcome__file-pick:hover,
-.welcome .welcome__file-pick:focus-within {
-  border-bottom-color: currentColor !important;
-  background: transparent !important;
-  color: var(--welcome-ink) !important;
-}
-
 body.noeis-editorial .welcome .ui-button.ui-button-primary {
   padding: 0.66rem 1.2rem;
   border: 1px solid var(--welcome-ink) !important;
@@ -225,8 +188,6 @@ body.noeis-editorial .welcome .ui-button.ui-button-primary:focus-visible {
   color: var(--vellum-bg, #fff) !important;
 }
 
-body.noeis-editorial .welcome .ui-button:disabled,
-body.noeis-editorial .welcome .ui-quiet-button:disabled,
 .welcome .welcome__file-pick.is-busy {
   opacity: 0.4;
   cursor: default;
