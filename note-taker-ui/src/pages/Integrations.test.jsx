@@ -156,8 +156,8 @@ describe('Connections center', () => {
     expect(screen.getByTestId('connections-sources')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: /Agents/ }));
-    expect(screen.getByRole('heading', { name: 'Agents you have authorized' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Give instructions' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Connect an agent' })).toBeInTheDocument();
     expect(screen.getByText('Advanced')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: /Activity/ }));
