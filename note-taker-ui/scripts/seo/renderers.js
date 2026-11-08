@@ -229,12 +229,10 @@ const renderHomeFallback = (content) => `
   <main class="seo-page">
     <article class="seo-shell">
       <header class="seo-hero">
-        <p class="eyebrow">${escapeHtml(content.home.eyebrow)}</p>
         <h1>${escapeHtml(content.home.headline)}</h1>
         <p class="lede">${escapeHtml(content.home.lede)}</p>
         <div class="cta-row">
           <a class="button primary" href="${escapeHtml(buildMarketingHref(content.home.primaryCta.href, { entry: 'home', cta: 'hero', pageType: 'home' }))}">${escapeHtml(content.home.primaryCta.label)}</a>
-          <a class="button secondary" href="${escapeHtml(content.home.secondaryCta.href)}">${escapeHtml(content.home.secondaryCta.label)}</a>
         </div>
       </header>
       <section class="card" id="how-it-works">

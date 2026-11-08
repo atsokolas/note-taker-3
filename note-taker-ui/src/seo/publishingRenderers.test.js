@@ -26,8 +26,8 @@ describe('publishing renderers', () => {
 
     expect(html).toContain(homeCopy.headline);
     homeCopy.statements.forEach(({ title }) => expect(html).toContain(title));
-    expect(html).toContain('Connect Claude Code, Codex and other agents');
-    expect(html).toContain('href="#how-it-works"');
+    expect(html).toContain('connect Claude Code, Codex and other agents');
+    expect(html).toContain('id="how-it-works"');
     expect(html).toContain('href="/guides"');
     expect(html).toContain('href="/examples"');
     expect(html).toContain('href="/skill.md"');
