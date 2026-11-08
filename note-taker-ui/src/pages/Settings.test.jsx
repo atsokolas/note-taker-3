@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import Settings from './Settings';
 import { getMorningPaperSettings, updateMorningPaperSettings } from '../api/dailyLoop';
-import { TemporaryAppearanceProvider } from '../settings/TemporaryAppearanceContext';
 
 jest.mock('../api/dailyLoop', () => ({
   getMorningPaperSettings: jest.fn(),
@@ -16,22 +15,17 @@ jest.mock('../api/tourApi', () => ({
 
 const renderSettings = (props = {}) => render(
   <MemoryRouter>
-    <TemporaryAppearanceProvider
-      committedSettings={props.uiSettings}
-      onKeepTemporary={async () => ({ ok: true })}
-    >
-      <Settings
-        uiSettings={{
-          typographyScale: 'default',
-          density: 'comfortable',
-          theme: 'auto',
-          motion: 'system'
-        }}
-        onAppearanceCommit={props.onAppearanceCommit || jest.fn().mockResolvedValue({ ok: true })}
-        onAppearanceUndo={jest.fn()}
-        {...props}
-      />
-    </TemporaryAppearanceProvider>
+    <Settings
+      uiSettings={{
+        typographyScale: 'default',
+        density: 'comfortable',
+        theme: 'auto',
+        motion: 'system'
+      }}
+      onAppearanceCommit={props.onAppearanceCommit || jest.fn().mockResolvedValue({ ok: true })}
+      onAppearanceUndo={jest.fn()}
+      {...props}
+    />
   </MemoryRouter>
 );
 
@@ -56,41 +50,56 @@ describe('Settings redesign', () => {
     }));
   });
 
-  it('takes a theme kept from the theme menu over a theme still pending in the draft', () => {
+  it('shows a theme kept from the theme menu', () => {
     const base = { typographyScale: 'large', density: 'comfortable', theme: 'dark', motion: 'system' };
-    const props = { uiSettings: base, onOpenThemePicker: jest.fn() };
-    const { rerender } = renderSettings(props);
-    fireEvent.click(screen.getByRole('button', { name: /Restore appearance defaults/ }));
-    expect(screen.getByRole('button', { name: /System/ })).toHaveAttribute('aria-haspopup', 'dialog');
+    const { rerender } = renderSettings({ uiSettings: base, onOpenThemePicker: jest.fn() });
     rerender(
       <MemoryRouter>
-        <TemporaryAppearanceProvider committedSettings={base} onKeepTemporary={async () => ({ ok: true })}>
-          <Settings
-            uiSettings={{ ...base, theme: 'dracula' }}
-            onAppearanceCommit={jest.fn()}
-            onAppearanceUndo={jest.fn()}
-            onOpenThemePicker={props.onOpenThemePicker}
-          />
-        </TemporaryAppearanceProvider>
+        <Settings uiSettings={{ ...base, theme: 'dracula' }} onAppearanceCommit={jest.fn()} onAppearanceUndo={jest.fn()} />
       </MemoryRouter>
     );
     expect(screen.getByRole('button', { name: /Dracula/ })).toHaveAttribute('aria-haspopup', 'dialog');
   });
 
-  it('keeps appearance changes in preview until the reader applies them', async () => {
-    const onAppearanceCommit = jest.fn().mockResolvedValue({ ok: true, settings: {
-      typographyScale: 'large',
-      density: 'comfortable',
-      theme: 'auto',
-      motion: 'system'
-    } });
-
-    renderSettings({ onAppearanceCommit });
+  it('applies an appearance choice at once and offers Undo', async () => {
+    const onAppearanceCommit = jest.fn().mockResolvedValue({ ok: true });
+    const onAppearanceUndo = jest.fn().mockResolvedValue({ ok: true });
+    renderSettings({ onAppearanceCommit, onAppearanceUndo });
 
     fireEvent.click(screen.getByRole('radio', { name: 'Large' }));
-    expect(onAppearanceCommit).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Use this appearance' }));
-    await waitFor(() => expect(onAppearanceCommit).toHaveBeenCalled());
+    expect(screen.getByRole('radio', { name: 'Large' })).toBeChecked();
+    expect(onAppearanceCommit).toHaveBeenCalledWith({ typographyScale: 'large' }, expect.objectContaining({ typographyScale: 'large' }));
+    expect(await screen.findByText('Reading size: Large')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(onAppearanceUndo).toHaveBeenCalledWith(expect.objectContaining({ keys: ['typographyScale'] })));
+  });
+
+  it('keeps a choice made while an earlier one is still saving', async () => {
+    let finish;
+    const onAppearanceCommit = jest.fn()
+      .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }))
+      .mockResolvedValue({ ok: true });
+    renderSettings({ onAppearanceCommit });
+    fireEvent.click(screen.getByRole('radio', { name: 'Large' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Compact' }));
+    expect(onAppearanceCommit).toHaveBeenLastCalledWith(
+      { typographyScale: 'large', density: 'compact' },
+      expect.objectContaining({ typographyScale: 'large', density: 'compact' })
+    );
+    finish({ ok: true });
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Compact' })).toBeChecked());
+    expect(screen.getByRole('radio', { name: 'Large' })).toBeChecked();
+  });
+
+  it('puts the old choice back and offers to try again when a save fails', async () => {
+    const onAppearanceCommit = jest.fn().mockResolvedValue({ ok: false });
+    renderSettings({ onAppearanceCommit });
+    fireEvent.click(screen.getByRole('radio', { name: 'Compact' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('That did not save');
+    expect(screen.getByRole('radio', { name: 'Comfortable' })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(onAppearanceCommit).toHaveBeenCalledTimes(2);
   });
 
   it('loads delivery settings lazily in the Delivery section', async () => {
@@ -104,6 +113,6 @@ describe('Settings redesign', () => {
     renderSettings();
     fireEvent.change(screen.getByLabelText('Find a setting'), { target: { value: 'animation' } });
     fireEvent.click(await screen.findByRole('button', { name: /Motion/i }));
-    expect(await screen.findByText(/Reduce Motion preference always wins/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Reduce Motion setting always wins/i)).toBeInTheDocument();
   });
 });

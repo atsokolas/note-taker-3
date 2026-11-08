@@ -8,7 +8,7 @@ const CREATION_MODES = [
   {
     id: 'wiki',
     label: 'Wiki',
-    description: 'Build a general reference from your Library.'
+    description: 'A page on anything you have read about, written from your Library with every source cited.'
   },
   {
     id: 'repository',
@@ -22,8 +22,11 @@ const CREATION_MODES = [
   }
 ];
 
-const WikiCreationComposer = ({ className = '', initialMode = 'wiki' }) => {
+/* `kinds` narrows the choice: an empty Wiki offers only a page, since a
+   repository reference or a company dossier is not where anyone starts. */
+const WikiCreationComposer = ({ className = '', initialMode = 'wiki', kinds }) => {
   const [mode, setMode] = useState(initialMode);
+  const modes = kinds ? CREATION_MODES.filter(item => kinds.includes(item.id)) : CREATION_MODES;
   const [busyMode, setBusyMode] = useState('');
   const selected = CREATION_MODES.find(item => item.id === mode) || CREATION_MODES[0];
 
@@ -33,19 +36,21 @@ const WikiCreationComposer = ({ className = '', initialMode = 'wiki' }) => {
 
   return (
     <section className={`wiki-creation${className ? ` ${className}` : ''}`} aria-label="Create a wiki">
-      <div className="wiki-creation__modes" role="group" aria-label="Wiki type">
-        {CREATION_MODES.map(item => (
-          <button
-            key={item.id}
-            type="button"
-            aria-pressed={mode === item.id}
-            disabled={Boolean(busyMode) && mode !== item.id}
-            onClick={() => setMode(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      {modes.length > 1 ? (
+        <div className="wiki-creation__modes" role="group" aria-label="Wiki type">
+          {modes.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={mode === item.id}
+              disabled={Boolean(busyMode) && mode !== item.id}
+              onClick={() => setMode(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <p className="wiki-creation__description">{selected.description}</p>
       <div className="wiki-creation__panel">
         <div hidden={mode !== 'wiki'}>

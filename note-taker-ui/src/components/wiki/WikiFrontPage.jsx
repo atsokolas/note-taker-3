@@ -215,7 +215,7 @@ export const ComesDue = ({ due, onSettled }) => {
 /* What moved since you last looked. Silence is a state: when nothing moved,
    one line says so and the list follows. */
 const SinceYouLooked = ({ since, changes, pageCount, proposedCount }) => {
-  if (!since || !changes) return null;
+  if (!since || !changes || (!pageCount && !changes.length)) return null;
   const when = since.first ? 'this week' : `since ${sinceLabel(since.at)}`;
   if (!changes.length) {
     return (
@@ -488,31 +488,33 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           </section>
         ) : null}
 
-        <div className="wiki-collection__search">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="10.5" cy="10.5" r="6.5" />
-            <path d="m16 16 4.5 4.5" />
-          </svg>
-          <input
-            id="wikiQuery"
-            type="search"
-            aria-label="Search current Wiki pages"
-            placeholder="Find an idea, a page, a sentence…"
-            value={wikiSearch}
-            onChange={(event) => setWikiSearch(event.target.value)}
-          />
-          {presentKinds.length > 1 || kind ? (
-            <select
-              className="wiki-collection__kind-filter"
-              aria-label="Kind of page"
-              value={kind}
-              onChange={(event) => setQuery('kind', event.target.value)}
-            >
-              <option value="">Every kind</option>
-              {WIKI_KINDS.map(item => <option key={item} value={item}>{WIKI_KIND_LABELS[item]}</option>)}
-            </select>
-          ) : null}
-        </div>
+        {emptyComposer ? null : (
+          <div className="wiki-collection__search">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path d="m16 16 4.5 4.5" />
+            </svg>
+            <input
+              id="wikiQuery"
+              type="search"
+              aria-label="Search current Wiki pages"
+              placeholder="Find an idea, a page, a sentence…"
+              value={wikiSearch}
+              onChange={(event) => setWikiSearch(event.target.value)}
+            />
+            {presentKinds.length > 1 || kind ? (
+              <select
+                className="wiki-collection__kind-filter"
+                aria-label="Kind of page"
+                value={kind}
+                onChange={(event) => setQuery('kind', event.target.value)}
+              >
+                <option value="">Every kind</option>
+                {WIKI_KINDS.map(item => <option key={item} value={item}>{WIKI_KIND_LABELS[item]}</option>)}
+              </select>
+            ) : null}
+          </div>
+        )}
 
         {availabilityNotice ? <p className="wiki-collection__status" role="status">{availabilityNotice}</p> : null}
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
@@ -529,7 +531,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           />
         ) : null}
 
-        {countedAbove || (toldAbove && !visiblePages.length) ? null : (
+        {emptyComposer || countedAbove || (toldAbove && !visiblePages.length) ? null : (
           <div className="wiki-collection__label">
             <span>
               {wikiSearch.trim()
@@ -579,12 +581,16 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             })}
           </ul>
         ) : (
-          <EmptyState
-            title={wikiSearch.trim() ? 'No pages match.' : 'No pages in this view.'}
-            actions={wikiSearch.trim() ? <Button onClick={() => setWikiSearch('')}>Clear the search</Button> : null}
-          >
-            Search looks through the current text of pages in this view. Private thoughts and unaccepted proposals are separate.
-          </EmptyState>
+          /* An empty Wiki needs no notice that it is empty: the composer
+             below is the whole page. */
+          emptyComposer ? null : (
+            <EmptyState
+              title={wikiSearch.trim() ? 'No pages match.' : 'No pages in this view.'}
+              actions={wikiSearch.trim() ? <Button onClick={() => setWikiSearch('')}>Clear the search</Button> : null}
+            >
+              Search looks through the current text of pages in this view. Private thoughts and unaccepted proposals are separate.
+            </EmptyState>
+          )
         )}
 
         {pages.length >= INDEX_PAGE_LIMIT ? (
@@ -595,7 +601,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
 
         {emptyComposer ? (
           <section ref={composerRef} className="wiki-collection__composer" aria-label="Build a wiki page">
-            <WikiCreationComposer key={composerMode} initialMode={composerMode} />
+            <WikiCreationComposer key={composerMode} initialMode={composerMode} kinds={[composerMode]} />
           </section>
         ) : null}
       </section>

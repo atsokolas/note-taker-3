@@ -53,8 +53,7 @@ export const SETTINGS_REGISTRY = Object.freeze([
     title: 'Motion',
     description: 'Follow the device or choose less motion.',
     keywords: 'animation motion moving wiggle reduce dizzy',
-    focusId: 'motion',
-    unfold: 'motion-more'
+    focusId: 'motion'
   },
   {
     id: 'email',
