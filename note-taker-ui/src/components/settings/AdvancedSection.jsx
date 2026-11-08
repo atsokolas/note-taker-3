@@ -52,11 +52,9 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
       </div>
 
       <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--settings-rule)', paddingTop: '1.5rem' }}>
-        <h3>Help & onboarding</h3>
-        <p className="settings-redesign__help">Open keyboard help from the top bar. A refresher does not erase drafts or imports.</p>
-        <Link to="/how-to-use" className="settings-redesign__link">Help & shortcuts</Link>
+        <h3>The guide</h3>
+        <p className="settings-redesign__help">Walk through Noeis again. Nothing you have written or brought in changes.</p>
         <Button
-          style={{ marginLeft: '1rem' }}
           onClick={async () => {
             try {
               await resetTourState();

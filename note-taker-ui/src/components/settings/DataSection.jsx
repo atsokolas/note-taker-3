@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import api from '../../api';
 import { Button } from '../ui';
 
@@ -93,11 +92,9 @@ const DataSection = () => {
           <h2>Your data</h2>
           <p className="settings-redesign__help" style={{ marginTop: '0.45rem' }}>Know what leaves with you.</p>
         </div>
-        <span className="settings-redesign__eyebrow">Private export</span>
       </div>
 
       <div className="settings-redesign__data-row" id="export-json">
-        <div className="settings-redesign__eyebrow" style={{ border: '1px solid var(--settings-rule)', padding: '0.5rem', textAlign: 'center' }}>JSON</div>
         <div>
           <h3 style={{ margin: '0 0 0.35rem' }}>Structured export</h3>
           <p className="settings-redesign__help">Articles, highlights, notebook entries, collections, tags, and saved views. Not a restorable backup by itself.</p>
@@ -108,7 +105,6 @@ const DataSection = () => {
       </div>
 
       <div className="settings-redesign__data-row">
-        <div className="settings-redesign__eyebrow" style={{ border: '1px solid var(--settings-rule)', padding: '0.5rem', textAlign: 'center' }}>PDF</div>
         <div>
           <h3 style={{ margin: '0 0 0.35rem' }}>Reading copy</h3>
           <p className="settings-redesign__help">A readable bundle for keeping outside Noeis. A reading copy is not the same as a restorable workspace.</p>
@@ -135,11 +131,6 @@ const DataSection = () => {
       {status ? <div className="settings-redesign__receipt" role="status">{status}</div> : null}
       {error ? <div className="settings-redesign__receipt is-error" role="alert">{error}</div> : null}
 
-      <div style={{ marginTop: '2rem', borderTop: '1px solid var(--settings-rule)', paddingTop: '1.5rem' }}>
-        <h3>Connections and access</h3>
-        <p className="settings-redesign__help">Sources, agent credentials, permissions and revocation have one home.</p>
-        <Link to="/connections" className="settings-redesign__link">Open Connections ↗</Link>
-      </div>
     </section>
   );
 };

@@ -350,7 +350,7 @@ const KindleSource = ({ onBrought }) => {
       <h2>Kindle</h2>
       <p>Plug in your Kindle and pick <code>My Clippings.txt</code> from its documents folder. Every highlight comes in, filed under its book.</p>
       <div className="welcome__actions">
-        <label className={`welcome__file-pick${busy ? ' is-busy' : ''}`}>
+        <label className={`ui-button welcome__file-pick${busy ? ' is-busy' : ''}`}>
           <input type="file" accept=".txt,.html,.csv,.md" onChange={bring} disabled={busy} />
           {busy ? 'Reading the file…' : 'Choose the file'}
         </label>

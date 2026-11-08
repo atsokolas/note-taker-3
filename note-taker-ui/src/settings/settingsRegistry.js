@@ -72,14 +72,6 @@ export const SETTINGS_REGISTRY = Object.freeze([
     focusId: 'export-json'
   },
   {
-    id: 'wiki-rules',
-    section: 'advanced',
-    title: 'Wiki instructions',
-    description: 'Guidance for wiki maintenance and ask flows.',
-    keywords: 'schema wiki instructions prompt rules guidance',
-    focusId: 'wiki-instructions'
-  },
-  {
     id: 'diagnostics',
     section: 'advanced',
     title: 'Diagnostics',
