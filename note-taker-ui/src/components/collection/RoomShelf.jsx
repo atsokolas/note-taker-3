@@ -22,15 +22,13 @@ export const RoomShelf = ({
   ...props
 }) => (
   <Element className={join('room-shelf', className)} {...props}>
-    {/* Above the rail: anything that acts on the room rather than living in
-        it. A room the masthead already names needs no label here. */}
+    {/* Above the room's own name: anything that acts on the room rather than
+        living in it. */}
     {masthead || null}
-    {label ? (
-      <div className="room-shelf__heading">
-        <p className="room-shelf__eyebrow">{label}</p>
-        {Number.isFinite(count) ? <span className="room-shelf__count">{count}</span> : null}
-      </div>
-    ) : null}
+    <div className="room-shelf__heading">
+      <p className="room-shelf__eyebrow">{label}</p>
+      {Number.isFinite(count) ? <span className="room-shelf__count">{count}</span> : null}
+    </div>
     {description ? <p className="room-shelf__description">{description}</p> : null}
     {typeof search === 'string' ? (
       <label className="room-shelf__search">

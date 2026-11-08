@@ -471,6 +471,11 @@
   }
 }
 
+[data-noeis-surface='library'] .agent-rail-drawer__trigger {
+  backdrop-filter: none;
+  box-shadow: none;
+  border-radius: 4px;
+}
 .article-reader[data-read-fresh] .article-passage-thought,
 .article-reader[data-read-fresh] .article-thought-reopen {
   display: none;

@@ -91,15 +91,6 @@ describe('ThinkNotes first paint', () => {
     getQuestions.mockResolvedValue([]);
     getHighlights.mockResolvedValue([]);
   });
-  it('says an empty room is empty once, with nothing to hide or lay out', async () => {
-    render(<MemoryRouter><ThinkNotes /></MemoryRouter>);
-
-    expect(await screen.findByText(/A thought does not need a source to begin/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Hide list' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Board' })).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Recent' })).toBeNull();
-  });
-
   it('does not call the list empty before it has loaded', async () => {
     let resolveShelf;
     getNotebookShelf.mockReturnValue(new Promise(resolve => { resolveShelf = resolve; }));

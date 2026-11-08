@@ -6789,7 +6789,8 @@ body.noeis-editorial input:where(:not([type='checkbox'], [type='radio'], [type='
 body.noeis-editorial .feedback-field input,
 body.noeis-editorial .think-notebook-title-input,
 body.noeis-editorial .notebook-organize-panel input,
-body.noeis-editorial .notebook-organize-panel select {
+body.noeis-editorial .notebook-organize-panel select,
+body.noeis-editorial .room-shelf__search input {
   border: 1px solid transparent !important;
   border-radius: 2px !important;
   background: var(--vellum-panel-strong) !important;
@@ -6798,7 +6799,8 @@ body.noeis-editorial .notebook-organize-panel select {
 body.noeis-editorial .feedback-field input:focus,
 body.noeis-editorial .think-notebook-title-input:focus,
 body.noeis-editorial .notebook-organize-panel input:focus,
-body.noeis-editorial .notebook-organize-panel select:focus {
+body.noeis-editorial .notebook-organize-panel select:focus,
+body.noeis-editorial .room-shelf__search input:focus {
   border-color: var(--wiki-warm-accent) !important;
 }
 
