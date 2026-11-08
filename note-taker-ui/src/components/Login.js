@@ -1,169 +1,106 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api, { clearStoredTokens } from '../api';
-import { Button } from './ui';
 import { forgetReturnPath, readReturnPath } from '../navigation/appRoutes';
+import { AuthField, AuthPage, storeToken } from './auth/AuthPage';
 
-const Login = ({ onLoginSuccess, chromeStoreLink, recovery = false }) => {
-  const [username, setUsername] = useState('');
+/* What the page says before anything is typed: why you are here again, or
+   that the account you just made is waiting. Read once, then forgotten. */
+const takeArrivalNotice = () => {
+  try {
+    const reason = sessionStorage.getItem('auth_redirect_reason');
+    const notice = sessionStorage.getItem('registration_notice');
+    const username = sessionStorage.getItem('registration_username') || '';
+    ['auth_redirect_reason', 'registration_notice', 'registration_username'].forEach(key => sessionStorage.removeItem(key));
+    if (reason === 'expired') return { notice: 'You were logged out. Log in to pick up where you were.', username };
+    return { notice: notice || '', username };
+  } catch (_error) {
+    return { notice: '', username: '' };
+  }
+};
+
+/* recovery: the bare form, inside Work, to sign back in without leaving the
+   page that holds unsaved writing. */
+const Login = ({ onLoginSuccess, recovery = false }) => {
+  const [arrival] = useState(takeArrivalNotice);
+  const [username, setUsername] = useState(arrival.username);
   const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const [isError, setIsError] = useState(false);
+  const [problem, setProblem] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    try {
-      const reason = sessionStorage.getItem('auth_redirect_reason');
-      const registrationNotice = sessionStorage.getItem('registration_notice');
-      const registrationUsername = sessionStorage.getItem('registration_username');
-      if (!reason && !registrationNotice && !registrationUsername) return;
-      sessionStorage.removeItem('auth_redirect_reason');
-      sessionStorage.removeItem('registration_notice');
-      sessionStorage.removeItem('registration_username');
-      if (reason === 'expired') {
-        setMessage('Your session expired. Please log in again.');
-        setIsError(true);
-        return;
-      }
-      if (registrationNotice) {
-        setMessage(registrationNotice);
-        setIsError(false);
-      }
-      if (registrationUsername) {
-        setUsername(registrationUsername);
-      }
-    } catch (_error) {
-      // ignore storage failures
-    }
-  }, []);
+  useEffect(() => { setProblem(''); }, [username, password]);
 
-  const handleLogin = async (event) => {
+  const logIn = async (event) => {
     event.preventDefault();
-    setMessage('');
-    setIsError(false);
+    if (submitting) return;
     setSubmitting(true);
     try {
-      const cleanUsername = username.trim();
-      const cleanPassword = password;
-      if (!cleanUsername || !cleanPassword) {
-        setMessage('Username and password are required.');
-        setIsError(true);
+      clearStoredTokens();
+      const { data } = await api.post('/api/auth/login', {
+        username: username.trim(),
+        password
+      }, { skipAuthHandling: true });
+      if (!data?.token) throw new Error('no token');
+      clearStoredTokens();
+      storeToken(data.token);
+      if (typeof onLoginSuccess === 'function') {
+        // The authenticated route consumes the return. Navigating here as
+        // well races its /login redirect during the auth boundary change.
+        onLoginSuccess();
         return;
       }
-      clearStoredTokens();
-      const response = await api.post('/api/auth/login', {
-        username: cleanUsername,
-        password: cleanPassword
-      }, { skipAuthHandling: true });
-      if (response.data.token) {
-        clearStoredTokens();
-        localStorage.setItem('token', response.data.token);
-        if (window.chrome && window.chrome.storage && window.chrome.storage.local) {
-          window.chrome.storage.local.remove(['token', 'authToken', 'jwt'], () => {
-            window.chrome.storage.local.set({ token: response.data.token }, () => {});
-          });
-        }
-        setMessage('Login successful.');
-        setIsError(false);
-        if (typeof onLoginSuccess === 'function') {
-          // The authenticated route consumes the return. Navigating here as
-          // well races its /login redirect during the auth boundary change.
-          onLoginSuccess();
-        } else {
-          const returnTo = readReturnPath();
-          forgetReturnPath();
-          if (returnTo) navigate(returnTo, { replace: true });
-        }
-      } else {
-        setMessage('Login succeeded, but no token was returned.');
-        setIsError(true);
-      }
+      const returnTo = readReturnPath();
+      forgetReturnPath();
+      if (returnTo) navigate(returnTo, { replace: true });
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Login failed. Invalid credentials or server error.';
-      setMessage(errorMessage);
-      setIsError(true);
+      setProblem(error.response?.data?.error || 'Noeis could not be reached. Try again in a moment.');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const form = (
+    <form onSubmit={logIn} noValidate>
+      {arrival.notice ? <p className="signin__notice" role="status">{arrival.notice}</p> : null}
+      <AuthField
+        id="username-login"
+        label="Username"
+        type="text"
+        value={username}
+        onChange={event => setUsername(event.target.value)}
+        autoComplete="username"
+        autoCapitalize="none"
+        spellCheck={false}
+        autoFocus={!recovery && !arrival.username}
+        required
+      />
+      <AuthField
+        id="password-login"
+        label="Password"
+        type="password"
+        value={password}
+        onChange={event => setPassword(event.target.value)}
+        autoComplete="current-password"
+        autoFocus={!recovery && Boolean(arrival.username)}
+        error={problem}
+        required
+      />
+      <button type="submit" className="signin__submit" disabled={submitting || !username.trim() || !password}>
+        {submitting ? 'Logging in…' : 'Log in'}
+      </button>
+    </form>
+  );
+
+  if (recovery) return <div className="signin signin-bare">{form}</div>;
+
   return (
-    <div className="auth-shell auth-shell--editorial">
-      <div className="auth-editorial auth-editorial--login">
-        {!recovery && <section className="auth-editorial__lead">
-          <Link to="/" className="auth-editorial__brand">Noeis</Link>
-          <div className="auth-editorial__eyebrow">Reading room access</div>
-          <h1>Return to your notebook.</h1>
-          <p className="auth-editorial__lede">
-            Log in to pick up your saved reading, active concepts, and open questions without
-            losing the thread.
-          </p>
-          <div className="auth-editorial__notes">
-            <div className="auth-editorial__note">
-              <span>Works in the browser</span>
-              <p>Manual notes, direct paste, CSV imports, and markdown uploads all work in the web app.</p>
-            </div>
-            <div className="auth-editorial__note">
-              <span>One-click clipping</span>
-              <p>
-                For capture straight from the page, install the free
-                <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer"> Chrome Extension</a>.
-              </p>
-            </div>
-          </div>
-        </section>}
-
-        <section className="auth-editorial__panel">
-          <div className="auth-editorial__panel-head">
-            <div className="auth-editorial__eyebrow">Login</div>
-            <h2>{recovery ? 'Resume your Work writing' : 'Enter Noeis'}</h2>
-            <p>Use your existing account details to reopen the workspace.</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="auth-editorial__form">
-            <label className="auth-editorial__field" htmlFor="username-login">
-              <span>Username</span>
-              <input
-                type="text"
-                id="username-login"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                autoComplete="username"
-                required
-              />
-            </label>
-
-            <label className="auth-editorial__field" htmlFor="password-login">
-              <span>Password</span>
-              <input
-                type="password"
-                id="password-login"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </label>
-
-            <Button type="submit" className="auth-editorial__submit" disabled={submitting}>
-              {submitting ? 'Logging in…' : 'Login'}
-            </Button>
-          </form>
-
-          {message && (
-            <p className={`status-message ${isError ? 'error-message' : 'success-message'}`}>{message}</p>
-          )}
-
-          {!recovery && <div className="auth-editorial__switch">
-            <span>Don&apos;t have an account?</span>
-            <button type="button" className="auth-editorial__switch-button" onClick={() => navigate('/register')}>
-              Register here
-            </button>
-          </div>}
-        </section>
-      </div>
-    </div>
+    <AuthPage
+      title="Log in to Noeis."
+      footer={<>New here? <Link to="/register">Create an account</Link></>}
+    >
+      {form}
+    </AuthPage>
   );
 };
 

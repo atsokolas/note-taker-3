@@ -143,7 +143,7 @@ test('account lock truthfully retains memory-only writing and unlocks when its o
   fireEvent(window, new StorageEvent('storage', { key: 'token' }));
   expect(screen.getByText(/not saved on this device/i)).toBeInTheDocument();
   expect(screen.queryByDisplayValue('Only in this page')).toBeNull();
-  expect(screen.getByRole('button', { name: 'Sign in to the original account' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Log in to the original account' })).toBeInTheDocument();
   set.mockRestore(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.renewed`);
   fireEvent(window, new StorageEvent('storage', { key: 'token' }));
   expect(await screen.findByDisplayValue('Only in this page')).toBeInTheDocument();
@@ -157,13 +157,13 @@ test('existing inline login restores original-owner memory with refreshed captur
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Recover these words' } });
   localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'other' }))}.x`);
   fireEvent(window, new StorageEvent('storage', { key: 'token' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Sign in to the original account' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in to the original account' }));
   expect(screen.queryByDisplayValue('Recover these words')).toBeNull(); expect(screen.queryByText('Register here')).toBeNull();
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-test-password' } });
   const renewed = `x.${btoa(JSON.stringify({ id: 'owner', exp: 9999999999 }))}.renewed`;
   api.post.mockResolvedValueOnce({ data: { token: renewed } });
-  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
   expect(await screen.findByDisplayValue('Recover these words')).toBeInTheDocument();
   set.mockRestore(); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
   await waitFor(() => expect(api.put).toHaveBeenCalled());
@@ -176,7 +176,7 @@ const login = async (response = { data: { token: renewedToken } }) => {
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-password' } });
   api.post.mockResolvedValueOnce(response);
-  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
 };
 test.each([false, true])('same-owner expiry offers existing login and preserves exact writing (storage failure: %s)', async failedStorage => {
   await open(); const originalSet = Storage.prototype.setItem;
@@ -187,7 +187,7 @@ test.each([false, true])('same-owner expiry offers existing login and preserves 
     const words = '  Exact writing.\nAnother line.  ';
     fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: words } });
     api.put.mockRejectedValueOnce(expired); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Log in to sync' }));
     expect(screen.queryByDisplayValue(words)).toBeNull();
     await login(); expect(await screen.findByLabelText('Work note writing')).toHaveValue(words);
     fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
@@ -200,11 +200,11 @@ test.each([false, true])('same-owner expiry offers existing login and preserves 
 test('failed and wrong-owner expiry logins hide retained writing until the original owner returns', async () => {
   await open(); fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Private retained words' } });
   api.put.mockRejectedValueOnce(expired); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Log in to sync' }));
   api.post.mockRejectedValueOnce({ response: { data: { error: 'Incorrect password' } } });
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-password' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Login' })); await screen.findByText('Incorrect password');
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' })); await screen.findByText('Incorrect password');
   expect(screen.queryByDisplayValue('Private retained words')).toBeNull();
   await login({ data: { token: `x.${btoa(JSON.stringify({ id: 'other' }))}.other` } });
   await screen.findByText(/That is a different account/); expect(screen.queryByDisplayValue('Private retained words')).toBeNull();
@@ -215,14 +215,14 @@ test('failed and wrong-owner expiry logins hide retained writing until the origi
 });
 test('initial-load expiry has an actionable login and reloads the shelf after authentication', async () => {
   api.get.mockRejectedValueOnce(expired); render(<WorkNotes />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' })); await login();
+  fireEvent.click(await screen.findByRole('button', { name: 'Log in to sync' })); await login();
   expect(await screen.findByRole('button', { name: /Charging windows/ })).toBeInTheDocument();
   expect(api.get.mock.calls[1][1].headers.Authorization).toBe(`Bearer ${renewedToken}`);
 });
 test('Continue expiry opens login without a second dialog and retains the operation for retry', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note:/ }));
   api.post.mockRejectedValueOnce(expired); fireEvent.click(await screen.findByRole('button', { name: 'Continue →' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' })); expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.click(await screen.findByRole('button', { name: 'Log in to sync' })); expect(screen.queryByRole('dialog')).toBeNull();
   await login(); const dialog = await screen.findByRole('dialog', { name: 'Continue from this note' });
   expect(screen.getAllByRole('dialog')).toHaveLength(1); fireEvent.click(within(dialog).getByRole('button', { name: 'Continue →' }));
   await screen.findByText(/you left yourself/);
@@ -241,7 +241,7 @@ test('quick-capture create expiry recovers through one surface with the same wri
   await screen.findByRole('dialog', { name: 'Work inbox · private' });
   fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: 'Quick exact words' } });
   api.post.mockRejectedValueOnce(expired);
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' }, { timeout: 2000 }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Log in to sync' }, { timeout: 2000 }));
   expect(screen.queryByRole('dialog')).toBeNull(); await login();
   const dialog = await screen.findByRole('dialog', { name: 'Work inbox · private' });
   expect(screen.getAllByRole('dialog')).toHaveLength(1); expect(screen.getByLabelText('Work note writing')).toHaveValue('Quick exact words');

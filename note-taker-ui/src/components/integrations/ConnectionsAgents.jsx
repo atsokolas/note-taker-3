@@ -226,22 +226,22 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
     <div className="connections-agents">
       <div className="connections-section-heading">
         <div>
-          <h2>Agents you have authorized</h2>
-          <p>Access is not the same as being online.</p>
+          <h2>Agents</h2>
+          <p>Claude, ChatGPT and the others you let read your library.</p>
         </div>
         <Button
           variant="primary"
           onClick={() => setShowHandoff(true)}
         >
-          Give instructions
+          Connect an agent
         </Button>
       </div>
 
-      {tokenModel.tokensLoading ? <p className="connections-empty">Loading grants…</p> : null}
+      {tokenModel.tokensLoading ? <p className="connections-empty">Loading agents…</p> : null}
       {!tokenModel.tokensLoading && grants.length === 0 ? (
         <div className="connections-empty">
-          <h3>No agent grants yet.</h3>
-          <p>Give your agent the setup brief, then approve the exact request here.</p>
+          <h3>No agent can read your library yet.</h3>
+          <p>Connect an agent, give it the instructions, and approve its request here when it asks.</p>
         </div>
       ) : null}
 
@@ -252,7 +252,6 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
           const activity = tokenModel.tokenActionsById?.[view.id];
           return (
             <article key={view.id} className={`connections-row connections-row--${view.tone}`}>
-              <div className="connections-sigil" aria-hidden="true">◇</div>
               <div className="connections-row-title">
                 <h3>{view.label}</h3>
                 <p>{runtimeLabel(view.runtime)} · {view.scopeLabel}</p>
@@ -341,7 +340,7 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
       {tokenModel.tokensError ? <p className="form-error">{tokenModel.tokensError}</p> : null}
 
       <details className="connections-fold connections-manual-setup">
-        <summary>Manual setup, expiry, and token controls</summary>
+        <summary>Set one up by hand, with a token</summary>
         <p>
           Use this fallback only when the browser handoff is unavailable. A manually issued secret is shown once.
         </p>

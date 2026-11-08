@@ -1,0 +1,176 @@
+/* Log in and Create account: one ruled column, the form first. The submit
+   is set in ink, as the front door's one wanted action is on the landing page. */
+
+.signin {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 22px 24px 96px;
+  background: var(--vellum-bg, var(--noeis-canvas));
+  color: var(--vellum-ink, var(--text-primary));
+  font-family: var(--font-sans);
+}
+
+.signin a.signin__brand {
+  display: block;
+  max-width: 1080px;
+  margin: 0 auto;
+  color: inherit;
+  font-family: var(--font-serif);
+  font-size: 1.45rem;
+  font-style: italic;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.signin__column {
+  display: grid;
+  gap: 22px;
+  width: min(100%, 400px);
+  margin: 0 auto;
+  padding-top: clamp(40px, 14vh, 140px);
+}
+
+.signin h1 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 4vw, 2.5rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.signin__lede {
+  margin: -8px 0 0;
+  color: var(--vellum-muted, var(--text-secondary));
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.signin form {
+  display: grid;
+  gap: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--vellum-ink, currentColor);
+}
+
+.signin__field {
+  display: grid;
+  gap: 4px;
+}
+
+.signin__field label {
+  color: var(--vellum-muted, var(--text-secondary));
+  font-size: 0.84rem;
+}
+
+.signin__input {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px solid var(--vellum-line, var(--noeis-rule));
+}
+
+.signin__input:focus-within { border-bottom-color: var(--vellum-ink, currentColor); }
+.signin__field.has-error .signin__input { border-bottom-color: var(--vellum-error, #a33); }
+
+/* body.noeis-editorial paints every field with !important; this answers it. */
+body.noeis-editorial .signin input,
+.signin input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font-family: var(--font-sans) !important;
+  font-size: 1rem;
+  outline: none;
+}
+
+.signin__note {
+  margin: 2px 0 0;
+  color: var(--vellum-subtle, var(--text-muted));
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.signin__field.has-error .signin__note,
+.signin__problem { color: var(--vellum-error, #a33); }
+
+.signin__problem,
+.signin__notice {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.signin__notice { color: var(--vellum-muted, var(--text-secondary)); }
+
+.signin button.signin__reveal {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--vellum-subtle, var(--text-muted));
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.signin button.signin__reveal:hover,
+.signin button.signin__reveal:focus-visible { color: var(--vellum-ink, currentColor); }
+
+body.noeis-editorial .signin button.signin__submit,
+.signin button.signin__submit {
+  justify-self: start;
+  min-height: 0;
+  margin-top: 4px;
+  padding: 0.7rem 1.4rem;
+  border: 1px solid var(--vellum-ink, currentColor) !important;
+  border-radius: 2px !important;
+  background: var(--vellum-ink, #222) !important;
+  color: var(--vellum-bg, #fff) !important;
+  font-family: var(--font-sans);
+  font-size: 0.94rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+body.noeis-editorial .signin button.signin__submit:hover,
+body.noeis-editorial .signin button.signin__submit:focus-visible {
+  border-color: var(--vellum-warm, var(--vellum-ink)) !important;
+  background: var(--vellum-warm, var(--vellum-ink)) !important;
+}
+
+.signin button.signin__submit:disabled { opacity: 0.55; cursor: default; }
+
+.signin__switch {
+  margin: 6px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--vellum-line, var(--noeis-rule));
+  color: var(--vellum-muted, var(--text-secondary));
+  font-size: 0.9rem;
+}
+
+.signin__switch a {
+  color: var(--vellum-ink, currentColor);
+  text-decoration: underline;
+  text-decoration-color: var(--vellum-line, currentColor);
+  text-underline-offset: 3px;
+}
+
+.signin__switch a:hover { text-decoration-color: currentColor; }
+
+/* Inside Work, the form stands alone under Work's own heading. */
+.signin-bare form { border-top: 0; padding-top: 0; }
+
+@media (max-width: 520px) {
+  .signin { padding: 16px 20px 72px; }
+  .signin__column { padding-top: 44px; }
+}

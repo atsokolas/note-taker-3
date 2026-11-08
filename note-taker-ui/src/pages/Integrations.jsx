@@ -169,7 +169,7 @@ const Integrations = () => {
               <summary>
                 <span>
                   <strong>Advanced</strong>
-                  <em>Bridge tokens, handoff queues, specialist routing, and MCP details.</em>
+                  <em>For developers: bridge tokens, handoffs, routing and MCP details.</em>
                 </span>
                 <b>{showConnectionDetails ? 'Hide' : 'Show'}</b>
               </summary>

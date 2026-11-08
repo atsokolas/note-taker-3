@@ -1,20 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   adoptWikiStarterPack,
   archiveWikiPage,
   createWikiPage,
-  getJudgmentLibraryEvidence,
   getWikiPage,
   listWikiProposals,
   listWikiStarterPacks,
-  startWikiPageBuild,
-  updateWikiPage
+  startWikiPageBuild
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
-import { fileJudgmentEvidence } from '../api/judgmentResolution';
 import {
   connectReadwiseToken,
+  importExportFiles,
   importPastedText,
   importPastedUrl,
   syncReadwiseConnection
@@ -22,45 +20,36 @@ import {
 import { isOnboardingComplete, markOnboardingComplete } from '../onboarding/onboardingState';
 import useExtensionPresence, { EXTENSION_STATE } from '../onboarding/useExtensionPresence';
 import { TOUR_EXTENSION_URL } from '../tour/tourConfig';
-import { buildSourceOriginPath, parseSourceOrigin } from '../utils/sourceRoutes';
 import { wikiReadPath } from '../utils/wikiFeatureFlags';
-import { oneSentence } from './judgmentModel';
 import {
   EXAMPLE_PAGE,
-  FILED_LINE,
   READWISE_TOKEN_URL,
   STEPS,
   buildFailure,
-  extraSentenceNotice,
   linkLabel,
-  markMatches,
   packContents,
   pageLede,
   pageState,
   passageTitle,
-  passagesHeadline,
   proposalSources,
   readPastedReading,
+  readingList,
   readwiseReceipt,
-  savedOn,
+  sourceTopics,
   tookPath,
   tookReceipt,
   topicProblem,
-  viewProblem,
   writtenFrom
 } from './welcomeModel';
-import { Button, EmptyState, PageHeader } from '../components/ui';
+import { Button, PageHeader } from '../components/ui';
 import '../styles/welcome.css';
 
 /**
- * First run: see what Noeis builds, take a ready-made wiki or bring your
- * reading, get your first page, then say what you think about it.
+ * First run: see what Noeis makes, bring your reading, get your first page.
  *
- * The homepage promises a knowledge base grown from what you read, so that is
- * what the first minutes deliver: first a look at a page, then the reader's
- * own sources, written up into a page that cites them. Only once there is something on the page do we ask
- * what they think, and then the view is read against the very reading that
- * made the page, so the judgment moment is never empty.
+ * It ends on the page. Asking for a view here used to turn the new page into a
+ * held view, which the Wiki home leaves out, so the one thing first run made
+ * went missing from the Wiki the moment it was finished.
  *
  * The URL is the state (?step=…&page=…), so Back walks back through the steps,
  * a refresh resumes where you were (a build keeps going on the server), and
@@ -72,6 +61,22 @@ const BUILD_POLL_MS = 4000;
 const stepIndex = id => Math.max(0, STEPS.findIndex(step => step.id === id));
 const messageFrom = (error, fallback) => error?.response?.data?.error || fallback;
 
+/* The titles of what is in the library, newest first: named back while a page
+   is written, and offered as topics when nothing recurs yet. */
+const useLibraryTitles = () => {
+  const [titles, setTitles] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    getArticles({ limit: 6 })
+      .then((articles) => {
+        if (!cancelled) setTitles((Array.isArray(articles) ? articles : []).map(article => article?.title).filter(Boolean));
+      })
+      .catch(() => { if (!cancelled) setTitles([]); });
+    return () => { cancelled = true; };
+  }, []);
+  return titles;
+};
+
 const Welcome = () => {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -81,7 +86,7 @@ const Welcome = () => {
   const step = STEPS.some(item => item.id === asked) ? asked : (took ? 'page' : 'start');
   const [page, setPage] = useState(null);
   const [arrivals, setArrivals] = useState([]);
-  const [readwise, setReadwise] = useState(null);
+  const [brought, setBrought] = useState([]);
 
   const go = useCallback((nextStep, { id = pageId, replace = false } = {}) => {
     const next = new URLSearchParams();
@@ -106,7 +111,6 @@ const Welcome = () => {
   useEffect(() => {
     if (!pageId) {
       setPage(null);
-      if (step === 'moment') go('page', { id: '', replace: true });
       return undefined;
     }
     if (page?._id === pageId) return undefined;
@@ -115,11 +119,10 @@ const Welcome = () => {
       .then((loaded) => { if (!cancelled) setPage(loaded); })
       .catch(() => { if (!cancelled) go('page', { id: '', replace: true }); });
     return () => { cancelled = true; };
-  }, [go, page?._id, pageId, step]);
+  }, [go, page?._id, pageId]);
 
   const current = stepIndex(step);
   const ready = !pageId || page?._id === pageId;
-  const held = page?.judgment?.currentJudgment || '';
 
   return (
     <main className="welcome" aria-label="First run">
@@ -146,13 +149,6 @@ const Welcome = () => {
       </header>
 
       <div className="welcome__column" key={step}>
-        {step === 'moment' && held ? (
-          <p className="welcome__held">
-            <span>On {page.title}, you hold</span>
-            {held}
-          </p>
-        ) : null}
-
         {!ready ? <p className="welcome__quiet" role="status">Opening your page…</p> : null}
 
         {ready && step === 'start' ? (
@@ -166,8 +162,8 @@ const Welcome = () => {
           <ReadingStep
             arrivals={arrivals}
             setArrivals={setArrivals}
-            readwise={readwise}
-            setReadwise={setReadwise}
+            brought={brought}
+            setBrought={setBrought}
             onNext={() => go('page', { id: '' })}
             onLater={() => finish('/library')}
           />
@@ -181,17 +177,8 @@ const Welcome = () => {
             onStarted={id => go('page', { id })}
             onAnother={() => go('page', { id: '' })}
             onReading={() => go('reading', { id: '' })}
-            onHeld={() => go('moment')}
             onOpen={() => finish(wikiReadPath(pageId))}
-          />
-        ) : null}
-
-        {ready && step === 'moment' && page ? (
-          <MomentStep
-            page={page}
-            setPage={setPage}
-            onReading={() => go('reading', { id: '' })}
-            onFinish={() => finish(`/judgment/${page._id}`)}
+            onBooks={() => finish('/books')}
           />
         ) : null}
       </div>
@@ -203,7 +190,11 @@ const Welcome = () => {
 
 const StartStep = ({ onReading, onPack }) => (
   <section className="welcome__step">
-    <PageHeader titleId="welcome-title" title="This is what Noeis builds from your reading." lede="A wiki that grows from what you save, written up into pages that cite where each line came from." />
+    <PageHeader
+      titleId="welcome-title"
+      title="Noeis writes a wiki from what you read."
+      lede="Bring the articles and books you have read. Noeis writes them up into pages, and every line says which source it came from."
+    />
     <article className="welcome__example" aria-label="An example page">
       <span className="welcome__example-label">An example page</span>
       <h2>{EXAMPLE_PAGE.title}</h2>
@@ -217,16 +208,13 @@ const StartStep = ({ onReading, onPack }) => (
       <small>{EXAMPLE_PAGE.sources}</small>
     </article>
     <div className="welcome__actions">
-      <Button variant="primary" onClick={onReading}>Grow one from my reading</Button>
+      <Button variant="primary" onClick={onReading}>Start from my reading</Button>
     </div>
     <StarterWikis onTaken={onPack} />
   </section>
 );
 
-const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onLater }) => {
-  const [token, setToken] = useState('');
-  const [readwiseBusy, setReadwiseBusy] = useState(false);
-  const [readwiseError, setReadwiseError] = useState('');
+const ReadingStep = ({ arrivals, setArrivals, brought, setBrought, onNext, onLater }) => {
   const [pasted, setPasted] = useState('');
   const [pasteProblem, setPasteProblem] = useState('');
   const [libraryHasReading, setLibraryHasReading] = useState(false);
@@ -245,27 +233,8 @@ const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onL
 
   const arrived = arrivals.filter(item => item.status === 'in').length;
   const reading = arrivals.some(item => item.status === 'reading');
-  const hasReading = libraryHasReading || arrived > 0 || (readwise?.importedArticles || 0) > 0;
-
-  const bringReadwise = async (event) => {
-    event.preventDefault();
-    const apiToken = token.trim();
-    if (!apiToken || readwiseBusy) return;
-    setReadwiseBusy(true);
-    setReadwiseError('');
-    try {
-      const connection = await connectReadwiseToken({ apiToken });
-      const result = await syncReadwiseConnection({ connectionId: connection?._id || connection?.id });
-      setReadwise(result);
-      setToken('');
-    } catch (error) {
-      setReadwiseError(error?.response?.status === 400
-        ? 'Readwise did not accept that token. Copy it again from readwise.io/access_token.'
-        : messageFrom(error, 'Readwise could not be reached. Try again in a moment.'));
-    } finally {
-      setReadwiseBusy(false);
-    }
-  };
+  const hasReading = libraryHasReading || arrived > 0 || brought.length > 0;
+  const bring = receipt => setBrought(list => [...list, receipt]);
 
   const update = (key, patch) => setArrivals(list => list.map(item => (item.key === key ? { ...item, ...patch } : item)));
 
@@ -304,36 +273,10 @@ const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onL
 
   return (
     <section className="welcome__step">
-      <PageHeader titleId="welcome-title" title="Bring what you have read." lede="Noeis grows your wiki from it: pages written from your own sources, each one citing where it came from. Your library is yours alone." />
-
-      <form className="welcome__source" onSubmit={bringReadwise}>
-        <h2>From Readwise</h2>
-        <p>
-          Paste your access token and every highlight comes in, with its source.{' '}
-          <a href={READWISE_TOKEN_URL} target="_blank" rel="noopener noreferrer">Get your token</a>
-        </p>
-        <div className="welcome__inline">
-          <label className="sr-only" htmlFor="welcome-readwise">Readwise access token</label>
-          <input
-            id="welcome-readwise"
-            type="text"
-            value={token}
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="Readwise access token"
-            onChange={(event) => { setToken(event.target.value); setReadwiseError(''); }}
-          />
-          <Button type="submit" disabled={readwiseBusy || !token.trim()}>
-            {readwiseBusy ? 'Bringing them in…' : 'Bring them in'}
-          </Button>
-        </div>
-        {readwiseBusy ? <p className="welcome__hint" role="status">A large library takes a minute.</p> : null}
-        {readwise ? <p className="welcome__receipt" role="status">{readwiseReceipt(readwise)}</p> : null}
-        {readwiseError ? <p className="welcome__error" role="alert">{readwiseError}</p> : null}
-      </form>
+      <PageHeader titleId="welcome-title" title="Bring what you have read." lede="A few links are enough to start. Your library is private: nothing leaves it unless you share it." />
 
       <form className="welcome__source" onSubmit={addPasted}>
-        <h2>Or paste links</h2>
+        <h2>Links</h2>
         <label className="sr-only" htmlFor="welcome-links">Links to things you have read</label>
         <textarea
           id="welcome-links"
@@ -362,6 +305,9 @@ const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onL
         ) : null}
       </form>
 
+      <KindleSource onBrought={bring} />
+      <ReadwiseSource onBrought={bring} />
+
       <div className="welcome__actions welcome__actions--end">
         <Button variant="primary" disabled={!hasReading || reading} onClick={onNext}>
           Write my first page
@@ -372,6 +318,102 @@ const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onL
       </div>
       {!hasReading && !reading ? <p className="welcome__hint">Bring at least one source first.</p> : null}
     </section>
+  );
+};
+
+/* Kindle keeps every highlight in one file on the device. */
+const KindleSource = ({ onBrought }) => {
+  const [busy, setBusy] = useState(false);
+  const [receipt, setReceipt] = useState('');
+  const [error, setError] = useState('');
+
+  const bring = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await importExportFiles([file]);
+      const landed = (result.importedArticleIds || []).length;
+      setReceipt(result.summary || 'Your Kindle highlights are in your library.');
+      if (landed) onBrought(result.summary);
+    } catch (importError) {
+      setError(messageFrom(importError, 'That file could not be read. Pick My Clippings.txt from the Kindle\'s documents folder.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="welcome__source">
+      <h2>Kindle</h2>
+      <p>Plug in your Kindle and pick <code>My Clippings.txt</code> from its documents folder. Every highlight comes in, filed under its book.</p>
+      <div className="welcome__actions">
+        <label className={`welcome__file-pick${busy ? ' is-busy' : ''}`}>
+          <input type="file" accept=".txt,.html,.csv,.md" onChange={bring} disabled={busy} />
+          {busy ? 'Reading the file…' : 'Choose the file'}
+        </label>
+      </div>
+      {receipt ? <p className="welcome__receipt" role="status">{receipt}</p> : null}
+      {error ? <p className="welcome__error" role="alert">{error}</p> : null}
+    </div>
+  );
+};
+
+const ReadwiseSource = ({ onBrought }) => {
+  const [token, setToken] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [receipt, setReceipt] = useState('');
+  const [error, setError] = useState('');
+
+  const bring = async (event) => {
+    event.preventDefault();
+    const apiToken = token.trim();
+    if (!apiToken || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const connection = await connectReadwiseToken({ apiToken });
+      const result = await syncReadwiseConnection({ connectionId: connection?._id || connection?.id });
+      setReceipt(readwiseReceipt(result));
+      if ((result?.importedArticles || 0) > 0) onBrought(readwiseReceipt(result));
+      setToken('');
+    } catch (readwiseError) {
+      setError(readwiseError?.response?.status === 400
+        ? 'Readwise did not accept that token. Copy it again from readwise.io/access_token.'
+        : messageFrom(readwiseError, 'Readwise could not be reached. Try again in a moment.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="welcome__source" onSubmit={bring}>
+      <h2>Readwise</h2>
+      <p>
+        Paste your access token and every highlight comes in, with its source.{' '}
+        <a href={READWISE_TOKEN_URL} target="_blank" rel="noopener noreferrer">Get your token</a>
+      </p>
+      <div className="welcome__inline">
+        <label className="sr-only" htmlFor="welcome-readwise">Readwise access token</label>
+        <input
+          id="welcome-readwise"
+          type="text"
+          value={token}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="Readwise access token"
+          onChange={(event) => { setToken(event.target.value); setError(''); }}
+        />
+        <Button type="submit" disabled={busy || !token.trim()}>
+          {busy ? 'Bringing them in…' : 'Bring them in'}
+        </Button>
+      </div>
+      {busy ? <p className="welcome__hint" role="status">A large library takes a minute.</p> : null}
+      {receipt ? <p className="welcome__receipt" role="status">{receipt}</p> : null}
+      {error ? <p className="welcome__error" role="alert">{error}</p> : null}
+    </form>
   );
 };
 
@@ -408,15 +450,18 @@ const StarterWikis = ({ onTaken }) => {
   return (
     <div className="welcome__packs">
       <h2>Or start from a ready-made wiki</h2>
-      <p>Every line cites its source, and the sources come into your Library with it.</p>
+      <p>Every line cites a public source, and the sources come into your Library with it.</p>
       <ul>
         {packs.map(pack => (
           <li key={pack.id}>
-            <button type="button" disabled={Boolean(busyId)} onClick={() => take(pack)}>
-              {busyId === pack.id ? `Taking ${pack.name}…` : pack.name}
-            </button>
-            {pack.tagline ? <p>{pack.tagline}</p> : null}
-            {packContents(pack) ? <small>{packContents(pack)}</small> : null}
+            <div>
+              <strong>{pack.name}</strong>
+              {pack.tagline ? <p>{pack.tagline}</p> : null}
+              {packContents(pack) ? <small>{packContents(pack)}</small> : null}
+            </div>
+            <Button disabled={Boolean(busyId)} aria-label={`Take ${pack.name}`} onClick={() => take(pack)}>
+              {busyId === pack.id ? 'Taking it…' : 'Take it'}
+            </Button>
           </li>
         ))}
       </ul>
@@ -427,8 +472,9 @@ const StarterWikis = ({ onTaken }) => {
 
 /* ------------------------------------------------------------------ 2 */
 
-const PageStep = ({ tookLine, page, setPage, onStarted, onAnother, onReading, onHeld, onOpen }) => {
+const PageStep = ({ tookLine, page, setPage, onStarted, onAnother, onReading, onOpen, onBooks }) => {
   const state = pageState(page);
+  const titles = useLibraryTitles();
 
   /* A build runs on the server. Read the page back until it lands. */
   useEffect(() => {
@@ -439,12 +485,17 @@ const PageStep = ({ tookLine, page, setPage, onStarted, onAnother, onReading, on
     return () => window.clearTimeout(timer);
   }, [page, setPage, state]);
 
-  if (state === 'none') return <TopicChooser onStarted={onStarted} />;
+  if (state === 'none') return <TopicChooser titles={titles} onStarted={onStarted} />;
 
   if (state === 'writing') {
     return (
       <section className="welcome__step" aria-busy="true">
-        <PageHeader titleId="welcome-title" className="welcome__reading" title={<>Writing {page.title}…</>} lede="Noeis is reading your library for it and writing the page, citing each source as it goes. A first page takes a minute or two." />
+        <PageHeader
+          titleId="welcome-title"
+          className="welcome__reading"
+          title={<>Writing {page.title}…</>}
+          lede={`Noeis is reading ${readingList(titles)} and citing each source as it goes. A first page takes about a minute.`}
+        />
         <div className="welcome__actions">
           <Button variant="quiet" onClick={onOpen}>
             Leave it to finish
@@ -456,12 +507,13 @@ const PageStep = ({ tookLine, page, setPage, onStarted, onAnother, onReading, on
 
   if (state === 'failed') return <BuildFailed page={page} setPage={setPage} onAnother={onAnother} onReading={onReading} />;
 
-  return <WrittenPage tookLine={tookLine} page={page} setPage={setPage} onHeld={onHeld} onOpen={onOpen} />;
+  return <WrittenPage tookLine={tookLine} page={page} onOpen={onOpen} onBooks={onBooks} />;
 };
 
 /* What the reading keeps coming back to, offered as titles. When nothing
-   recurs yet the list is simply absent; the reader names a topic. */
-const TopicChooser = ({ onStarted }) => {
+   recurs yet, the titles of what was just brought stand in: a page about one
+   source is still a page, and a blank box is a harder first question. */
+const TopicChooser = ({ titles, onStarted }) => {
   const [proposals, setProposals] = useState(null);
   const [topic, setTopic] = useState('');
   const [busy, setBusy] = useState('');
@@ -494,6 +546,10 @@ const TopicChooser = ({ onStarted }) => {
     }
   };
 
+  const suggestions = proposals?.length
+    ? proposals.map(proposal => ({ title: proposal.title, note: proposal.sourceRefs?.length ? proposalSources(proposal.sourceRefs.length) : '' }))
+    : sourceTopics(titles || []).map(title => ({ title, note: 'from what you brought' }));
+
   return (
     <section className="welcome__step">
       <PageHeader titleId="welcome-title" title="What should your first page be about?" lede="Noeis writes it from what you brought, and cites each source." />
@@ -501,14 +557,14 @@ const TopicChooser = ({ onStarted }) => {
       {proposals === null ? (
         <p className="welcome__quiet welcome__reading" role="status">Looking at what your reading keeps coming back to…</p>
       ) : null}
-      {proposals?.length ? (
+      {proposals !== null && suggestions.length ? (
         <ul className="welcome__topics">
-          {proposals.map(proposal => (
-            <li key={proposal._id}>
-              <button type="button" disabled={Boolean(busy)} onClick={() => write(proposal.title)}>
-                {busy === proposal.title ? `Starting ${proposal.title}…` : proposal.title}
+          {suggestions.map(suggestion => (
+            <li key={suggestion.title}>
+              <button type="button" disabled={Boolean(busy)} onClick={() => write(suggestion.title)}>
+                {busy === suggestion.title ? `Starting ${suggestion.title}…` : suggestion.title}
               </button>
-              {proposal.sourceRefs?.length ? <small>{proposalSources(proposal.sourceRefs.length)}</small> : null}
+              {suggestion.note ? <small>{suggestion.note}</small> : null}
             </li>
           ))}
         </ul>
@@ -518,7 +574,7 @@ const TopicChooser = ({ onStarted }) => {
         className="welcome__source"
         onSubmit={(event) => { event.preventDefault(); write(topic); }}
       >
-        <h2>{proposals?.length ? 'Or name a topic' : 'Name a topic'}</h2>
+        <h2>{suggestions.length ? 'Or name a topic' : 'Name a topic'}</h2>
         <div className="welcome__inline">
           <label className="sr-only" htmlFor="welcome-topic">Topic for your first page</label>
           <input
@@ -575,45 +631,9 @@ const BuildFailed = ({ page, setPage, onAnother, onReading }) => {
   );
 };
 
-/* The page, then the one question that turns it into a view. */
-const WrittenPage = ({ tookLine, page, setPage, onHeld, onOpen }) => {
-  const [draft, setDraft] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const fieldRef = useRef(null);
+/* The page, and where to go from it. */
+const WrittenPage = ({ tookLine, page, onOpen, onBooks }) => {
   const lede = pageLede(page);
-  const notice = extraSentenceNotice(draft);
-
-  useEffect(() => {
-    const field = fieldRef.current;
-    if (!field) return;
-    field.style.height = 'auto';
-    field.style.height = `${field.scrollHeight}px`;
-  }, [draft]);
-
-  const hold = async (event) => {
-    event?.preventDefault?.();
-    const sentence = oneSentence(draft);
-    if (busy || !sentence) return;
-    const problem = viewProblem(draft);
-    if (problem) {
-      setError(problem);
-      return;
-    }
-    setBusy(true);
-    setError('');
-    try {
-      const saved = await updateWikiPage(page._id, {
-        judgment: { currentJudgment: sentence, startedAt: new Date().toISOString() }
-      });
-      setPage(saved?._id ? saved : { ...page, judgment: { currentJudgment: sentence } });
-      onHeld();
-    } catch (holdError) {
-      setError(messageFrom(holdError, 'That did not save. Try once more.'));
-      setBusy(false);
-    }
-  };
-
   return (
     <section className="welcome__step">
       <p className="welcome__receipt" role="status">
@@ -622,180 +642,16 @@ const WrittenPage = ({ tookLine, page, setPage, onHeld, onOpen }) => {
       <PageHeader titleId="welcome-title" title={page.title} />
       {lede ? <p className="welcome__page-lede">{lede}</p> : null}
       <div className="welcome__actions">
-        <Button onClick={onOpen}>Read the whole page</Button>
+        <Button variant="primary" onClick={onOpen}>Open your page</Button>
       </div>
-
-      <form className="welcome__source" onSubmit={hold}>
-        <h2>What do you think about it?</h2>
-        <p>One sentence you could be wrong about. Noeis reads what you saved against it.</p>
-        <label className="sr-only" htmlFor="welcome-view">Your view</label>
-        <textarea
-          id="welcome-view"
-          ref={fieldRef}
-          className="welcome__view-field"
-          rows={1}
-          value={draft}
-          enterKeyHint="done"
-          placeholder="One sentence you think is true."
-          onChange={(event) => { setDraft(event.target.value); setError(''); }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) hold(event);
-          }}
-        />
-        {notice ? <p className="welcome__hint">{notice}</p> : null}
-        {error ? <p className="welcome__error" role="alert">{error}</p> : null}
+      <div className="welcome__next">
+        <h2>When you are reading a book</h2>
+        <p>Name it in Books and type as you read: a page number, a quote, a question. It all lands on the book&apos;s page.</p>
         <div className="welcome__actions">
-          <Button type="submit" variant="primary" disabled={busy || !oneSentence(draft)}>
-            {busy ? 'Holding it…' : 'Hold it'}
-          </Button>
-          <Button variant="quiet" onClick={onOpen}>Not yet</Button>
+          <Button onClick={onBooks}>Name the book you are reading</Button>
         </div>
-      </form>
-    </section>
-  );
-};
-
-/* ------------------------------------------------------------------ 3 */
-
-const MomentStep = ({ page, setPage, onReading, onFinish }) => {
-  const [candidates, setCandidates] = useState(null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const [filed, setFiled] = useState({});
-  const [busyId, setBusyId] = useState('');
-  const [fileError, setFileError] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    setCandidates(null);
-    setFailed(false);
-    getJudgmentLibraryEvidence(page._id, { limit: 8 })
-      .then((found) => { if (!cancelled) setCandidates(found.candidates); })
-      .catch(() => { if (!cancelled) setFailed(true); });
-    return () => { cancelled = true; };
-  }, [attempt, page._id]);
-
-  const file = async (candidate, field) => {
-    if (busyId) return;
-    setFileError('');
-    if (field === 'skip') {
-      setFiled(current => ({ ...current, [candidate.id]: 'skip' }));
-      return;
-    }
-    setBusyId(candidate.id);
-    try {
-      const { articleId, highlightId } = parseSourceOrigin(candidate.id);
-      const saved = await fileJudgmentEvidence({
-        pageId: page._id,
-        expectedClaim: page.judgment?.currentJudgment || '',
-        field,
-        articleId,
-        highlightId,
-        quote: candidate.text
-      });
-      if (!saved?.judgment) throw new Error('not saved');
-      setPage(current => ({ ...current, judgment: saved.judgment }));
-      setFiled(current => ({ ...current, [candidate.id]: field }));
-    } catch (_error) {
-      setFileError('That did not save. It is still here; try again.');
-    } finally {
-      setBusyId('');
-    }
-  };
-
-  if (failed) {
-    return (
-      <section className="welcome__step">
-        <EmptyState
-          title="Your library could not be read just now."
-          actions={<Button variant="primary" onClick={() => setAttempt(n => n + 1)}>Try again</Button>}
-        />
-      </section>
-    );
-  }
-
-  if (!candidates) {
-    return (
-      <section className="welcome__step" aria-busy="true">
-        <PageHeader titleId="welcome-title" className="welcome__reading" title="Reading your library against it…" />
-      </section>
-    );
-  }
-
-  if (!candidates.length) {
-    return (
-      <section className="welcome__step">
-        <EmptyState
-          title="Nothing you brought speaks to this yet."
-          actions={(
-            <>
-              <Button variant="primary" onClick={onReading}>Bring one more source</Button>
-              <Button variant="quiet" onClick={onFinish}>Open your view</Button>
-            </>
-          )}
-        >
-          <p>
-            That is an answer too: your reading and this view have not met. Bring one more source
-            that argues about it, and Noeis looks again each time you open your view.
-          </p>
-        </EmptyState>
-      </section>
-    );
-  }
-
-  const filedCount = Object.values(filed).filter(field => field !== 'skip').length;
-
-  return (
-    <section className="welcome__step">
-      <PageHeader titleId="welcome-title" title={passagesHeadline(candidates.length)} lede="Decide what each one does to your view. Noeis finds; you judge." />
-      <ol className="welcome__passages">
-        {candidates.map((candidate) => {
-          const verdict = filed[candidate.id];
-          const href = buildSourceOriginPath(candidate.id, candidate.url);
-          const meta = [candidate.sourceLabel, savedOn(candidate.savedAt)].filter(Boolean).join(' · ');
-          return (
-            <li key={candidate.id} className={verdict ? `is-filed is-${verdict}` : ''}>
-              <blockquote>
-                {markMatches(candidate.text, candidate.matched).map((segment, index) => (
-                  segment.match
-                    ? <mark key={index}>{segment.text}</mark>
-                    : <React.Fragment key={index}>{segment.text}</React.Fragment>
-                ))}
-              </blockquote>
-              <p className="welcome__passage-meta">
-                {meta}
-                {href ? (
-                  <>
-                    {meta ? ' · ' : ''}
-                    <a href={href} target="_blank" rel="noopener noreferrer">Open where it came from</a>
-                  </>
-                ) : null}
-              </p>
-              {verdict ? (
-                <p className="welcome__verdict" role="status">{FILED_LINE[verdict]}</p>
-              ) : (
-                <div className="welcome__file">
-                  <Button disabled={Boolean(busyId)} onClick={() => file(candidate, 'why')}>Supports it</Button>
-                  <Button disabled={Boolean(busyId)} onClick={() => file(candidate, 'against')}>Cuts against it</Button>
-                  <Button disabled={Boolean(busyId)} variant="quiet" onClick={() => file(candidate, 'skip')}>
-                    Not about this
-                  </Button>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-      {fileError ? <p className="welcome__error" role="alert">{fileError}</p> : null}
-      <div className="welcome__actions welcome__actions--end">
-        <Button variant="primary" onClick={onFinish}>Open your view</Button>
+        <ExtensionLine />
       </div>
-      <p className="welcome__hint">
-        {filedCount
-          ? 'What you filed is on it. Save more and open it again: Noeis looks each time.'
-          : 'Save more and open it again: Noeis looks each time.'}
-      </p>
-      <ExtensionLine />
     </section>
   );
 };
@@ -806,7 +662,7 @@ const ExtensionLine = () => {
   if (state !== EXTENSION_STATE.NOT_INSTALLED) return null;
   return (
     <p className="welcome__hint">
-      Save from any page with the{' '}
+      On the web, save any page with the{' '}
       <a href={TOUR_EXTENSION_URL} target="_blank" rel="noopener noreferrer">browser extension</a>.
     </p>
   );

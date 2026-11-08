@@ -38,7 +38,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
   const emit = () => { tick += 1; listeners.forEach(listener => listener()); };
   const requestError = error => {
     if (error?.code === 'work_server_updating') return error.message;
-    if (error?.response?.status === 401) { authNeeded = true; return 'Sign in to sync.'; }
+    if (error?.response?.status === 401) { authNeeded = true; return 'Log in to sync.'; }
     return message(error);
   };
   const refreshDrafts = () => {

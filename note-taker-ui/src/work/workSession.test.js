@@ -68,7 +68,7 @@ test('saving conflict as a new note preserves local prose and original server ve
 });
 test('expired authentication keeps the durable draft and never invokes shared auth handling', async () => {
   await session.load(); session.edit('a', { title: 'Keep' }); api.put.mockRejectedValue({ response: { status: 401 } });
-  await session.flush('a'); expect(session.status('a')).toMatch(/Sign in to sync/);
+  await session.flush('a'); expect(session.status('a')).toMatch(/Log in to sync/);
   expect(api.put.mock.calls[0][2]).toMatchObject({ skipAuthHandling: true, headers: { Authorization: `Bearer ${token('owner')}` } });
   const reload = createWorkSession({ token: token('owner'), api }); expect(reload.entry('a').title).toBe('Keep'); reload.dispose();
 });

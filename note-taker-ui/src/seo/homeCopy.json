@@ -1,45 +1,45 @@
 {
-  "title": "Noeis — Grow a knowledge base from what you read",
-  "description": "Save what you read, write down what you believe, and Noeis checks one against the other: every passage for or against your view, quoted, and a wiki that cites its sources and shows where they disagree.",
-  "eyebrow": "A knowledge base that argues back",
-  "headline": "Know when your reading disagrees with you.",
-  "lede": "Save what you read, write down what you believe, and Noeis checks one against the other. It quotes every passage for or against a view you hold, tells you when a new source pushes back, and grows a wiki that cites its sources and shows where they disagree.",
+  "title": "Noeis: reading that compounds",
+  "description": "Bring in your Kindle highlights, Readwise, books and saved links. Noeis connects each new thing you read to what you already know, and grows a wiki of your own that cites every source.",
+  "headline": "Everything you read should add up.",
+  "lede": "Noeis keeps what you read, connects each new book and highlight to what came before, and writes it into a wiki of your own that cites every source.",
   "primaryCta": {
     "label": "Get started",
     "href": "/register"
   },
-  "secondaryCta": {
-    "label": "See how it works",
-    "href": "#how-it-works"
-  },
   "specimen": {
-    "label": "What it looks like",
-    "view": "Teams that write things down make better decisions than teams that meet.",
-    "against": "A source you saved pushes against this",
-    "quote": "Written proposals reward the fluent writer. The quiet engineer with the right answer loses the argument on the page.",
-    "source": "An essay in your library, saved on Tuesday",
-    "choices": [
-      "File for",
-      "File against",
-      "Not about this"
+    "title": "How small things compound",
+    "grew": "A page in your wiki, from 23 sources since March 2025",
+    "entries": [
+      {
+        "when": "Mar 2025",
+        "line": "“Habits are the compound interest of self-improvement.”",
+        "source": "Atomic Habits"
+      },
+      {
+        "when": "Sep 2025",
+        "line": "“Spend each day trying to be a little wiser than you were when you woke up.”",
+        "source": "Charlie Munger, USC Law commencement, 2007"
+      },
+      {
+        "when": "This week",
+        "line": "A line you typed at your reading desk last night ties the two together.",
+        "source": "Added to the page, with both quotes"
+      }
     ]
   },
   "statements": [
     {
-      "title": "Hold a view, and let your reading test it.",
-      "copy": "Write what you believe in one sentence. Noeis reads what you have already saved against it, and everything you save after, and quotes each passage for or against. Nothing is filed until you say so."
+      "title": "Bring in what you have already read.",
+      "copy": "Kindle highlights, Readwise, the books on your desk, links you saved. Years of reading arrive on the first day."
     },
     {
-      "title": "Hear when a new source pushes back.",
-      "copy": "When something you save argues with a view you hold, Noeis names the source and quotes it the next time you open it. You decide whether it counts."
+      "title": "Each new thing lands on the old.",
+      "copy": "Save an article or type a line from a book, and Noeis quotes what it echoes or argues with in everything you have read."
     },
     {
-      "title": "A wiki that shows where sources disagree.",
-      "copy": "Pages are built from your articles, highlights and notes, and cite them. Where two sources disagree, the page says so and asks which you believe."
-    },
-    {
-      "title": "Ask, and get your own reading back.",
-      "copy": "Questions are answered from your library with the quote. When your reading has nothing on it, Noeis says so instead of guessing. Connect Claude Code, Codex and other agents, read-only unless you grant more."
+      "title": "A wiki that grows as you read.",
+      "copy": "Pages are written from your highlights and notes, cite them, and say where two sources disagree. Ask it anything and get your own reading back, or connect Claude Code, Codex and other agents."
     }
   ],
   "guideLinks": [

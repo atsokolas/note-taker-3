@@ -7,6 +7,7 @@ import AppearanceSection from '../components/settings/AppearanceSection';
 import DeliverySection from '../components/settings/DeliverySection';
 import DataSection from '../components/settings/DataSection';
 import AdvancedSection from '../components/settings/AdvancedSection';
+import AccountSection from '../components/settings/AccountSection';
 import { normalizeUiSettings, UI_SETTINGS_STORAGE_KEY } from '../settings/uiPreferences';
 import {
   appearanceDiffKeys,
@@ -26,7 +27,8 @@ const Settings = ({
   uiSettings = normalizeUiSettings(),
   onAppearanceCommit = async () => ({ ok: false }),
   onAppearanceUndo = async () => ({ ok: false }),
-  onOpenThemePicker
+  onOpenThemePicker,
+  onLogout
 }) => {
   useDocumentTitle('Settings');
   const location = useLocation();
@@ -172,6 +174,7 @@ const Settings = ({
         />
       );
     }
+    if (section === 'account') return <AccountSection onLogout={onLogout} />;
     if (section === 'delivery') return <DeliverySection />;
     if (section === 'data') return <DataSection />;
     return <AdvancedSection uiSettings={committed} section={section} />;
@@ -186,7 +189,8 @@ const Settings = ({
     handleUndo,
     remoteBaseline,
     handleAdoptRemote,
-    onOpenThemePicker
+    onOpenThemePicker,
+    onLogout
   ]);
 
   const handleSearchSelect = (entry) => {

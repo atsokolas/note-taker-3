@@ -16,7 +16,7 @@ struct SignInView: View {
             VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Noeis").font(.system(size: 52, weight: .medium, design: .serif))
-                    Text("Know when your reading disagrees with you.")
+                    Text("Everything you read should add up.")
                         .font(.readingLarge)
                         .foregroundStyle(Ink.muted)
                 }

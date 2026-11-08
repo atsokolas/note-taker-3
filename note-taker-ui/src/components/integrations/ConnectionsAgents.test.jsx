@@ -55,7 +55,7 @@ describe('Connections agents', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: 'Agents you have authorized' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
     expect(screen.getByText('Research companion')).toBeInTheDocument();
     expect(screen.getByText('Codex · Read only')).toBeInTheDocument();
     expect(screen.getByText('Approved · waiting for first request')).toBeInTheDocument();
@@ -69,7 +69,7 @@ describe('Connections agents', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Give instructions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect an agent' }));
     fireEvent.change(screen.getByLabelText('Name this connection'), {
       target: { value: 'Weekend research' }
     });

@@ -1,12 +1,12 @@
-/* First run. One column, the reader's own sentence, and a way out.
-   Written in the judgment page's register, because that is where it lands. */
+/* First run. One column, ruled like a page, and a way out. It is still the
+   front door, so its one wanted action is set in ink, as on the landing page,
+   and the rest are words. */
 
 .welcome {
   --welcome-ink: var(--noeis-ink, var(--text-primary));
   --welcome-muted: var(--noeis-ink-muted, var(--text-secondary));
   --welcome-subtle: var(--noeis-ink-subtle, var(--text-muted));
   --welcome-rule: var(--noeis-rule, var(--vellum-line));
-  --welcome-thread: var(--noeis-thread, var(--wiki-warm-accent));
   min-height: 100vh;
   padding: 0 24px 120px;
   color: var(--welcome-ink);
@@ -98,24 +98,6 @@
 
 .welcome p { margin: 0; }
 
-.welcome__held {
-  display: grid;
-  gap: 4px;
-  padding-bottom: 22px;
-  border-bottom: 1px solid var(--welcome-rule);
-  font-family: var(--font-serif);
-  font-size: 1.2rem;
-  font-style: italic;
-  line-height: 1.4;
-}
-
-.welcome__held span {
-  color: var(--welcome-subtle);
-  font-family: var(--font-sans);
-  font-size: 0.8rem;
-  font-style: normal;
-}
-
 .welcome__quiet,
 .welcome__hint {
   color: var(--welcome-subtle);
@@ -126,16 +108,6 @@
 .welcome__receipt {
   color: var(--welcome-ink);
   font-size: 0.92rem;
-}
-
-.welcome__receipt::before {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin: 0 10px 2px 0;
-  border-radius: 50%;
-  background: var(--welcome-thread);
 }
 
 .welcome__error {
@@ -181,14 +153,6 @@ body.noeis-editorial .welcome input:focus,
   outline: none;
 }
 
-body.noeis-editorial .welcome .welcome__view-field,
-.welcome .welcome__view-field {
-  overflow: hidden;
-  font-family: var(--font-serif) !important;
-  font-size: clamp(1.35rem, 2.4vw, 1.6rem);
-  line-height: 1.35;
-}
-
 .welcome__inline {
   display: flex;
   align-items: baseline;
@@ -208,14 +172,87 @@ body.noeis-editorial .welcome .welcome__view-field,
   padding-top: 8px;
 }
 
+/* body.noeis-editorial sets every .ui-button as a tracked uppercase word on a
+   panel, with !important; first run answers in kind. */
+body.noeis-editorial .welcome .ui-button,
+body.noeis-editorial .welcome .ui-quiet-button,
+.welcome .welcome__file-pick {
+  min-height: 0;
+  padding: 0 0 1px;
+  border: 0 !important;
+  border-bottom: 1px solid var(--welcome-rule) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--welcome-ink) !important;
+  font-family: var(--font-sans);
+  font-size: 0.94rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+body.noeis-editorial .welcome .ui-quiet-button {
+  border-bottom-color: transparent !important;
+  color: var(--welcome-muted) !important;
+}
+
+body.noeis-editorial .welcome .ui-button:hover,
+body.noeis-editorial .welcome .ui-button:focus-visible,
+body.noeis-editorial .welcome .ui-quiet-button:hover,
+body.noeis-editorial .welcome .ui-quiet-button:focus-visible,
+.welcome .welcome__file-pick:hover,
+.welcome .welcome__file-pick:focus-within {
+  border-bottom-color: currentColor !important;
+  background: transparent !important;
+  color: var(--welcome-ink) !important;
+}
+
+body.noeis-editorial .welcome .ui-button.ui-button-primary {
+  padding: 0.66rem 1.2rem;
+  border: 1px solid var(--welcome-ink) !important;
+  border-radius: 2px !important;
+  background: var(--welcome-ink) !important;
+  color: var(--vellum-bg, #fff) !important;
+  font-weight: 500;
+}
+
+body.noeis-editorial .welcome .ui-button.ui-button-primary:hover,
+body.noeis-editorial .welcome .ui-button.ui-button-primary:focus-visible {
+  border-color: var(--vellum-warm, var(--welcome-ink)) !important;
+  background: var(--vellum-warm, var(--welcome-ink)) !important;
+  color: var(--vellum-bg, #fff) !important;
+}
+
+body.noeis-editorial .welcome .ui-button:disabled,
+body.noeis-editorial .welcome .ui-quiet-button:disabled,
+.welcome .welcome__file-pick.is-busy {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.welcome .welcome__file-pick input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.welcome code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+
 /* ---------- what it builds ---------- */
 
 .welcome__example {
   display: grid;
   gap: 12px;
-  padding: 26px 28px 22px;
-  border: 1px solid var(--welcome-rule);
-  border-radius: 6px;
+  padding: 22px 0 18px;
+  border-top: 1px solid var(--welcome-ink);
+  border-bottom: 1px solid var(--welcome-rule);
   font-family: var(--font-serif);
 }
 
@@ -273,22 +310,24 @@ body.noeis-editorial .welcome .welcome__view-field,
 }
 
 .welcome__packs li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--welcome-rule);
+}
+
+.welcome__packs li > div {
   display: grid;
   gap: 3px;
 }
 
-.welcome .welcome__packs button {
-  justify-self: start;
-  color: var(--welcome-ink);
+.welcome__packs strong {
   font-family: var(--font-serif);
   font-size: 1.2rem;
-  white-space: normal;
-  text-align: left;
-  transition: color 140ms ease;
+  font-weight: 400;
 }
-
-.welcome .welcome__packs button:hover,
-.welcome .welcome__packs button:focus-visible { color: var(--welcome-thread); }
 
 .welcome__packs li p {
   color: var(--welcome-muted);
@@ -339,7 +378,7 @@ body.noeis-editorial .welcome .welcome__view-field,
 }
 
 .welcome__arrivals li.is-reading span { color: var(--welcome-subtle); }
-.welcome__arrivals li.is-in small { color: var(--welcome-thread); }
+.welcome__arrivals li.is-in small { color: var(--welcome-muted); }
 .welcome__arrivals li.is-failed small { color: var(--noeis-danger, #a33); }
 
 /* ---------- the first page ---------- */
@@ -360,8 +399,7 @@ body.noeis-editorial .welcome .welcome__view-field,
   gap: 2px 16px;
 }
 
-.welcome .welcome__topics button,
-.welcome .welcome__packs button {
+.welcome .welcome__topics button {
   padding: 0;
   border: 0;
   background: none;
@@ -375,7 +413,11 @@ body.noeis-editorial .welcome .welcome__view-field,
 }
 
 .welcome .welcome__topics button:hover,
-.welcome .welcome__topics button:focus-visible { color: var(--welcome-thread); }
+.welcome .welcome__topics button:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: var(--welcome-rule);
+  text-underline-offset: 4px;
+}
 
 .welcome__topics small {
   color: var(--welcome-subtle);
@@ -388,7 +430,23 @@ body.noeis-editorial .welcome .welcome__view-field,
   line-height: 1.6;
 }
 
-/* ---------- what it says ---------- */
+/* ---------- where to go next ---------- */
+
+.welcome__next {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 22px;
+  border-top: 1px solid var(--welcome-rule);
+}
+
+.welcome__next > p {
+  color: var(--welcome-muted);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+/* ---------- while it writes ---------- */
 
 .welcome__reading {
   color: var(--welcome-muted);
@@ -404,70 +462,6 @@ body.noeis-editorial .welcome .welcome__view-field,
   50% { opacity: 0.55; }
 }
 
-.welcome__passages {
-  display: grid;
-  gap: 34px;
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.welcome__passages li {
-  display: grid;
-  gap: 10px;
-}
-
-.welcome__passages blockquote {
-  margin: 0;
-  padding-left: 18px;
-  border-left: 1px solid var(--welcome-rule);
-  font-family: var(--font-serif);
-  font-size: 1.12rem;
-  line-height: 1.55;
-  transition: color 180ms ease, border-color 180ms ease;
-}
-
-.welcome__passages mark {
-  background: none;
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--welcome-thread) 70%, transparent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 4px;
-}
-
-.welcome__passage-meta {
-  padding-left: 19px;
-  color: var(--welcome-subtle);
-  font-size: 0.82rem;
-}
-
-.welcome__file,
-.welcome__verdict {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 22px;
-  padding-left: 19px;
-}
-
-.welcome__verdict {
-  color: var(--welcome-muted);
-  font-size: 0.86rem;
-}
-
-.welcome__passages li.is-why blockquote,
-.welcome__passages li.is-against blockquote {
-  border-left-color: var(--welcome-thread);
-}
-
-.welcome__passages li.is-skip blockquote {
-  color: var(--welcome-subtle);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .welcome__verdict { animation: welcome-arrive 180ms ease-out both; }
-}
-
 /* ---------- narrow ---------- */
 
 @media (max-width: 720px) {
@@ -478,6 +472,7 @@ body.noeis-editorial .welcome .welcome__view-field,
   .welcome__column { gap: 24px; padding-top: 28px; }
   .welcome__inline { flex-direction: column; align-items: stretch; gap: 12px; }
   .welcome__inline .ui-button { align-self: flex-start; }
+  .welcome__packs li { flex-direction: column; }
 }
 
 /* The shell reserves room for a top bar first run does not show. */

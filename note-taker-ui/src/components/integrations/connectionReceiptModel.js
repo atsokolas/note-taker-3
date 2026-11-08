@@ -355,9 +355,9 @@ export const buildReadwiseConnectionReceipt = ({
     return {
       statusLabel: 'Not connected',
       tone: 'neutral',
-      headline: 'Connect through browser approval first.',
+      headline: 'Nothing has come in from Readwise yet.',
       summary: '',
-      detail: 'Readwise opens in your browser for approval, then agents can retrieve highlights. Add an API token when you want direct Library sync.',
+      detail: 'Connect with Readwise, approve Noeis there, and your highlights come into your Library.',
       nextAction: { label: 'Connect with Readwise' },
       isLive: false
     };
