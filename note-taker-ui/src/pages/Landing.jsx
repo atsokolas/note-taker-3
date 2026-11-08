@@ -88,14 +88,17 @@ const Landing = () => {
           </div>
         </div>
         <figure className="landing-public__specimen" aria-label={HOME.specimen.label}>
-          <p className="landing-public__eyebrow">Your view</p>
-          <p className="landing-public__specimen-view">{HOME.specimen.view}</p>
-          <p className="landing-public__eyebrow">{HOME.specimen.against}</p>
-          <blockquote>{HOME.specimen.quote}</blockquote>
-          <figcaption>{HOME.specimen.source}</figcaption>
-          <p className="landing-public__specimen-choices" aria-hidden="true">
-            {HOME.specimen.choices.map(choice => <span key={choice}>{choice}</span>)}
-          </p>
+          <p className="landing-public__eyebrow">{HOME.specimen.kicker}</p>
+          <p className="landing-public__specimen-title">{HOME.specimen.title}</p>
+          <figcaption>{HOME.specimen.grew}</figcaption>
+          <ol className="landing-public__specimen-entries">
+            {HOME.specimen.entries.map(({ when, line, source }) => (
+              <li key={when}>
+                <time>{when}</time>
+                <p>{line}<small>{source}</small></p>
+              </li>
+            ))}
+          </ol>
         </figure>
       </section>
 

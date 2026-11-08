@@ -1,9 +1,9 @@
 {
-  "title": "Noeis — Grow a knowledge base from what you read",
-  "description": "Save what you read, write down what you believe, and Noeis checks one against the other: every passage for or against your view, quoted, and a wiki that cites its sources and shows where they disagree.",
-  "eyebrow": "A knowledge base that argues back",
-  "headline": "Know when your reading disagrees with you.",
-  "lede": "Save what you read, write down what you believe, and Noeis checks one against the other. It quotes every passage for or against a view you hold, tells you when a new source pushes back, and grows a wiki that cites its sources and shows where they disagree.",
+  "title": "Noeis: reading that compounds",
+  "description": "Bring in your Kindle highlights, Readwise, books and saved links. Noeis connects each new thing you read to what you already know, and grows a wiki of your own that cites every source.",
+  "eyebrow": "Reading that compounds",
+  "headline": "Everything you read should add up.",
+  "lede": "Most of what you read is gone in a month. Noeis keeps it, connects each new book, article and highlight to what you have read before, and writes it into a wiki of your own that cites every source. The hundredth thing you read lands on the ninety-nine before it.",
   "primaryCta": {
     "label": "Get started",
     "href": "/register"
@@ -14,28 +14,39 @@
   },
   "specimen": {
     "label": "What it looks like",
-    "view": "Teams that write things down make better decisions than teams that meet.",
-    "against": "A source you saved pushes against this",
-    "quote": "Written proposals reward the fluent writer. The quiet engineer with the right answer loses the argument on the page.",
-    "source": "An essay in your library, saved on Tuesday",
-    "choices": [
-      "File for",
-      "File against",
-      "Not about this"
+    "kicker": "A page in your wiki",
+    "title": "Why good teams write things down",
+    "grew": "Started in March 2025, from 23 sources",
+    "entries": [
+      {
+        "when": "Mar 2025",
+        "line": "“Adding manpower to a late software project makes it later.”",
+        "source": "The Mythical Man-Month"
+      },
+      {
+        "when": "Sep 2025",
+        "line": "“Written proposals reward the fluent writer.”",
+        "source": "An essay you saved"
+      },
+      {
+        "when": "This week",
+        "line": "A highlight from the book on your desk agrees with the first and argues with the second.",
+        "source": "Added to the page, with both quotes"
+      }
     ]
   },
   "statements": [
     {
-      "title": "Hold a view, and let your reading test it.",
-      "copy": "Write what you believe in one sentence. Noeis reads what you have already saved against it, and everything you save after, and quotes each passage for or against. Nothing is filed until you say so."
+      "title": "Bring in what you have already read.",
+      "copy": "Kindle highlights, Readwise, the books you are reading, links you saved. Years of reading arrive on the first day, not one article at a time."
     },
     {
-      "title": "Hear when a new source pushes back.",
-      "copy": "When something you save argues with a view you hold, Noeis names the source and quotes it the next time you open it. You decide whether it counts."
+      "title": "Each new thing lands on the old.",
+      "copy": "Save an article or type a line from a book, and Noeis shows the passages it echoes or argues with across everything you have read, quoted, with the source."
     },
     {
-      "title": "A wiki that shows where sources disagree.",
-      "copy": "Pages are built from your articles, highlights and notes, and cite them. Where two sources disagree, the page says so and asks which you believe."
+      "title": "A wiki that grows as you read.",
+      "copy": "Ask for a page on anything you have read about. It is written from your highlights and notes, cites them, and says where two sources disagree. The more you bring in, the more it has to stand on."
     },
     {
       "title": "Ask, and get your own reading back.",

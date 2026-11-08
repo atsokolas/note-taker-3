@@ -24,10 +24,8 @@ describe('publishing renderers', () => {
   it('says what Noeis does, for people and for agents', () => {
     const html = renderHomeFallback(content);
 
-    expect(html).toContain('Know when your reading disagrees with you.');
-    expect(html).toContain('Hold a view, and let your reading test it.');
-    expect(html).toContain('Hear when a new source pushes back.');
-    expect(html).toContain('A wiki that shows where sources disagree.');
+    expect(html).toContain(homeCopy.headline);
+    homeCopy.statements.forEach(({ title }) => expect(html).toContain(title));
     expect(html).toContain('Connect Claude Code, Codex and other agents');
     expect(html).toContain('href="#how-it-works"');
     expect(html).toContain('href="/guides"');
@@ -57,9 +55,9 @@ describe('publishing renderers', () => {
       '<title>old</title><meta name="description" content="old" /><meta property="og:title" content="old" /><meta property="og:description" content="old" /><meta name="twitter:title" content="old" /><meta name="twitter:description" content="old" /><script type="application/ld+json">{}</script>',
       content
     );
-    expect(html).toContain('<title>Noeis — Grow a knowledge base from what you read</title>');
+    expect(html).toContain(`<title>${homeCopy.title}</title>`);
     expect(html).toContain(`content="${homeCopy.description}"`);
-    expect(html).toContain('"featureList":["Hold a view, and let your reading test it.');
+    expect(html).toContain(`"featureList":["${homeCopy.statements[0].title}`);
   });
 
   it('renders a curated examples page for source-grounded public wikis', () => {

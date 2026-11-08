@@ -63,32 +63,21 @@ body.noeis-editorial .landing-public__footer-links a:hover {
 }
 
 
-/* The right of the fold shows what the headline means: a view, and a passage
-   from the reader's own library pushing against it. */
+/* The right of the fold shows what the headline means: one page of the
+   reader's wiki, and the reading it grew from, oldest first. */
 body.noeis-editorial .landing-public__specimen {
   display: grid;
-  gap: 10px;
+  gap: 6px;
   margin: 0;
   padding: 22px 24px;
   border-left: 1px solid var(--vellum-line-strong);
 }
 
-body.noeis-editorial .landing-public__specimen-view {
-  margin: 0 0 10px;
+body.noeis-editorial .landing-public__specimen-title {
+  margin: 0;
   font-family: var(--font-serif);
   font-size: 1.32rem;
   line-height: 1.25;
-  color: var(--vellum-ink);
-}
-
-body.noeis-editorial .landing-public__specimen blockquote {
-  margin: 0;
-  padding-left: 14px;
-  border-left: 2px solid var(--vellum-warm);
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  font-style: italic;
-  line-height: 1.4;
   color: var(--vellum-ink);
 }
 
@@ -97,17 +86,45 @@ body.noeis-editorial .landing-public__specimen figcaption {
   color: var(--vellum-subtle);
 }
 
-body.noeis-editorial .landing-public__specimen-choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  margin: 6px 0 0;
-  font-size: 0.86rem;
-  color: var(--vellum-accent);
+body.noeis-editorial .landing-public__specimen-entries {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--vellum-line-strong);
 }
 
-body.noeis-editorial .landing-public__specimen-choices span {
-  border-bottom: 1px solid currentColor;
+body.noeis-editorial .landing-public__specimen-entries li {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .landing-public__specimen-entries time {
+  padding-top: 3px;
+  font-size: 0.78rem;
+  color: var(--vellum-subtle);
+}
+
+body.noeis-editorial .landing-public__specimen-entries p {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  line-height: 1.4;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .landing-public__specimen-entries small {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: var(--vellum-subtle);
+}
+
+body.noeis-editorial .landing-public__specimen-entries li:last-child p {
+  font-style: italic;
 }
 
 body.noeis-editorial .landing-public__eyebrow {

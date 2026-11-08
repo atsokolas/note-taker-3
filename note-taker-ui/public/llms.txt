@@ -1,10 +1,10 @@
 # Noeis
 
-> Save what you read, write down what you believe, and Noeis checks one against the other: every passage for or against your view, quoted, and a wiki that cites its sources and shows where they disagree.
+> Bring in your Kindle highlights, Readwise, books and saved links. Noeis connects each new thing you read to what you already know, and grows a wiki of your own that cites every source.
 
-- **Hold a view, and let your reading test it.** Write what you believe in one sentence. Noeis reads what you have already saved against it, and everything you save after, and quotes each passage for or against. Nothing is filed until you say so.
-- **Hear when a new source pushes back.** When something you save argues with a view you hold, Noeis names the source and quotes it the next time you open it. You decide whether it counts.
-- **A wiki that shows where sources disagree.** Pages are built from your articles, highlights and notes, and cite them. Where two sources disagree, the page says so and asks which you believe.
+- **Bring in what you have already read.** Kindle highlights, Readwise, the books you are reading, links you saved. Years of reading arrive on the first day, not one article at a time.
+- **Each new thing lands on the old.** Save an article or type a line from a book, and Noeis shows the passages it echoes or argues with across everything you have read, quoted, with the source.
+- **A wiki that grows as you read.** Ask for a page on anything you have read about. It is written from your highlights and notes, cites them, and says where two sources disagree. The more you bring in, the more it has to stand on.
 - **Ask, and get your own reading back.** Questions are answered from your library with the quote. When your reading has nothing on it, Noeis says so instead of guessing. Connect Claude Code, Codex and other agents, read-only unless you grant more.
 
 ## For agents
