@@ -498,10 +498,11 @@ const ThinkNotes = () => {
 
   return (
     <div ref={room} className={`think-notes${boardView ? ' has-board' : ''}${activeContext ? ' has-context' : ''}${alternativesOpen ? ' has-alternatives' : ''}${notesCollapsed ? ' notes-collapsed' : ''}`}>
-      <div className="think-notes__toggles">
+      {/* Nothing to hide or lay out on a board until something is written. */}
+      {entries.length || boardView ? <div className="think-notes__toggles">
         <button type="button" className="think-notes__shelf-toggle" aria-expanded={!notesCollapsed} aria-controls="think-notes-shelf" onClick={() => setNotesCollapsed(value => !value)}>{notesCollapsed ? 'Show list' : 'Hide list'}</button>
         <button type="button" className="think-notes__shelf-toggle" aria-pressed={Boolean(boardView)} onClick={() => showBoard(boardView ? '' : 'board')}>Board</button>
-      </div>
+      </div> : null}
       <aside id="think-notes-shelf" hidden={notesCollapsed} className="think-notes__shelf" aria-label="Think navigation" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
         <FocusMode inRail />
         <RoomShelf
@@ -509,7 +510,6 @@ const ThinkNotes = () => {
           className={step(1)}
           data-writing-rail="left"
           data-writing-rail-label="Notes"
-          label="Think"
           search={shelfQuery}
           searchLabel="Find your writing"
           searchPlaceholder="A phrase you remember…"
@@ -585,8 +585,8 @@ const ThinkNotes = () => {
               </RoomShelfList>
             </RoomShelfSection>
           ) : null}
-          <RoomShelfSection label={filter === 'all' ? 'Recent' : KIND_LABELS[filter]}>
-            {!loading && !entries.length ? <p className="room-shelf__description">{filter === 'all' ? 'Nothing written yet.' : `No ${KIND_LABELS[filter].toLowerCase()} yet.`}</p> : null}
+          {entries.length || filter !== 'all' ? <RoomShelfSection label={filter === 'all' ? 'Recent' : KIND_LABELS[filter]}>
+            {!loading && !entries.length && filter !== 'all' ? <p className="room-shelf__description">{`No ${KIND_LABELS[filter].toLowerCase()} yet.`}</p> : null}
             <RoomShelfList>
               {shelf.map(item => (
                 <li key={`${item.kind}:${item.id}`}>
@@ -614,7 +614,7 @@ const ThinkNotes = () => {
                 Show all
               </button>
             ) : null}
-          </RoomShelfSection>
+          </RoomShelfSection> : null}
           </>}
         </RoomShelf>
       </aside>
