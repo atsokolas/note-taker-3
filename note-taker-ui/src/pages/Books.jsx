@@ -151,7 +151,6 @@ const Shelf = () => {
 
   return (
     <main className="books" aria-labelledby="books-title" aria-busy={!books && !error}>
-      <nav className="books__tools" aria-label="Books"><Link to="/library">← Library</Link></nav>
       <h1 id="books-title">Books</h1>
       <form className="books__start" onSubmit={start}>
         <input

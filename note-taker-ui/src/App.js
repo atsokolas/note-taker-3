@@ -23,7 +23,6 @@ import {
   persistUiSettingsToStorage
 } from './settings/uiPreferences';
 import { formatAppearanceValue } from './settings/appearanceFieldModel';
-import { TemporaryAppearanceProvider, TemporaryAppearanceBar } from './settings/TemporaryAppearanceContext';
 import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
@@ -891,15 +890,6 @@ function App() {
     );
 
     return (
-      <TemporaryAppearanceProvider
-        committedSettings={uiSettings}
-        onKeepTemporary={(draft) => handleAppearanceCommit(
-          Object.fromEntries(
-            Object.entries(draft).filter(([key, value]) => uiSettings[key] !== value)
-          ),
-          draft
-        )}
-      >
       <AppShell
         surface={surface}
         /* One Partner, the same in every room: ⌘J or its button opens it. */
@@ -938,9 +928,7 @@ function App() {
         )}
       >
         {routes}
-        <TemporaryAppearanceBar />
       </AppShell>
-      </TemporaryAppearanceProvider>
     );
   };
 

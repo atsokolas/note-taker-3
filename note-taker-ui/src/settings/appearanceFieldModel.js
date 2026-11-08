@@ -1,4 +1,4 @@
-import { DEFAULT_UI_SETTINGS, THEME_OPTIONS } from './uiPreferences';
+import { THEME_OPTIONS } from './uiPreferences';
 
 export const APPEARANCE_FIELD_KEYS = Object.freeze([
   'typographyScale',
@@ -25,7 +25,7 @@ export const formatAppearanceValue = (key, value) => {
   return valueLabels[key]?.[value] ?? String(value ?? '');
 };
 
-export const appearanceDiffKeys = (before, after) => APPEARANCE_FIELD_KEYS.filter(
+const appearanceDiffKeys = (before, after) => APPEARANCE_FIELD_KEYS.filter(
   (key) => before?.[key] !== after?.[key]
 );
 
@@ -37,20 +37,3 @@ export const pickAppearancePatch = (base, draft) => {
   return patch;
 };
 
-export const mergeRemoteIntoDraft = (draft, baseAtEditStart, remote) => {
-  const next = { ...draft };
-  APPEARANCE_FIELD_KEYS.forEach((key) => {
-    const localChanged = draft[key] !== baseAtEditStart[key];
-    const remoteChanged = remote[key] !== baseAtEditStart[key];
-    if (!localChanged && remoteChanged) {
-      next[key] = remote[key];
-    }
-  });
-  return next;
-};
-
-export const conflictingAppearanceKeys = (draft, baseAtEditStart, remote) => APPEARANCE_FIELD_KEYS.filter(
-  (key) => draft[key] !== baseAtEditStart[key] && remote[key] !== baseAtEditStart[key] && draft[key] !== remote[key]
-);
-
-export const appearanceDefaults = () => ({ ...DEFAULT_UI_SETTINGS });

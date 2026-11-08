@@ -666,17 +666,6 @@ body.noeis-editorial .topbar__search-wrap:focus-within .topbar__search-trigger-l
   color: var(--text-primary, var(--vellum-ink));
 }
 
-/* The shortcut is a note to yourself, not a key cap. */
-
-body.noeis-editorial .topbar__search-kbd {
-  border: 0 !important;
-  background: none !important;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-}
-
 body.noeis-editorial .topbar__search-icon {
   position: absolute;
   top: 50%;

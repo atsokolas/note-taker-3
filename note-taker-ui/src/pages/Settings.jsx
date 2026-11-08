@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import '../styles/settings-redesign.css';
@@ -8,12 +8,8 @@ import DeliverySection from '../components/settings/DeliverySection';
 import DataSection from '../components/settings/DataSection';
 import AdvancedSection from '../components/settings/AdvancedSection';
 import AccountSection from '../components/settings/AccountSection';
-import { normalizeUiSettings, UI_SETTINGS_STORAGE_KEY } from '../settings/uiPreferences';
-import {
-  appearanceDiffKeys,
-  mergeRemoteIntoDraft,
-  pickAppearancePatch
-} from '../settings/appearanceFieldModel';
+import { normalizeUiSettings } from '../settings/uiPreferences';
+import { pickAppearancePatch } from '../settings/appearanceFieldModel';
 import { parseSettingsLocation } from '../settings/settingsRegistry';
 import {
   captureSettingsReturnPath,
@@ -36,29 +32,16 @@ const Settings = ({
   const parsed = parseSettingsLocation(location.search, location.hash);
   const [section, setSection] = useState(parsed.section);
   const [searchQuery, setSearchQuery] = useState('');
-  const [committed, setCommitted] = useState(() => normalizeUiSettings(uiSettings));
-  const [draft, setDraft] = useState(() => normalizeUiSettings(uiSettings));
-  const [editBase, setEditBase] = useState(() => normalizeUiSettings(uiSettings));
+  /* What the page shows: the saved settings, or the choice just made while
+     it saves. */
+  const [shown, setShown] = useState(() => normalizeUiSettings(uiSettings));
   const [saveState, setSaveState] = useState('idle');
   const [lastReceipt, setLastReceipt] = useState(null);
-  const [remoteBaseline, setRemoteBaseline] = useState(null);
+  const [failedPatch, setFailedPatch] = useState(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const returnMeta = readSettingsReturnPath();
-  const pendingSaveRef = useRef(0);
 
-  useEffect(() => {
-    const normalized = normalizeUiSettings(uiSettings);
-    setCommitted(normalized);
-    /* A theme kept from the menu lands here while other edits may be open;
-       take every saved change the draft has not touched itself. */
-    const merged = mergeRemoteIntoDraft(draft, editBase, normalized);
-    /* The theme menu saves on its own, so a theme kept there is newer than any
-       theme this draft still holds (say, from Restore defaults). */
-    if (normalized.theme !== editBase.theme) merged.theme = normalized.theme;
-    setDraft(merged);
-    setEditBase(normalized);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync when server ack changes, not while editing
-  }, [uiSettings]);
+  useEffect(() => { setShown(normalizeUiSettings(uiSettings)); }, [uiSettings]);
 
   useEffect(() => {
     if (location.state?.returnTo) {
@@ -89,53 +72,29 @@ const Settings = ({
     }
   }, [location.search, location.hash]);
 
-  useEffect(() => {
-    const onStorage = (event) => {
-      if (event.key !== UI_SETTINGS_STORAGE_KEY || !event.newValue) return;
-      try {
-        const remote = normalizeUiSettings(JSON.parse(event.newValue));
-        if (appearanceDiffKeys(draft, editBase).length) {
-          setRemoteBaseline(remote);
-        } else {
-          setCommitted(remote);
-          setDraft(remote);
-          setEditBase(remote);
-        }
-      } catch (_error) {
-        // ignore malformed cache
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, [draft, editBase]);
-
-  const handleApply = useCallback(async (_patch, nextDraft) => {
-    const patch = pickAppearancePatch(committed, nextDraft);
-    if (!Object.keys(patch).length) return;
-    const opId = pendingSaveRef.current + 1;
-    pendingSaveRef.current = opId;
+  const save = useCallback(async (patch) => {
+    const before = normalizeUiSettings(uiSettings);
+    const after = normalizeUiSettings({ ...before, ...patch });
+    setShown(after);
     setSaveState('saving');
-    const before = { ...committed };
-    const result = await onAppearanceCommit(patch, nextDraft);
-    if (pendingSaveRef.current !== opId) return;
+    const result = await onAppearanceCommit(patch, after);
+    if (result?.stale) return;
     if (result?.ok) {
-      const after = normalizeUiSettings(result.settings || nextDraft);
       setLastReceipt({ before, after, keys: Object.keys(patch) });
+      setFailedPatch(null);
       setSaveState('saved');
-      setEditBase(after);
-      setDraft(after);
-      setRemoteBaseline(null);
     } else {
+      setShown(before);
+      setFailedPatch(patch);
       setSaveState('failed');
     }
-  }, [committed, onAppearanceCommit]);
+  }, [uiSettings, onAppearanceCommit]);
 
-  const handleCancel = useCallback(() => {
-    setDraft(committed);
-    setEditBase(committed);
-    setSaveState('idle');
-    setRemoteBaseline(null);
-  }, [committed]);
+  /* A field and its value, or (no field) a whole set such as the defaults. */
+  const handleAppearanceChange = useCallback((key, value) => {
+    const patch = key ? { [key]: value } : pickAppearancePatch(shown, value);
+    if (Object.keys(patch).length) save(patch);
+  }, [shown, save]);
 
   const handleUndo = useCallback(async () => {
     if (!lastReceipt) return;
@@ -146,30 +105,16 @@ const Settings = ({
     }
   }, [lastReceipt, onAppearanceUndo]);
 
-  const handleAdoptRemote = useCallback(() => {
-    if (!remoteBaseline) return;
-    const merged = mergeRemoteIntoDraft(draft, editBase, remoteBaseline);
-    setDraft(merged);
-    setEditBase(remoteBaseline);
-    setCommitted(remoteBaseline);
-    setRemoteBaseline(null);
-  }, [draft, editBase, remoteBaseline]);
-
   const sectionContent = useMemo(() => {
     if (section === 'appearance') {
       return (
         <AppearanceSection
-          committed={committed}
-          draft={draft}
-          onDraftChange={setDraft}
-          onApply={handleApply}
-          onCancel={handleCancel}
+          settings={shown}
+          onChange={handleAppearanceChange}
           saveState={saveState}
           lastReceipt={lastReceipt}
           onUndo={handleUndo}
-          remoteBaseline={remoteBaseline}
-          onAdoptRemoteBaseline={handleAdoptRemote}
-          onDismissRemote={() => setRemoteBaseline(null)}
+          onRetry={() => failedPatch && save(failedPatch)}
           onOpenThemePicker={onOpenThemePicker}
         />
       );
@@ -177,18 +122,16 @@ const Settings = ({
     if (section === 'account') return <AccountSection onLogout={onLogout} />;
     if (section === 'delivery') return <DeliverySection />;
     if (section === 'data') return <DataSection />;
-    return <AdvancedSection uiSettings={committed} section={section} />;
+    return <AdvancedSection uiSettings={shown} section={section} />;
   }, [
     section,
-    committed,
-    draft,
-    handleApply,
-    handleCancel,
+    shown,
+    handleAppearanceChange,
     saveState,
     lastReceipt,
     handleUndo,
-    remoteBaseline,
-    handleAdoptRemote,
+    failedPatch,
+    save,
     onOpenThemePicker,
     onLogout
   ]);
@@ -233,7 +176,7 @@ const Settings = ({
       {helpOpen ? (
         <dialog className="settings-redesign__dialog" open>
           <h2>A little help, not a reset</h2>
-          <p className="settings-redesign__help">Use the search field to find a setting. Escape closes dialogs without discarding drafts.</p>
+          <p className="settings-redesign__help">Use the search field to find a setting. Escape closes dialogs.</p>
           <Link to="/how-to-use" className="settings-redesign__link" onClick={() => setHelpOpen(false)}>Open full help</Link>
           <div style={{ marginTop: '1rem' }}>
             <Button onClick={() => setHelpOpen(false)}>Back to settings</Button>

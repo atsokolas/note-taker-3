@@ -211,30 +211,6 @@ body.go-to-primed .topbar__primary-key {
   white-space: nowrap;
 }
 
-/* ⌘K hint inside the topbar search wrap — surfaces the existing global
-   command palette shortcut. Without this hint, only power users find it. */
-.topbar__search-kbd {
-  align-self: center;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 18px;
-  padding: 0 6px;
-  margin-right: 6px;
-  border: 1px solid var(--border-subtle);
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  color: var(--text-secondary);
-  font-family: var(--font-sans);
-  font-size: 0.68rem;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0;
-  pointer-events: none;
-  user-select: none;
-}
-
 /* Keyboard shortcut overlay — reuses the insert-modal glass shell from
    PR #2 / Iter 9 so the visual language matches. Adds list / row styling
    for the shortcut catalog. */
@@ -345,10 +321,6 @@ body.noeis-editorial .palette-list {
 }
 
 @media (max-width: 480px) {
-  .topbar__search-kbd {
-    display: none;
-  }
-
   .topbar__search-trigger {
     width: min(240px, 42vw);
   }

@@ -140,3 +140,22 @@
     gap: 8px 16px;
   }
 }
+
+/* On the Wiki home the composer is a line to write on, like Books' and the
+   Library's, not a box. */
+.wiki-creation .wiki-build-page,
+.wiki-creation .wiki-repo-create {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.wiki-creation .wiki-build-page__row input,
+.wiki-creation .wiki-repo-create__row input {
+  border: 0;
+  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line));
+  border-radius: 0;
+  padding-left: 0;
+  background: transparent;
+}

@@ -213,17 +213,11 @@ const TopBar = ({
               type="button"
               className="topbar__search-wrap topbar__search-trigger"
               aria-label="Open command palette"
+              title="Search (⌘K)"
               onClick={openSearch}
             >
               <span className="topbar__search-icon" aria-hidden="true" />
               <span className="topbar__search-trigger-label">Search</span>
-              <kbd
-                className="topbar__search-kbd"
-                aria-hidden="true"
-                title="Open command palette (⌘K)"
-              >
-                ⌘K
-              </kbd>
             </button>
           </div>
         ) : null}
