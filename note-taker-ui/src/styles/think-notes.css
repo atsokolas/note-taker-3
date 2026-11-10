@@ -63,7 +63,7 @@ body.noeis-editorial .think-notebook-editor-body {
   background: transparent !important;
   font-family: var(--font-serif) !important;
   font-size: 1.3rem;
-  line-height: 1.85;
+  line-height: 1.6;
   color: var(--vellum-ink) !important;
 }
 
@@ -697,13 +697,6 @@ body.noeis-editorial .notebook-scratchpad .notebook-workbench__row-actions .ui-q
 .notebook-trial-preview-prose { position: relative; margin: 0 0 1em; white-space: pre-wrap; color: var(--text-primary); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--noeis-pointer, #6f87ff) 40%, transparent); text-underline-offset: 5px; }
 .notebook-trial-preview-prose::after { position: absolute; top: 0; right: -18px; bottom: 0; width: 7px; border: 1.5px solid var(--noeis-pointer, #6f87ff); border-left: 0; content: ''; pointer-events: none; }
 
-.think-notes .ProseMirror {
-  padding: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(1.14rem, 1.35vw, 1.24rem);
-  line-height: 1.68;
-}
-
 /* The save receipt belongs with the writing at the start of the column. */
 
 /* ---- From the lock -------------------------------------------------------
@@ -840,11 +833,8 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
 }
 
 @media (min-width: 1181px) {
-  body:is(.think-rails-away, .think-focus-held) .think-notes { --notes-width: 30px; --drawer-width: 0px; }
-  body:is(.think-rails-away, .think-focus-held) .think-notes:has([data-writing-rail='left']:is(:hover, :focus-within)) { --notes-width: 220px; }
   body.think-focus-held .think-notes { --alternatives-width: 0px; }
   body.think-focus-held .think-notes__alternatives, body.think-focus-held .think-notes__partner { display: none; }
-  body.think-focus-held .think-notes__shelf .think-focus-mode__label { display: none; }
 }
 
 /* ---- One list ---------------------------------------------------------- */

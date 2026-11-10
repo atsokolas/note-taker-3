@@ -508,7 +508,6 @@ const ThinkNotes = () => {
           as="div"
           className={step(1)}
           data-writing-rail="left"
-          data-writing-rail-label="Notes"
           label="Think"
           search={shelfQuery}
           searchLabel="Find your writing"
