@@ -411,6 +411,14 @@ const notebookWorkbenchThoughtSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { _id: false });
 
+// A passage the writer has dimmed: still on the page, left out of the piece.
+const notebookWorkbenchDimmedSchema = new mongoose.Schema({
+  id: { type: String, required: true, maxlength: 160 },
+  blockId: { type: String, required: true, maxlength: 160 },
+  text: { type: String, required: true, maxlength: 20000 },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
 const notebookWorkbenchNextLineSchema = new mongoose.Schema({
   text: { type: String, default: '', maxlength: 4000 },
   target: { type: notebookWorkbenchTargetSchema, default: () => ({}) },
@@ -428,6 +436,7 @@ const notebookWorkbenchSchema = new mongoose.Schema({
   materials: { type: [notebookWorkbenchMaterialSchema], default: [] },
   trials: { type: [notebookWorkbenchTrialSchema], default: [] },
   looseThoughts: { type: [notebookWorkbenchThoughtSchema], default: [] },
+  dimmed: { type: [notebookWorkbenchDimmedSchema], default: [] },
   nextTimeLine: { type: notebookWorkbenchNextLineSchema, default: () => ({}) },
   continuity: { type: notebookWorkbenchContinuitySchema, default: () => ({}) }
 }, { _id: false });

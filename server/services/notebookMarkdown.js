@@ -38,11 +38,23 @@ const quoteLines = (block) => {
   return lines;
 };
 
+// Dimmed words stay on the writer's page but are not yet the piece. Each comes
+// out of its own block, or the first that still carries it, as the editor finds it.
+const withoutDimmed = (blocks, dimmed = []) => {
+  const texts = blocks.map(block => String(block.text || ''));
+  dimmed.forEach(({ blockId, text }) => {
+    const own = blocks.findIndex((block, index) => block.id === blockId && texts[index].includes(text));
+    const index = own >= 0 ? own : texts.findIndex(value => value.includes(text));
+    if (index >= 0) texts[index] = texts[index].replace(text, '').replace(/ {2,}/g, ' ');
+  });
+  return blocks.map((block, index) => (texts[index] === String(block.text || '') ? block : { ...block, text: texts[index] }));
+};
+
 const buildNotebookMarkdown = (entry) => {
   const title = String(entry?.title || 'Untitled').trim() || 'Untitled';
-  const blocks = Array.isArray(entry?.blocks) && entry.blocks.length > 0
+  const blocks = withoutDimmed(Array.isArray(entry?.blocks) && entry.blocks.length > 0
     ? entry.blocks
-    : [{ type: 'paragraph', text: stripTags(entry?.content || '') }];
+    : [{ type: 'paragraph', text: stripTags(entry?.content || '') }], entry?.workingState?.dimmed);
   const lines = [`# ${title}`, ''];
 
   blocks.forEach((block) => {

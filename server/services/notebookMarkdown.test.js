@@ -92,3 +92,18 @@ test('exports a wiki reference as a link and a divider as a rule', () => {
   assert.match(markdown, /\[Experimentation\]\(\/wiki\/workspace\?page=wiki-1\)/);
   assert.match(markdown, /^---$/m);
 });
+
+test('leaves dimmed words on the page and out of the piece', () => {
+  const markdown = buildNotebookMarkdown({
+    title: 'Draft',
+    blocks: [
+      { id: 'p1', type: 'paragraph', text: 'Keep this. Maybe cut this. Keep that.' },
+      { id: 'p2', type: 'paragraph', text: 'A second paragraph.' }
+    ],
+    workingState: { dimmed: [{ id: 'd1', blockId: 'p1', text: 'Maybe cut this.' }, { id: 'd2', blockId: 'gone', text: 'second' }] }
+  });
+
+  assert.match(markdown, /^Keep this\. Keep that\.$/m);
+  assert.match(markdown, /^A paragraph\.$/m);
+  assert.equal(markdown.includes('Maybe cut this.'), false);
+});

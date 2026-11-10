@@ -2,6 +2,7 @@ const LIMITS = Object.freeze({
   materials: 80,
   trials: 40,
   looseThoughts: 80,
+  dimmed: 80,
   title: 1000,
   text: 30000,
   nextLine: 4000,
@@ -69,6 +70,13 @@ const thought = (value, index) => {
   };
 };
 
+const dimmedPassage = (value, index) => {
+  const text = string(value?.text, LIMITS.baseText);
+  const blockId = string(value?.blockId, 160);
+  if (!text || !blockId) return null;
+  return { id: string(value?.id, 160) || `dimmed-${index}`, blockId, text, createdAt: date(value?.createdAt) };
+};
+
 const list = (value, limit, normalize) => (Array.isArray(value) ? value : [])
   .slice(0, limit)
   .map(normalize)
@@ -81,6 +89,7 @@ const sanitizeNotebookWorkbench = (value = {}, { revision } = {}) => {
     materials: list(value?.materials, LIMITS.materials, material),
     trials: list(value?.trials, LIMITS.trials, trial),
     looseThoughts: list(value?.looseThoughts, LIMITS.looseThoughts, thought),
+    dimmed: list(value?.dimmed, LIMITS.dimmed, dimmedPassage),
     nextTimeLine: {
       text: string(value?.nextTimeLine?.text, LIMITS.nextLine),
       target: target(value?.nextTimeLine?.target),

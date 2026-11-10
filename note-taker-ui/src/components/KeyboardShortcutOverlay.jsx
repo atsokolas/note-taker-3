@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { NOEIS_GO_TO_SHORTCUTS, NOEIS_MOVES } from '../navigation/appNavigation';
+import { WRITE_ON_KEYS } from './think/notebook/writeOn';
 
 /**
  * KeyboardShortcutOverlay — modal that lists every global shortcut.
@@ -35,6 +36,10 @@ export const SHORTCUT_SECTIONS = [
       keys: [...(item.alt ? ['Alt'] : []), capOf(item.key)],
       label: item.label
     }))
+  },
+  {
+    title: 'Writing in Think',
+    items: WRITE_ON_KEYS
   },
   {
     title: 'Reading & highlights',

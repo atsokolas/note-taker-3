@@ -832,6 +832,9 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
   .notebook-saved-alternatives__mark { transition: none; }
 }
 
+/* Dimmed, not deleted: still readable, already quieter than the piece. */
+.ProseMirror .notebook-dimmed { opacity: 0.38; }
+
 @media (min-width: 1181px) {
   body.think-focus-held .think-notes { --alternatives-width: 0px; }
   body.think-focus-held .think-notes__alternatives, body.think-focus-held .think-notes__partner { display: none; }

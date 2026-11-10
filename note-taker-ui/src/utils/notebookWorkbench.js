@@ -24,6 +24,7 @@ export const normalizeNotebookWorkingState = (value = {}) => ({
     ...(text(item.partnerExplanation) ? { partnerExplanation: text(item.partnerExplanation).slice(0, 240) } : {})
   })),
   looseThoughts: list(value.looseThoughts).filter(item => item?.id && text(item.text).trim()).map(item => ({ ...item, target: target(item.target) })),
+  dimmed: list(value.dimmed).filter(item => item?.id && text(item.blockId) && text(item.text).trim()),
   nextTimeLine: {
     text: text(value.nextTimeLine?.text),
     target: target(value.nextTimeLine?.target),
@@ -150,6 +151,33 @@ export const notebookTrialKey = (trial) => {
   const savedTarget = trial?.target || trial;
   const intent = trial?.intent === 'tighter' ? 'tighter' : 'wording';
   return `${savedTarget?.blockId}:${savedTarget?.scope || 'paragraph'}:${savedTarget?.rangeStart || 0}:${savedTarget?.rangeEnd || 0}:${savedTarget?.baseText}:${intent}`;
+};
+
+// One passage, several wordings. Whatever stands in the draft, every version of
+// that passage now anchors to it; `alternativeFor` says what each one holds.
+export const retargetTrials = (trials, key, wording, alternativeFor = trial => trial.alternative) => trials.map((trial) => {
+  if (notebookTrialKey(trial) !== key) return trial;
+  const savedTarget = trial.target;
+  return {
+    ...trial,
+    alternative: alternativeFor(trial),
+    target: { ...savedTarget, baseText: notebookTrialText(savedTarget, wording), ...(savedTarget.scope ? { rangeEnd: savedTarget.rangeStart + wording.length } : {}) }
+  };
+});
+
+// The draft and its alternatives are one ring of wordings; a turn brings the
+// next one into the draft and keeps every other in order. Not version control,
+// alternative control.
+export const turnWordings = (trials, key, step) => {
+  const ring = trials.filter(trial => notebookTrialKey(trial) === key && text(trial.alternative).trim());
+  if (!ring.length) return null;
+  const wordings = [notebookTargetText(ring[0].target), ...ring.map(trial => trial.alternative)];
+  const at = (index) => wordings[(((index + step) % wordings.length) + wordings.length) % wordings.length];
+  const turned = new Map(ring.map((trial, index) => [trial.id, at(index + 1)]));
+  return {
+    wording: at(0),
+    trials: retargetTrials(trials, key, at(0), trial => (turned.has(trial.id) ? turned.get(trial.id) : trial.alternative))
+  };
 };
 
 export const resolveEditorTarget = (editor, savedTarget, { requireSameText = false } = {}) => {
