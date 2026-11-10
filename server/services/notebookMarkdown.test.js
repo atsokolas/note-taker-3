@@ -107,3 +107,13 @@ test('leaves dimmed words on the page and out of the piece', () => {
   assert.match(markdown, /^A paragraph\.$/m);
   assert.equal(markdown.includes('Maybe cut this.'), false);
 });
+
+test('leaves out the occurrence that was dimmed when the words repeat', () => {
+  const markdown = buildNotebookMarkdown({
+    title: 'Draft',
+    blocks: [{ id: 'p1', type: 'paragraph', text: 'Keep this word, drop this word.' }],
+    workingState: { dimmed: [{ id: 'd1', blockId: 'p1', text: 'word', offset: 26 }] }
+  });
+
+  assert.match(markdown, /^Keep this word, drop this \.$/m);
+});

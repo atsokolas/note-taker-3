@@ -15,9 +15,11 @@ export const WRITE_ON_KEYS = [
 ];
 
 const SCRATCHPAD_LIMIT = 80;
+// The server keeps a thought up to this long; a longer passage would lose its end on reload.
+const THOUGHT_LENGTH_LIMIT = 30000;
 
 const locatedDimmed = (doc, dimmed = []) => dimmed
-  .map(passage => ({ passage, at: locatePassage(doc, { blockId: passage.blockId, sentence: passage.text }) }))
+  .map(passage => ({ passage, at: locatePassage(doc, { blockId: passage.blockId, sentence: passage.text, near: passage.offset }) }))
   .filter(item => item.at);
 
 /** Dimmed words are still on the page, but they are not yet the piece. */
@@ -44,11 +46,13 @@ const dim = (editor, { workbench, createId }) => {
   const sentence = scopeNotebookTarget({ blockId, offset: $from.parentOffset, baseText }, 'sentence');
   const [start, end] = !selection.empty ? [$from.parentOffset, $to.parentOffset]
     : sentence.scope ? [sentence.rangeStart, sentence.rangeEnd] : [0, baseText.length];
-  const text = baseText.slice(start, end).trim();
+  const raw = baseText.slice(start, end);
+  const text = raw.trim();
   if (!text) return false;
+  const offset = start + raw.indexOf(text);
   workbench.update(current => ({
     ...current,
-    dimmed: [...current.dimmed, { id: createId(), blockId, text, createdAt: new Date().toISOString() }]
+    dimmed: [...current.dimmed, { id: createId(), blockId, text, offset, createdAt: new Date().toISOString() }]
   }));
   return true;
 };
@@ -69,6 +73,10 @@ const stash = (editor, { workbench, createId, onReceipt }) => {
   if (!text) return false;
   if (workbench.state.looseThoughts.length >= SCRATCHPAD_LIMIT) {
     onReceipt({ type: 'error', text: `The scratchpad holds ${SCRATCHPAD_LIMIT} thoughts. Move one into the draft to make room.` });
+    return true;
+  }
+  if (text.length > THOUGHT_LENGTH_LIMIT) {
+    onReceipt({ type: 'error', text: 'That passage is too long for one scratchpad thought. Set aside a smaller part.' });
     return true;
   }
   const slice = state.doc.slice(from, to);

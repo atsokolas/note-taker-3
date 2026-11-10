@@ -74,7 +74,8 @@ const dimmedPassage = (value, index) => {
   const text = string(value?.text, LIMITS.baseText);
   const blockId = string(value?.blockId, 160);
   if (!text || !blockId) return null;
-  return { id: string(value?.id, 160) || `dimmed-${index}`, blockId, text, createdAt: date(value?.createdAt) };
+  const offset = Math.max(0, Math.min(Number(value?.offset) || 0, LIMITS.baseText));
+  return { id: string(value?.id, 160) || `dimmed-${index}`, blockId, text, offset, createdAt: date(value?.createdAt) };
 };
 
 const list = (value, limit, normalize) => (Array.isArray(value) ? value : [])

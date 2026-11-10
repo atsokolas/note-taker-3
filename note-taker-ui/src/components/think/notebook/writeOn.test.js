@@ -61,6 +61,32 @@ describe('Write_On on a real editor', () => {
     expect(workbench.state.dimmed.map(item => item.text)).toEqual(['two three']);
   });
 
+  it('dims the occurrence you selected when the words repeat, and toggles that one back', () => {
+    mount(paragraph('p1', 'Keep this word, drop this word.'));
+    const workbench = bench();
+    const ctx = context(workbench);
+    editor.commands.setTextSelection({ from: 27, to: 31 });
+
+    handleWriteOnKey(editor, key({ ctrlKey: true, key: '.' }), ctx);
+    expect(workbench.state.dimmed).toEqual([expect.objectContaining({ text: 'word', offset: 26 })]);
+
+    handleWriteOnKey(editor, key({ ctrlKey: true, key: '.' }), ctx);
+    expect(workbench.state.dimmed).toEqual([]);
+  });
+
+  it('keeps a passage too long for the scratchpad on the page', () => {
+    mount(paragraph('p1', 'x'.repeat(30001)), paragraph('p2', 'Short.'));
+    const workbench = bench();
+    const ctx = context(workbench);
+    editor.commands.setTextSelection(2);
+
+    handleWriteOnKey(editor, key({ ctrlKey: true, shiftKey: true, key: 'x' }), ctx);
+
+    expect(editor.getText({ blockSeparator: '|' })).toBe(`${'x'.repeat(30001)}|Short.`);
+    expect(workbench.state.looseThoughts).toEqual([]);
+    expect(ctx.onReceipt).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+  });
+
   it('sets a paragraph aside and puts it back exactly on undo', () => {
     mount(paragraph('p1', 'First.'), paragraph('p2', 'An aside.'), paragraph('p3', 'Last.'));
     const workbench = bench();

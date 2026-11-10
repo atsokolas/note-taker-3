@@ -33,15 +33,24 @@ const findBlock = (doc, blockId) => {
   return match;
 };
 
+// The occurrence nearest `near`, so a repeated word is the one that was meant.
+const nearest = (text, passage, near = 0) => {
+  let best = -1;
+  for (let at = text.indexOf(passage); at >= 0; at = text.indexOf(passage, at + 1)) {
+    if (best < 0 || Math.abs(at - near) < Math.abs(best - near)) best = at;
+  }
+  return best;
+};
+
 /* A passage of the note by its words: in its own block when that block still
    carries them, else anywhere. Edits around it never lose it. */
-export const locatePassage = (doc, { blockId = '', sentence = '' } = {}) => {
+export const locatePassage = (doc, { blockId = '', sentence = '', near = 0 } = {}) => {
   if (!sentence) return null;
   let found = null;
   doc.descendants((node, pos) => {
     if (found) return false;
     if (!node.isTextblock) return undefined;
-    const at = blockId && String(node.attrs?.blockId || '') !== blockId ? -1 : node.textContent.indexOf(sentence);
+    const at = blockId && String(node.attrs?.blockId || '') !== blockId ? -1 : nearest(node.textContent, sentence, near);
     if (at >= 0) found = { from: pos + 1 + at, to: pos + 1 + at + sentence.length };
     return false;
   });
@@ -105,7 +114,7 @@ const decorations = (doc, state = {}) => {
     }, { key: `saved-mark-${saved.trialKey}`, side: 1 }));
   });
   (state.dimmed || []).forEach((passage) => {
-    const located = locatePassage(doc, { blockId: passage.blockId, sentence: passage.text });
+    const located = locatePassage(doc, { blockId: passage.blockId, sentence: passage.text, near: passage.offset });
     if (located) rows.push(Decoration.inline(located.from, located.to, { class: 'notebook-dimmed' }));
   });
   const opposite = locatePassage(doc, state.opposite || {});

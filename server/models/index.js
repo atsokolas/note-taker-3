@@ -416,6 +416,7 @@ const notebookWorkbenchDimmedSchema = new mongoose.Schema({
   id: { type: String, required: true, maxlength: 160 },
   blockId: { type: String, required: true, maxlength: 160 },
   text: { type: String, required: true, maxlength: 20000 },
+  offset: { type: Number, default: 0, min: 0 },
   createdAt: { type: Date, default: Date.now }
 }, { _id: false });
 
