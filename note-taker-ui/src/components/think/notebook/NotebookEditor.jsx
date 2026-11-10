@@ -56,6 +56,7 @@ import {
   setSavedTrialMarkHandler
 } from './notebookWorkbenchDecorations';
 import { readySavedTrialMarks, savedMarksBesidePreview } from '../../../utils/notebookSavedTrialMarks';
+import { dimmedWordCount, handleWriteOnKey, undoStash } from './writeOn';
 import {
   citationTargetsForMaterial,
   deleteEditorBlockById,
@@ -72,7 +73,8 @@ import {
   scopeNotebookTarget,
   notebookTargetText,
   notebookTrialText,
-  notebookTrialKey
+  notebookTrialKey,
+  retargetTrials
 } from '../../../utils/notebookWorkbench';
 import { readTighterSupport, rescueReadTighterPhrase } from '../../../utils/notebookReadTighter';
 import { notebookWritingExtensions } from '../editor/notebookWriting';
@@ -430,6 +432,7 @@ const NotebookEditor = ({
   const [docTick, setDocTick] = useState(0);
   const highlightedRef = useRef(null);
   const ghostKeyRef = useRef(null);
+  const writeOnKeyRef = useRef(null);
 
   const editor = useEditor({
     editable: false,
@@ -450,7 +453,8 @@ const NotebookEditor = ({
         'data-markdown-shortcuts': 'headings lists quotes divider code'
       },
       handleKeyDown: (view, event) => (
-        slashKeyDownRef.current?.(view, event)
+        writeOnKeyRef.current?.(event)
+        || slashKeyDownRef.current?.(view, event)
         || ghostKeyRef.current?.(event)
         || handleEditorStructureShortcut({ editor, event, allowTitle: true })
         || false
@@ -535,7 +539,10 @@ const NotebookEditor = ({
   });
   const handleInsertHighlightRef = useRef(null);
   useEffect(() => { handleInsertHighlightRef.current = handleInsertHighlight; });
-  const wordCount = useMemo(() => countWords(editor?.getText?.() || ''), [editor, docTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const wordCount = useMemo(
+    () => countWords(editor?.getText?.() || '') - dimmedWordCount(editor?.state?.doc, workbench.state.dimmed),
+    [editor, docTick, workbench.state.dimmed] // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   /* Pull a passage in from anywhere (⌘K): the passage picker opens on the note. */
   useEffect(() => {
@@ -1128,6 +1135,12 @@ const NotebookEditor = ({
       if (undone.applied) scheduleSave();
       else setWorkbenchReceipt({ type: 'error', text: 'The paragraph changed again, so both versions were kept.' });
       return;
+    } else if (workbenchReceipt?.type === 'stash') {
+      if (!undoStash(editor, workbench, workbenchReceipt)) {
+        setWorkbenchReceipt({ type: 'error', text: 'The page has changed since, so the passage stays in the scratchpad.' });
+        return;
+      }
+      scheduleSave();
     } else if (workbenchReceipt?.type === 'next-line') {
       workbench.update(current => ({ ...current, nextTimeLine: workbenchReceipt.previous }));
     }
@@ -1352,9 +1365,7 @@ const NotebookEditor = ({
     if (!result.applied) return;
     workbench.update(current => ({
       ...current,
-      trials: current.trials.map(item => notebookTrialKey(item) === notebookTrialKey(activeTrial)
-        ? { ...item, target: { ...item.target, baseText: notebookTrialText(activeTrial.target, activeTrial.alternative), ...(item.target.scope ? { rangeEnd: item.target.rangeStart + activeTrial.alternative.length } : {}) }, alternative: item.id === activeTrial.id ? notebookTargetText(activeTrial.target) : item.alternative }
-        : item)
+      trials: retargetTrials(current.trials, notebookTrialKey(activeTrial), activeTrial.alternative, item => (item.id === activeTrial.id ? notebookTargetText(activeTrial.target) : item.alternative))
     }));
     setWorkbenchReceipt({
       type: 'trial',
@@ -1439,6 +1450,9 @@ const NotebookEditor = ({
     // docTick is the editor transaction clock. The document itself is not React state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docTick, editor, previewBlockId, workbench.state.trials]);
+  writeOnKeyRef.current = (event) => handleWriteOnKey(editor, event, {
+    workbench, savedMarks: savedTrialMarks, createId, onReceipt: setWorkbenchReceipt, onChange: scheduleSave
+  });
 
   const openSavedAlternatives = useCallback((trialId) => {
     const trial = workbench.state.trials.find((item) => item.id === trialId);
@@ -1467,9 +1481,10 @@ const NotebookEditor = ({
         ? { blockId: activeTrial?.target?.blockId, text: notebookTrialText(activeTrial?.target, activeTrial?.alternative), ...(activeTrial.target.scope ? { rangeStart: activeTrial.target.rangeStart, rangeEnd: activeTrial.target.rangeStart + activeTrial.alternative.length } : {}) }
         : null,
       savedMarks: savedTrialMarks,
+      dimmed: workbench.state.dimmed,
       opposite
     });
-  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget, opposite, savedTrialMarks, trialPreview, workbenchView]);
+  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget, opposite, savedTrialMarks, trialPreview, workbench.state.dimmed, workbenchView]);
   useEffect(() => { onAlternativesOpenChange?.(alternativesVisible); }, [alternativesVisible, onAlternativesOpenChange]);
   useEffect(() => () => onAlternativesOpenChange?.(false), [onAlternativesOpenChange]);
   useEffect(() => () => partnerOptionsAbortRef.current?.abort?.(), []);
@@ -1701,7 +1716,7 @@ const NotebookEditor = ({
       {workbenchReceipt ? (
         <p className={`notebook-workbench-receipt is-${workbenchReceipt.type}`} role="status">
           {workbenchReceipt.text}
-          {['insert', 'thought', 'trial', 'next-line'].includes(workbenchReceipt.type) ? <Button variant="quiet" onClick={undoWorkbenchReceipt}>Undo</Button> : null}
+          {['insert', 'thought', 'trial', 'stash', 'next-line'].includes(workbenchReceipt.type) ? <Button variant="quiet" onClick={undoWorkbenchReceipt}>Undo</Button> : null}
         </p>
       ) : null}
       {organizeOpen && (

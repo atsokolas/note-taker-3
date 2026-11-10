@@ -1,18 +1,18 @@
 import { useEffect } from 'react';
 
-/* Writing owns this temporary retreat; FocusMode holds its own class so idle
-   and blur cannot cancel the reader's deliberate choice. */
+/* Writing owns this temporary retreat; FocusMode holds its own class so a
+   moving hand cannot cancel the reader's deliberate choice. */
 export const THINK_WRITING_CLASS = 'think-rails-away';
-export const THINK_WRITING_IDLE_MS = 1600;
+/* A resting hand trembles; a hand reaching for the room travels. */
+export const THINK_WRITING_REACH_PX = 12;
 
 /**
- * Writing hides the rails; stopping brings them back.
+ * Typing sets the room down; it comes back when you ask for it — the mouse
+ * moves, Escape, or you leave the page. Never on a pause: a pause is when you
+ * are thinking, and a room that reassembles then is the interruption.
  *
- * `reaching` is the exception. Pressing `@` for a source moves focus into the
- * picker, the editor blurs, and the rails came flooding back mid-sentence —
- * which is the one moment the writer is most clearly still writing. Reaching
- * for a source is part of writing, not the end of it, so blur does not end
- * anything while a picker is open.
+ * `reaching` holds the page down while a source picker is open: pressing `@`
+ * moves focus into the picker, and that is still writing.
  */
 const useThinkWritingActivity = (editor, { enabled = true, reaching = false } = {}) => {
   useEffect(() => {
@@ -25,42 +25,35 @@ const useThinkWritingActivity = (editor, { enabled = true, reaching = false } = 
       return undefined;
     }
 
-    /* Held open for as long as the reach lasts. The idle timer is what would
-       otherwise close it: the writer is not typing while they read a list. */
     if (reaching) {
       document.body.classList.add(THINK_WRITING_CLASS);
       return undefined;
     }
 
-    let idleTimer = 0;
-    const begin = () => document.body.classList.add(THINK_WRITING_CLASS);
-    const clearIdle = () => {
-      if (!idleTimer) return;
-      window.clearTimeout(idleTimer);
-      idleTimer = 0;
-    };
-    const scheduleEnd = () => {
-      clearIdle();
-      idleTimer = window.setTimeout(end, THINK_WRITING_IDLE_MS);
-    };
-
+    let travelled = 0;
     const onUpdate = (event) => {
       if (event?.transaction && event.transaction.docChanged === false) return;
-      begin();
-      scheduleEnd();
+      travelled = 0;
+      document.body.classList.add(THINK_WRITING_CLASS);
     };
-
-    const onBlur = () => {
-      clearIdle();
-      end();
+    const onPointerMove = (event) => {
+      if (event.pointerType && event.pointerType !== 'mouse') return;
+      travelled += Math.abs(event.movementX || 0) + Math.abs(event.movementY || 0);
+      if (travelled > THINK_WRITING_REACH_PX) end();
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') end();
     };
 
     editor.on('update', onUpdate);
-    editor.on('blur', onBlur);
+    editor.on('blur', end);
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('keydown', onKeyDown);
     return () => {
       editor.off('update', onUpdate);
-      editor.off('blur', onBlur);
-      clearIdle();
+      editor.off('blur', end);
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('keydown', onKeyDown);
       end();
     };
   }, [editor, enabled, reaching]);

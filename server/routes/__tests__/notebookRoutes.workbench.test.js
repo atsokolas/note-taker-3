@@ -57,6 +57,7 @@ const run = async () => {
         materials: [{ id: 'm1', kind: 'highlight', title: 'Source', text: 'Exact passage', sourceId: 'h1', target: { blockId: 'p1', baseText: 'Canonical words' } }],
         trials: [{ id: 't1', target: { blockId: 'p1', baseText: 'Canonical words' }, alternative: 'Possible words', origin: 'partner', partnerExplanation: 'More direct.' }, { id: 't2', target: { blockId: 'p1', baseText: 'Canonical words', scope: 'word', rangeStart: 10, rangeEnd: 15 }, alternative: 'language' }, { id: 't3', target: { blockId: 'p1', baseText: 'Canonical words' }, alternative: 'Tighter words', intent: 'tighter' }],
         looseThoughts: [{ id: 'l1', text: 'A private digression', target: { blockId: 'p1' } }],
+        dimmed: [{ id: 'd1', blockId: 'p1', text: 'words' }, { id: 'd2', blockId: 'p1', text: '   ' }],
         nextTimeLine: { text: 'Begin with the exception.', target: { blockId: 'p1', offset: 4 } }
       }
     });
@@ -69,6 +70,7 @@ const run = async () => {
     assert.strictEqual(saved.workingState.trials[1].target.rangeEnd, 15);
     assert.strictEqual(saved.workingState.trials[2].intent, 'tighter');
     assert.strictEqual(saved.workingState.trials[0].partnerExplanation, 'More direct.');
+    assert.deepStrictEqual(saved.workingState.dimmed.map(({ id, blockId, text }) => ({ id, blockId, text })), [{ id: 'd1', blockId: 'p1', text: 'words' }]);
     assert.strictEqual(row.title, 'Canonical title');
     assert.strictEqual(row.blocks[0].text, 'Canonical words');
 

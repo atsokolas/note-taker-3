@@ -5,7 +5,6 @@ import { listWikiPages, settleIntoWiki } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
 import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookSummaries, readNoteAgainstViews, setOppositeAside } from '../../../api/notebook';
 import { MemoryRouter } from 'react-router-dom';
-import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 import useConcepts from '../../../hooks/useConcepts';
 import api from '../../../api';
 
@@ -1361,22 +1360,15 @@ describe('NotebookEditor', () => {
       expect(document.body.classList.contains('think-rails-away')).toBe(false);
     });
 
-    it('restores rails after typing goes idle', () => {
-      jest.useFakeTimers();
-      try {
-        paint();
-        fireEvent.click(screen.getByTestId('editor-content'));
-        act(() => {
-          writingUpdates().forEach(([, handler]) => handler({ transaction: { docChanged: true } }));
-        });
-        expect(document.body.classList.contains('think-rails-away')).toBe(true);
-        act(() => {
-          jest.advanceTimersByTime(THINK_WRITING_IDLE_MS);
-        });
-        expect(document.body.classList.contains('think-rails-away')).toBe(false);
-      } finally {
-        jest.useRealTimers();
-      }
+    it('brings the rails back on Escape, not on a pause', () => {
+      paint();
+      fireEvent.click(screen.getByTestId('editor-content'));
+      act(() => {
+        writingUpdates().forEach(([, handler]) => handler({ transaction: { docChanged: true } }));
+      });
+      expect(document.body.classList.contains('think-rails-away')).toBe(true);
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(document.body.classList.contains('think-rails-away')).toBe(false);
     });
   });
 

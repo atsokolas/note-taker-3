@@ -33,19 +33,28 @@ const findBlock = (doc, blockId) => {
   return match;
 };
 
-/* The sentence of the note that contradicts a view the reader holds, by its
-   words: in its own block when that block still carries them, else anywhere. */
-const locateSentence = (doc, { blockId = '', sentence = '' } = {}) => {
+// The occurrence nearest `near`, so a repeated word is the one that was meant.
+const nearest = (text, passage, near = 0) => {
+  let best = -1;
+  for (let at = text.indexOf(passage); at >= 0; at = text.indexOf(passage, at + 1)) {
+    if (best < 0 || Math.abs(at - near) < Math.abs(best - near)) best = at;
+  }
+  return best;
+};
+
+/* A passage of the note by its words: in its own block when that block still
+   carries them, else anywhere. Edits around it never lose it. */
+export const locatePassage = (doc, { blockId = '', sentence = '', near = 0 } = {}) => {
   if (!sentence) return null;
   let found = null;
   doc.descendants((node, pos) => {
     if (found) return false;
     if (!node.isTextblock) return undefined;
-    const at = blockId && String(node.attrs?.blockId || '') !== blockId ? -1 : node.textContent.indexOf(sentence);
+    const at = blockId && String(node.attrs?.blockId || '') !== blockId ? -1 : nearest(node.textContent, sentence, near);
     if (at >= 0) found = { from: pos + 1 + at, to: pos + 1 + at + sentence.length };
     return false;
   });
-  return found || (blockId ? locateSentence(doc, { sentence }) : null);
+  return found || (blockId ? locatePassage(doc, { sentence }) : null);
 };
 
 const identity = (mark) => ({
@@ -104,7 +113,11 @@ const decorations = (doc, state = {}) => {
       return button;
     }, { key: `saved-mark-${saved.trialKey}`, side: 1 }));
   });
-  const opposite = locateSentence(doc, state.opposite || {});
+  (state.dimmed || []).forEach((passage) => {
+    const located = locatePassage(doc, { blockId: passage.blockId, sentence: passage.text, near: passage.offset });
+    if (located) rows.push(Decoration.inline(located.from, located.to, { class: 'notebook-dimmed' }));
+  });
+  const opposite = locatePassage(doc, state.opposite || {});
   if (opposite) rows.push(Decoration.inline(opposite.from, opposite.to, { class: 'notebook-opposite-sentence' }));
   return DecorationSet.create(doc, rows);
 };
@@ -115,7 +128,7 @@ export const NotebookWorkbenchDecorations = Extension.create({
     return [new Plugin({
       key,
       state: {
-        init: () => ({ targetBlockId: '', targetRange: null, preview: null, savedMarks: [], opposite: null }),
+        init: () => ({ targetBlockId: '', targetRange: null, preview: null, savedMarks: [], dimmed: [], opposite: null }),
         apply: (tr, previous) => tr.getMeta(key) || previous
       },
       props: {
@@ -147,6 +160,7 @@ export const setNotebookWorkbenchDecorations = (editor, state = {}) => {
       rangeEnd: state.preview.rangeEnd
     } : null,
     savedMarks: Array.isArray(state.savedMarks) ? state.savedMarks.map(identity) : [],
+    dimmed: Array.isArray(state.dimmed) ? state.dimmed : [],
     opposite: state.opposite?.sentence
       ? { blockId: String(state.opposite.blockId || ''), sentence: String(state.opposite.sentence) }
       : null

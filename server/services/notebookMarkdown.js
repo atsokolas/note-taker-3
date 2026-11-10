@@ -38,11 +38,34 @@ const quoteLines = (block) => {
   return lines;
 };
 
+// Dimmed words stay on the writer's page but are not yet the piece. Each comes
+// out of its own block, or the first that still carries it, as the editor finds it.
+// The occurrence of a passage nearest where it was dimmed, so repeated words stay apart.
+const nearest = (value, passage, near = 0) => {
+  let best = -1;
+  for (let at = value.indexOf(passage); at >= 0; at = value.indexOf(passage, at + 1)) {
+    if (best < 0 || Math.abs(at - near) < Math.abs(best - near)) best = at;
+  }
+  return best;
+};
+
+const withoutDimmed = (blocks, dimmed = []) => {
+  const texts = blocks.map(block => String(block.text || ''));
+  dimmed.forEach(({ blockId, text, offset }) => {
+    const own = blocks.findIndex((block, index) => block.id === blockId && texts[index].includes(text));
+    const index = own >= 0 ? own : texts.findIndex(value => value.includes(text));
+    if (index < 0) return;
+    const at = nearest(texts[index], text, own >= 0 ? offset : 0);
+    texts[index] = `${texts[index].slice(0, at)}${texts[index].slice(at + text.length)}`.replace(/ {2,}/g, ' ');
+  });
+  return blocks.map((block, index) => (texts[index] === String(block.text || '') ? block : { ...block, text: texts[index] }));
+};
+
 const buildNotebookMarkdown = (entry) => {
   const title = String(entry?.title || 'Untitled').trim() || 'Untitled';
-  const blocks = Array.isArray(entry?.blocks) && entry.blocks.length > 0
+  const blocks = withoutDimmed(Array.isArray(entry?.blocks) && entry.blocks.length > 0
     ? entry.blocks
-    : [{ type: 'paragraph', text: stripTags(entry?.content || '') }];
+    : [{ type: 'paragraph', text: stripTags(entry?.content || '') }], entry?.workingState?.dimmed);
   const lines = [`# ${title}`, ''];
 
   blocks.forEach((block) => {
