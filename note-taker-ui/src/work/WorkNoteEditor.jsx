@@ -27,12 +27,29 @@ const WorkLink = Mark.create({
   addPasteRules() { return [markPasteRule({ find: /https?:\/\/[^\s<>]+/g, type: this.type, getAttributes: match => ({ href: match[0] }) })]; }
 });
 
+// The date heading folds its entry; the fold itself is the outline's, so Contents and reloads agree.
+const entryToggle = (label, folded) => (view, getPos) => {
+  const button = document.createElement('button');
+  button.type = 'button'; button.className = 'work-entry-toggle'; button.contentEditable = 'false';
+  button.setAttribute('aria-expanded', String(!folded));
+  button.setAttribute('aria-label', `${folded ? 'Expand' : 'Collapse'} entry ${label}`);
+  button.addEventListener('mousedown', event => event.preventDefault());
+  button.addEventListener('click', () => view.dispatch(view.state.tr.setMeta(outlineKey, { type: 'toggle', position: getPos() - 1 })));
+  return button;
+};
 const WorkEntryDates = Extension.create({
   name: 'workEntryDates',
   addProseMirrorPlugins() {
-    return [new Plugin({ props: { decorations: state => DecorationSet.create(state.doc,
-      noteEntries(state.doc).map(entry => Decoration.node(entry.position, entry.position + entry.size, { class: 'work-entry-date', 'data-entry-date': entry.day }))
-    ) } })];
+    return [new Plugin({ props: { decorations: state => {
+      const folded = outlineKey.getState(state);
+      return DecorationSet.create(state.doc, noteEntries(state.doc).flatMap(entry => {
+        const label = entryDateLabel(entry.day), isFolded = folded.has(entry.position);
+        return [
+          Decoration.node(entry.position, entry.position + entry.size, { class: 'work-entry-date', 'data-entry-date': entry.day }),
+          Decoration.widget(entry.position + 1, entryToggle(label, isFolded), { side: -1, key: `${label}:${isFolded}`, ignoreSelection: true, stopEvent: () => true })
+        ];
+      }));
+    } } })];
   }
 });
 
@@ -151,7 +168,7 @@ export default function WorkNoteEditor({ note, onChange, onMakeOpen, fresh = fal
   };
   const slash = useSlashCommands({ editor, containerRef: surface });
   slashKey.current = slash.onKeyDown;
-  return <div className={`work-writing ${entries.length ? 'has-dates' : ''}`}>
+  return <div className="work-writing">
     <header className="work-note-header">
       {heading}
       <div className="work-entry-tools" aria-label="Dated entries and writing tools">
