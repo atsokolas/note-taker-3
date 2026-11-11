@@ -62,3 +62,18 @@ test('folding a long note never serializes hidden content away and undo still ed
   expect(editor.getHTML()).toContain('Original words 80.'); expect(editor.getHTML()).not.toContain('Added.');
   expect(changed.mock.calls.at(-1)[0].blocks.filter(block => block.type === 'paragraph')).toHaveLength(80);
 });
+
+test('a date header folds its own entry, shares the outline fold and survives reload', () => {
+  const view = render(<WorkNoteEditor note={{ _id: 'dated', content }} onChange={() => {}} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Collapse entry 3 November 2026' }));
+  expect(writing().querySelector('[data-block-id="promise"]')).not.toBeVisible();
+  expect(writing().querySelector('[data-block-id="h3"]')).not.toBeVisible();
+  expect(writing().querySelector('[data-block-id="last"]')).toBeVisible();
+  expect(within(contents()).getByRole('button', { name: 'Expand section 3 November 2026' })).toHaveAttribute('aria-expanded', 'false');
+  view.unmount(); render(<WorkNoteEditor note={{ _id: 'dated', content }} onChange={() => {}} />);
+  const toggle = screen.getByRole('button', { name: 'Expand entry 3 November 2026' });
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  fireEvent.click(toggle);
+  expect(writing().querySelector('[data-block-id="promise"]')).toBeVisible();
+  expect(writing().editor.getHTML()).not.toContain('work-entry-toggle');
+});
