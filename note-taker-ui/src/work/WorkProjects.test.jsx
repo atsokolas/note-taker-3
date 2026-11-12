@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import WorkNotes from './WorkNotes';
 import AddToProject from './AddToProject';
-import { decisionsIn, entriesOf, fade, project, projects } from './workProjects';
+import { FRIDAYS, decisionsIn, entriesOf, fade, hillOn, project, projects } from './workProjects';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn() }));
@@ -50,6 +50,28 @@ test('a project is read from the notes that are part of it, whatever their folde
   expect([fade(grouped.active[0]), fade(grouped.active[1])]).toEqual([0, 3]);
 });
 
+test('the hill is read from a project’s own lines: up as questions are answered, down as follow-ups are done', () => {
+  const line = (kind, done, on = '2026-11-02') => ({ kind, takenOn: on, completed: Boolean(done), completedAt: done ? `${done}T12:00:00Z` : null });
+  expect(hillOn([], '2026-11-12')).toBe(0);
+  const lines = [line('question', '2026-11-05'), line('question', null), line('task', null), line('task', null)];
+  expect(hillOn(lines, '2026-11-12')).toBe(0.25);
+  expect(hillOn(lines, '2026-11-04')).toBe(0);
+  lines[1] = line('question', '2026-11-10'); lines[2] = line('task', '2026-11-11');
+  expect([hillOn(lines, '2026-11-10'), hillOn(lines, '2026-11-12')]).toEqual([0.5, 0.75]);
+  expect(hillOn([line('task', null), line('question', null, '2026-11-20')], '2026-11-12')).toBe(0.5);
+  expect(FRIDAYS('2026-11-12')).toEqual(['2026-10-23', '2026-10-30', '2026-11-06']);
+  expect(FRIDAYS('2026-11-14')).toEqual(['2026-10-30', '2026-11-06', '2026-11-13']);
+});
+
+test('Projects shows where each one stands on one hill and six weeks of days, and a marked day opens', async () => {
+  work('view=projects');
+  expect(await screen.findByRole('img', { name: /Fund II diligence: making it happen\./ })).toBeInTheDocument();
+  const weeks = within(screen.getByRole('region', { name: 'Six weeks' }));
+  expect(weeks.queryByText('Office move')).toBeInTheDocument();
+  fireEvent.click(weeks.getAllByRole('button', { name: new RegExp(`^Fund II diligence, `) }).at(-1));
+  expect(await screen.findByRole('heading', { name: 'Today', level: 1 })).toBeInTheDocument();
+});
+
 test('Projects lists every project and Everything open unfolds them, from the rail or the keyboard', async () => {
   work('view=today');
   fireEvent.click(await within(screen.getByRole('navigation', { name: 'Projects' })).findByRole('button', { name: /Projects/ }));
@@ -67,14 +89,16 @@ test('Projects lists every project and Everything open unfolds them, from the ra
 
 test('a project page reads the same way every time: log, next with what is owed, schedule, decided and kept', async () => {
   records.push({ _id: 'ic', revision: 0, title: 'IC', project: 'f', takenOn: today, workItem: { kind: 'appointment', plannedOn: today, startTime: '10:00', priority: 0, history: [] } });
+  records.push({ _id: 'memo', revision: 0, title: 'Send the IC memo', project: 'f', takenOn: '2026-01-02', workItem: { kind: 'task', plannedOn: '2026-01-02', dueOn: '2999-01-04', priority: 0, history: [] } });
   work('view=project&folder=f');
   const page = within(await screen.findByRole('region', { name: 'Fund II diligence' }));
-  expect(page.getByText('1 thing open, waiting on Priya, last touched today.')).toBeInTheDocument();
+  expect(page.getByText('2 things open, waiting on Priya, last touched today.')).toBeInTheDocument();
   expect(within(page.getByRole('region', { name: 'Log' })).getByRole('button', { name: /Call with Priya.*Churn looks fine\. Decided: we ask for the 2024 cohort\./ })).toBeInTheDocument();
   const next = within(page.getByRole('region', { name: 'Next' }));
   expect(next.getByText('Ask Priya for the churn file')).toBeInTheDocument();
   expect(next.getByText('Priya owes you the data room login')).toBeInTheDocument();
   expect(within(page.getByRole('region', { name: 'Schedule' })).getByText(/10:00 IC/)).toBeInTheDocument();
+  expect(within(page.getByRole('region', { name: 'Schedule' })).getByText(/Send the IC memo/)).toHaveTextContent(/due$/);
   expect(within(page.getByRole('region', { name: 'Decided' })).getByText('We ask for the 2024 cohort.')).toBeInTheDocument();
   expect(within(page.getByRole('region', { name: 'Kept' })).getByRole('link', { name: 'Acme Analytics' })).toBeInTheDocument();
   for (const gone of ['Waiting on', 'Notes', 'Decisions', 'From the rest of Noeis']) expect(page.queryByRole('region', { name: gone })).toBeNull();
