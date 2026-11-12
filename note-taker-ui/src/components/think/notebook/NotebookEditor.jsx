@@ -1447,7 +1447,7 @@ const NotebookEditor = ({
     workbench.update(current => ({
       ...current,
       nextTimeLine: text
-        ? { text, target: heldTarget || targetFromEditor(editor) || nowhere, updatedAt: new Date().toISOString() }
+        ? { text, target: targetFromEditor(editor) || heldTarget || nowhere, updatedAt: new Date().toISOString() }
         : { text: '', target: nowhere, updatedAt: null }
     }));
     setNextLineDismissed(true);

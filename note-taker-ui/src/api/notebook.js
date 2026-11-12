@@ -3,7 +3,6 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { createAuthScopedSnapshotCache } from '../system/authScopedSnapshotCache';
 
 const NOTEBOOK_CACHE_TTL_MS = 30_000;
-const THINK_SHELF_LIMIT = 120;
 
 const summariesCache = createAuthScopedSnapshotCache({
   ttlMs: NOTEBOOK_CACHE_TTL_MS,
@@ -17,7 +16,7 @@ const summariesCache = createAuthScopedSnapshotCache({
 const thinkShelfCache = createAuthScopedSnapshotCache({
   ttlMs: NOTEBOOK_CACHE_TTL_MS,
   load: async () => {
-    const res = await api.get(`/api/notebook?summary=1&compact=1&limit=${THINK_SHELF_LIMIT}`, getAuthHeaders());
+    const res = await api.get('/api/notebook?summary=1&compact=1', getAuthHeaders());
     return res.data || [];
   },
   normalize: value => (Array.isArray(value) ? value : [])
