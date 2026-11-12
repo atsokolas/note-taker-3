@@ -331,6 +331,7 @@ const ThinkNotes = () => {
   const openView = async (key) => {
     if (await saveCurrent.current?.() === false) return;
     setSearchOpen(false);
+    setError('');
     setSearchParams(key === 'home' ? {} : { view: key });
   };
 
@@ -359,8 +360,21 @@ const ThinkNotes = () => {
     }
   };
 
-  const nameEntry = async (kind, words) => {
-    if (await saveCurrent.current?.() === false) return;
+  /* One creation at a time: a second Enter while the server answers must not make a twin. */
+  const createOnce = async (create) => {
+    if (creatingRef.current) return false;
+    creatingRef.current = true;
+    setCreating(true);
+    try {
+      return await create();
+    } finally {
+      creatingRef.current = false;
+      setCreating(false);
+    }
+  };
+
+  const nameEntry = (kind, words) => createOnce(async () => {
+    if (await saveCurrent.current?.() === false) return false;
     if (kind === 'concept') {
       const created = await updateConcept(words, {});
       setConcepts(current => [{ ...created, _id: String(created?._id || ''), name: created?.name || words, updatedAt: created?.updatedAt || new Date().toISOString() }, ...current]);
@@ -370,7 +384,8 @@ const ThinkNotes = () => {
       setQuestions(current => [created, ...current]);
       setSearchParams(targetParams({ kind: 'question', id: String(created._id) }));
     }
-  };
+    return true;
+  });
 
   /* A concept or question saved in the page keeps its place in the list. */
   const entrySaved = useCallback(({ kind, record }) => {
@@ -396,13 +411,10 @@ const ThinkNotes = () => {
     }, { replace: true });
   }, [setSearchParams]);
 
-  const startNote = async ({ mark = null, title = '' } = {}) => {
-    if (creatingRef.current) return;
-    creatingRef.current = true;
-    setCreating(true);
+  const startNote = ({ mark = null, title = '' } = {}) => createOnce(async () => {
     setCreationError('');
     try {
-      if (await saveCurrent.current?.() === false) return;
+      if (await saveCurrent.current?.() === false) return false;
       let { data: created } = await api.post('/api/notebook', {
         title, content: '', blocks: [], type: 'note', source: 'think'
       }, getAuthHeaders());
@@ -421,16 +433,15 @@ const ThinkNotes = () => {
       setEntry(created);
       setFreshId(String(created._id));
       setSearchParams({ tab: 'notebook', entryId: String(created._id) });
+      return true;
     } catch (_error) {
       // The server may have created the note before its reply was lost.
       // Never retry this POST automatically and risk a second blank note.
       clearNotebookCache();
       setCreationError('Could not confirm the new note. Reload Think to check your recent notes before trying again.');
-    } finally {
-      creatingRef.current = false;
-      setCreating(false);
+      return false;
     }
-  };
+  });
 
 
   const followWriting = async (event, href) => {
@@ -617,7 +628,7 @@ const ThinkNotes = () => {
         ) : view === 'cuttings' ? (
           <div className={step(2)}><NotebookCuttings onOpen={id => openEntry({ kind: 'note', id })} /></div>
         ) : view !== 'home' ? (
-          <div className={step(2)}><ThinkIndex key={view} view={thinkView(view)} items={viewEntries} onOpen={openEntry} onName={nameEntry} /></div>
+          <div className={step(2)}><ThinkIndex key={view} view={thinkView(view)} items={viewEntries} onOpen={openEntry} onName={nameEntry} creating={creating} /></div>
         ) : (
           <div className={step(2)}>
             <ThinkDesk

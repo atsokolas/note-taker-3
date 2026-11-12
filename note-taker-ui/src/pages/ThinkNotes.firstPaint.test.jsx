@@ -160,6 +160,16 @@ describe('ThinkNotes first paint', () => {
     expect(await screen.findByTestId('open-note')).toHaveTextContent('typed-note');
   });
 
+  it('keeps the typed thought when the idea cannot be confirmed', async () => {
+    api.post.mockRejectedValue(new Error('offline'));
+    render(<ThinkNotes />);
+    const line = await screen.findByRole('textbox', { name: 'A new thought becomes an idea' });
+    fireEvent.change(line, { target: { value: 'Why rereading wins' } });
+    fireEvent.submit(line);
+    expect(await screen.findByText(/Could not confirm the new note/)).toBeInTheDocument();
+    expect(line).toHaveValue('Why rereading wins');
+  });
+
   it('lands an old ?tab=questions link on the questions, newest first', async () => {
     window.history.replaceState({}, '', '/think?tab=questions');
     getQuestions.mockResolvedValue([

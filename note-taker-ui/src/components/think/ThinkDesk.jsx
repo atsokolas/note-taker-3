@@ -27,12 +27,11 @@ const ThinkDesk = ({ working, ideas, closed, onOpen, onView, onStart, creating, 
     return () => { live = false; };
   }, []);
 
-  const start = (event) => {
+  const start = async (event) => {
     event.preventDefault();
     const title = thought.trim();
     if (!title) return;
-    onStart(title);
-    setThought('');
+    if (await onStart(title)) setThought('');
   };
 
   return (

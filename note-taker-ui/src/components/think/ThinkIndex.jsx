@@ -21,7 +21,7 @@ const NAMING = {
 
 /* One way of looking at Think, as a ruled list: Working, Ideas, Closed,
    Concepts or Questions. Concepts and questions are started from here. */
-const ThinkIndex = ({ view, items, onOpen, onName }) => {
+const ThinkIndex = ({ view, items, onOpen, onName, creating }) => {
   const naming = NAMING[view.mark];
   const [draft, setDraft] = useState('');
   const [saying, setSaying] = useState('');
@@ -32,8 +32,7 @@ const ThinkIndex = ({ view, items, onOpen, onName }) => {
     if (!words) return;
     setSaying('');
     try {
-      await onName(naming.kind, words);
-      setDraft('');
+      if (await onName(naming.kind, words)) setDraft('');
     } catch (_error) {
       setSaying(`Could not start that ${naming.kind}. Try again in a moment.`);
     }
@@ -47,7 +46,7 @@ const ThinkIndex = ({ view, items, onOpen, onName }) => {
       </header>
       {naming ? (
         <form className="think-index__name" onSubmit={name}>
-          <input aria-label={naming.label} placeholder={naming.label} maxLength={naming.limit} value={draft} onChange={event => setDraft(event.target.value)} />
+          <input aria-label={naming.label} placeholder={naming.label} maxLength={naming.limit} value={draft} disabled={creating} onChange={event => setDraft(event.target.value)} />
           {saying ? <p role="status">{saying}</p> : null}
         </form>
       ) : null}
