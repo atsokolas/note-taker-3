@@ -1,4 +1,4 @@
-import { groupByStage, movedBoard, stageChange, stageLine, stageOf } from './notebookStages';
+import { movedBoard, stageChange, stageLine, stageOf } from './notebookStages';
 
 const NOW = new Date('2026-11-12T12:00:00Z').getTime();
 const daysAgo = n => new Date(NOW - n * 24 * 60 * 60 * 1000).toISOString();
@@ -23,11 +23,4 @@ test('closing carries its line, and reopening a set-aside piece takes it out of 
   expect(stageChange({ archivedAt: daysAgo(1) }, 'in_progress')).toEqual({ stage: 'in_progress', archived: false });
   expect(movedBoard({ stage: 'done', archivedAt: 'x', became: 'Posted' }, { stage: 'idea', archived: false }, 'now'))
     .toEqual({ stage: 'idea', movedAt: 'now', archivedAt: null, became: 'Posted' });
-});
-
-test('groups the list by stage', () => {
-  const groups = groupByStage([{ id: 'a', stage: 'idea' }, { id: 'b', stage: 'done' }, { id: 'c', stage: 'idea' }]);
-  expect(groups.idea.map(item => item.id)).toEqual(['a', 'c']);
-  expect(groups.in_progress).toEqual([]);
-  expect(groups.done.map(item => item.id)).toEqual(['b']);
 });

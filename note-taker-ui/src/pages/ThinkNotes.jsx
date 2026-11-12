@@ -11,12 +11,13 @@ import { getHighlights } from '../api/highlights';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
 import NotebookCuttings from '../components/think/notebook/NotebookCuttings';
 import NoteStage from '../components/think/notebook/NoteStage';
-import { SHELF_ORDER, STAGES, groupByStage, movedBoard, stageChange, stageLine, stageOf } from '../components/think/notebook/notebookStages';
+import { movedBoard, stageChange, stageOf } from '../components/think/notebook/notebookStages';
 import ThinkEntryEditor from '../components/think/ThinkEntryEditor';
+import ThinkBar from '../components/think/ThinkBar';
+import ThinkDesk from '../components/think/ThinkDesk';
+import ThinkIndex from '../components/think/ThinkIndex';
 import FocusMode from '../components/think/FocusMode';
 import {
-  RoomShelf,
-  RoomShelfButton,
   RoomShelfList,
   RoomShelfSection,
   roomShelfItemClass
@@ -28,24 +29,22 @@ import {
   buildThinkEntries,
   buildWritingResults,
   isTarget,
-  readRecentNoteIds,
-  readThinkFilter,
   readThinkTarget,
-  resolveOpenNoteId,
-  targetParams
+  readThinkView,
+  targetParams,
+  thinkView,
+  THINK_VIEWS
 } from './thinkNotesModel';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import { Button } from '../components/ui';
 
 // Think.
 //
-// Opening Think opens the note you were last in. Notes, concepts and
-// questions share one list and one page; the kind is a chip on the entry, not
-// a room. The Partner (⌘J) reads beside the page; the page only changes when
-// the reader keeps what came back.
-
-const KIND_LABELS = { all: 'All', note: 'Notes', concept: 'Concepts', question: 'Questions' };
-const NEW_PROMPTS = { concept: 'Name the concept', question: 'Ask the question' };
+// Opening Think opens the desk: the pieces you are writing and where each one
+// stopped. The left bar lists every way of looking (Working, Ideas, Closed,
+// Concepts, Questions, Cuttings); notes, concepts and questions all open in
+// one page. The Partner (⌘J) reads beside the page; the page only changes
+// when the reader keeps what came back.
 
 const WritingMatch = ({ item }) => {
   const text = item.excerpt || '';
@@ -57,36 +56,29 @@ const WritingMatch = ({ item }) => {
 const ThinkNotes = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const target = readThinkTarget(searchParams);
-  const [filter, setFilter] = useState(() => readThinkFilter(searchParams));
+  const view = readThinkView(searchParams);
   const [notes, setNotes] = useState([]);
   const [concepts, setConcepts] = useState([]);
   const [questions, setQuestions] = useState([]);
-  const [initialId, setInitialId] = useState('');
-  const [naming, setNaming] = useState('');
-  const [nameDraft, setNameDraft] = useState('');
   const [openRecord, setOpenRecord] = useState(null);
   const threadId = searchParams.get('threadId') || '';
   const pulling = searchParams.get('pull') === '1';
-  const cuttingsOpen = searchParams.get('view') === 'cuttings';
-  const entries = useMemo(
-    () => buildThinkEntries({ notes, concepts, questions, filter }),
-    [notes, concepts, questions, filter]
-  );
-  /* Which entry is open: the one the URL names; otherwise, in the mixed list,
-     the note you were last in; in a narrowed list, its newest entry. */
+  const entries = useMemo(() => buildThinkEntries({ notes, concepts, questions }), [notes, concepts, questions]);
+  const piecesIn = key => entries.filter(thinkView(key).holds);
+  const working = piecesIn('working');
+  const views = THINK_VIEWS.map(item => ({ ...item, count: item.holds ? piecesIn(item.key).length : null }));
+  /* Asked for on their own, concepts include every tag you have used, not only named ones. */
+  const viewEntries = view === 'concepts' ? buildThinkEntries({ concepts, filter: 'concept' })
+    : thinkView(view)?.holds ? piecesIn(view) : [];
+  /* Which entry is open: the one the URL names, and nothing otherwise. */
   const targetKey = target ? `${target.kind}:${target.id}` : '';
-  const fallback = filter === 'all' ? (initialId ? `note:${initialId}` : '') : entries[0] ? `${entries[0].kind}:${entries[0].id}` : '';
-  const openTarget = useMemo(() => {
-    const key = targetKey || fallback;
-    if (!key) return null;
-    const at = key.indexOf(':');
-    return entries.find(item => `${item.kind}:${item.id}` === key) || { kind: key.slice(0, at), id: key.slice(at + 1) };
-  }, [targetKey, fallback, entries]);
+  const openTarget = useMemo(() => (
+    target ? entries.find(item => `${item.kind}:${item.id}` === targetKey) || target : null
+  ), [target, targetKey, entries]);
   const openId = openTarget?.kind === 'note' ? openTarget.id : '';
   const activeId = useRef(openId);
   activeId.current = openId;
   const saveCurrent = useRef(null);
-  const searchInput = useRef(null);
   const room = useRef(null);
   const noteSurface = useRef(null);
   const drawer = useRef(null);
@@ -109,7 +101,8 @@ const ThinkNotes = () => {
     if (value) params.set('find', value); else params.delete('find');
     setSearchParams(params, { replace: true });
   };
-  const [shelfExpanded, setShelfExpanded] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searching = searchOpen || Boolean(shelfQuery);
   const [contextByNote, setContextByNote] = useState({});
   const [contextPortal, setContextPortal] = useState(null);
   const [alternativesPortal, setAlternativesPortal] = useState(null);
@@ -186,7 +179,6 @@ const ThinkNotes = () => {
         if (cancelled) return;
         const list = Array.isArray(summaries) ? summaries : [];
         setNotes(list);
-        setInitialId(resolveOpenNoteId({ notes: list, recentIds: readRecentNoteIds() }));
       } catch (loadError) {
         if (!cancelled) setError(loadError?.response?.data?.error || 'Could not open your notes.');
       } finally {
@@ -269,15 +261,6 @@ const ThinkNotes = () => {
     previousOpenId.current = openId;
   }, [freshId, openId]);
 
-  // The open note is reflected in the URL so a reload, a share, or a back
-  // button all land on the same note the human is looking at.
-  useEffect(() => {
-    if (!openTarget || target) return;
-    const params = new URLSearchParams(searchParams);
-    Object.entries(targetParams(openTarget)).forEach(([key, value]) => params.set(key, value));
-    setSearchParams(params, { replace: true });
-  }, [openTarget, target, searchParams, setSearchParams]);
-
   /* ⌘K "Pull reference into current surface" lands here: the flag is
      consumed and the open page offers its passages. */
   const [pullKey, setPullKey] = useState('');
@@ -312,11 +295,6 @@ const ThinkNotes = () => {
       ? (found.limited ? 'No available matches in this batch. Try a more specific phrase.' : 'No saved writing matches these words.')
       : `${writingResults.length} ${writingResults.length === 1 ? 'match' : 'matches'} · most recently edited first`);
 
-  const shelf = shelfExpanded ? entries : entries.slice(0, 18);
-  const hasMoreNotes = entries.length > shelf.length;
-  const staged = filter === 'all' || filter === 'note';
-  const stages = groupByStage(entries);
-  const [closedOpen, setClosedOpen] = useState(false);
   const entryMatchesRoute = Boolean(
     entry?._id
     && openId
@@ -350,12 +328,15 @@ const ThinkNotes = () => {
     setSearchParams(targetParams(item));
   };
 
-  /* Cuttings sit over the page; the note stays mounted beneath it. */
-  const showCuttings = async (open) => {
-    if (open && await saveCurrent.current?.() === false) return;
-    const params = new URLSearchParams(searchParams);
-    if (open) params.set('view', 'cuttings'); else params.delete('view');
-    setSearchParams(params);
+  const openView = async (key) => {
+    if (await saveCurrent.current?.() === false) return;
+    setSearchOpen(false);
+    setSearchParams(key === 'home' ? {} : { view: key });
+  };
+
+  const showSearch = (open) => {
+    setSearchOpen(open);
+    if (!open) setShelfQuery('');
   };
 
   /* Moving a piece lands at once and is put back if the server refuses it. */
@@ -378,31 +359,16 @@ const ThinkNotes = () => {
     }
   };
 
-  const nameEntry = async (event) => {
-    event.preventDefault();
-    const words = nameDraft.trim();
-    if (!words || creatingRef.current) return;
-    creatingRef.current = true;
-    setCreating(true);
-    setCreationError('');
-    try {
-      if (await saveCurrent.current?.() === false) return;
-      if (naming === 'concept') {
-        const created = await updateConcept(words, {});
-        setConcepts(current => [{ ...created, _id: String(created?._id || ''), name: created?.name || words, updatedAt: created?.updatedAt || new Date().toISOString() }, ...current]);
-        setSearchParams(targetParams({ kind: 'concept', id: created?.name || words, recordId: String(created?._id || '') }));
-      } else {
-        const created = await createQuestion({ text: words });
-        setQuestions(current => [created, ...current]);
-        setSearchParams(targetParams({ kind: 'question', id: String(created._id) }));
-      }
-      setNaming('');
-      setNameDraft('');
-    } catch (_error) {
-      setCreationError(`Could not start that ${naming}. Try again in a moment.`);
-    } finally {
-      creatingRef.current = false;
-      setCreating(false);
+  const nameEntry = async (kind, words) => {
+    if (await saveCurrent.current?.() === false) return;
+    if (kind === 'concept') {
+      const created = await updateConcept(words, {});
+      setConcepts(current => [{ ...created, _id: String(created?._id || ''), name: created?.name || words, updatedAt: created?.updatedAt || new Date().toISOString() }, ...current]);
+      setSearchParams(targetParams({ kind: 'concept', id: created?.name || words, recordId: String(created?._id || '') }));
+    } else {
+      const created = await createQuestion({ text: words });
+      setQuestions(current => [created, ...current]);
+      setSearchParams(targetParams({ kind: 'question', id: String(created._id) }));
     }
   };
 
@@ -430,7 +396,7 @@ const ThinkNotes = () => {
     }, { replace: true });
   }, [setSearchParams]);
 
-  const startNote = async (mark = null) => {
+  const startNote = async ({ mark = null, title = '' } = {}) => {
     if (creatingRef.current) return;
     creatingRef.current = true;
     setCreating(true);
@@ -438,7 +404,7 @@ const ThinkNotes = () => {
     try {
       if (await saveCurrent.current?.() === false) return;
       let { data: created } = await api.post('/api/notebook', {
-        title: '', content: '', blocks: [], type: 'note', source: 'think'
+        title, content: '', blocks: [], type: 'note', source: 'think'
       }, getAuthHeaders());
       if (!created?._id) throw new Error('Missing note identity');
       if (mark?._id) {
@@ -519,79 +485,49 @@ const ThinkNotes = () => {
     askPlaceholder: `Ask about this ${openTarget?.kind || 'note'} or selected words`
   }, { onTryWording: partnerTrial });
 
+  const foundInWriting = phrase ? (
+    <RoomShelfSection label="Found in your writing">
+      <p className="room-shelf__description">Notes and private explorations</p>
+      <p role="status" className="room-shelf__description">{searchMessage}</p>
+      <RoomShelfList>
+        {writingResults.map(item => (
+          <li key={`${item.kind}:${item.id}`}>
+            <Link to={item.href} title={item.title} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })} data-noeis-item>
+              <span className="think-notes__note-title">{item.excerpt === item.title ? <WritingMatch item={item} /> : item.title}</span>
+              <span className="think-notes__writing-origin">{item.kind === 'notebook' ? 'Note' : `Private writing · ${item.label}`}{item.pageTitle ? ` · ${item.pageTitle}` : ''}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span>
+              {item.excerpt !== item.title ? <span className="think-notes__match-excerpt"><WritingMatch item={item} /></span> : null}
+            </Link>
+          </li>
+        ))}
+      </RoomShelfList>
+      {found?.limited ? <p className="room-shelf__description">More matches may be available. Add a few words to narrow them.</p> : null}
+      <button type="button" className="think-notes__shelf-more" onClick={() => showSearch(false)}>Back to recent work</button>
+    </RoomShelfSection>
+  ) : null;
+
   const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : 'think-notes__return');
 
   return (
-    <div ref={room} className={`think-notes${cuttingsOpen ? ' has-cuttings' : ''}${activeContext ? ' has-context' : ''}${alternativesOpen ? ' has-alternatives' : ''}${notesCollapsed ? ' notes-collapsed' : ''}`}>
+    <div ref={room} className={`think-notes${activeContext ? ' has-context' : ''}${alternativesOpen ? ' has-alternatives' : ''}${notesCollapsed ? ' notes-collapsed' : ''}`}>
       <div className="think-notes__toggles">
-        <button type="button" className="think-notes__shelf-toggle" aria-expanded={!notesCollapsed} aria-controls="think-notes-shelf" onClick={() => setNotesCollapsed(value => !value)}>{notesCollapsed ? 'Show list' : 'Hide list'}</button>
+        <button type="button" className="think-notes__shelf-toggle" aria-expanded={!notesCollapsed} aria-controls="think-notes-shelf" onClick={() => setNotesCollapsed(value => !value)}>{notesCollapsed ? 'Show sidebar' : 'Hide sidebar'}</button>
       </div>
-      <aside id="think-notes-shelf" hidden={notesCollapsed} className="think-notes__shelf" aria-label="Think navigation" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
-        <FocusMode inRail />
-        <RoomShelf
-          as="div"
-          className={step(1)}
-          data-writing-rail="left"
-          label="Think"
-          search={shelfQuery}
-          searchLabel="Find your writing"
-          searchPlaceholder="A phrase you remember…"
-          searchMaxLength={160}
-          searchInputRef={searchInput}
-          onSearchKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); setShelfQuery(''); } }}
-          onSearchChange={setShelfQuery}
+      <aside id="think-notes-shelf" hidden={notesCollapsed} className={`think-notes__shelf ${step(1)}`} data-writing-rail="left" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
+        <ThinkBar
+          view={view}
+          views={views}
+          working={working}
+          isOpen={item => isTarget(item, openTarget)}
+          onView={openView}
+          onOpen={openEntry}
+          onNew={() => startNote()}
+          creating={creating || loading}
+          searching={searching}
+          query={shelfQuery}
+          onQuery={setShelfQuery}
+          onSearch={showSearch}
+          found={foundInWriting}
         >
-          <div className="think-notes__kinds" role="group" aria-label="Show">
-            {Object.entries(KIND_LABELS).map(([kind, label]) => (
-              <button key={kind} type="button" aria-pressed={filter === kind} onClick={() => { setFilter(kind); setShelfExpanded(false); }}>{label}</button>
-            ))}
-          </div>
-          {naming ? (
-            <form className="think-notes__naming" onSubmit={nameEntry}>
-              <input
-                autoFocus
-                aria-label={NEW_PROMPTS[naming]}
-                placeholder={`${NEW_PROMPTS[naming]}…`}
-                value={nameDraft}
-                maxLength={naming === 'concept' ? 80 : 500}
-                onChange={event => setNameDraft(event.target.value)}
-                onKeyDown={event => { if (event.key === 'Escape') { setNaming(''); setNameDraft(''); } }}
-              />
-            </form>
-          ) : (
-            <div className="think-notes__new-row">
-              <button
-                type="button"
-                className="think-notes__new"
-                onClick={() => startNote()}
-                disabled={creating || loading || loadingEntry}
-              >
-                {creating ? 'Opening…' : '+ New note'}
-              </button>
-              <button type="button" className="think-notes__new" onClick={() => setNaming('concept')}>concept</button>
-              <button type="button" className="think-notes__new" onClick={() => setNaming('question')}>question</button>
-            </div>
-          )}
-          {creationError ? <p role="status" className="room-shelf__description">{creationError}</p> : null}
-          {phrase ? (
-            <RoomShelfSection label="Found in your writing">
-              <p className="room-shelf__description">Notes and private explorations</p>
-              <p role="status" className="room-shelf__description">{searchMessage}</p>
-              <RoomShelfList>
-                {writingResults.map(item => (
-                  <li key={`${item.kind}:${item.id}`}>
-                    <Link to={item.href} title={item.title} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })} data-noeis-item>
-                      <span className="think-notes__note-title">{item.excerpt === item.title ? <WritingMatch item={item} /> : item.title}</span>
-                      <span className="think-notes__writing-origin">{item.kind === 'notebook' ? 'Note' : `Private writing · ${item.label}`}{item.pageTitle ? ` · ${item.pageTitle}` : ''}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span>
-                      {item.excerpt !== item.title ? <span className="think-notes__match-excerpt"><WritingMatch item={item} /></span> : null}
-                    </Link>
-                  </li>
-                ))}
-              </RoomShelfList>
-              {found?.limited ? <p className="room-shelf__description">More matches may be available. Add a few words to narrow them.</p> : null}
-              <button type="button" className="think-notes__shelf-more" onClick={() => setShelfQuery('')}>Back to recent work</button>
-            </RoomShelfSection>
-          ) : <>
           {authoredError ? <p role="status" className="room-shelf__description">{authoredError}</p> : null}
           {authoredWork.length ? (
             <RoomShelfSection label="Your writing" className="think-notes__writing">
@@ -608,89 +544,10 @@ const ThinkNotes = () => {
               </RoomShelfList>
             </RoomShelfSection>
           ) : null}
-          {staged ? SHELF_ORDER.map(key => {
-            const { section, sense } = STAGES.find(item => item.key === key);
-            const items = key === 'idea' && !shelfExpanded ? stages.idea.slice(0, 18) : stages[key];
-            const folded = key === 'done' && !closedOpen;
-            return (
-              <section key={key} className={`think-notes__stage is-${key}`} aria-label={section}>
-                <h2 className="think-notes__stage-head">
-                  {key === 'done' ? (
-                    <button type="button" aria-expanded={closedOpen} onClick={() => setClosedOpen(open => !open)}>
-                      {section} <span>{stages.done.length}</span>
-                    </button>
-                  ) : <>{section} <span>{stages[key].length}</span></>}
-                </h2>
-                {folded ? null : <p className="think-notes__stage-sense">{sense}</p>}
-                {folded ? null : !loading && !items.length ? (
-                  <p className="think-notes__stage-empty">
-                    {key === 'in_progress' ? 'Nothing underway. Open an idea and choose Working above its title.'
-                      : key === 'idea' ? 'Nothing written yet.' : 'Nothing closed yet.'}
-                  </p>
-                ) : null}
-                {folded ? null : (
-                  <RoomShelfList>
-                    {items.map(item => (
-                      <li key={`${item.kind}:${item.id}`}>
-                        <RoomShelfButton
-                          active={isTarget(item, openTarget)}
-                          nested
-                          className="think-notes__note-link"
-                          data-noeis-item
-                          title={item.title}
-                          onClick={() => openEntry(item)}
-                        >
-                          <span className="think-notes__note-title">{item.title}</span>
-                          {item.kind !== 'note' ? <span className="think-notes__kind">{item.settled ? 'settled question' : item.kind}</span> : null}
-                          {stageLine(item) ? <span className="think-notes__return-note">{stageLine(item)}</span> : null}
-                        </RoomShelfButton>
-                      </li>
-                    ))}
-                  </RoomShelfList>
-                )}
-                {key === 'idea' && stages.idea.length > items.length ? (
-                  <button type="button" className="think-notes__shelf-more" onClick={() => setShelfExpanded(true)}>Show all {stages.idea.length}</button>
-                ) : null}
-              </section>
-            );
-          }) : (
-          <RoomShelfSection label={KIND_LABELS[filter]}>
-            {!loading && !entries.length ? <p className="room-shelf__description">{`No ${KIND_LABELS[filter].toLowerCase()} yet.`}</p> : null}
-            <RoomShelfList>
-              {shelf.map(item => (
-                <li key={`${item.kind}:${item.id}`}>
-                  <RoomShelfButton
-                    active={isTarget(item, openTarget)}
-                    nested
-                    className="think-notes__note-link"
-                    data-noeis-item
-                    title={item.title}
-                    onClick={() => openEntry(item)}
-                  >
-                    <span className="think-notes__note-title">{item.title}</span>
-                    {item.kind !== 'note' ? <span className="think-notes__kind">{item.settled ? 'settled question' : item.kind}</span> : null}
-                  </RoomShelfButton>
-                </li>
-              ))}
-            </RoomShelfList>
-            {hasMoreNotes ? (
-              <button type="button" className="think-notes__shelf-more" onClick={() => setShelfExpanded(true)}>Show all</button>
-            ) : null}
-          </RoomShelfSection>
-          )}
-          <button type="button" className="think-notes__cuttings-link" aria-pressed={cuttingsOpen} onClick={() => showCuttings(!cuttingsOpen)}>Cuttings</button>
-          </>}
-        </RoomShelf>
+        </ThinkBar>
+        {creationError ? <p role="status" className="room-shelf__description">{creationError}</p> : null}
+        <FocusMode inRail />
       </aside>
-
-      {cuttingsOpen ? (
-        <main className="think-notes__cuttings">
-          <NotebookCuttings
-            onOpen={id => openEntry({ kind: 'note', id })}
-            onClose={() => showCuttings(false)}
-          />
-        </main>
-      ) : null}
 
       <aside className="think-notes__alternatives" hidden={!alternativesOpen || Boolean(activeContext)} aria-label="Wording alternatives">
         <div ref={setAlternativesPortal} />
@@ -699,7 +556,7 @@ const ThinkNotes = () => {
       <main
         ref={noteSurface}
         className={`think-notes__note${loadingEntry ? ' is-loading' : ''}`}
-        aria-labelledby="think-note-title"
+        aria-labelledby={openTarget ? 'think-note-title' : undefined}
         aria-busy={loadingEntry ? 'true' : undefined}
         inert={contextTakesFocus ? '' : undefined}
         aria-hidden={contextTakesFocus || undefined}
@@ -753,21 +610,35 @@ const ThinkNotes = () => {
               }}
             />
           </div>
+        ) : openTarget ? (
+          <p className="think-notes__quiet" role="status">{error || 'Opening the note…'}</p>
+        ) : loading || error ? (
+          <p className="think-notes__quiet" role="status">{error || 'Opening Think…'}</p>
+        ) : view === 'cuttings' ? (
+          <div className={step(2)}><NotebookCuttings onOpen={id => openEntry({ kind: 'note', id })} /></div>
+        ) : view !== 'home' ? (
+          <div className={step(2)}><ThinkIndex key={view} view={thinkView(view)} items={viewEntries} onOpen={openEntry} onName={nameEntry} /></div>
         ) : (
-          !loading && !error && lastMark ? (
-            <section className={`think-notes__last-mark ${step(2)}`} aria-label="Your last mark">
-              <p className="think-notes__quiet">Your last mark{lastMark.articleTitle ? `, from ${lastMark.articleTitle}` : ''}</p>
-              <blockquote>{lastMark.text}</blockquote>
-              {lastMark.note ? <p className="think-notes__last-thought">You wrote: {lastMark.note}</p> : null}
-              <Button variant="primary" onClick={() => startNote(lastMark)} disabled={creating}>Think with it</Button>
-            </section>
-          ) : (
-            <p className={`think-notes__quiet ${step(2)}`} role="status">
-              {loading
-                ? 'Opening your last note…'
-                : error || 'A thought does not need a source to begin. Start a note and see where it takes you.'}
-            </p>
-          )
+          <div className={step(2)}>
+            <ThinkDesk
+              working={working}
+              ideas={piecesIn('ideas')}
+              closed={piecesIn('closed')}
+              onOpen={openEntry}
+              onView={openView}
+              onStart={title => startNote({ title })}
+              creating={creating}
+            >
+              {!notes.length && lastMark ? (
+                <section className="think-notes__last-mark" aria-label="Your last mark">
+                  <p className="think-notes__quiet">Your last mark{lastMark.articleTitle ? `, from ${lastMark.articleTitle}` : ''}</p>
+                  <blockquote>{lastMark.text}</blockquote>
+                  {lastMark.note ? <p className="think-notes__last-thought">You wrote: {lastMark.note}</p> : null}
+                  <Button variant="primary" onClick={() => startNote({ mark: lastMark })} disabled={creating}>Think with it</Button>
+                </section>
+              ) : null}
+            </ThinkDesk>
+          </div>
         )}
       </main>
 

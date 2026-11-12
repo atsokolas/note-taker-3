@@ -312,18 +312,6 @@ body.noeis-editorial .think-notebook-editor-provenance__keep {
   cursor: pointer;
 }
 
-.think-notes__new {
-  margin: 14px 0 8px;
-  padding: 5px 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary, var(--vellum-muted));
-  font: 0.78rem var(--font-sans);
-  cursor: pointer;
-}
-.think-notes__new:hover,
-.think-notes__new:focus-visible { color: var(--noeis-pointer, #6f87ff); }
-
 /* ---------- the note ---------- */
 
 .think-notes__note {
@@ -449,7 +437,6 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
   .think-notes__note { grid-row: 2; padding-inline: 0; }
   .think-notes__shelf { grid-column: 3; grid-row: 3; position: static; max-height: none; overflow: visible; padding-top: 28px; border-right: 0; }
   .think-notes__toggles { position: static; grid-column: 3; grid-row: 1; margin-bottom: 16px; justify-self: start; }
-  .think-notes.has-cuttings .think-notes__shelf { display: none; }
   .think-notes__alternatives { position: fixed; inset: 42dvh 0 0; z-index: 40; padding: 18px 24px; max-height: 58dvh; background: var(--vellum-paper, #fbf8f1); border-top: 1px solid var(--vellum-line); border-right: 0; }
   .think-notes__alternatives header { margin-bottom: 12px; }
   .think-notes__partner:not([hidden]) { position: fixed; inset: 88px 0 0; z-index: 41; width: 100vw; padding: 20px 24px 48px; background: var(--vellum-paper, #fbf8f1); border-left: 0; }
@@ -726,12 +713,6 @@ body.noeis-editorial .notebook-scratchpad .notebook-workbench__row-actions .ui-q
   line-height: 1.5;
 }
 
-.think-notes__note-link {
-  display: grid;
-  justify-content: stretch;
-  gap: 5px;
-}
-.think-notes__shelf .think-notes__note-link,
 .think-notes__shelf .think-notes__continuation {
   min-width: 0;
   max-width: 100%;
@@ -743,10 +724,6 @@ body.noeis-editorial .notebook-scratchpad .notebook-workbench__row-actions .ui-q
   overflow-wrap: break-word;
   word-break: normal;
   white-space: normal;
-}
-.think-notes__shelf .room-shelf__search input {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 @container noeis-column (min-width: 761px) {
   .think-notes__shelf .think-notes__note-title {
@@ -831,66 +808,11 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
   body.think-focus-held .think-notes__alternatives, body.think-focus-held .think-notes__partner { display: none; }
 }
 
-/* ---- One list ---------------------------------------------------------- */
-.think-notes__kinds { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 14px 0 6px; }
-.think-notes__kinds button {
-  padding: 3px 0;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted);
-  font: 0.76rem var(--font-sans);
-  cursor: pointer;
-}
-.think-notes__kinds button[aria-pressed='true'] { border-bottom-color: currentColor; color: var(--text-primary); }
-.think-notes__new-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; }
-.think-notes__new-row { margin: 12px 0 6px; }
-.think-notes__new-row .think-notes__new { width: auto; margin: 0; text-align: left; white-space: nowrap; }
-.think-notes__new-row .think-notes__new + .think-notes__new { color: var(--text-muted); }
-.think-notes__new-row .think-notes__new + .think-notes__new::before { content: '+ '; }
-.think-notes__naming input {
-  width: 100%;
-  margin: 10px 0 6px;
-  padding: 6px 0;
-  border: 0;
-  border-bottom: 1px solid var(--vellum-line);
-  background: transparent;
-  color: var(--text-primary);
-  font: 0.86rem var(--font-sans);
-}
-.think-notes__kind {
-  justify-self: start;
-  color: var(--text-muted);
-  font: 0.62rem var(--font-sans);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 /* Handoffs and learning paths: a list and its page. */
 .think-ledger { display: grid; gap: 24px; padding: 32px 0 80px; }
 
 /* Partner speaks when asked: an idle trace line ("anchored to …") is noise here. */
 .think-notes__partner .agent-ticker[data-state='idle'] { display: none; }
-
-/* ---- Where each piece stands: Working, Ideas, Closed ------------------ */
-/* In the list: three ruled sections, each saying in one line what it holds.
-   Working carries the darker rule because it is what needs you today. */
-.think-notes__stage { display: grid; gap: 6px; margin-top: 22px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 64%, transparent); }
-.think-notes__stage.is-in_progress { border-top-color: var(--text-primary); }
-.think-notes__shelf .think-notes__stage-head { display: flex; margin: 0; font: 600 0.7rem var(--font-sans); letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-primary); }
-.think-notes__stage-head button { display: flex; flex: 1; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-align: left; cursor: pointer; }
-.think-notes__stage-head button::after { content: 'Show'; margin-left: auto; color: var(--text-muted); font-weight: 400; letter-spacing: 0.04em; text-transform: none; }
-.think-notes__stage-head button[aria-expanded='true']::after { content: 'Hide'; }
-.think-notes__stage-head span { margin-left: 8px; color: var(--text-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
-.think-notes__stage-sense,
-.think-notes__stage-empty { margin: 0; color: var(--text-muted); font: 0.76rem/1.45 var(--font-sans); }
-.think-notes__stage-empty { color: var(--text-secondary); }
-.think-notes__stage.is-done .think-notes__note-title { color: var(--text-secondary); }
-.think-notes__shelf .think-notes__cuttings-link {
-  display: block; margin-top: 28px; padding: 0 0 2px; border: 0; border-bottom: 1px solid transparent; background: transparent;
-  color: var(--text-secondary); font: 0.8rem var(--font-sans); cursor: pointer;
-}
-.think-notes__shelf .think-notes__cuttings-link:is(:hover, :focus-visible, [aria-pressed='true']) { border-bottom-color: currentColor; color: var(--text-primary); }
 
 /* On the page: where this piece stands, as three words above the title. */
 .note-stage { display: grid; gap: 8px; margin: 0 0 18px; font-family: var(--font-sans); }
@@ -922,10 +844,6 @@ body.think-rails-away .next-sentence { opacity: 0.35; }
 .ProseMirror .notebook-next-line::before { content: 'Next: '; font: normal 0.72rem var(--font-sans); letter-spacing: 0.04em; }
 
 /* ---- Cuttings: everything dimmed or set aside -------------------------- */
-.think-notes.has-cuttings { --alternatives-width: 0px; --drawer-width: 0px; }
-.think-notes.has-cuttings > :is(.think-notes__note, .think-notes__alternatives, .think-notes__partner) { display: none !important; }
-.think-notes__cuttings { grid-column: 2 / -1; grid-row: 1; min-width: 0; max-width: 46rem; padding: 32px 0 0 clamp(20px, 3vw, 44px); font-family: var(--font-sans); }
-.notebook-cuttings { scroll-margin-top: 140px; }
 .notebook-cuttings__said { min-height: 1.6em; margin: 0 0 12px; color: var(--text-secondary); font-size: .8rem; }
 .notebook-cuttings__list { display: grid; margin: 0; padding: 0; list-style: none; }
 .notebook-cuttings__list li { padding: 18px 0; border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 64%, transparent); }
@@ -934,9 +852,6 @@ body.think-rails-away .next-sentence { opacity: 0.35; }
 .notebook-cuttings__list p button { padding: 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--text-secondary); font: inherit; cursor: pointer; }
 .notebook-cuttings__list p button:last-child { margin-left: auto; }
 .notebook-cuttings__quiet { color: var(--text-secondary); font-size: .85rem; }
-@container noeis-column (max-width: 760px) {
-  .think-notes__cuttings { grid-column: 3; grid-row: 2; padding: 0; }
-}
 
 .think-concept-loading {
   border: 1px solid var(--think-card-border);
@@ -975,3 +890,95 @@ body.think-rails-away .next-sentence { opacity: 0.35; }
 }
 .think-notes__last-thought { margin: 0; font-size: 0.96rem; color: var(--text-primary, var(--vellum-ink)); }
 
+
+/* ---- The left bar: where to go, each way of looking, the pieces underway -- */
+.think-bar { display: grid; gap: 22px; min-width: 0; font-family: var(--font-sans); }
+.think-bar__group { display: grid; margin: 0; padding: 0; list-style: none; }
+.think-notes .think-bar__row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 40px; padding: 0 10px;
+  border: 0; background: transparent; color: var(--text-primary); font: 0.9rem var(--font-sans); text-align: left; cursor: pointer;
+}
+.think-notes .think-bar__row:hover { background: var(--noeis-paper-muted, transparent); }
+.think-notes .think-bar__row[aria-current='page'] { background: var(--noeis-paper-sunken, transparent); }
+.think-notes .think-bar__row:disabled { color: var(--text-muted); cursor: default; }
+.think-bar__row > span { flex: 1; min-width: 0; }
+.think-bar__row small { color: var(--text-secondary); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.think-mark { flex: none; }
+.think-notes .think-bar__search input {
+  flex: 1; width: 100%; min-width: 0; padding: 4px 0; border: 0; border-bottom: 1px solid var(--text-secondary); border-radius: 0;
+  background: transparent; color: var(--text-primary); font: 0.9rem var(--font-sans);
+}
+.think-bar__search input:focus { outline: none; border-bottom-color: var(--text-primary); }
+.think-bar__pieces ul { display: grid; margin: 0; padding: 0; list-style: none; }
+.think-notes .think-bar__pieces h2 { margin: 0 0 4px; padding: 0 10px; color: var(--text-muted); font: 0.78rem var(--font-sans); letter-spacing: 0; text-transform: none; }
+.think-notes .think-bar__pieces button {
+  display: block; width: 100%; min-height: 36px; padding: 6px 10px 6px 38px; border: 0; background: transparent;
+  color: var(--text-secondary); font: 1rem/1.35 var(--font-serif); text-align: left; cursor: pointer;
+}
+.think-notes .think-bar__pieces button:hover,
+.think-notes .think-bar__pieces button[aria-current='page'] { color: var(--text-primary); }
+.think-notes .think-bar__pieces button[aria-current='page'] { background: var(--noeis-paper-sunken, transparent); }
+
+/* ---- The desk: Think with no piece open ---------------------------------- */
+.think-desk { display: grid; gap: 44px; padding: 40px 0 96px; font-family: var(--font-sans); }
+.think-desk__head { display: grid; gap: 8px; }
+.think-desk__head p { margin: 0; color: var(--text-secondary); font-size: 0.86rem; }
+.think-notes .think-desk__head h1 { margin: 0; color: var(--text-primary); font: 350 2.6rem/1.1 var(--font-serif); letter-spacing: -0.03em; }
+.think-desk__working { display: grid; margin: 0; padding: 0; list-style: none; }
+.think-desk__working li { display: grid; gap: 8px; padding: 24px 0 16px; border-top: 1px solid var(--noeis-rule-strong, var(--vellum-line)); }
+.think-desk__working li:first-child { border-top-color: var(--text-primary); }
+.think-notes .think-desk__working h2 { margin: 0; color: var(--text-primary); font: 350 1.75rem/1.2 var(--font-serif); letter-spacing: -0.02em; }
+.think-desk__next { margin: 0; color: var(--text-primary); font: italic 1.15rem/1.5 var(--font-serif); }
+.think-desk__next span { margin-right: 6px; color: var(--text-muted); font: normal 0.76rem var(--font-sans); }
+.think-desk__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin: 0; color: var(--text-secondary); font-size: 0.84rem; }
+.think-notes .think-desk button {
+  min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--text-primary);
+  font: 0.9rem var(--font-sans); text-align: left; cursor: pointer;
+}
+.think-notes .think-desk__meta button,
+.think-notes .think-desk__more { text-decoration: underline; text-underline-offset: 4px; }
+.think-desk__start { display: grid; gap: 6px; }
+.think-desk__start label { color: var(--text-muted); font-size: 0.78rem; }
+.think-notes .think-desk__start input {
+  min-height: 52px; padding: 0; border: 0; border-bottom: 1px solid var(--text-secondary); border-radius: 0;
+  background: transparent; color: var(--text-primary); font: 1.3rem var(--font-serif);
+}
+.think-desk__start input:focus { outline: none; border-bottom-color: var(--text-primary); }
+.think-notes .think-desk h2 { margin: 0 0 8px; color: var(--text-primary); font: 350 1.3rem var(--font-serif); letter-spacing: 0; text-transform: none; }
+.think-desk__ideas ul, .think-desk__lately ul { display: grid; margin: 0; padding: 0; list-style: none; }
+.think-notes .think-desk__ideas li button {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; width: 100%;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 100%, transparent);
+  font: 1.08rem var(--font-serif);
+}
+.think-desk__ideas small { color: var(--text-secondary); font: 0.82rem var(--font-sans); }
+.think-desk__lately { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 40px; padding-top: 28px; border-top: 1px solid var(--noeis-rule-strong, var(--vellum-line)); }
+.think-notes .think-desk__lately h2 { color: var(--text-muted); font: 0.78rem var(--font-sans); }
+.think-desk__lately li { display: grid; padding-bottom: 6px; }
+.think-desk__lately li span { color: var(--text-secondary); font-size: 0.84rem; }
+.think-notes .think-desk__lately li button { min-height: 32px; font: 1.05rem var(--font-serif); }
+.think-desk__lately blockquote { margin: 0 0 6px; color: var(--text-primary); font: italic 1.2rem/1.45 var(--font-serif); }
+.think-desk__lately p { margin: 0; color: var(--text-secondary); font-size: 0.84rem; }
+.think-notes .think-desk__lately p button { min-height: 0; font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---- One way of looking, as a ruled list --------------------------------- */
+.think-index { display: grid; gap: 18px; padding: 40px 0 96px; font-family: var(--font-sans); }
+.think-index__head { display: grid; gap: 6px; }
+.think-notes .think-index__head h1 { margin: 0; color: var(--text-primary); font: 350 2.2rem/1.15 var(--font-serif); letter-spacing: -0.03em; }
+.think-index__head small { color: var(--text-secondary); font: 1rem var(--font-sans); font-variant-numeric: tabular-nums; }
+.think-index__head p, .think-index__empty { margin: 0; color: var(--text-secondary); font-size: 0.9rem; }
+.think-notes .think-index__name input {
+  width: 100%; min-height: 48px; padding: 0; border: 0; border-bottom: 1px solid var(--text-secondary); border-radius: 0;
+  background: transparent; color: var(--text-primary); font: 1.15rem var(--font-serif);
+}
+.think-index__name input:focus { outline: none; border-bottom-color: var(--text-primary); }
+.think-index__name p { margin: 6px 0 0; color: var(--text-secondary); font-size: 0.84rem; }
+.think-index__list { display: grid; margin: 0; padding: 0; list-style: none; border-bottom: 1px solid var(--noeis-rule, var(--vellum-line)); }
+.think-notes .think-index__list button {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 0;
+  border: 0; border-top: 1px solid var(--noeis-rule, var(--vellum-line)); background: transparent;
+  color: var(--text-primary); font: 1.1rem/1.35 var(--font-serif); text-align: left; cursor: pointer;
+}
+.think-index__list button > span { flex: 1; min-width: 0; }
+.think-index__list small { max-width: 45%; color: var(--text-secondary); font: 0.82rem/1.4 var(--font-sans); text-align: right; }
+.think-notes .think-index__list button:hover > span { text-decoration: underline; text-underline-offset: 4px; }

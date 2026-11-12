@@ -6,7 +6,7 @@ import authoredExplorations from '../api/authoredExplorations';
 import api from '../api';
 
 jest.mock('../api/authoredExplorations', () => ({ __esModule: true, default: { list: jest.fn(), search: jest.fn() } }));
-import { getNotebookShelf } from '../api/notebook';
+import { getNotebookCuttings, getNotebookShelf } from '../api/notebook';
 import { getConcepts, updateConcept } from '../api/concepts';
 import { createQuestion, getQuestions } from '../api/questions';
 import { getAgentThread } from '../api/agent';
@@ -14,6 +14,7 @@ import { getHighlights } from '../api/highlights';
 
 jest.mock('../api/notebook', () => ({
   clearNotebookCache: jest.fn(),
+  getNotebookCuttings: jest.fn(),
   getNotebookShelf: jest.fn()
 }));
 
@@ -87,6 +88,7 @@ describe('ThinkNotes first paint', () => {
     authoredExplorations.list.mockResolvedValue([]);
     authoredExplorations.search.mockResolvedValue({ results: [], limited: false });
     getNotebookShelf.mockResolvedValue([]);
+    getNotebookCuttings.mockResolvedValue([]);
     getConcepts.mockResolvedValue([]);
     getQuestions.mockResolvedValue([]);
     getHighlights.mockResolvedValue([]);
@@ -97,49 +99,78 @@ describe('ThinkNotes first paint', () => {
 
     render(<MemoryRouter><ThinkNotes /></MemoryRouter>);
 
-    expect(screen.queryByText('Nothing written yet.')).toBeNull();
-    expect(screen.getByRole('button', { name: /New note/ })).toBeDisabled();
+    expect(screen.queryByText('Nothing is underway.')).toBeNull();
+    expect(screen.getByRole('button', { name: /New idea/ })).toBeDisabled();
 
     await act(async () => {
       resolveShelf([{ _id: 'note-1', title: 'A real note', updatedAt: '2026-08-29T12:00:00.000Z' }]);
     });
 
-    expect(await screen.findByRole('button', { name: 'A real note' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /A real note/ })).toBeInTheDocument();
   });
 
-  it('files the list as Working, Ideas and Closed, with concepts and questions among the ideas', async () => {
+  it('opens on the desk: the pieces underway with their next sentence, then ideas and what closed', async () => {
     getNotebookShelf.mockResolvedValue([
       { _id: 'note-1', title: 'A real note', updatedAt: '2026-08-01T00:00:00.000Z' },
       { _id: 'note-2', title: 'The essay', board: { stage: 'in_progress' }, workingState: { nextTimeLine: { text: 'Start from the renewal rate.' } }, updatedAt: '2026-08-04T00:00:00.000Z' },
-      { _id: 'note-3', title: 'Sent piece', board: { stage: 'done', became: 'Sent to Sam' }, updatedAt: '2026-07-01T00:00:00.000Z' }
+      { _id: 'note-3', title: 'Sent piece', board: { stage: 'done', became: 'Sent to Sam', movedAt: new Date().toISOString() }, updatedAt: '2026-07-01T00:00:00.000Z' }
     ]);
-    getConcepts.mockResolvedValue([{ _id: 'c1', name: 'Moats', updatedAt: '2026-08-03T00:00:00.000Z' }, { _id: '', name: 'just-a-tag' }]);
-    getQuestions.mockResolvedValue([{ _id: 'q1', text: 'What would change my mind?', status: 'answered', updatedAt: '2026-08-02T00:00:00.000Z' }]);
+    getNotebookCuttings.mockResolvedValue([{ id: 'dimmed:note-2:d1', kind: 'dimmed', noteId: 'note-2', noteTitle: 'The essay', text: 'Every moat is a story someone stopped checking.' }]);
     render(<ThinkNotes />);
-    const ideas = await screen.findByRole('region', { name: 'Ideas' });
-    await waitFor(() => expect(within(ideas).getAllByRole('button').map(button => button.textContent)).toEqual([
-      'Moatsconcept', 'What would change my mind?settled question', 'A real note'
-    ]));
-    expect(within(screen.getByRole('region', { name: 'Working' })).getByRole('button', { name: /The essay/ })).toHaveTextContent('Start from the renewal rate.');
-    const closed = screen.getByRole('region', { name: 'Closed' });
-    expect(within(closed).queryByText('Sent piece')).toBeNull();
-    fireEvent.click(within(closed).getByRole('button', { name: /Closed/ }));
-    expect(within(closed).getByRole('button', { name: /Sent piece/ })).toHaveTextContent('Sent to Sam');
-    expect(screen.queryByText('Concept workspace')).toBeNull();
-    expect(screen.queryByText(/Builder mode|Challenger mode|Generative|Dialectical/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Concepts' }));
-    expect(await within(screen.getByRole('region', { name: 'Concepts' })).findByRole('button', { name: /just-a-tag/ })).toBeInTheDocument();
+    const desk = await screen.findByRole('region', { name: 'Pick up where you stopped.' });
+    const working = within(desk).getByRole('list', { name: 'Working' });
+    expect(within(working).getByRole('heading', { name: 'The essay' })).toBeInTheDocument();
+    expect(within(working).getByText('Start from the renewal rate.')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Ideas, by when you last thought about them' })).getByRole('button', { name: /A real note/ })).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Closed this month' })).getByText('Sent to Sam')).toBeInTheDocument();
+    expect(await screen.findByText('Every moat is a story someone stopped checking.')).toBeInTheDocument();
+    fireEvent.click(within(working).getByRole('button', { name: 'Write the next sentence' }));
+    await waitFor(() => expect(screen.getByTestId('open-note')).toHaveTextContent('note-2'));
   });
 
-  it('opens ?tab=questions on its newest question in the same editor', async () => {
+  it('counts each way of looking in the left bar and lists one as a page', async () => {
+    getNotebookShelf.mockResolvedValue([
+      { _id: 'note-1', title: 'A real note' },
+      { _id: 'note-2', title: 'The essay', board: { stage: 'in_progress' } }
+    ]);
+    getConcepts.mockResolvedValue([{ _id: 'c1', name: 'Moats', updatedAt: '2026-08-03T00:00:00.000Z' }, { _id: '', name: 'just-a-tag' }]);
+    getQuestions.mockResolvedValue([{ _id: 'q1', text: 'What would change my mind?', status: 'answered' }]);
+    render(<ThinkNotes />);
+    const bar = await screen.findByRole('navigation', { name: 'Think' });
+    await waitFor(() => expect(within(bar).getByRole('button', { name: 'Concepts 1' })).toBeInTheDocument());
+    expect(within(bar).getByRole('button', { name: 'Working 1' })).toBeInTheDocument();
+    expect(within(bar).getByRole('button', { name: 'Ideas 1' })).toBeInTheDocument();
+    expect(within(bar).getByRole('button', { name: 'Questions 1' })).toBeInTheDocument();
+    expect(within(within(bar).getByRole('region', { name: 'Working' })).getByRole('button', { name: 'The essay' })).toBeInTheDocument();
+    fireEvent.click(within(bar).getByRole('button', { name: 'Concepts 1' }));
+    const concepts = await screen.findByRole('region', { name: /^Concepts/ });
+    expect(within(concepts).getByRole('button', { name: /just-a-tag/ })).toBeInTheDocument();
+    expect(window.location.search).toBe('?view=concepts');
+    fireEvent.click(within(bar).getByRole('button', { name: 'Questions 1' }));
+    expect(within(await screen.findByRole('region', { name: /^Questions/ })).getByRole('button', { name: /What would change my mind\?/ })).toHaveTextContent('settled');
+  });
+
+  it('starts an idea from a line typed on the desk', async () => {
+    api.post.mockResolvedValue({ data: { _id: 'typed-note', title: 'Why rereading wins', blocks: [] } });
+    render(<ThinkNotes />);
+    const line = await screen.findByRole('textbox', { name: 'A new thought becomes an idea' });
+    fireEvent.change(line, { target: { value: '  Why rereading wins ' } });
+    fireEvent.submit(line);
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/api/notebook', expect.objectContaining({ title: 'Why rereading wins' }), expect.anything()));
+    expect(await screen.findByTestId('open-note')).toHaveTextContent('typed-note');
+  });
+
+  it('lands an old ?tab=questions link on the questions, newest first', async () => {
     window.history.replaceState({}, '', '/think?tab=questions');
     getQuestions.mockResolvedValue([
       { _id: 'q-old', text: 'Older', updatedAt: '2026-01-01T00:00:00.000Z' },
       { _id: 'q-new', text: 'Newer', updatedAt: '2026-02-01T00:00:00.000Z' }
     ]);
     render(<ThinkNotes />);
+    const questions = await screen.findByRole('region', { name: /^Questions/ });
+    await waitFor(() => expect(within(questions).getAllByRole('button').map(button => button.textContent.replace(/\d.*$/, ''))).toEqual(['Newer', 'Older']));
+    fireEvent.click(within(questions).getByRole('button', { name: /Newer/ }));
     await waitFor(() => expect(screen.getByTestId('open-entry')).toHaveTextContent('question:q-new'));
-    expect(window.location.search).toContain('questionId=q-new');
   });
 
   /* The queued-prompt coverage that used to live in ThinkMode's templates
@@ -160,6 +191,7 @@ describe('ThinkNotes first paint', () => {
   });
 
   it('asks the Partner about the note it is bound to, and lets it try wording', async () => {
+    window.history.replaceState({}, '', '/think?entryId=note-1');
     getNotebookShelf.mockResolvedValue([{ _id: 'note-1', title: 'A real note' }]);
     render(<ThinkNotes />);
     fireEvent.click(await screen.findByRole('button', { name: 'Ask about the note' }));
@@ -181,18 +213,18 @@ describe('ThinkNotes first paint', () => {
     window.removeEventListener('noeis:open-agent', opened);
   });
 
-  it('starts a concept or a question from the list by naming it', async () => {
+  it('starts a concept or a question from its page by naming it', async () => {
     updateConcept.mockResolvedValue({ _id: 'c9', name: 'Optionality' });
     createQuestion.mockResolvedValue({ _id: 'q9', text: 'Is it worth it?' });
     render(<ThinkNotes />);
-    fireEvent.click(await screen.findByRole('button', { name: 'concept' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Name the concept' }), { target: { value: 'Optionality' } });
-    fireEvent.submit(screen.getByRole('textbox', { name: 'Name the concept' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Concepts/ }));
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Name a concept' }), { target: { value: 'Optionality' } });
+    fireEvent.submit(screen.getByRole('textbox', { name: 'Name a concept' }));
     await waitFor(() => expect(screen.getByTestId('open-entry')).toHaveTextContent('concept:Optionality'));
     expect(updateConcept).toHaveBeenCalledWith('Optionality', {});
-    fireEvent.click(screen.getByRole('button', { name: 'question' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Ask the question' }), { target: { value: 'Is it worth it?' } });
-    fireEvent.submit(screen.getByRole('textbox', { name: 'Ask the question' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Questions/ }));
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Ask a question' }), { target: { value: 'Is it worth it?' } });
+    fireEvent.submit(screen.getByRole('textbox', { name: 'Ask a question' }));
     await waitFor(() => expect(screen.getByTestId('open-entry')).toHaveTextContent('question:q9'));
   });
 
@@ -203,13 +235,14 @@ describe('ThinkNotes first paint', () => {
     const work = await screen.findByRole('region', { name: 'Your writing' });
     expect(within(work).getByRole('link')).toHaveAttribute('href', '/wiki/read/page-1?claimId=claim-1&exploration=1');
     expect(within(work).getByText('Test the exception.')).toBeInTheDocument();
-    expect(screen.getByText('Opening your last note…')).toBeInTheDocument();
+    expect(screen.getByText('Opening Think…')).toBeInTheDocument();
     expect(mockPartnerSurface).toHaveBeenCalled();
     expect(JSON.stringify(mockPartnerSurface.mock.calls)).not.toContain('Test the exception.');
     expect(api.put).not.toHaveBeenCalled();
   });
 
   it('keeps the note usable when private writing cannot load', async () => {
+    window.history.replaceState({}, '', '/think?entryId=note-1');
     getNotebookShelf.mockResolvedValue([{ _id: 'note-1', title: 'A real note' }]);
     api.get.mockResolvedValue({ data: { _id: 'note-1', title: 'A real note' } });
     authoredExplorations.list.mockRejectedValue(new Error('Offline'));
@@ -221,7 +254,7 @@ describe('ThinkNotes first paint', () => {
 
   it('adds no writing section when the account has no meaningful work', async () => {
     render(<MemoryRouter initialEntries={['/think']}><ThinkNotes /></MemoryRouter>);
-    await screen.findByText('A thought does not need a source to begin. Start a note and see where it takes you.');
+    await screen.findByRole('heading', { name: 'Nothing is underway.' });
     expect(screen.queryByRole('region', { name: 'Your writing' })).not.toBeInTheDocument();
   });
 
@@ -258,9 +291,9 @@ describe('ThinkNotes first paint', () => {
     api.post.mockReturnValue(new Promise(resolve => { finishCreate = resolve; }));
     api.put.mockImplementation(async (path, payload) => ({data:{...payload,_id:payload.id}}));
     render(<ThinkNotes />);
-    await screen.findByText('A thought does not need a source to begin. Start a note and see where it takes you.');
+    await screen.findByRole('heading', { name: 'Nothing is underway.' });
     expect(api.post).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /New note/ }));
+    fireEvent.click(screen.getByRole('button', { name: /New idea/ }));
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
     expect(api.post.mock.calls[0].slice(0,2)).toEqual(['/api/notebook', {title:'', content:'', blocks:[], type:'note', source:'think'}]);
     await act(async () => finishCreate({data:{_id:'new-note',title:'Untitled',blocks:[]}}));
@@ -268,8 +301,7 @@ describe('ThinkNotes first paint', () => {
     expect(screen.getByTestId('open-note')).toHaveAttribute('data-writing','true');
     expect(window.location.search).toBe('?tab=notebook&entryId=new-note');
     fireEvent.click(screen.getByText('Save test words'));
-    await waitFor(() => expect(screen.getByRole('button',{name:'A note of my own'})).toBeInTheDocument());
-    expect(api.put).toHaveBeenCalledWith('/api/notebook/new-note', expect.objectContaining({content:'My words'}), expect.anything());
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith('/api/notebook/new-note', expect.objectContaining({content:'My words'}), expect.anything()));
     expect(partnerSees().objectId).toBe('new-note');
 
     // Returning through browser history is reading, even for a note born here.
@@ -278,11 +310,15 @@ describe('ThinkNotes first paint', () => {
     act(() => { window.history.replaceState({}, '', '/think?entryId=new-note'); window.dispatchEvent(new PopStateEvent('popstate')); });
     await waitFor(() => expect(screen.getByTestId('open-note')).toHaveTextContent('new-note'));
     expect(screen.getByTestId('open-note')).toHaveAttribute('data-writing', 'false');
+
+    // Home shows the saved words among the ideas.
+    fireEvent.click(screen.getByRole('button', { name: 'Home' }));
+    expect(await screen.findByRole('button', { name: /A note of my own/ })).toBeInTheDocument();
   });
 
   it('uses requested note identity even outside the bounded shelf, and follows shelf selection and Back', async () => {
     window.history.replaceState({}, '', '/think?entryId=older-note');
-    getNotebookShelf.mockResolvedValue([{_id:'recent-note',title:'Recent note'}]);
+    getNotebookShelf.mockResolvedValue([{_id:'recent-note',title:'Recent note',board:{stage:'in_progress'}}]);
     render(<ThinkNotes />);
     await waitFor(() => expect(screen.getByTestId('open-note')).toHaveTextContent('older-note'));
     fireEvent.click(screen.getByRole('button',{name:'Recent note'}));
@@ -294,16 +330,17 @@ describe('ThinkNotes first paint', () => {
   });
 
   it('keeps the current note when a save cannot finish or creation cannot be confirmed', async () => {
+    window.history.replaceState({}, '', '/think?entryId=note-1');
     getNotebookShelf.mockResolvedValue([{_id:'note-1',title:'A real note'}]);
     render(<ThinkNotes />);
     await screen.findByText('Editor');
     mockFlush.mockResolvedValue(false);
-    fireEvent.click(screen.getByRole('button', { name: /New note/ }));
-    await waitFor(() => expect(screen.getByRole('button', { name: /New note/ })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: /New idea/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /New idea/ })).toBeEnabled());
     expect(api.post).not.toHaveBeenCalled();
     mockFlush.mockResolvedValue(true);
     api.post.mockRejectedValue(new Error('Acknowledgement lost'));
-    fireEvent.click(screen.getByRole('button', { name: /New note/ }));
+    fireEvent.click(screen.getByRole('button', { name: /New idea/ }));
     await screen.findByText('Could not confirm the new note. Reload Think to check your recent notes before trying again.');
     expect(screen.getByTestId('open-note')).toHaveTextContent('note-1');
     expect(api.post).toHaveBeenCalledTimes(1);
@@ -312,10 +349,11 @@ describe('ThinkNotes first paint', () => {
   it('finds matching words without changing the open note or giving private matches to the partner', async () => {
     getNotebookShelf.mockResolvedValue([{ _id: 'note-1', title: 'A real note' }]);
     authoredExplorations.search.mockResolvedValue({ results: [{ kind: 'exploration', id: 'work-1', pageId: 'page-1', claimId: 'claim-1', title: 'Room to return', label: 'Question', excerpt: 'What makes room for the second attempt?', matchStart: 16, matchLength: 11 }], limited: false });
+    window.history.replaceState({}, '', '/think?entryId=note-1');
     render(<ThinkNotes />);
     await screen.findByText('Editor');
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     const search = screen.getByRole('searchbox', { name: 'Find your writing' });
-    search.focus();
     expect(search).toHaveFocus();
     fireEvent.change(search, { target: { value: 'the second' } });
     expect(screen.getByText('Looking through your writing…')).toBeInTheDocument();
@@ -331,15 +369,18 @@ describe('ThinkNotes first paint', () => {
     fireEvent.click(match);
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/wiki/read/page-1?claimId=claim-1&exploration=1'));
     expect(window.location.search).toContain('find=the+second');
+    expect(window.location.search).toContain('entryId=note-1');
     fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Found in your writing' })).not.toBeInTheDocument());
-    expect(screen.getByRole('region', { name: 'Ideas' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Working/ })).toBeInTheDocument();
+    expect(screen.getByTestId('open-note')).toHaveTextContent('note-1');
   });
 
   it('clears old matches immediately and ignores late replies after the query changes', async () => {
     let finishEarlier;
     authoredExplorations.search.mockImplementationOnce(() => new Promise(resolve => { finishEarlier = resolve; })).mockResolvedValue({ results: [], limited: false });
     render(<ThinkNotes />);
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'earlier' } });
     await waitFor(() => expect(authoredExplorations.search).toHaveBeenCalledTimes(1));
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'later' } });
@@ -357,7 +398,8 @@ describe('ThinkNotes first paint', () => {
     await screen.findByText('Your writing could not be searched. Change the phrase or clear it to return to recent work.');
     expect(screen.queryByText('No saved writing matches these words.')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back to recent work' }));
-    await waitFor(() => expect(screen.getByRole('searchbox')).toHaveValue(''));
+    await waitFor(() => expect(screen.queryByRole('searchbox')).not.toBeInTheDocument());
+    expect(window.location.search).not.toContain('find=');
   });
 
 
