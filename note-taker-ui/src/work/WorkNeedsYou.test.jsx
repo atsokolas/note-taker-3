@@ -3,7 +3,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WorkNotes from './WorkNotes';
-import { WorkDayClose } from './WorkOutstanding.jsx';
+import { WorkDayClose } from './WorkNeedsYou.jsx';
 import WorkCalendar from './WorkCalendar';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
@@ -32,21 +32,19 @@ beforeEach(() => {
   });
 });
 const work = view => render(<MemoryRouter initialEntries={[`/work?view=${view}`]}><WorkNotes /></MemoryRouter>);
-const rail = () => { const shelf = screen.getByRole('complementary'); const more = shelf.querySelector('.work-shelf-more'); if (!more.open) fireEvent.click(within(shelf).getByText('More')); return within(shelf); };
+const rail = () => within(screen.getByRole('complementary'));
 
-test('the quiet rail retains Outstanding counts and exposes Waiting on through More', async () => {
-  work('today');
-  await waitFor(() => expect(rail().getByRole('button', { name: /Outstanding/ })).toHaveTextContent('Outstanding2'));
-  expect(rail().getByRole('button', { name: /Waiting on/ })).toHaveTextContent('Waiting on1');
-  fireEvent.click(rail().getByRole('button', { name: /Outstanding/ }));
-  expect(await screen.findByRole('heading', { name: 'Outstanding' })).toBeInTheDocument();
-  expect(screen.getByText('2 things outstanding. One came from your notes and isn’t sorted yet.')).toBeInTheDocument();
+test('Needs you sits under Today in the rail with its count, and old Outstanding links open it', async () => {
+  work('outstanding');
+  await waitFor(() => expect(rail().getByRole('button', { name: /Needs you/ })).toHaveTextContent('Needs you2'));
+  expect(await screen.findByRole('heading', { name: 'Needs you' })).toBeInTheDocument();
+  expect(screen.getByText('2 things.')).toBeInTheDocument();
   expect(screen.getByRole('navigation', { name: 'Work folders' })).toBeInTheDocument();
 });
 
 test('a new line from a note is sorted onto Waiting on with the person, on the same record', async () => {
-  work('outstanding');
-  const fresh = within(await screen.findByRole('region', { name: 'New from your notes' }));
+  work('needs');
+  const fresh = within(await screen.findByRole('region', { name: /New from your notes/ }));
   expect(fresh.getByText('From Fieldwell · pilot follow-up')).toBeInTheDocument();
   fireEvent.click(fresh.getByRole('button', { name: 'Waiting on…' }));
   fireEvent.change(fresh.getByRole('textbox', { name: 'Who is Confirm service-training dates waiting on?' }), { target: { value: 'Ana' } });
@@ -54,22 +52,40 @@ test('a new line from a note is sorted onto Waiting on with the person, on the s
   await waitFor(() => expect(records.find(x => x._id === 'task').workItem).toMatchObject({ list: 'waiting', waitingOn: 'Ana', noteId: 'note' }));
 });
 
-test('one typed line with @name lands on Waiting on, and Nudge drafts a message from it', async () => {
-  work('outstanding');
-  const line = await screen.findByRole('textbox', { name: 'Add something outstanding' });
+test('Today on a new line plans it for today and leaves it sorted', async () => {
+  work('needs');
+  fireEvent.click(within(await screen.findByRole('region', { name: /New from your notes/ })).getByRole('button', { name: 'Today' }));
+  const today = new Date().toISOString().slice(0, 10);
+  await waitFor(() => expect(records.find(x => x._id === 'task').workItem).toMatchObject({ list: 'next', sortedOn: today, history: [expect.objectContaining({ type: 'plan', plannedOn: today })] }));
+});
+
+test('one typed line with @name lands in Owed to you, and Nudge drafts a message from it', async () => {
+  work('needs');
+  const line = await screen.findByRole('textbox', { name: 'Add a line' });
   fireEvent.change(line, { target: { value: '@Priya data room access' } }); fireEvent.submit(line.closest('form'));
   await waitFor(() => expect(records.at(-1)).toMatchObject({ title: 'data room access', workItem: { kind: 'task', list: 'waiting', waitingOn: 'Priya' } }));
-  fireEvent.click(rail().getByRole('button', { name: /Waiting on/ }));
-  expect(await screen.findByText('2 people owe you something. Mira’s has waited longest.')).toBeInTheDocument();
-  fireEvent.click(within(screen.getByRole('heading', { name: 'Mira' }).closest('section')).getByRole('button', { name: 'Nudge' }));
+  const owed = within(screen.getByRole('region', { name: 'Owed to you' }));
+  expect(await owed.findByText('Priya owes you data room access')).toBeInTheDocument();
+  fireEvent.click(owed.getAllByRole('button', { name: 'Nudge' })[0]);
   expect(screen.getByText('Hi Mira, any news on the pilot numbers? No rush if it’s in hand.')).toBeInTheDocument();
 });
 
 test('ticking a line draws it through and keeps it a moment with Undo', async () => {
-  work('outstanding');
-  fireEvent.click(within(await screen.findByRole('region', { name: 'New from your notes' })).getByRole('button', { name: 'Done' }));
+  work('needs');
+  fireEvent.click(within(await screen.findByRole('region', { name: /New from your notes/ })).getByRole('button', { name: 'Done' }));
   await waitFor(() => expect(document.querySelector('.is-struck')).toHaveTextContent('Confirm service-training dates'));
   expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+});
+
+test('a project untouched for three weeks is Gone quiet, and Pause sets it aside', async () => {
+  const old = new Date(Date.now() - 30 * 86400000).toISOString();
+  folders.push({ _id: 'p', name: 'Pricing', kind: 'project', revision: 0, updatedAt: old });
+  records.push({ _id: 'price', revision: 0, title: 'Annual discount', project: 'p', takenOn: old.slice(0, 10), updatedAt: old, workItem: { kind: 'task', list: 'next', sortedOn: old.slice(0, 10), priority: 0, history: [] } });
+  work('needs');
+  const quiet = within(await screen.findByRole('region', { name: 'Gone quiet' }));
+  expect(quiet.getByText('Untouched for 4 weeks. Next: Annual discount.')).toBeInTheDocument();
+  fireEvent.click(quiet.getByRole('button', { name: 'Pause' }));
+  await waitFor(() => expect(api.put).toHaveBeenCalledWith('/api/work-notes/folders/p', expect.objectContaining({ paused: true }), expect.anything()));
 });
 
 test('a note with Mira shows what Mira owes you in its margin', async () => {
@@ -80,17 +96,7 @@ test('a note with Mira shows what Mira owes you in its margin', async () => {
   expect(owed.getByRole('heading', { name: 'Mira owes you' })).toBeInTheDocument(); expect(owed.getByText('The pilot numbers')).toBeInTheDocument();
 });
 
-test('the weekly review shows only what needs you and remembers when it was done', async () => {
-  work('review');
-  expect(await screen.findByRole('heading', { name: 'Weekly review' })).toBeInTheDocument();
-  expect(screen.getByText('Inbox is clear.')).toBeInTheDocument();
-  expect(screen.getByRole('textbox', { name: 'Next step for Launch planning' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Mark this week reviewed' }));
-  expect(await screen.findByText('Reviewed today. Everything below is as you left it.')).toBeInTheDocument();
-  expect(rail().getByRole('button', { name: /Weekly review/ })).toHaveTextContent('Weekly reviewdone');
-});
-
-test('the review reads the week back as a new Work note, and offers the one it already holds', async () => {
+test('the check-in reads the week back as a new Work note, and offers the one it already holds', async () => {
   const today = new Date().toISOString().slice(0, 10);
   const draft = { _id: 'week', revision: 0, title: 'Week of 5–11 Nov 2026', tags: ['work-edition'], occurredOn: today, takenOn: today, timeZone: 'UTC', folder: null, content: '<p>Drafted by Claude from 2 entries in 1 note.</p><h2>What got done</h2><ul><li><p>Agreed the pilot sites. · Fieldwell, 9 Nov</p></li></ul>' };
   const post = api.post.getMockImplementation();
@@ -102,26 +108,26 @@ test('the review reads the week back as a new Work note, and offers the one it a
   work('review');
   await screen.findByText('Confirm service-training dates');
   expect(screen.getByText('Only Claude reads these notes, and the draft stays here in Work.')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Draft the week' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Read the week back' }));
   expect(await screen.findByText('Agreed the pilot sites. · Fieldwell, 9 Nov')).toBeInTheDocument();
   expect(api.post).toHaveBeenCalledWith('/api/work-notes/week-edition', expect.anything(), expect.anything());
-  fireEvent.click(rail().getByRole('button', { name: /Weekly review/ }));
+  fireEvent.click(rail().getByRole('button', { name: /Needs you/ }));
   expect(await screen.findByText(/Week of 5–11 Nov 2026 is drafted\./)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Open it' })).toBeInTheDocument();
 });
 
-test('a quiet week says so, and a failed draft keeps the review in place', async () => {
+test('a quiet week says so, and a failed draft keeps the page in place', async () => {
   const post = api.post.getMockImplementation();
   let answer = async () => ({ data: { silence: 'No Work entries between 5 Nov and 11 Nov. Nothing to draft.' } });
   api.post.mockImplementation(async (path, body) => path.endsWith('/week-edition') ? answer() : post(path, body));
-  work('review');
+  work('needs');
   await screen.findByText('Confirm service-training dates');
-  fireEvent.click(screen.getByRole('button', { name: 'Draft the week' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Read the week back' }));
   expect(await screen.findByText('No Work entries between 5 Nov and 11 Nov. Nothing to draft.')).toHaveAttribute('role', 'status');
   answer = async () => { throw { response: { status: 502, data: { error: 'Claude could not draft the week just now. Your notes are unchanged. Try again.' } } }; };
-  fireEvent.click(screen.getByRole('button', { name: 'Draft the week' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Read the week back' }));
   expect(await screen.findByText('Claude could not draft the week just now. Your notes are unchanged. Try again.')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Weekly review' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Needs you' })).toBeInTheDocument();
 });
 
 test('closing the day moves what is left to tomorrow, Monday or Someday, and says how tomorrow starts', () => {

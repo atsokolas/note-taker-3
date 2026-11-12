@@ -542,12 +542,13 @@ const notebookFolderSchema = new mongoose.Schema({
      the list but out of the way; done is archivedAt, and the closing line is how
      it ended. The brief is the project's one undated page; links are things
      elsewhere in Noeis kept with it, stored only here so a personal article never
-     learns it is in Work. */
+     learns it is in Work. Check-ins are the dated answers to its Monday question. */
   kind: { type: String, enum: ['folder', 'project'], default: 'folder' },
   pausedAt: { type: Date, default: null },
   brief: { type: String, default: '', maxlength: 8000 },
   closingLine: { type: String, default: '', maxlength: 280 },
   links: { type: [new mongoose.Schema({ kind: { type: String, enum: ['article', 'wiki', 'book'], required: true }, id: { type: String, required: true, maxlength: 64 }, title: { type: String, default: '', maxlength: 300 } }, { _id: false })], default: [] },
+  checkIns: { type: [new mongoose.Schema({ on: { type: String, required: true }, text: { type: String, required: true, maxlength: 500 } }, { _id: false })], default: [] },
   operationId: { type: String, immutable: true },
   lastMutationId: { type: String },
   importMeta: { type: importMetaSchema, default: () => ({}) }

@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import WorkNotes from './WorkNotes';
 import AddToProject from './AddToProject';
-import { decisionsIn, fade, project, projects } from './workProjects';
+import { decisionsIn, entriesOf, fade, project, projects } from './workProjects';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn() }));
@@ -44,6 +44,7 @@ test('a project is read from the notes that are part of it, whatever their folde
   expect(fund.waiting.map(line => line.waitingOn)).toEqual(['Priya']);
   expect(fund.decisions.map(decision => decision.text)).toEqual(['We ask for the 2024 cohort.']);
   expect(decisionsIn({ content: '<p>decided: keep it</p><p>We decided nothing</p>' })).toEqual(['Keep it']);
+  expect(entriesOf({ takenOn: '2026-11-02', content: '<p>Kickoff.</p><h2>9 November 2026</h2><p>Priya says mostly there.</p><p>Churn looks worse.</p><h2>12 November 2026</h2>' }).map(({ day, text }) => [day, text])).toEqual([['2026-11-02', 'Kickoff.'], ['2026-11-09', 'Priya says mostly there. Churn looks worse.']]);
   const grouped = projects(folders.slice(1), notes, items, today);
   expect([grouped.active.map(item => item.name), grouped.paused.map(item => item.name)]).toEqual([['Fund II diligence', 'Hiring'], ['Office move']]);
   expect([fade(grouped.active[0]), fade(grouped.active[1])]).toEqual([0, 3]);
@@ -64,12 +65,35 @@ test('Projects lists every project and Everything open unfolds them, from the ra
   expect(await screen.findByRole('heading', { name: 'Hiring', level: 1 })).toBeInTheDocument();
 });
 
-test('a project page keeps its brief and state through back-to-back saves, shows decisions and notes, and asks for a closing line when done', async () => {
+test('a project page reads the same way every time: log, next with what is owed, schedule, decided and kept', async () => {
+  records.push({ _id: 'ic', revision: 0, title: 'IC', project: 'f', takenOn: today, workItem: { kind: 'appointment', plannedOn: today, startTime: '10:00', priority: 0, history: [] } });
   work('view=project&folder=f');
   const page = within(await screen.findByRole('region', { name: 'Fund II diligence' }));
   expect(page.getByText('1 thing open, waiting on Priya, last touched today.')).toBeInTheDocument();
-  expect(within(page.getByRole('region', { name: 'Decisions' })).getByText('We ask for the 2024 cohort.')).toBeInTheDocument();
-  expect(within(page.getByRole('region', { name: 'Notes' })).getByRole('button', { name: /Call with Priya/ })).toBeInTheDocument();
+  expect(within(page.getByRole('region', { name: 'Log' })).getByRole('button', { name: /Call with Priya.*Churn looks fine\. Decided: we ask for the 2024 cohort\./ })).toBeInTheDocument();
+  const next = within(page.getByRole('region', { name: 'Next' }));
+  expect(next.getByText('Ask Priya for the churn file')).toBeInTheDocument();
+  expect(next.getByText('Priya owes you the data room login')).toBeInTheDocument();
+  expect(within(page.getByRole('region', { name: 'Schedule' })).getByText(/10:00 IC/)).toBeInTheDocument();
+  expect(within(page.getByRole('region', { name: 'Decided' })).getByText('We ask for the 2024 cohort.')).toBeInTheDocument();
+  expect(within(page.getByRole('region', { name: 'Kept' })).getByRole('link', { name: 'Acme Analytics' })).toBeInTheDocument();
+  for (const gone of ['Waiting on', 'Notes', 'Decisions', 'From the rest of Noeis']) expect(page.queryByRole('region', { name: gone })).toBeNull();
+});
+
+test('the Monday question is answered once a week and the answer reads in the log', async () => {
+  work('view=project&folder=f');
+  const page = within(await screen.findByRole('region', { name: 'Fund II diligence' }));
+  const answer = page.getByRole('textbox', { name: 'What would move Fund II diligence this week?' });
+  fireEvent.change(answer, { target: { value: 'Get the churn file.' } }); fireEvent.submit(answer.closest('form'));
+  await waitFor(() => expect(folders[1].checkIns).toEqual([{ on: today, text: 'Get the churn file.' }]));
+  expect(await page.findByText(/Answered/)).toBeInTheDocument();
+  expect(page.queryByRole('textbox', { name: 'What would move Fund II diligence this week?' })).toBeNull();
+  expect(within(page.getByRole('region', { name: 'Log' })).getByRole('button', { name: /Monday check-in.*Get the churn file\./ })).toBeInTheDocument();
+});
+
+test('a project page keeps its brief and state through back-to-back saves, and asks for a closing line when done', async () => {
+  work('view=project&folder=f');
+  const page = within(await screen.findByRole('region', { name: 'Fund II diligence' }));
   const brief = page.getByRole('textbox', { name: 'What Fund II diligence is' });
   fireEvent.change(brief, { target: { value: 'IC memo with a yes or no.' } }); fireEvent.blur(brief);
   fireEvent.click(page.getByRole('button', { name: 'Paused' }));

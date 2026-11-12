@@ -164,7 +164,7 @@ test('return lines preserve accepted words exactly and reject over-limit input w
   const boundary = await call('/' + note._id, 'PUT', { expectedRevision: 1, workingState: { nextTimeLine: { text: maximum } } });
   assert.equal(boundary.status, 200); assert.equal(boundary.body.workingState.nextTimeLine.text, maximum);
 });
-test('a note sits in one folder and can be part of one project, and a project keeps its brief, pause, closing line and links', async () => {
+test('a note sits in one folder and can be part of one project, and a project keeps its brief, pause, closing line, links and Monday check-ins', async () => {
   const { body: folder } = await call('/folders', 'POST', { name: 'Meetings' });
   const { body: project } = await call('/folders', 'POST', { name: 'Fund II diligence', kind: 'project' });
   assert.equal(folder.kind, 'folder'); assert.equal(project.kind, 'project');
@@ -177,8 +177,11 @@ test('a note sits in one folder and can be part of one project, and a project ke
   assert.equal(saved.status, 200);
   assert.equal(saved.body.brief, 'IC memo with a yes or no.'); assert.ok(saved.body.pausedAt); assert.deepEqual(saved.body.links, links);
   assert.equal((await call(`/folders/${project._id}`, 'PUT', { expectedRevision: 1, links: [{ kind: 'email', id: 'x' }] })).status, 400);
+  assert.equal((await call(`/folders/${project._id}`, 'PUT', { expectedRevision: 1, checkIns: [{ on: 'monday', text: 'Churn file' }] })).status, 400);
+  const asked = await call(`/folders/${project._id}`, 'PUT', { expectedRevision: 1, checkIns: [{ on: '2026-11-09', text: '  Get the churn file. ' }] });
+  assert.deepEqual(asked.body.checkIns, [{ on: '2026-11-09', text: 'Get the churn file.' }]);
   assert.deepEqual((await call('/projects')).body.map(item => item._id), [project._id], 'folders are not offered as projects');
-  const done = await call(`/folders/${project._id}`, 'PUT', { expectedRevision: 1, paused: false, archived: true, closingLine: 'We passed.' });
+  const done = await call(`/folders/${project._id}`, 'PUT', { expectedRevision: 2, paused: false, archived: true, closingLine: 'We passed.' });
   assert.equal(done.body.pausedAt, null); assert.ok(done.body.archivedAt); assert.equal(done.body.closingLine, 'We passed.');
   assert.deepEqual((await call('/projects')).body, [], 'done projects are not offered');
   assert.equal((await call('/projects', 'GET', undefined, { 'x-agent': '1' })).status, 403);
