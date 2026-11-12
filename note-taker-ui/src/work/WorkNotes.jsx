@@ -4,15 +4,15 @@ import WorkNoteEditor from './WorkNoteEditor';
 import WorkNoteDate from './WorkNoteDate';
 import WorkMenu from './WorkMenu';
 import WorkCalendar from './WorkCalendar';
-import WorkUpcoming from './WorkUpcoming';
 import WorkFollowups from './WorkFollowups';
 import WorkShelf from './WorkShelf';
 import WorkIndex from './WorkIndex';
 import WorkItemForm from './WorkItemForm';
 import WorkMargin from './WorkMargin';
 import WorkProjects, { WorkProject } from './WorkProjects.jsx';
-import WorkOutstanding, { WorkDayClose } from './WorkOutstanding.jsx';
-import { daysBetween, outstanding, owes, peopleIn, readOutstanding } from './workOutstanding';
+import WorkNeedsYou, { WorkDayClose } from './WorkNeedsYou.jsx';
+import { daysBetween, owes, peopleIn, readOutstanding } from './workOutstanding';
+import { needsYou } from './workProjects';
 import { KIND_LABEL, dayInZone, deviceTimeZone, displayDay, projectItem, readPlan, shiftDay, validDay, writtenDay } from './workPlannerModel';
 import Login from '../components/Login';
 import { workSessionFor, resumeWorkSession, releaseWorkSession } from './workSessions';
@@ -46,6 +46,9 @@ function ItemVersion({ record, folders }) {
   return <div className="work-item-version"><h3>{item.title || 'Day margin'}</h3><p>{item.completed ? `Completed ${displayDay(dayInZone(item.completedAt, item.completedTimeZone))}` : 'Open'} · {item.plannedOn ? `Planned ${displayDay(item.plannedOn)}` : 'No planned day'}{item.dueOn ? ` · Due ${displayDay(item.dueOn)}` : ''}</p><p>{folders.find(folder => folder._id === (item.folder?._id || item.folder))?.name || 'Work inbox'}{item.startTime ? ` · ${item.startTime}–${item.endTime}` : ''}</p>{item.content ? <p>{item.content}</p> : null}<details><summary>Action history · {item.history.length}</summary><ol>{item.history.map(event => <li key={event.operationId}>{event.type}{event.plannedOn ? ` · ${displayDay(event.plannedOn)}` : ''} · {new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short', timeZone: event.timeZone }).format(new Date(event.actionAt))} · {event.timeZone}{event.pending ? ' · Pending sync' : ''}</li>)}</ol></details></div>;
 }
 const viewKey = account => `noeis:work-view:${account}`;
+// Pages folded into Needs you and the week line keep their old links working.
+const FOLDED = { outstanding: 'needs', waiting: 'needs', someday: 'needs', review: 'needs', upcoming: 'today' };
+const viewOf = value => FOLDED[value] || value || 'today';
 const rememberedView = account => { try { const value = JSON.parse(localStorage.getItem(viewKey(account)) || '{}'); if (!value || typeof value !== 'object' || Array.isArray(value)) return {}; if (value.timeZone) new Intl.DateTimeFormat('en', { timeZone: value.timeZone }).format(); return value; } catch (_) { return {}; } };
 
 export default function WorkNotes() {
@@ -61,7 +64,7 @@ export default function WorkNotes() {
   const openedDay = useRef(today);
   useEffect(() => { const refresh = () => setToday(dayInZone(new Date(), timeZone)); refresh(); const clock = window.setInterval(refresh, 60000); return () => window.clearInterval(clock); }, [timeZone]);
   const [day, setDay] = useState(() => validDay(params.get('date')) ? params.get('date') : today);
-  const [view, setView] = useState(params.get('view') || 'today');
+  const [view, setView] = useState(viewOf(params.get('view')));
   const [folder, setFolder] = useState(params.get('folder') || 'all');
   const [calendarMode, setCalendarMode] = useState(() => preferences.calendarMode === 'week' ? 'week' : 'compact');
   const [folderEditing, setFolderEditing] = useState(null);
@@ -102,8 +105,7 @@ export default function WorkNotes() {
   const partOf = writing && projectRecords.find(item => item._id === (writing.project?._id || writing.project));
   const elsewhere = [...folders.filter(item => !item.archivedAt && item !== home), ...(home ? [{ _id: '', name: 'Inbox' }] : [])];
   const isWriting = entry => Boolean(writing) && (entry.clientId === selected || Boolean(writing._id && entry._id === writing._id));
-  const lists = outstanding(items, notes, today);
-  const reviewedDays = preferences.reviewedOn ? daysBetween(preferences.reviewedOn, today) : null;
+  const needs = needsYou(projectRecords, notes, items, today);
   const scopedItems = items.filter(item => folderScope === null || (item.folder?._id || item.folder || '') === folderScope);
   const jots = scopedItems.filter(item => item.kind === 'jot' && item.plannedOn === day && (item.folder?._id || item.folder || '') === (folderScope || '')).sort((a, b) => String(a.capturedAt || a.createdAt || a.id).localeCompare(String(b.capturedAt || b.createdAt || b.id)));
   const jot = jots.find(item => item.clientId === jotChoice) || jots[0];
@@ -119,7 +121,7 @@ export default function WorkNotes() {
     if (params.toString() === ownURL.current) return; ownURL.current = params.toString();
     if (!session.canLeave()) { restoreURL.current(); setSheet('recovery'); return; }
     if (initialized.current && params.get('capture') === '1') { quickNote(); return; }
-    setView(params.get('view') || 'today'); setFolder(params.get('folder') || 'all');
+    setView(viewOf(params.get('view'))); setFolder(params.get('folder') || 'all');
     if (validDay(params.get('date'))) setDay(params.get('date'));
     setSelected(params.get('note') || ''); setFresh('');
   }, [params, quickNote, session]);
@@ -363,11 +365,11 @@ export default function WorkNotes() {
       } else information?.querySelector('summary')?.focus({ preventScroll: true });
     });
   };
-  const planner = <WorkCalendar timeZone={timeZone} oneThing={lists.oneThing} page={view === 'today' && !writing} mark={writing ? writtenDay(note) : null} drag={drag} day={writing ? writtenDay(note) : day} today={today} mode={calendarMode} onMode={changeCalendarMode} onDay={selectDay} items={scopedItems} notes={notes} query={query} folders={folders} projects={projectRecords} onOpen={open} onEdit={editItem} onAction={action} onStart={startMeeting} onNew={newItem} onPlan={text => plan({ text, plannedOn: day })} margin={<WorkMargin disabled={Boolean(currentFolder?.archivedAt && !jot)} jots={jots} jot={jot} session={session} onChoose={setJotChoice} onChange={writeJot} onReview={editItem} />} />;
+  const planner = <WorkCalendar timeZone={timeZone} oneThing={needs.oneThing} page={view === 'today' && !writing} mark={writing ? writtenDay(note) : null} drag={drag} day={writing ? writtenDay(note) : day} today={today} mode={calendarMode} onMode={changeCalendarMode} onDay={selectDay} items={scopedItems} notes={notes} query={query} folders={folders} projects={projectRecords} onOpen={open} onEdit={editItem} onAction={action} onStart={startMeeting} onNew={newItem} onPlan={text => plan({ text, plannedOn: day })} margin={<WorkMargin disabled={Boolean(currentFolder?.archivedAt && !jot)} jots={jots} jot={jot} session={session} onChoose={setJotChoice} onChange={writeJot} onReview={editItem} />} />;
   return <div className="work-notes">
     <div inert={sheet || quick ? true : undefined}>
       <div className={`work-layout ${mobileShelf ? 'is-shelf-open' : ''} ${shelfCollapsed ? 'is-shelf-collapsed' : ''}`}>
-        <WorkShelf reviewed={reviewedDays === null ? '' : reviewedDays === 0 ? 'done' : `${reviewedDays} days`} todayCount={items.filter(item => item.plannedOn === today && !item.completed && item.kind !== 'jot').length} lists={lists} projects={projectRecords} dragging={dragging} drag={drag} onDropNote={dropNote} onClose={() => { setMobileShelf(false); window.requestAnimationFrame(() => shelfTrigger.current?.focus()); }} onCollapse={() => { setMobileShelf(false); setShelfCollapsed(true); window.requestAnimationFrame(() => shelfTrigger.current?.focus()); }} notes={notes} folders={folders} place={writing ? (view === 'project' ? partOf?._id : home?._id) || '' : currentProject?._id || folderScope} current={isWriting} view={view} query={query} onQuery={setQuery} onScope={scope} onOpen={open} onCapture={capture} onNewFolder={() => newFolderDialog()} onFolderMenu={openFolder} timeZone={timeZone} onTimeZone={() => { setZoneInput(timeZone); setSheet('timezone'); }} loading={session.loading()} error={session.error()} onRetry={() => session.load()} />
+        <WorkShelf todayCount={items.filter(item => item.plannedOn === today && !item.completed && item.kind !== 'jot').length} needs={needs} projects={projectRecords} dragging={dragging} drag={drag} onDropNote={dropNote} onClose={() => { setMobileShelf(false); window.requestAnimationFrame(() => shelfTrigger.current?.focus()); }} onCollapse={() => { setMobileShelf(false); setShelfCollapsed(true); window.requestAnimationFrame(() => shelfTrigger.current?.focus()); }} notes={notes} folders={folders} place={writing ? (view === 'project' ? partOf?._id : home?._id) || '' : currentProject?._id || folderScope} current={isWriting} view={view} query={query} onQuery={setQuery} onScope={scope} onOpen={open} onCapture={capture} onNewFolder={() => newFolderDialog()} onFolderMenu={openFolder} timeZone={timeZone} onTimeZone={() => { setZoneInput(timeZone); setSheet('timezone'); }} loading={session.loading()} error={session.error()} onRetry={() => session.load()} />
         <main className="work-page">
           {!sheet && !quick ? signIn : null}
           <div className="work-mobile-nav"><button ref={shelfTrigger} onClick={() => { setMobileShelf(true); setShelfCollapsed(false); }}>Notes &amp; folders</button><button aria-label="New Work note" onClick={capture}>New note</button></div>
@@ -387,7 +389,7 @@ export default function WorkNotes() {
 
             {onward.length ? <nav className="work-onward" aria-label="Continued in">{onward.map(item => <button key={item.clientId} onClick={() => open(item.clientId)}>Continued in {noteTitle(item)} · {noteDate(item)}</button>)}</nav> : null}</>} note={note} sourceBlock={params.get('block')} today={today} fresh={fresh === selected} onChange={update} onMakeOpen={makeOpen} />}</WorkFollowups>
 
-          </article> : view === 'today' ? null : view === 'upcoming' ? <WorkUpcoming items={items} today={today} folders={folders} projects={projectRecords} query={query} onDay={selectDay} onStart={startMeeting} onEdit={editItem} onAction={action} onNew={() => newItem()} /> : view === 'projects' || (view === 'project' && !currentProject) ? <WorkProjects records={projectRecords} notes={notes} items={items} today={today} onOpen={id => scope('project', id)} onAction={action} onNew={() => newFolderDialog(false, 'project')} /> : currentProject ? <WorkProject key={currentProject._id} record={currentProject} notes={notes} items={items} today={today} onAction={action} onCapture={(line, id) => captureOutstanding(line, null, id)} onOpenNote={open} onNewNote={capture} onSave={saveProject} /> : ['outstanding', 'waiting', 'someday', 'review'].includes(view) ? <WorkOutstanding view={view} items={items} notes={notes} folders={folders} today={today} inbox={notes.filter(entry => !(entry.folder?._id || entry.folder)).length} reviewedOn={preferences.reviewedOn} onReviewed={() => setPreferences(current => ({ ...current, reviewedOn: today }))} onSort={sortLine} onAction={action} onCapture={captureOutstanding} onOpen={open} onScope={scope} onWeekEdition={draftWeek} /> : <WorkIndex drag={drag} view={view} folder={currentFolder} folders={folders} notes={notes} items={session.items()} query={query} onOpen={open} onItem={item => editItem(item)} onNew={newItem} onFolderMenu={openFolder} />}
+          </article> : view === 'today' ? null : view === 'projects' || (view === 'project' && !currentProject) ? <WorkProjects records={projectRecords} notes={notes} items={items} today={today} onOpen={id => scope('project', id)} onAction={action} onNew={() => newFolderDialog(false, 'project')} /> : currentProject ? <WorkProject key={currentProject._id} record={currentProject} notes={notes} items={items} today={today} onAction={action} onCapture={(line, id) => captureOutstanding(line, null, id)} onOpenNote={open} onNewNote={capture} onSave={saveProject} /> : view === 'needs' ? <WorkNeedsYou needs={needs} notes={notes} folders={folders} today={today} onSort={sortLine} onAction={action} onCapture={captureOutstanding} onOpen={open} onProject={id => scope('project', id)} onSaveProject={saveProject} onWeekEdition={draftWeek} /> : <WorkIndex drag={drag} view={view} folder={currentFolder} folders={folders} notes={notes} items={session.items()} query={query} onOpen={open} onItem={item => editItem(item)} onNew={newItem} onFolderMenu={openFolder} />}
           {notice && !sheet ? <p role="alert">{notice}</p> : null}
         </main>
       </div>

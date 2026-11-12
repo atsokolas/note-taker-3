@@ -24,6 +24,11 @@ function projectLinks(links) {
   if (!Array.isArray(links) || links.length > 100 || links.some(link => !['article', 'wiki', 'book'].includes(link?.kind) || typeof link.id !== 'string' || !/^[\w-]{1,64}$/.test(link.id) || typeof (link.title ?? '') !== 'string')) throw fail(400, 'Choose things from your Library, Wiki or Books.');
   return links.map(({ kind, id, title = '' }) => ({ kind, id, title: title.slice(0, 300) }));
 }
+// A project's Monday answers: a day and one line each, the newest year of them kept.
+function checkIns(answers) {
+  if (!Array.isArray(answers) || answers.some(answer => !date(answer?.on) || typeof answer.text !== 'string' || !answer.text.trim())) throw fail(400, 'Each check-in needs a day and a line.');
+  return answers.slice(-52).map(({ on, text }) => ({ on, text: text.trim().slice(0, 500) }));
+}
 function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder, readiness = createWorkNoteReadiness({ NotebookEntry }), draftWeek = draftWeekEdition }) {
   const router = express.Router();
   router.use('/api/work-notes', authenticateToken, (req, res, next) => {
@@ -114,6 +119,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (req.body.paused !== undefined) { if (typeof req.body.paused !== 'boolean') throw fail(400, 'Choose pause or resume.'); values.pausedAt = req.body.paused ? new Date() : null; }
     for (const key of ['brief', 'closingLine']) if (req.body[key] !== undefined) { if (typeof req.body[key] !== 'string') throw fail(400, `${key} must be text.`); values[key] = req.body[key]; }
     if (req.body.links !== undefined) values.links = projectLinks(req.body.links);
+    if (req.body.checkIns !== undefined) values.checkIns = checkIns(req.body.checkIns);
     if (req.body.operationId) values.lastMutationId = req.body.operationId;
     const folder = await inWork(NotebookFolder.findOneAndUpdate({ _id: current._id, userId: req.user.id, ...folderRevision(req.body.expectedRevision) }, { $set: values, $inc: { revision: 1 } }, { new: true, runValidators: true }));
     if (!folder) throw fail(409, 'This folder changed. Reload it before trying again.', current);
