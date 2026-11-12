@@ -317,6 +317,15 @@ export default function WorkNotes() {
     session.flush(id); session.flush(item.clientId); open(id);
   };
   // Outstanding writes only a line's list, person and days; everything else about the line stays where it was.
+  // One request per press: a retry after a lost answer returns the same draft rather than a second one.
+  const weekIntent = useRef('');
+  const draftWeek = async () => {
+    weekIntent.current ||= operationId();
+    const result = await session.draftWeekEdition({ through: today, timeZone, intent: weekIntent.current });
+    weekIntent.current = '';
+    if (result?.note) open(result.note._id);
+    return result;
+  };
   const sortLine = (id, patch) => { session.edit(id, { workItem: { ...session.entry(id).workItem, ...patch } }); session.flush(id); };
   const captureOutstanding = (text, folder = null, project = null) => {
     const { title, ...read } = readOutstanding(text, today);
@@ -378,7 +387,7 @@ export default function WorkNotes() {
 
             {onward.length ? <nav className="work-onward" aria-label="Continued in">{onward.map(item => <button key={item.clientId} onClick={() => open(item.clientId)}>Continued in {noteTitle(item)} · {noteDate(item)}</button>)}</nav> : null}</>} note={note} sourceBlock={params.get('block')} today={today} fresh={fresh === selected} onChange={update} onMakeOpen={makeOpen} />}</WorkFollowups>
 
-          </article> : view === 'today' ? null : view === 'upcoming' ? <WorkUpcoming items={items} today={today} folders={folders} projects={projectRecords} query={query} onDay={selectDay} onStart={startMeeting} onEdit={editItem} onAction={action} onNew={() => newItem()} /> : view === 'projects' || (view === 'project' && !currentProject) ? <WorkProjects records={projectRecords} notes={notes} items={items} today={today} onOpen={id => scope('project', id)} onAction={action} onNew={() => newFolderDialog(false, 'project')} /> : currentProject ? <WorkProject key={currentProject._id} record={currentProject} notes={notes} items={items} today={today} onAction={action} onCapture={(line, id) => captureOutstanding(line, null, id)} onOpenNote={open} onNewNote={capture} onSave={saveProject} /> : ['outstanding', 'waiting', 'someday', 'review'].includes(view) ? <WorkOutstanding view={view} items={items} notes={notes} folders={folders} today={today} inbox={notes.filter(entry => !(entry.folder?._id || entry.folder)).length} reviewedOn={preferences.reviewedOn} onReviewed={() => setPreferences(current => ({ ...current, reviewedOn: today }))} onSort={sortLine} onAction={action} onCapture={captureOutstanding} onOpen={open} onScope={scope} /> : <WorkIndex drag={drag} view={view} folder={currentFolder} folders={folders} notes={notes} items={session.items()} query={query} onOpen={open} onItem={item => editItem(item)} onNew={newItem} onFolderMenu={openFolder} />}
+          </article> : view === 'today' ? null : view === 'upcoming' ? <WorkUpcoming items={items} today={today} folders={folders} projects={projectRecords} query={query} onDay={selectDay} onStart={startMeeting} onEdit={editItem} onAction={action} onNew={() => newItem()} /> : view === 'projects' || (view === 'project' && !currentProject) ? <WorkProjects records={projectRecords} notes={notes} items={items} today={today} onOpen={id => scope('project', id)} onAction={action} onNew={() => newFolderDialog(false, 'project')} /> : currentProject ? <WorkProject key={currentProject._id} record={currentProject} notes={notes} items={items} today={today} onAction={action} onCapture={(line, id) => captureOutstanding(line, null, id)} onOpenNote={open} onNewNote={capture} onSave={saveProject} /> : ['outstanding', 'waiting', 'someday', 'review'].includes(view) ? <WorkOutstanding view={view} items={items} notes={notes} folders={folders} today={today} inbox={notes.filter(entry => !(entry.folder?._id || entry.folder)).length} reviewedOn={preferences.reviewedOn} onReviewed={() => setPreferences(current => ({ ...current, reviewedOn: today }))} onSort={sortLine} onAction={action} onCapture={captureOutstanding} onOpen={open} onScope={scope} onWeekEdition={draftWeek} /> : <WorkIndex drag={drag} view={view} folder={currentFolder} folders={folders} notes={notes} items={session.items()} query={query} onOpen={open} onItem={item => editItem(item)} onNew={newItem} onFolderMenu={openFolder} />}
           {notice && !sheet ? <p role="alert">{notice}</p> : null}
         </main>
       </div>

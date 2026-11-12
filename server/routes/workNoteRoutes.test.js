@@ -6,7 +6,8 @@ const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const { NotebookEntry, NotebookFolder } = require('../models');
 const { createWorkNoteReadiness } = require('../services/workNoteReadiness');
 const { buildWorkNoteRouter } = require('./workNoteRoutes');
-let mongo, server, base, readiness;
+const { draftWeekEdition } = require('../services/workWeekEdition');
+let mongo, server, base, readiness, weekAnswer = async () => '{}', weekCalls = 0;
 const user = new mongoose.Types.ObjectId();
 before(async () => {
   mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
@@ -14,7 +15,8 @@ before(async () => {
   readiness = createWorkNoteReadiness({ NotebookEntry });
   assert.equal(await readiness.settled, true);
   const app = express(); app.use(express.json());
-  app.use(buildWorkNoteRouter({ NotebookEntry, NotebookFolder, readiness, authenticateToken(req, res, next) {
+  const draftWeek = input => draftWeekEdition({ ...input, generate: async args => { weekCalls += 1; return weekAnswer(args); } });
+  app.use(buildWorkNoteRouter({ NotebookEntry, NotebookFolder, readiness, draftWeek, authenticateToken(req, res, next) {
     req.user = { id: req.headers['x-user'] || String(user) }; req.agentToken = req.headers['x-agent'] && { scopes: req.headers['x-agent'].split(',') }; next();
   } }));
   server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
@@ -199,4 +201,42 @@ test('dated meeting sections round-trip in existing content and blocks without r
   assert.equal((await call('/' + note._id, 'GET', undefined, { 'x-user': String(new mongoose.Types.ObjectId()) })).status, 404);
   assert.equal((await call('/' + note._id, 'PUT', { expectedRevision: saved.body.revision, content: 'other user' }, { 'x-user': String(new mongoose.Types.ObjectId()) })).status, 404);
   assert.equal((await call('/' + note._id)).body.content, content);
+});
+
+test('the week reads back as a new Work note that stays in Work, cites its entries and is never re-read as an entry', async () => {
+  const owner = String(new mongoose.Types.ObjectId()), as = { 'x-user': owner };
+  const write = (operationId, values) => call('', 'POST', { operationId, timeZone: 'America/Chicago', capturedAt: '2026-11-09T15:00:00Z', ...values }, as);
+  await write('wk-1', { title: 'Fictional supplier', occurredOn: '2026-11-01', blocks: [{ id: 'h', type: 'heading', level: 2, text: '9 Nov 2026' }, { id: 'p', type: 'paragraph', text: 'Agreed the sample plan.' }] });
+  await write('wk-2', { title: 'Fictional sync', occurredOn: '2026-11-10', blocks: [{ id: 'q', type: 'paragraph', text: 'Chose the blue option.' }] });
+  await write('wk-old', { title: 'Last month', occurredOn: '2026-10-01', blocks: [{ id: 'r', type: 'paragraph', text: 'Out of range.' }] });
+  await NotebookEntry.create({ title: 'Personal page', content: 'Personal writing.', userId: owner, occurredOn: '2026-11-10' });
+  weekCalls = 0;
+  let sent = '';
+  weekAnswer = async ({ prompt }) => { sent = prompt; return JSON.stringify({ done: [{ line: 'Agreed the sample plan.', from: ['e1'] }], decisions: [{ line: 'Chose the blue option.', from: ['e2'] }] }); };
+  const body = { operationId: 'week-1', through: '2026-11-11', timeZone: 'America/Chicago' };
+  assert.equal((await call('/week-edition', 'POST', body, { ...as, 'x-agent': 'read,work' })).status, 403, 'an agent cannot spend Work on a draft');
+  assert.equal((await call('/week-edition', 'POST', { ...body, through: 'Friday' }, as)).status, 400);
+  const first = await call('/week-edition', 'POST', body, as);
+  assert.equal(first.status, 201);
+  assert.equal(first.body.note.title, 'Week of 5–11 Nov 2026');
+  assert.equal(first.body.note.knowledgeContext, 'work');
+  assert.equal(first.body.note.occurredOn, '2026-11-11');
+  assert.ok(first.body.note.blocks.some(block => block.text === 'Agreed the sample plan. · Fictional supplier, 9 Nov'));
+  assert.match(sent, /Chose the blue option/);
+  assert.doesNotMatch(sent, /Personal writing|Out of range/, 'only this week of Work is read');
+  const again = await call('/week-edition', 'POST', body, as);
+  assert.equal(again.body.note._id, first.body.note._id, 'a repeated request returns the same draft');
+  assert.equal(weekCalls, 1, 'and asks Claude once');
+  assert.equal(await NotebookEntry.findById(first.body.note._id), null, 'the draft is not visible outside Work');
+  const listed = await call('', 'GET', null, as);
+  assert.ok(listed.body.entries.some(entry => entry._id === first.body.note._id), 'it opens like any other Work note');
+  await call('/week-edition', 'POST', { ...body, operationId: 'week-2' }, as);
+  assert.doesNotMatch(sent, /Drafted by Claude/, 'a past Edition is not read back as this week');
+  const quiet = await call('/week-edition', 'POST', { ...body, operationId: 'week-quiet', through: '2026-09-01' }, as);
+  assert.equal(quiet.status, 200);
+  assert.equal(quiet.body.silence, 'No Work entries between 26 Aug and 1 Sept. Nothing to draft.');
+  weekAnswer = async () => { throw Object.assign(new Error('upstream detail that must not leak'), { status: 529 }); };
+  const failed = await call('/week-edition', 'POST', { ...body, operationId: 'week-3' }, as);
+  assert.equal(failed.status, 502);
+  assert.equal(failed.body.error, 'Claude could not draft the week just now. Your notes are unchanged. Try again.');
 });

@@ -90,6 +90,40 @@ test('the weekly review shows only what needs you and remembers when it was done
   expect(rail().getByRole('button', { name: /Weekly review/ })).toHaveTextContent('Weekly reviewdone');
 });
 
+test('the review reads the week back as a new Work note, and offers the one it already holds', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const draft = { _id: 'week', revision: 0, title: 'Week of 5–11 Nov 2026', tags: ['work-edition'], occurredOn: today, takenOn: today, timeZone: 'UTC', folder: null, content: '<p>Drafted by Claude from 2 entries in 1 note.</p><h2>What got done</h2><ul><li><p>Agreed the pilot sites. · Fieldwell, 9 Nov</p></li></ul>' };
+  const post = api.post.getMockImplementation();
+  api.post.mockImplementation(async (path, body) => {
+    if (!path.endsWith('/week-edition')) return post(path, body);
+    expect(body).toMatchObject({ through: today, timeZone: expect.any(String), operationId: expect.any(String) });
+    records.push(draft); return { data: { note: draft } };
+  });
+  work('review');
+  await screen.findByText('Confirm service-training dates');
+  expect(screen.getByText('Only Claude reads these notes, and the draft stays here in Work.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Draft the week' }));
+  expect(await screen.findByText('Agreed the pilot sites. · Fieldwell, 9 Nov')).toBeInTheDocument();
+  expect(api.post).toHaveBeenCalledWith('/api/work-notes/week-edition', expect.anything(), expect.anything());
+  fireEvent.click(rail().getByRole('button', { name: /Weekly review/ }));
+  expect(await screen.findByText(/Week of 5–11 Nov 2026 is drafted\./)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Open it' })).toBeInTheDocument();
+});
+
+test('a quiet week says so, and a failed draft keeps the review in place', async () => {
+  const post = api.post.getMockImplementation();
+  let answer = async () => ({ data: { silence: 'No Work entries between 5 Nov and 11 Nov. Nothing to draft.' } });
+  api.post.mockImplementation(async (path, body) => path.endsWith('/week-edition') ? answer() : post(path, body));
+  work('review');
+  await screen.findByText('Confirm service-training dates');
+  fireEvent.click(screen.getByRole('button', { name: 'Draft the week' }));
+  expect(await screen.findByText('No Work entries between 5 Nov and 11 Nov. Nothing to draft.')).toHaveAttribute('role', 'status');
+  answer = async () => { throw { response: { status: 502, data: { error: 'Claude could not draft the week just now. Your notes are unchanged. Try again.' } } }; };
+  fireEvent.click(screen.getByRole('button', { name: 'Draft the week' }));
+  expect(await screen.findByText('Claude could not draft the week just now. Your notes are unchanged. Try again.')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Weekly review' })).toBeInTheDocument();
+});
+
 test('closing the day moves what is left to tomorrow, Monday or Someday, and says how tomorrow starts', () => {
   const onAction = jest.fn(), onSort = jest.fn();
   render(<WorkDayClose today="2026-10-29" onAction={onAction} onSort={onSort} items={[

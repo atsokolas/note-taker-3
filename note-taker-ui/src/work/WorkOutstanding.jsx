@@ -10,13 +10,14 @@ const ago = days => days === 0 ? 'today' : days === 1 ? 'a day' : `${days} days`
 
 // The second part of Work: what is outstanding, who owes you, what is set aside, and the Friday review.
 // Every row is a line a note or a day already holds; sorting one changes it everywhere it appears.
-export default function WorkOutstanding({ view, items, notes, folders, today, inbox, reviewedOn, onReviewed, onSort, onAction, onCapture, onOpen, onScope }) {
+export default function WorkOutstanding({ view, items, notes, folders, today, inbox, reviewedOn, onReviewed, onSort, onAction, onCapture, onOpen, onScope, onWeekEdition }) {
   const [capture, setCapture] = useState('');
   const [asking, setAsking] = useState(null);
   const [drafting, setDrafting] = useState(null);
   const [copied, setCopied] = useState('');
   const [struck, setStruck] = useState({});
   const [nextStep, setNextStep] = useState({});
+  const [reading, setReading] = useState({ busy: false, message: '' });
   const lists = outstanding(items, notes, today);
   const noteOf = item => item.noteId && notes.find(note => [note._id, note.clientId].includes(item.noteId));
   const folderOf = item => item.folder?._id || item.folder || '';
@@ -62,14 +63,23 @@ export default function WorkOutstanding({ view, items, notes, folders, today, in
     const empty = folders.filter(folder => !folder.archivedAt && ![...lists.next, ...lists.new].some(item => folderOf(item) === folder._id));
     const chase = lists.waiting.filter(item => daysBetween(sortedSince(item), today) >= CHASE_DAYS);
     const week = items.filter(item => item.kind === 'appointment' && item.plannedOn > today && item.plannedOn <= shiftDay(today, 7));
+    // The week read back: a draft Edition this week already holds is offered before a new one.
+    const drafted = notes.filter(note => note.tags?.includes('work-edition') && note.occurredOn >= shiftDay(today, -6)).sort((a, b) => String(b.occurredOn).localeCompare(String(a.occurredOn)))[0];
+    const readWeek = async () => {
+      setReading({ busy: true, message: '' });
+      try { const result = await onWeekEdition(); setReading({ busy: false, message: result?.silence || '' }); }
+      catch (error) { setReading({ busy: false, message: error.message }); }
+    };
     const step = (n, title, done, body) => <section className={`work-review-step ${done ? 'is-done' : ''}`} key={n}><b>{n}</b><div><h2>{title}</h2>{body}</div></section>;
-    return <section className="work-outstanding" aria-label="Weekly review"><h1 className="work-page-title">Weekly review</h1><p className="work-page-sense">{since === null ? 'Six steps, about fifteen minutes. Each shows only what needs you.' : since === 0 ? 'Reviewed today. Everything below is as you left it.' : `Six steps, about fifteen minutes. Last done ${displayDay(reviewedOn)}, ${plural(since, 'day')} ago.`}</p>
+    return <section className="work-outstanding" aria-label="Weekly review"><h1 className="work-page-title">Weekly review</h1><p className="work-page-sense">{since === null ? 'Seven steps, about fifteen minutes. Each shows only what needs you.' : since === 0 ? 'Reviewed today. Everything below is as you left it.' : `Seven steps, about fifteen minutes. Last done ${displayDay(reviewedOn)}, ${plural(since, 'day')} ago.`}</p>
       {step(1, 'Empty the Inbox', !inbox, <p className="work-outstanding-line">{inbox ? <>{plural(inbox, 'note')} waiting to be filed. <button onClick={() => onScope('inbox', '')}>Open the Inbox</button></> : 'Inbox is clear.'}</p>)}
       {step(2, 'Sort what your notes left open', !lists.new.length, lists.new.length ? <>{lists.new.map(freshRow)}</> : <p className="work-outstanding-line">Every line is sorted.</p>)}
       {step(3, 'Give every folder a next step', !empty.length, empty.length ? empty.map(folder => <form key={folder._id} className="work-outstanding-capture" onSubmit={event => { event.preventDefault(); if (nextStep[folder._id]?.trim()) { onCapture(nextStep[folder._id], folder._id); setNextStep(current => ({ ...current, [folder._id]: '' })); } }}><input aria-label={`Next step for ${folder.name}`} placeholder={`${folder.name} has nothing next. What is the next step?`} value={nextStep[folder._id] || ''} onChange={event => setNextStep(current => ({ ...current, [folder._id]: event.target.value }))} /></form>) : <p className="work-outstanding-line">Every folder has something next.</p>)}
       {step(4, 'Chase what you’re waiting on', !chase.length, chase.length ? chase.map(item => row(item, <><time className="is-long">{ago(daysBetween(sortedSince(item), today))}</time><button onClick={() => setDrafting(drafting === item.id ? null : item.id)}>Nudge</button></>, draft(item))) : <p className="work-outstanding-line">Nothing has waited a week.</p>)}
       {step(5, 'Look at next week', false, <p className="work-outstanding-line">{week.length ? `${plural(week.length, 'meeting')} in the next seven days${week[0] ? `, starting with ${week[0].title} on ${displayDay(week[0].plannedOn, { weekday: 'long' })}` : ''}.` : 'No meetings in the next seven days.'}</p>)}
       {step(6, 'Glance at Someday', false, <p className="work-outstanding-line">{lists.someday.length ? <>{plural(lists.someday.length, 'thing')} set aside. Anything ready to start? <button onClick={() => onScope('someday')}>Open Someday</button></> : 'Nothing set aside.'}</p>)}
+      {step(7, 'Read the week back', Boolean(drafted), <><p className="work-outstanding-line">{drafted ? <>{noteTitle(drafted)} is drafted. <button onClick={() => onOpen(drafted.clientId)}>Open it</button><button disabled={reading.busy} onClick={readWeek}>{reading.busy ? 'Reading the week…' : 'Draft again'}</button></> : <>An Edition of your last seven days: what got done, decisions, open threads. <button disabled={reading.busy} onClick={readWeek}>{reading.busy ? 'Reading the week…' : 'Draft the week'}</button></>}</p>
+        <p className="work-outstanding-line">{reading.message ? <span role="status">{reading.message}</span> : 'Only Claude reads these notes, and the draft stays here in Work.'}</p></>)}
       {struckRows}
       <p className="work-review-end">{since === 0 ? `Reviewed ${displayDay(today)}.` : <button onClick={onReviewed}>Mark this week reviewed</button>}</p>
     </section>;
