@@ -221,6 +221,21 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
         throw error;
       }
     },
+    // The server drafts the week as a new Work note; it arrives here like any other saved note.
+    async draftWeekEdition({ through, timeZone, intent }) {
+      if (!isCurrent()) return null;
+      await requireServer();
+      const request = { ...options };
+      try {
+        const { data } = await api.post('/api/work-notes/week-edition', { through, timeZone, operationId: intent }, request);
+        if (!isCurrent() || request.signal.aborted) return null;
+        if (data.note) { keepSaved(data.note); emit(); }
+        return data;
+      } catch (error) {
+        if (isCurrent() && !request.signal.aborted) throw Object.assign(new Error(requestError(error)), { cause: error });
+        return null;
+      }
+    },
     action(id, action) {
       const note = entry(id); if (!isCurrent() || !note?.workItem) return null;
       const next = { operationId: operationId(), actionAt: new Date().toISOString(), timeZone: note.timeZone || deviceTimeZone(), ...action };

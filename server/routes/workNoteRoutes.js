@@ -1,4 +1,5 @@
 const { createWorkNoteReadiness } = require('../services/workNoteReadiness');
+const { EDITION_TAG, draftWeekEdition } = require('../services/workWeekEdition');
 const express = require('express');
 const mongoose = require('mongoose');
 const { inWork, workOperationIndex } = require('../models/knowledgeContext');
@@ -23,7 +24,7 @@ function projectLinks(links) {
   if (!Array.isArray(links) || links.length > 100 || links.some(link => !['article', 'wiki', 'book'].includes(link?.kind) || typeof link.id !== 'string' || !/^[\w-]{1,64}$/.test(link.id) || typeof (link.title ?? '') !== 'string')) throw fail(400, 'Choose things from your Library, Wiki or Books.');
   return links.map(({ kind, id, title = '' }) => ({ kind, id, title: title.slice(0, 300) }));
 }
-function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder, readiness = createWorkNoteReadiness({ NotebookEntry }) }) {
+function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder, readiness = createWorkNoteReadiness({ NotebookEntry }), draftWeek = draftWeekEdition }) {
   const router = express.Router();
   router.use('/api/work-notes', authenticateToken, (req, res, next) => {
     res.set('Cache-Control', 'no-store, private');
@@ -143,6 +144,23 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       catch (error) { if (error.code !== 11000) throw error; entry = await duplicate(req, operationId, 'create'); }
     }
     res.status(201).json(entry);
+  }));
+  // The last seven days read back as an Edition. The draft is a new Work note, so it is edited, filed and kept like any other.
+  router.post('/api/work-notes/week-edition', handle(async (req, res) => {
+    if (req.agentToken) throw fail(403, 'Only you can draft the week from your Work notes.');
+    const operationId = operation(req), source = 'week-edition';
+    let note = await duplicate(req, operationId, source);
+    if (note) return res.status(201).json({ note });
+    if (!date(req.body.through)) throw fail(400, 'Choose the last day of the week.');
+    const capture = captureFields({ timeZone: req.body.timeZone });
+    const notes = await inWork(NotebookEntry.find({ userId: req.user.id, workItem: { $exists: false } })).lean();
+    let result;
+    try { result = await draftWeek({ notes, through: req.body.through }); }
+    catch (error) { throw fail(error.status === 503 ? 503 : 502, error.status === 503 ? 'Week Editions need Claude, and Claude is not connected right now.' : 'Claude could not draft the week just now. Your notes are unchanged. Try again.'); }
+    if (!result.draft) return res.json({ silence: result.silence });
+    try { note = await NotebookEntry.create({ ...result.draft, ...capture, occurredOn: req.body.through, tags: [EDITION_TAG], userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: source }); }
+    catch (error) { if (error.code !== 11000) throw error; note = await duplicate(req, operationId, source); }
+    res.status(201).json({ note });
   }));
   router.get('/api/work-notes/:id', handle(async (req, res) => {
     const entry = await find(req); if (!entry) throw fail(404, 'Work note not found.'); res.json(entry);
