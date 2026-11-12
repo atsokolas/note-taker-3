@@ -42,7 +42,7 @@ test('cuttings say where each passage came from and open its piece', async () =>
     { id: 'aside:n2:l1', kind: 'aside', noteId: 'n2', noteTitle: 'Hiring', text: 'A digression.', createdAt: null }
   ]);
   const onOpen = jest.fn();
-  render(<NotebookCuttings onOpen={onOpen} onClose={() => {}} />);
+  render(<NotebookCuttings onOpen={onOpen} />);
   expect(await screen.findByText('Maybe cut this.')).toBeInTheDocument();
   expect(screen.getByText(/In the scratchpad of/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'On moats' }));

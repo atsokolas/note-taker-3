@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getNotebookCuttings } from '../../../api/notebook';
-import { Button, PageHeader } from '../../ui';
+import { PageHeader } from '../../ui';
 import { dayLabel } from './notebookStages';
 
 const WHERE = { dimmed: 'Dimmed in', aside: 'In the scratchpad of' };
@@ -8,14 +8,9 @@ const WHERE = { dimmed: 'Dimmed in', aside: 'In the scratchpad of' };
 /* Cuttings: everything you dimmed or set aside, from every piece, so a cut
    line can be found again. Nothing here is moved or deleted; it is read from
    each note. */
-const NotebookCuttings = ({ onOpen, onClose }) => {
+const NotebookCuttings = ({ onOpen }) => {
   const [cuttings, setCuttings] = useState(null);
   const [said, setSaid] = useState('');
-  const page = useRef(null);
-
-  // Opened from the foot of a long list, the page starts at its own top.
-  useEffect(() => { page.current?.scrollIntoView?.({ block: 'start' }); }, []);
-
   useEffect(() => {
     let live = true;
     getNotebookCuttings()
@@ -34,13 +29,12 @@ const NotebookCuttings = ({ onOpen, onClose }) => {
   };
 
   return (
-    <section ref={page} className="notebook-cuttings" aria-labelledby="notebook-cuttings-title">
+    <section className="notebook-cuttings" aria-labelledby="notebook-cuttings-title">
       <PageHeader
         titleId="notebook-cuttings-title"
         title="Cuttings"
         lede={cuttings === null ? 'Gathering what you cut…'
           : 'Everything you dimmed or set aside, from every piece. Nothing here is lost.'}
-        actions={<Button variant="quiet" onClick={onClose}>Back to writing</Button>}
       />
       <p className="notebook-cuttings__said" role="status">{said}</p>
       {cuttings?.length ? (

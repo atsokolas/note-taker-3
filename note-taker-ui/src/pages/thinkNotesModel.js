@@ -3,14 +3,8 @@ import { buildAuthoredContinuationPath } from '../utils/sourceRoutes';
 import { serializeBlocksFromDoc } from '../utils/notebookBlocks';
 import { stageOf } from '../components/think/notebook/notebookStages';
 
-// Which note Think opens, and how it reads.
-//
-// Think is not three rooms with an index in front of them. It is the note you
-// were last in, with the others faint beside it. The only real question this
-// module answers is "which note", and it answers it from what the human
-// actually did rather than from a default sort.
-
-const THINK_RECENTS_STORAGE_KEY = 'think.recent.targets';
+// How Think reads: which piece is open, which way you are looking, and the
+// one list every way of looking is cut from.
 
 const idOf = (entry) => normalizeSpaces(entry?._id || entry?.id);
 const list = (value) => (Array.isArray(value) ? value : []);
@@ -18,38 +12,6 @@ const list = (value) => (Array.isArray(value) ? value : []);
 const time = (value) => {
   const at = value ? new Date(value).getTime() : NaN;
   return Number.isNaN(at) ? 0 : at;
-};
-
-/** The notebook entries the human has opened recently, most recent first. */
-export const readRecentNoteIds = (storage = (typeof window !== 'undefined' ? window.localStorage : null)) => {
-  try {
-    const parsed = JSON.parse(storage?.getItem(THINK_RECENTS_STORAGE_KEY) || '[]');
-    return list(parsed)
-      .filter(item => normalizeSpaces(item?.type) === 'notebook')
-      .sort((left, right) => time(right?.openedAt) - time(left?.openedAt))
-      .map(item => normalizeSpaces(item?.id))
-      .filter(Boolean);
-  } catch (_error) {
-    return [];
-  }
-};
-
-/**
- * The note to open. An explicit request wins; then the last note the human was
- * actually in; then the one edited most recently. Landing on nothing is only
- * correct when there are no notes at all.
- */
-export const resolveOpenNoteId = ({ requestedId = '', notes = [], recentIds = [] } = {}) => {
-  const known = new Set(list(notes).map(idOf).filter(Boolean));
-  const wanted = normalizeSpaces(requestedId);
-  if (wanted && known.has(wanted)) return wanted;
-  const recent = list(recentIds).map(normalizeSpaces).find(id => known.has(id));
-  if (recent) return recent;
-  const newest = list(notes)
-    .filter(idOf)
-    .slice()
-    .sort((left, right) => time(right?.updatedAt || right?.createdAt) - time(left?.updatedAt || left?.createdAt))[0];
-  return idOf(newest);
 };
 
 /** A preview recognizes unnamed work without changing the saved title. */
@@ -90,11 +52,7 @@ export const begunLine = (createdAt, words = 0, now = Date.now()) => {
 export const countWords = (text = '') => (String(text).match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) || []).length;
 
 /* One list, one editor. Notes, concepts and questions live in different
-   records, but they are all writing: the kind is a chip on the entry, never a
-   room of its own. A URL names one entry; ?tab=concepts or ?tab=questions on
-   its own narrows the list to that kind. */
-export const KIND_TAB = { note: 'notebook', concept: 'concepts', question: 'questions' };
-const TAB_KIND = { concepts: 'concept', questions: 'question' };
+   records, but they are all writing. A URL names one entry. */
 
 export const readThinkTarget = (params) => {
   const questionId = normalizeSpaces(params.get('questionId'));
@@ -106,9 +64,25 @@ export const readThinkTarget = (params) => {
   return null;
 };
 
-export const readThinkFilter = (params) => (
-  readThinkTarget(params) ? 'all' : TAB_KIND[normalizeSpaces(params.get('tab')).toLowerCase()] || 'all'
-);
+/* The ways to look at Think, as the left bar lists them. With no piece open
+   and no way named, Think is the desk. An old ?tab=concepts link still lands. */
+export const THINK_VIEWS = [
+  { key: 'working', label: 'Working', mark: 'in_progress', holds: item => item.kind === 'note' && item.stage === 'in_progress' },
+  { key: 'ideas', label: 'Ideas', mark: 'idea', holds: item => item.kind === 'note' && item.stage === 'idea' },
+  { key: 'closed', label: 'Closed', mark: 'done', holds: item => item.kind === 'note' && item.stage === 'done' },
+  { key: 'concepts', label: 'Concepts', mark: 'concept', holds: item => item.kind === 'concept' },
+  { key: 'questions', label: 'Questions', mark: 'question', holds: item => item.kind === 'question' },
+  { key: 'cuttings', label: 'Cuttings', mark: 'cuttings' }
+];
+
+export const thinkView = (key) => THINK_VIEWS.find(view => view.key === key) || null;
+
+export const readThinkView = (params) => {
+  if (readThinkTarget(params)) return '';
+  const view = normalizeSpaces(params.get('view')).toLowerCase();
+  if (thinkView(view)) return view;
+  return thinkView(normalizeSpaces(params.get('tab')).toLowerCase())?.key || 'home';
+};
 
 export const targetParams = (item) => {
   if (item.kind === 'concept') {

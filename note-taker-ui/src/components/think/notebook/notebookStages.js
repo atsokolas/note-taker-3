@@ -3,13 +3,10 @@
 // archive reads as closed, and a note from before stages is an idea.
 
 export const STAGES = [
-  { key: 'idea', label: 'Idea', section: 'Ideas', sense: 'Started, not yet taken up.' },
-  { key: 'in_progress', label: 'Working', section: 'Working', sense: 'What you are writing now.' },
-  { key: 'done', label: 'Closed', section: 'Closed', sense: 'Finished, sent, or let go.' }
+  { key: 'idea', label: 'Idea', sense: 'Started, not yet taken up.' },
+  { key: 'in_progress', label: 'Working', sense: 'What you are writing now.' },
+  { key: 'done', label: 'Closed', sense: 'Finished, sent, or let go.' }
 ];
-
-/* The list reads by what needs you: the work underway, then ideas, then what is closed. */
-export const SHELF_ORDER = ['in_progress', 'idea', 'done'];
 
 export const stageOf = (board) => {
   if (board?.archivedAt) return 'done';
@@ -58,7 +55,3 @@ export const movedBoard = (board, change, at = new Date().toISOString()) => ({
   ...(change.became !== undefined ? { became: change.became } : {}),
   ...(change.archived === false ? { archivedAt: null } : {})
 });
-
-export const groupByStage = (entries = []) => Object.fromEntries(
-  STAGES.map(({ key }) => [key, entries.filter(item => item.stage === key)])
-);
