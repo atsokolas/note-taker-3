@@ -1,6 +1,7 @@
 import { normalizeSpaces, plainTextFrom, wordBoundaryTrim } from '../utils/editorialText';
 import { buildAuthoredContinuationPath } from '../utils/sourceRoutes';
 import { serializeBlocksFromDoc } from '../utils/notebookBlocks';
+import { stageOf } from '../components/think/notebook/notebookStages';
 
 // Which note Think opens, and how it reads.
 //
@@ -135,6 +136,8 @@ export const buildThinkEntries = ({ notes = [], concepts = [], questions = [], f
     id: idOf(entry),
     title: noteTitle(entry),
     nextTimeLine: normalizeSpaces(entry?.workingState?.nextTimeLine?.text),
+    stage: stageOf(entry?.board),
+    board: entry?.board || null,
     updatedAt: entry?.updatedAt || entry?.createdAt || null
   })) : []),
   ...(filter === 'all' || filter === 'concept' ? list(concepts)
@@ -144,6 +147,7 @@ export const buildThinkEntries = ({ notes = [], concepts = [], questions = [], f
       id: normalizeSpaces(concept.name),
       recordId: normalizeSpaces(concept._id),
       title: normalizeSpaces(concept.name),
+      stage: 'idea',
       updatedAt: concept.updatedAt || null
     })) : []),
   ...(filter === 'all' || filter === 'question' ? list(questions)
@@ -153,6 +157,7 @@ export const buildThinkEntries = ({ notes = [], concepts = [], questions = [], f
       id: idOf(question),
       title: wordBoundaryTrim(normalizeSpaces(question.text), { maxLength: 120 }) || 'Untitled question',
       settled: question.status === 'answered',
+      stage: 'idea',
       updatedAt: question.updatedAt || question.createdAt || null
     })) : [])
 ].filter(item => item.id).sort((left, right) => time(right.updatedAt) - time(left.updatedAt));

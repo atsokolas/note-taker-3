@@ -104,4 +104,15 @@ const sanitizeNotebookWorkbench = (value = {}, { revision } = {}) => {
   };
 };
 
-module.exports = { LIMITS, sanitizeNotebookWorkbench, sanitizeNotebookTarget: target };
+const time = value => new Date(value || 0).getTime() || 0;
+
+/** Every dimmed passage and scratchpad thought, newest first, with the piece it came from. */
+const notebookCuttings = (entries = []) => entries.flatMap(entry => {
+  const piece = { noteId: String(entry._id), noteTitle: String(entry.title || '').trim() || 'Untitled' };
+  const from = (kind, items) => (items || [])
+    .filter(item => String(item?.text || '').trim())
+    .map(item => ({ ...piece, id: `${kind}:${piece.noteId}:${item.id}`, kind, text: item.text, createdAt: item.createdAt || null }));
+  return [...from('dimmed', entry.workingState?.dimmed), ...from('aside', entry.workingState?.looseThoughts)];
+}).sort((a, b) => time(b.createdAt) - time(a.createdAt));
+
+module.exports = { LIMITS, notebookCuttings, sanitizeNotebookWorkbench, sanitizeNotebookTarget: target };

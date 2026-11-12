@@ -57,6 +57,7 @@ import {
 } from './notebookWorkbenchDecorations';
 import { readySavedTrialMarks, savedMarksBesidePreview } from '../../../utils/notebookSavedTrialMarks';
 import { dimmedWordCount, handleWriteOnKey, undoStash } from './writeOn';
+import NextSentence from './NextSentence';
 import {
   citationTargetsForMaterial,
   deleteEditorBlockById,
@@ -238,6 +239,8 @@ export const HeldOpposite = ({ line, onAside }) => {
 
 const NotebookEditor = ({
   entry,
+  stage = 'idea',
+  stageControl = null,
   saving,
   error,
   onSave,
@@ -771,13 +774,29 @@ const NotebookEditor = ({
     continuityRestoredRef.current = entryId;
     const explicitIntent = [...new URLSearchParams(window.location.search).keys()]
       .some(key => !['tab', 'entryId'].includes(key));
-    if (explicitIntent || !workbench.state.continuity?.target?.blockId) return undefined;
+    const next = workbench.state.nextTimeLine;
+    const waiting = Boolean(next?.text && next.target?.blockId);
+    if (explicitIntent || (!waiting && !workbench.state.continuity?.target?.blockId)) return undefined;
+    // A line left for the next sentence wins over where the caret happened to stop.
     const frame = window.requestAnimationFrame(() => {
+      if (waiting && focusEditorTarget(editor, next.target)) {
+        editor.commands.scrollIntoView?.();
+        return;
+      }
       focusEditorTarget(editor, workbench.state.continuity.target);
       window.scrollTo?.({ top: workbench.state.continuity.scrollY || 0, behavior: 'auto' });
     });
     return () => window.cancelAnimationFrame?.(frame);
-  }, [editor, entry?._id, workbench.state.continuity]);
+  }, [editor, entry?._id, workbench.state.continuity]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* The line waits above its paragraph until the first word is written. */
+  useEffect(() => {
+    if (!editor) return undefined;
+    const written = () => setNextLineDismissed(true);
+    const page = editor.view?.dom;
+    page?.addEventListener('beforeinput', written, { once: true });
+    return () => page?.removeEventListener('beforeinput', written);
+  }, [editor, entry?._id]);
 
   /* Read on open and after each save, never per keystroke: the server asks
      only about sentences it has not read before. */
@@ -1420,24 +1439,20 @@ const NotebookEditor = ({
     scheduleSave();
   };
 
+  /* The next sentence is kept where the caret last was; an empty line clears it. */
   const saveNextLine = (line) => {
     const previous = workbench.state.nextTimeLine;
-    const target = heldTarget || targetFromEditor(editor) || { blockId: '', offset: 0, baseText: '' };
+    const text = String(line || '').trim();
+    const nowhere = { blockId: '', offset: 0, baseText: '' };
     workbench.update(current => ({
       ...current,
-      nextTimeLine: { text: String(line || '').trim(), target, updatedAt: new Date().toISOString() }
+      nextTimeLine: text
+        ? { text, target: targetFromEditor(editor) || heldTarget || nowhere, updatedAt: new Date().toISOString() }
+        : { text: '', target: nowhere, updatedAt: null }
     }));
-    setNextLineDismissed(false);
-    setWorkbenchReceipt({ type: 'next-line', text: 'Your line will be here next time.', previous });
-  };
-
-  const clearNextLine = () => {
-    const previous = workbench.state.nextTimeLine;
-    workbench.update(current => ({
-      ...current,
-      nextTimeLine: { text: '', target: { blockId: '', offset: 0, baseText: '' }, updatedAt: null }
-    }));
-    setWorkbenchReceipt({ type: 'next-line', text: 'Next-time line cleared.', previous });
+    setNextLineDismissed(true);
+    setWorkbenchReceipt({ type: 'next-line', text: text ? 'It will be waiting at this spot next time.' : 'Next sentence cleared.', previous });
+    scheduleSave();
   };
 
   const alternativesVisible = Boolean(workbenchView === 'trial' && activeTrial);
@@ -1482,9 +1497,12 @@ const NotebookEditor = ({
         : null,
       savedMarks: savedTrialMarks,
       dimmed: workbench.state.dimmed,
+      nextLine: workbench.state.nextTimeLine?.text && !nextLineDismissed
+        ? { blockId: workbench.state.nextTimeLine.target?.blockId, text: workbench.state.nextTimeLine.text }
+        : null,
       opposite
     });
-  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget, opposite, savedTrialMarks, trialPreview, workbench.state.dimmed, workbenchView]);
+  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget, nextLineDismissed, opposite, savedTrialMarks, trialPreview, workbench.state.dimmed, workbench.state.nextTimeLine, workbenchView]);
   useEffect(() => { onAlternativesOpenChange?.(alternativesVisible); }, [alternativesVisible, onAlternativesOpenChange]);
   useEffect(() => () => onAlternativesOpenChange?.(false), [onAlternativesOpenChange]);
   useEffect(() => () => partnerOptionsAbortRef.current?.abort?.(), []);
@@ -1608,18 +1626,7 @@ const NotebookEditor = ({
           <Button variant="quiet" onClick={() => setOrganizeOpen(previous => !previous)}>Structure</Button>
           <Button variant="quiet" onClick={openHistory}>History</Button>
         </EntryBar>
-        {workbench.state.nextTimeLine?.text && !nextLineDismissed ? (
-          <aside className="think-next-line" aria-label="A line you left yourself">
-            <span>A line you left yourself</span>
-            <p>{workbench.state.nextTimeLine.text}</p>
-            <div>
-              <Button variant="quiet" onClick={() => focusEditorTarget(editor, workbench.state.nextTimeLine.target)}>Pick up here →</Button>
-              <Button variant="quiet" onClick={() => setNextLineDismissed(true)}>Not now</Button>
-              <Button variant="quiet" onClick={() => { openMaterial(); }}>Edit</Button>
-              <Button variant="quiet" onClick={clearNextLine}>Clear this line</Button>
-            </div>
-          </aside>
-        ) : null}
+        {stageControl}
         <div className="think-notebook-title-block">
           <h1 className="sr-only">{titleDraft || entry?.title || 'Untitled notebook page'}</h1>
           <span className="think-notebook-title-kicker">Document title</span>
@@ -1890,6 +1897,7 @@ const NotebookEditor = ({
       />
       <GhostQuote ghost={ghostQuote.ghost} onQuote={ghostQuote.quote} />
       </div>
+      {stage !== 'done' ? <NextSentence line={workbench.state.nextTimeLine?.text || ''} onSave={saveNextLine} /> : null}
       <AuthoredWorkOrigin importMeta={entry.importMeta} sourceBlocks={entry.blocks} />
       {alternativesPortal && alternativesVisible ? createPortal(
         <NotebookAlternativesRail
@@ -1958,9 +1966,6 @@ const NotebookEditor = ({
           onUseTrial={useTrial}
           onReviewTrial={reviewTrial}
           onDiscardTrial={discardTrial}
-          onSaveNextLine={saveNextLine}
-          onGoToNextLine={() => focusEditorTarget(editor, workbench.state.nextTimeLine.target)}
-          onClearNextLine={clearNextLine}
         />,
         contextPortal
       ) : null}
