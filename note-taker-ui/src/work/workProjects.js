@@ -40,7 +40,8 @@ export const LINK_ROOM = { article: 'Library', wiki: 'Wiki', book: 'Book' };
 // Where a project stands on its hill on a day, read from its own lines. Uphill is the share of its questions
 // answered; once most are, downhill is the share of its follow-ups done. A project with no lines has not started.
 export const FIGURED = 0.8;
-const doneBy = (item, on) => item.completed && dayInZone(item.completedAt, item.completedTimeZone || 'UTC') <= on;
+// Replays ticks and reopens up to the day, so a line reopened since last Friday still counted as done then.
+const doneBy = (item, on) => (item.completions || []).filter(event => dayInZone(event.actionAt, event.timeZone || 'UTC') <= on).at(-1)?.type === 'complete';
 export function hillOn(lines, on) {
   const known = lines.filter(item => writtenDay(item) <= on);
   const share = (kind, otherwise) => { const of = known.filter(item => item.kind === kind); return of.length ? of.filter(item => doneBy(item, on)).length / of.length : otherwise; };

@@ -51,7 +51,7 @@ test('a project is read from the notes that are part of it, whatever their folde
 });
 
 test('the hill is read from a project’s own lines: up as questions are answered, down as follow-ups are done', () => {
-  const line = (kind, done, on = '2026-11-02') => ({ kind, takenOn: on, completed: Boolean(done), completedAt: done ? `${done}T12:00:00Z` : null });
+  const line = (kind, done, on = '2026-11-02') => ({ kind, takenOn: on, completions: done ? [{ type: 'complete', actionAt: `${done}T12:00:00Z`, timeZone: 'UTC' }] : [] });
   expect(hillOn([], '2026-11-12')).toBe(0);
   const lines = [line('question', '2026-11-05'), line('question', null), line('task', null), line('task', null)];
   expect(hillOn(lines, '2026-11-12')).toBe(0.25);
@@ -59,6 +59,8 @@ test('the hill is read from a project’s own lines: up as questions are answere
   lines[1] = line('question', '2026-11-10'); lines[2] = line('task', '2026-11-11');
   expect([hillOn(lines, '2026-11-10'), hillOn(lines, '2026-11-12')]).toEqual([0.5, 0.75]);
   expect(hillOn([line('task', null), line('question', null, '2026-11-20')], '2026-11-12')).toBe(0.5);
+  const reopened = { ...line('task', '2026-11-05'), completions: [...line('task', '2026-11-05').completions, { type: 'reopen', actionAt: '2026-11-09T12:00:00Z', timeZone: 'UTC' }] };
+  expect([hillOn([reopened], '2026-11-06'), hillOn([reopened], '2026-11-12')]).toEqual([1, 0.5]);
   expect(FRIDAYS('2026-11-12')).toEqual(['2026-10-23', '2026-10-30', '2026-11-06']);
   expect(FRIDAYS('2026-11-14')).toEqual(['2026-10-30', '2026-11-06', '2026-11-13']);
 });
