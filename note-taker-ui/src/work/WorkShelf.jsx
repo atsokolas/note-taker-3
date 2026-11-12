@@ -1,5 +1,6 @@
 import React from 'react';
 import WorkIcon from './WorkIcon';
+import WorkHill, { hillPhrase } from './WorkHill';
 import { matchesQuery, noteTitle } from './workSession';
 import { displayDay, writtenDay } from './workPlannerModel';
 
@@ -25,7 +26,7 @@ export default function WorkShelf({ needs, projects, dragging, drag, onDropNote,
       <div className="work-place-row" aria-current={active && !notes.some(current) ? 'page' : undefined} data-drop={over === key ? true : undefined} onDragOver={event => { if (!dragging || kind === 'project') return; event.preventDefault(); setOver(key); }} onDragLeave={() => setOver(null)} onDrop={event => { if (kind === 'project') return; event.preventDefault(); setOver(null); onDropNote(event.dataTransfer.getData('text/plain') || dragging, id); }}>
         {folds ? <button className="work-place-toggle" aria-label={`${open ? 'Collapse' : 'Expand'} ${name}`} aria-expanded={open} aria-controls={childrenId} onClick={() => setExpanded(previous => ({ ...previous, [key]: !open }))}><WorkIcon name="right" /></button> : <span className="work-place-toggle" aria-hidden="true" />}
         <button className="work-place-name" onClick={() => { setExpanded(previous => ({ ...previous, [key]: true })); onName(); }}><span>{name}</span></button>
-        {!id && contents.length ? <small aria-label={`${contents.length} unfiled`}>{contents.length}</small> : null}{menu}
+        {!id && contents.length ? <small aria-label={`${contents.length} unfiled`}>{contents.length}</small> : null}{kind === 'project' && id in needs.hills ? <WorkHill width={28} height={10} label={hillPhrase(needs.hills[id])} dots={[{ id, at: needs.hills[id] }]} /> : null}{menu}
       </div>
       {folds ? <div id={childrenId} className="work-place-children" hidden={!open}>
         <ul aria-label={`Notes in ${name}`} className="work-place-notes">

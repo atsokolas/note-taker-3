@@ -22,10 +22,10 @@ export function projectItem(note) {
   const undone = new Set();
   for (const event of [...history].reverse()) if (event.type === 'undo' && !undone.has(event.operationId)) undone.add(event.undoOf);
   const effective = history.filter(event => event.type !== 'undo' && !undone.has(event.operationId));
-  const status = effective.filter(event => ['complete', 'reopen'].includes(event.type)).at(-1);
+  const completions = effective.filter(event => ['complete', 'reopen'].includes(event.type)), status = completions.at(-1);
   const plans = effective.filter(event => event.type === 'plan'), plan = plans.at(-1);
   const previousPlannedOn = plan ? plans.at(-2)?.plannedOn || item.plannedOn : null;
-  return { ...note, ...item, id: note._id || note.clientId, history, pending: pending.length > 0, completed: status?.type === 'complete', completedAt: status?.type === 'complete' ? status.actionAt : null, completedTimeZone: status?.type === 'complete' ? status.timeZone : null, completion: status, previousPlannedOn, plannedOn: plan ? plan.plannedOn : item.plannedOn || null };
+  return { ...note, ...item, id: note._id || note.clientId, history, pending: pending.length > 0, completed: status?.type === 'complete', completedAt: status?.type === 'complete' ? status.actionAt : null, completedTimeZone: status?.type === 'complete' ? status.timeZone : null, completion: status, completions, previousPlannedOn, plannedOn: plan ? plan.plannedOn : item.plannedOn || null };
 }
 
 // "send comp bands fri", "IC meeting thu 2pm": a trailing day and time, read the way people say them.

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import WorkShelf from './WorkShelf';
 
 const notes = Array.from({ length: 6 }, (_, i) => ({ clientId: `n${i}`, title: `Note ${i}`, folder: i === 1 ? { _id: 'f' } : 'f', project: i === 1 ? { _id: 'p' } : 'p', takenOn: '2026-11-04' }));
-const props = { notes, folders: [{ _id: 'f', name: 'Meetings' }], projects: [{ _id: 'p', name: 'Launch' }, { _id: 'paused', name: 'Later', pausedAt: '2026-11-01' }], needs: { total: 3 }, current: () => false, drag: () => ({}), onScope: jest.fn(), onOpen: jest.fn(), onQuery: jest.fn(), onDropNote: jest.fn(), timeZone: 'UTC', day: '2026-11-04', query: '', place: null, view: 'today' };
+const props = { notes, folders: [{ _id: 'f', name: 'Meetings' }], projects: [{ _id: 'p', name: 'Launch' }, { _id: 'paused', name: 'Later', pausedAt: '2026-11-01' }], needs: { total: 3, hills: { p: 0.3 } }, current: () => false, drag: () => ({}), onScope: jest.fn(), onOpen: jest.fn(), onQuery: jest.fn(), onDropNote: jest.fn(), timeZone: 'UTC', day: '2026-11-04', query: '', place: null, view: 'today' };
 
 test('the rail is Today, Needs you, Projects and Notes, and a note is listed once, in its folder', () => {
   render(<WorkShelf {...props} />);
@@ -18,6 +18,7 @@ test('the rail is Today, Needs you, Projects and Notes, and a note is listed onc
   fireEvent.click(screen.getByRole('button', { name: 'Launch' }));
   expect(props.onScope).toHaveBeenCalledWith('project', 'p');
   expect(screen.getByRole('button', { name: 'Later' })).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Still figuring it out.' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Notes' }));
   expect(props.onScope).toHaveBeenCalledWith('notes');
 });

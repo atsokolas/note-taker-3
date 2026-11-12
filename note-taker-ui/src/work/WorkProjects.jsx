@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { noteTitle } from './workSession';
-import { dayInZone, displayDay, writtenDay } from './workPlannerModel';
+import WorkHill, { hillPhrase } from './WorkHill';
+import { dayInZone, displayDay, shiftDay, weekDays, writtenDay } from './workPlannerModel';
 import { daysBetween, sortedSince } from './workOutstanding';
 import { LINK_ROOM, checkInOf, fade, linkHref, project, projects, quiet } from './workProjects';
 
@@ -18,8 +19,22 @@ function Links({ links, onRemove }) {
   return links.map(link => <div className="work-project-link" key={`${link.kind}:${link.id}`}><a href={linkHref(link)}>{link.title || 'Untitled'}</a><small>{LINK_ROOM[link.kind]}</small>{onRemove ? <button onClick={() => onRemove(link)}>Remove</button> : null}</div>);
 }
 
+// Six weeks to the end of this one, a ruled row per project: a dot for each day it was written in or ticked,
+// a ring for a planned line, a square for a meeting, a tick for a decision. Click a marked day to open it.
+const WEEKS = 6;
+function Lineup({ rows, today, onDay }) {
+  const days = Array.from({ length: WEEKS * 7 }, (_, index) => shiftDay(weekDays(today)[6], index - WEEKS * 7 + 1));
+  const mark = (item, on) => item.marks.meetings.includes(on) ? 'meeting' : item.marks.touched.includes(on) ? 'touched' : item.marks.planned.includes(on) ? 'planned' : '';
+  return <section className="work-lineup" aria-label="Six weeks"><h2>Six weeks</h2>
+    <div className="work-lineup-row work-lineup-weeks" aria-hidden="true"><span />{days.map((on, index) => <span key={on}>{index % 7 ? '' : displayDay(on, { day: 'numeric', month: index ? undefined : 'short' })}</span>)}</div>
+    {rows.map(item => <div className="work-lineup-row" key={item.id} data-state={item.state}><span>{item.name}</span>{days.map(on => { const kind = mark(item, on); const decided = item.marks.decided.includes(on); return kind || decided
+      ? <button key={on} data-mark={kind || undefined} data-decided={decided || undefined} aria-current={on === today ? 'date' : undefined} aria-label={`${item.name}, ${displayDay(on)}`} onClick={() => onDay(on)} />
+      : <span key={on} aria-current={on === today ? 'date' : undefined} />; })}</div>)}
+  </section>;
+}
+
 // Every project on one page. Everything open unfolds them all: each open line, who owes what, what is kept with it.
-export default function WorkProjects({ records, notes, items, today, onOpen, onAction, onNew }) {
+export default function WorkProjects({ records, notes, items, today, onOpen, onAction, onNew, onDay }) {
   const groups = projects(records, notes, items, today);
   const rows = [...groups.active, ...groups.paused, ...groups.done];
   const [everything, setEverything] = useState(false);
@@ -57,6 +72,9 @@ export default function WorkProjects({ records, notes, items, today, onOpen, onA
   </React.Fragment>; };
   const group = (label, list) => list.length ? <section aria-label={label}><h2>{label}</h2>{list.map(row)}</section> : null;
   return <section className="work-outstanding work-projects" aria-label="Projects"><h1 className="work-page-title">Projects</h1><p className="work-page-sense">{sense} <button className="work-project-add" onClick={onNew}>New project</button></p>
+    {groups.active.length ? <section className="work-hilltop" aria-label="Where each one stands"><h2>Where each one stands</h2><WorkHill halves width={640} height={120} label={groups.active.map(item => `${item.name}: ${hillPhrase(item.hill).toLowerCase()}`).join(' ')} dots={groups.active.map(item => ({ id: item.id, name: item.name, at: item.hill, was: item.was, faint: quiet(item) }))} />
+      <p className="work-outstanding-line">Each dot is read from the project’s own lines: up the hill as its questions are answered, down it as its follow-ups are done. Faint rings are the last three Fridays.</p></section> : null}
+    {groups.active.length + groups.paused.length ? <Lineup rows={[...groups.active, ...groups.paused]} today={today} onDay={onDay} /> : null}
     {rows.length ? <div className="work-project-tools"><span role="group" aria-label="Show"><button aria-pressed={!everything} onClick={() => { setEverything(false); setUnfolded(new Set()); }}>Projects</button><button aria-pressed={everything} onClick={() => setEverything(true)}>Everything open</button></span><small>Open</small><small>Waiting</small><small>Touched</small></div> : null}
     {group('Active', groups.active)}{group('Paused', groups.paused)}{group('Done', groups.done)}
     {rows.length ? <p className="work-project-keys"><kbd>j</kbd> <kbd>k</kbd> to move, <kbd>↵</kbd> to open, <kbd>→</kbd> to unfold, <kbd>e</kbd> for everything open</p> : null}
@@ -80,7 +98,9 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
   const answerCheckIn = event => { event.preventDefault(); if (!answer.trim()) return; onSave(record, { checkIns: [...(record.checkIns || []), { on: today, text: answer.trim() }] }).then(saved => { if (saved) setAnswer(''); }); };
   const state = (label, value, patch) => <button aria-pressed={item.state === value} onClick={() => item.state === value ? null : value === 'done' ? setClosing('') : onSave(record, patch)}>{label}</button>;
   const sense = item.state === 'done' ? `Done ${displayDay(dayInZone(record.archivedAt))}.` : [plural(item.next.length, 'thing') + ' open', item.waiting.length ? `waiting on ${[...new Set(item.waiting.map(line => line.waitingOn))].join(' and ')}` : '', `last touched ${touched(item.touched, today).toLowerCase()}`].filter(Boolean).join(', ').replace(/^./, c => c.toUpperCase()) + '.';
-  return <section className="work-outstanding work-project" aria-label={record.name}><h1 className="work-page-title">{record.name}</h1><p className="work-page-sense">{sense}</p>
+  const trend = item.hill > item.was.at(-1) ? ' Further on than last Friday.' : item.hill < item.was.at(-1) ? ' Further back than last Friday.' : '';
+  return <section className="work-outstanding work-project" aria-label={record.name}><header className="work-project-head"><div><h1 className="work-page-title">{record.name}</h1><p className="work-page-sense">{sense}</p></div>
+    {item.state === 'done' ? null : <figure><WorkHill width={200} height={44} label={hillPhrase(item.hill)} dots={[{ id: item.id, at: item.hill, was: item.was }]} /><figcaption>{hillPhrase(item.hill)}{trend}</figcaption></figure>}</header>
     <textarea className="work-project-brief" aria-label={`What ${record.name} is`} placeholder="What this project is, and what done looks like" value={brief} rows={2} ref={grow} onChange={event => setBrief(event.target.value)} onBlur={saveBrief} />
     {item.state === 'active' ? <form className="work-project-checkin" aria-label="This week’s check-in" onSubmit={answerCheckIn}><small>Monday check-in</small><q>What would move {record.name} this week?</q>
       {answered ? <p>{answered.text}<small>Answered {displayDay(answered.on, { weekday: 'short', day: 'numeric' })}</small></p> : <input aria-label={`What would move ${record.name} this week?`} placeholder="One line, filed in the log" value={answer} onChange={event => setAnswer(event.target.value)} />}</form> : null}
@@ -92,7 +112,7 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
         <section aria-label="Next"><h2>Next</h2>{item.next.map(line => <Line key={line.id} item={line} onAction={onAction} aside={<>{line.plannedOn ? <time>{short(line.plannedOn)}</time> : null}{noteOf(line) ? <button onClick={() => onOpenNote(noteOf(line).clientId)}>{noteTitle(noteOf(line))}</button> : null}</>} />)}
           {item.waiting.map(line => <Line key={line.id} item={{ ...line, title: owes(line) }} onAction={onAction} aside={<time>{plural(daysBetween(sortedSince(line), today), 'day')}</time>} />)}
           {item.state === 'done' ? null : <form className="work-outstanding-capture" onSubmit={event => { event.preventDefault(); if (line.trim()) { onCapture(line, record._id); setLine(''); } }}><input aria-label={`Add a line to ${record.name}`} placeholder="Add a line" value={line} onChange={event => setLine(event.target.value)} /><small>@name if someone owes you · a day to plan it</small></form>}</section>
-        {item.schedule.length ? <section aria-label="Schedule"><h2>Schedule</h2>{item.schedule.map(line => <p className="work-project-decision" key={line.id}>{displayDay(line.plannedOn || line.dueOn, { weekday: 'short', day: 'numeric', month: 'short' })} · {line.startTime ? `${line.startTime} ` : ''}{line.title}<small>{line.kind === 'appointment' ? 'meeting' : line.plannedOn ? 'planned' : 'due'}</small></p>)}</section> : null}
+        {item.schedule.length ? <section aria-label="Schedule"><h2>Schedule</h2>{item.schedule.map(line => <p className="work-project-decision" key={line.id}>{displayDay(line.on, { weekday: 'short', day: 'numeric', month: 'short' })} · {line.startTime ? `${line.startTime} ` : ''}{line.title}<small>{line.kind === 'appointment' ? 'meeting' : line.on === line.plannedOn ? 'planned' : 'due'}</small></p>)}</section> : null}
         {item.decisions.length ? <section aria-label="Decided"><h2>Decided</h2>{item.decisions.map(({ text, note }, index) => <p className="work-project-decision" key={`${note.clientId}:${index}`}>{text}<button onClick={() => onOpenNote(note.clientId)}>{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}</button></p>)}</section> : null}
         <section aria-label="Kept"><h2>Kept</h2><Links links={item.links} onRemove={link => onSave(record, { links: item.links.filter(other => other !== link) })} />
           <p className="work-outstanding-line">{item.links.length ? 'Add more' : 'Keep an article, wiki page or book here'} with Add to project on its page.</p></section>

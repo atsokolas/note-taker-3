@@ -414,6 +414,37 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-project-keys { margin-top: 18px; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-project-keys kbd { font: 11px var(--font-sans); padding: 0 4px; border: 1px solid var(--noeis-rule); border-bottom-width: 2px; border-radius: 4px; }
 .work-page > .work-project { max-width: 1080px; }
+/* The hill: one hairline curve, ink dots, faint rings for the last three Fridays. */
+.work-hill { display: block; overflow: visible; }
+.work-hill-line { fill: none; stroke: var(--noeis-rule-strong); stroke-width: 1.2; }
+.work-hill-base { stroke: var(--noeis-rule); }
+.work-hill-middle { stroke: var(--noeis-rule); stroke-dasharray: 2 4; }
+.work-hill text { font: italic 14px var(--font-serif); fill: var(--noeis-ink-subtle); text-anchor: middle; }
+.work-hill .work-hill-name { font: 12.5px var(--font-sans); fill: var(--noeis-ink); font-style: normal; }
+.work-hill-dot { fill: var(--noeis-ink); }
+.work-hill-was { fill: none; stroke: var(--noeis-ink-subtle); stroke-width: 1; opacity: .6; }
+.work-hill g[data-faint] .work-hill-dot { fill: var(--noeis-paper); stroke: var(--noeis-ink-subtle); }
+.work-hill g[data-faint] .work-hill-name { fill: var(--noeis-ink-subtle); }
+.work-hilltop .work-hill { margin: 34px auto 8px; max-width: 100%; height: auto; }
+.work-place-row .work-hill { flex: 0 0 auto; margin: 0 6px 0 auto; }
+.work-project-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; }
+.work-project-head figure { margin: 0 0 32px; text-align: right; }
+.work-project-head figcaption { font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
+/* Six weeks: a ruled row per project, a column per day, today in thread. */
+.work-lineup { margin-bottom: 40px; }
+.work-lineup-row { display: grid; grid-template-columns: 11rem repeat(42, minmax(0, 1fr)); align-items: center; min-height: 34px; border-bottom: 1px solid var(--noeis-rule); }
+.work-lineup-row > :first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 15px var(--font-serif); color: var(--noeis-ink); }
+.work-lineup-row[data-state=paused] > :first-child { color: var(--noeis-ink-subtle); }
+.work-lineup-row > :not(:first-child) { position: relative; height: 34px; }
+.work-lineup-row > [aria-current=date] { box-shadow: inset 1px 0 0 var(--noeis-thread); }
+.work-notes .work-lineup-row > button { min-height: 0; padding: 0; background: none; border: 0; cursor: pointer; }
+.work-lineup-row > [data-mark]::before { content: ''; position: absolute; inset: 0; margin: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--noeis-ink); }
+.work-lineup-row[data-state=paused] > [data-mark]::before { opacity: .4; }
+.work-lineup-row > [data-mark=planned]::before { background: none; box-shadow: inset 0 0 0 1px var(--noeis-ink); }
+.work-lineup-row > [data-mark=meeting]::before { width: 7px; height: 7px; border-radius: 0; background: none; box-shadow: inset 0 0 0 1px var(--noeis-ink); }
+.work-lineup-row > [data-decided]::after { content: ''; position: absolute; inset: 8px 0; margin: 0 auto; width: 1.5px; background: var(--noeis-thread); }
+.work-lineup-weeks { min-height: 22px; border-bottom: 0; }
+.work-lineup-weeks > span { height: auto !important; overflow: visible; white-space: nowrap; font: 11px var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-project-page { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 56px; margin-top: 8px; }
 .work-project-checkin { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 6px 18px; align-items: baseline; margin: 0 0 8px; padding: 14px 0 16px; border-bottom: 1px solid var(--noeis-rule); }
 .work-project-checkin > small { font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
@@ -445,6 +476,10 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
   .work-project-tools small, .work-project-count, .work-project-keys { display: none; }
   .work-project-next { grid-column: 2 / -1; grid-row: 2; white-space: normal; }
   .work-project-page, .work-project-checkin { grid-template-columns: 1fr; gap: 24px; }
+  .work-project-head { display: block; }
+  .work-project-head figure { text-align: left; }
+  .work-lineup-row { grid-template-columns: 6.5rem repeat(42, minmax(0, 1fr)); }
+  .work-lineup-weeks > span { font-size: 9px; }
   .work-project-checkin { gap: 6px; }
   .work-project-checkin p, .work-notes .work-project-checkin input { grid-column: 1; }
 }
