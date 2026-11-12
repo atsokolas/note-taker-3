@@ -107,8 +107,8 @@ export const disposeNotebookSourceCorrection = async (id, { eventId, action }) =
 };
 
 /* Every note, compact, with where it stands; the board is never stale cache. */
-export const getNotebookBoard = async () => {
-  const res = await api.get('/api/notebook?summary=1&compact=1', getAuthHeaders());
+export const getNotebookCuttings = async () => {
+  const res = await api.get('/api/notebook/cuttings', getAuthHeaders());
   return Array.isArray(res.data) ? res.data : [];
 };
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Button } from '../../ui';
 import { sourceTitle } from '../../../utils/sourceDisplayText';
 
@@ -48,20 +48,11 @@ const NotebookWorkbenchPanel = ({
   onKeepOriginal,
   onUseTrial,
   onReviewTrial,
-  onDiscardTrial,
-  onSaveNextLine,
-  onGoToNextLine,
-  onClearNextLine
+  onDiscardTrial
 }) => {
   const [jot, setJot] = useState('');
-  const [nextLine, setNextLine] = useState(workingState.nextTimeLine?.text || '');
   const jotRef = useRef(null);
   const simpleScratchpad = splitDrawer && mode === 'scratchpad';
-  const NextTimeSection = simpleScratchpad ? 'details' : 'div';
-
-  useEffect(() => {
-    setNextLine(workingState.nextTimeLine?.text || '');
-  }, [workingState.nextTimeLine?.text]);
 
   if (mode === 'trial' && activeTrial) {
     return (
@@ -178,19 +169,6 @@ const NotebookWorkbenchPanel = ({
           ))}
         </div>
       ) : null}
-
-      <NextTimeSection className="notebook-workbench__section">
-        {simpleScratchpad ? <summary>Next time{workingState.nextTimeLine?.text ? ' · a line waiting' : ''}</summary> : <h3>Next time</h3>}
-        <label className="notebook-workbench__field">
-          <span>Leave myself a line</span>
-          <textarea value={nextLine} onChange={(event) => setNextLine(event.target.value)} rows={2} />
-        </label>
-        <div className="notebook-workbench__row-actions">
-          <Button variant="quiet" disabled={!nextLine.trim()} onClick={() => onSaveNextLine(nextLine)}>Save this line</Button>
-          {workingState.nextTimeLine?.text ? <Button variant="quiet" onClick={onGoToNextLine}>Pick up here</Button> : null}
-          {workingState.nextTimeLine?.text ? <Button variant="quiet" onClick={onClearNextLine}>Clear this line</Button> : null}
-        </div>
-      </NextTimeSection>
       </> : null}
     </section>
   );

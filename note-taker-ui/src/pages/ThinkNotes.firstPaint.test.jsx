@@ -107,15 +107,24 @@ describe('ThinkNotes first paint', () => {
     expect(await screen.findByRole('button', { name: 'A real note' })).toBeInTheDocument();
   });
 
-  it('keeps notes, concepts and questions in one list, with the kind as a chip', async () => {
-    getNotebookShelf.mockResolvedValue([{ _id: 'note-1', title: 'A real note', updatedAt: '2026-08-01T00:00:00.000Z' }]);
+  it('files the list as Working, Ideas and Closed, with concepts and questions among the ideas', async () => {
+    getNotebookShelf.mockResolvedValue([
+      { _id: 'note-1', title: 'A real note', updatedAt: '2026-08-01T00:00:00.000Z' },
+      { _id: 'note-2', title: 'The essay', board: { stage: 'in_progress' }, workingState: { nextTimeLine: { text: 'Start from the renewal rate.' } }, updatedAt: '2026-08-04T00:00:00.000Z' },
+      { _id: 'note-3', title: 'Sent piece', board: { stage: 'done', became: 'Sent to Sam' }, updatedAt: '2026-07-01T00:00:00.000Z' }
+    ]);
     getConcepts.mockResolvedValue([{ _id: 'c1', name: 'Moats', updatedAt: '2026-08-03T00:00:00.000Z' }, { _id: '', name: 'just-a-tag' }]);
     getQuestions.mockResolvedValue([{ _id: 'q1', text: 'What would change my mind?', status: 'answered', updatedAt: '2026-08-02T00:00:00.000Z' }]);
     render(<ThinkNotes />);
-    const list = await screen.findByRole('region', { name: 'Recent' });
-    await waitFor(() => expect(within(list).getAllByRole('button').map(button => button.textContent)).toEqual([
+    const ideas = await screen.findByRole('region', { name: 'Ideas' });
+    await waitFor(() => expect(within(ideas).getAllByRole('button').map(button => button.textContent)).toEqual([
       'Moatsconcept', 'What would change my mind?settled question', 'A real note'
     ]));
+    expect(within(screen.getByRole('region', { name: 'Working' })).getByRole('button', { name: /The essay/ })).toHaveTextContent('Start from the renewal rate.');
+    const closed = screen.getByRole('region', { name: 'Closed' });
+    expect(within(closed).queryByText('Sent piece')).toBeNull();
+    fireEvent.click(within(closed).getByRole('button', { name: /Closed/ }));
+    expect(within(closed).getByRole('button', { name: /Sent piece/ })).toHaveTextContent('Sent to Sam');
     expect(screen.queryByText('Concept workspace')).toBeNull();
     expect(screen.queryByText(/Builder mode|Challenger mode|Generative|Dialectical/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Concepts' }));
@@ -324,7 +333,7 @@ describe('ThinkNotes first paint', () => {
     expect(window.location.search).toContain('find=the+second');
     fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Found in your writing' })).not.toBeInTheDocument());
-    expect(screen.getByRole('region', { name: 'Recent' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Ideas' })).toBeInTheDocument();
   });
 
   it('clears old matches immediately and ignores late replies after the query changes', async () => {

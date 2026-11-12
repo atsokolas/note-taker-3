@@ -1,6 +1,6 @@
 const { plainNotebookText } = require('../services/authoredWorkDiscovery');
 const { recordRevision, snapshotOf } = require('../services/entryHistory');
-const { sanitizeNotebookWorkbench, sanitizeNotebookTarget } = require('../utils/notebookWorkbench');
+const { notebookCuttings, sanitizeNotebookWorkbench, sanitizeNotebookTarget } = require('../utils/notebookWorkbench');
 const { passageFromTarget } = require('../utils/notebookWordingOptions');
 const { generateNotebookWordingOptions } = require('../services/notebookWordingOptionsService');
 const express = require('express');
@@ -314,6 +314,22 @@ const buildNotebookRouter = ({
     }
   });
 
+  /* Cuttings: every passage dimmed or set aside, across every piece. Read from
+     each note's working state; nothing is stored twice. */
+  router.get('/api/notebook/cuttings', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      const entries = await NotebookEntry.find(
+        { userId: req.user.id, $or: [{ 'workingState.dimmed.0': { $exists: true } }, { 'workingState.looseThoughts.0': { $exists: true } }] },
+        { title: 1, 'workingState.dimmed': 1, 'workingState.looseThoughts': 1 }
+      ).lean();
+      noStore(res);
+      return res.status(200).json(notebookCuttings(entries));
+    } catch (error) {
+      console.error('❌ Error gathering notebook cuttings:', error);
+      return res.status(500).json({ error: 'Your cuttings could not be gathered.' });
+    }
+  });
+
   router.get('/api/notebook/folders', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
@@ -472,9 +488,12 @@ const buildNotebookRouter = ({
      moved and leaves updatedAt, revisions and the wiki alone. */
   router.patch('/api/notebook/:id/board', authenticateToken, async (req, res) => {
     try {
-      const { stage, archived } = req.body || {};
+      const { stage, archived, became } = req.body || {};
       if (stage !== undefined && !['idea', 'in_progress', 'done'].includes(stage)) {
         return res.status(400).json({ error: 'stage must be one of idea, in_progress, done.' });
+      }
+      if (became !== undefined && (typeof became !== 'string' || stage !== 'done')) {
+        return res.status(400).json({ error: 'became is a line of words, sent when closing a piece.' });
       }
       if (archived !== undefined && typeof archived !== 'boolean') {
         return res.status(400).json({ error: 'archived must be true or false.' });
@@ -488,6 +507,7 @@ const buildNotebookRouter = ({
       const now = new Date();
       const $set = {};
       if (stage !== undefined) Object.assign($set, { 'board.stage': stage, 'board.movedAt': now });
+      if (became !== undefined) $set['board.became'] = became.replace(/\s+/g, ' ').trim().slice(0, 200);
       if (archived !== undefined) $set['board.archivedAt'] = archived ? now : null;
       const entry = await NotebookEntry.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.id },

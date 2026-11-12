@@ -37,6 +37,22 @@ describe('notebook workbench marks on a real editor', () => {
     setSavedTrialMarkHandler(null);
   });
 
+  it('shows the next sentence above its paragraph without entering the text', () => {
+    ({ editor, element } = mount({
+      type: 'doc',
+      content: [paragraph('p1', 'Opening line'), paragraph('p2', 'Where it stopped')]
+    }, [StarterKit, BlockId, NotebookWorkbenchDecorations]));
+    setNotebookWorkbenchDecorations(editor, { nextLine: { blockId: 'p2', text: 'Begin with the exception.' } });
+
+    const line = element.querySelector('.notebook-next-line');
+    expect(line.textContent).toBe('Begin with the exception.');
+    expect(line.nextElementSibling.textContent).toBe('Where it stopped');
+    expect(editor.getText()).not.toContain('Begin with the exception.');
+
+    setNotebookWorkbenchDecorations(editor, { nextLine: null });
+    expect(element.querySelector('.notebook-next-line')).toBeNull();
+  });
+
   it('revalidates a saved mark after edits and never hides the prose', () => {
     ({ editor, element } = mount({
       type: 'doc',

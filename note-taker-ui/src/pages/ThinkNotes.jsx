@@ -3,13 +3,15 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import authoredExplorations from '../api/authoredExplorations';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
-import { clearNotebookCache, getNotebookShelf } from '../api/notebook';
+import { clearNotebookCache, getNotebookShelf, moveNotebookEntry } from '../api/notebook';
 import { getConcepts, updateConcept } from '../api/concepts';
 import { createQuestion, getQuestions } from '../api/questions';
 import { getAgentThread } from '../api/agent';
 import { getHighlights } from '../api/highlights';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
-import NotebookBoard from '../components/think/notebook/NotebookBoard';
+import NotebookCuttings from '../components/think/notebook/NotebookCuttings';
+import NoteStage from '../components/think/notebook/NoteStage';
+import { SHELF_ORDER, STAGES, groupByStage, movedBoard, stageChange, stageLine, stageOf } from '../components/think/notebook/notebookStages';
 import ThinkEntryEditor from '../components/think/ThinkEntryEditor';
 import FocusMode from '../components/think/FocusMode';
 import {
@@ -65,7 +67,7 @@ const ThinkNotes = () => {
   const [openRecord, setOpenRecord] = useState(null);
   const threadId = searchParams.get('threadId') || '';
   const pulling = searchParams.get('pull') === '1';
-  const boardView = ['board', 'archive'].includes(searchParams.get('view')) ? searchParams.get('view') : '';
+  const cuttingsOpen = searchParams.get('view') === 'cuttings';
   const entries = useMemo(
     () => buildThinkEntries({ notes, concepts, questions, filter }),
     [notes, concepts, questions, filter]
@@ -312,6 +314,9 @@ const ThinkNotes = () => {
 
   const shelf = shelfExpanded ? entries : entries.slice(0, 18);
   const hasMoreNotes = entries.length > shelf.length;
+  const staged = filter === 'all' || filter === 'note';
+  const stages = groupByStage(entries);
+  const [closedOpen, setClosedOpen] = useState(false);
   const entryMatchesRoute = Boolean(
     entry?._id
     && openId
@@ -345,12 +350,32 @@ const ThinkNotes = () => {
     setSearchParams(targetParams(item));
   };
 
-  /* The board sits over the page; the note stays mounted beneath it. */
-  const showBoard = async (view) => {
-    if (view && await saveCurrent.current?.() === false) return;
+  /* Cuttings sit over the page; the note stays mounted beneath it. */
+  const showCuttings = async (open) => {
+    if (open && await saveCurrent.current?.() === false) return;
     const params = new URLSearchParams(searchParams);
-    if (view) params.set('view', view); else params.delete('view');
+    if (open) params.set('view', 'cuttings'); else params.delete('view');
     setSearchParams(params);
+  };
+
+  /* Moving a piece lands at once and is put back if the server refuses it. */
+  const moveStage = async (id, stage, became) => {
+    const note = notes.find(item => String(item?._id) === String(id));
+    const before = note?.board || null;
+    const change = stageChange(before, stage, became);
+    const place = board => {
+      setNotes(current => current.map(item => (String(item?._id) === String(id) ? { ...item, board } : item)));
+      setEntry(current => (String(current?._id) === String(id) ? { ...current, board } : current));
+    };
+    place(movedBoard(before, change));
+    try {
+      const saved = await moveNotebookEntry(id, change);
+      if (saved) place(saved);
+      clearNotebookCache();
+    } catch (_error) {
+      place(before);
+      setError('That piece did not move. Try again.');
+    }
   };
 
   const nameEntry = async (event) => {
@@ -497,10 +522,9 @@ const ThinkNotes = () => {
   const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : 'think-notes__return');
 
   return (
-    <div ref={room} className={`think-notes${boardView ? ' has-board' : ''}${activeContext ? ' has-context' : ''}${alternativesOpen ? ' has-alternatives' : ''}${notesCollapsed ? ' notes-collapsed' : ''}`}>
+    <div ref={room} className={`think-notes${cuttingsOpen ? ' has-cuttings' : ''}${activeContext ? ' has-context' : ''}${alternativesOpen ? ' has-alternatives' : ''}${notesCollapsed ? ' notes-collapsed' : ''}`}>
       <div className="think-notes__toggles">
         <button type="button" className="think-notes__shelf-toggle" aria-expanded={!notesCollapsed} aria-controls="think-notes-shelf" onClick={() => setNotesCollapsed(value => !value)}>{notesCollapsed ? 'Show list' : 'Hide list'}</button>
-        <button type="button" className="think-notes__shelf-toggle" aria-pressed={Boolean(boardView)} onClick={() => showBoard(boardView ? '' : 'board')}>Board</button>
       </div>
       <aside id="think-notes-shelf" hidden={notesCollapsed} className="think-notes__shelf" aria-label="Think navigation" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
         <FocusMode inRail />
@@ -584,8 +608,54 @@ const ThinkNotes = () => {
               </RoomShelfList>
             </RoomShelfSection>
           ) : null}
-          <RoomShelfSection label={filter === 'all' ? 'Recent' : KIND_LABELS[filter]}>
-            {!loading && !entries.length ? <p className="room-shelf__description">{filter === 'all' ? 'Nothing written yet.' : `No ${KIND_LABELS[filter].toLowerCase()} yet.`}</p> : null}
+          {staged ? SHELF_ORDER.map(key => {
+            const { section, sense } = STAGES.find(item => item.key === key);
+            const items = key === 'idea' && !shelfExpanded ? stages.idea.slice(0, 18) : stages[key];
+            const folded = key === 'done' && !closedOpen;
+            return (
+              <section key={key} className={`think-notes__stage is-${key}`} aria-label={section}>
+                <h2 className="think-notes__stage-head">
+                  {key === 'done' ? (
+                    <button type="button" aria-expanded={closedOpen} onClick={() => setClosedOpen(open => !open)}>
+                      {section} <span>{stages.done.length}</span>
+                    </button>
+                  ) : <>{section} <span>{stages[key].length}</span></>}
+                </h2>
+                {folded ? null : <p className="think-notes__stage-sense">{sense}</p>}
+                {folded ? null : !loading && !items.length ? (
+                  <p className="think-notes__stage-empty">
+                    {key === 'in_progress' ? 'Nothing underway. Open an idea and choose Working above its title.'
+                      : key === 'idea' ? 'Nothing written yet.' : 'Nothing closed yet.'}
+                  </p>
+                ) : null}
+                {folded ? null : (
+                  <RoomShelfList>
+                    {items.map(item => (
+                      <li key={`${item.kind}:${item.id}`}>
+                        <RoomShelfButton
+                          active={isTarget(item, openTarget)}
+                          nested
+                          className="think-notes__note-link"
+                          data-noeis-item
+                          title={item.title}
+                          onClick={() => openEntry(item)}
+                        >
+                          <span className="think-notes__note-title">{item.title}</span>
+                          {item.kind !== 'note' ? <span className="think-notes__kind">{item.settled ? 'settled question' : item.kind}</span> : null}
+                          {stageLine(item) ? <span className="think-notes__return-note">{stageLine(item)}</span> : null}
+                        </RoomShelfButton>
+                      </li>
+                    ))}
+                  </RoomShelfList>
+                )}
+                {key === 'idea' && stages.idea.length > items.length ? (
+                  <button type="button" className="think-notes__shelf-more" onClick={() => setShelfExpanded(true)}>Show all {stages.idea.length}</button>
+                ) : null}
+              </section>
+            );
+          }) : (
+          <RoomShelfSection label={KIND_LABELS[filter]}>
+            {!loading && !entries.length ? <p className="room-shelf__description">{`No ${KIND_LABELS[filter].toLowerCase()} yet.`}</p> : null}
             <RoomShelfList>
               {shelf.map(item => (
                 <li key={`${item.kind}:${item.id}`}>
@@ -599,32 +669,25 @@ const ThinkNotes = () => {
                   >
                     <span className="think-notes__note-title">{item.title}</span>
                     {item.kind !== 'note' ? <span className="think-notes__kind">{item.settled ? 'settled question' : item.kind}</span> : null}
-                    {item.nextTimeLine ? <span className="think-notes__return-note">{item.nextTimeLine}</span> : null}
                   </RoomShelfButton>
                 </li>
               ))}
             </RoomShelfList>
             {hasMoreNotes ? (
-              <button
-                type="button"
-                className="think-notes__shelf-more"
-                onClick={() => setShelfExpanded(true)}
-              >
-                Show all
-              </button>
+              <button type="button" className="think-notes__shelf-more" onClick={() => setShelfExpanded(true)}>Show all</button>
             ) : null}
           </RoomShelfSection>
+          )}
+          <button type="button" className="think-notes__cuttings-link" aria-pressed={cuttingsOpen} onClick={() => showCuttings(!cuttingsOpen)}>Cuttings</button>
           </>}
         </RoomShelf>
       </aside>
 
-      {boardView ? (
-        <main className="think-notes__board">
-          <NotebookBoard
-            view={boardView}
-            onView={showBoard}
-            onOpen={card => openEntry({ kind: 'note', id: card.id })}
-            onClose={() => showBoard('')}
+      {cuttingsOpen ? (
+        <main className="think-notes__cuttings">
+          <NotebookCuttings
+            onOpen={id => openEntry({ kind: 'note', id })}
+            onClose={() => showCuttings(false)}
           />
         </main>
       ) : null}
@@ -658,6 +721,8 @@ const ThinkNotes = () => {
           <div className={step(2)}>
             <NotebookEditor
               entry={entry}
+              stage={stageOf(entry.board)}
+              stageControl={<NoteStage board={entry.board} onMove={(stage, became) => moveStage(entry._id, stage, became)} />}
               metaId="think-note-title"
               startPull={pullKey === openKey}
               saving={saving}

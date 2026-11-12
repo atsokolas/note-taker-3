@@ -442,14 +442,16 @@ const notebookWorkbenchSchema = new mongoose.Schema({
   continuity: { type: notebookWorkbenchContinuitySchema, default: () => ({}) }
 }, { _id: false });
 
-// Where a piece of writing stands for its writer: an idea, being worked on, or
-// done; set aside in the archive when archivedAt is set. Moving it is not
-// writing in it, so the board never touches updatedAt.
+// Where a piece of writing stands for its writer: an idea, being worked on
+// (in_progress, "Working"), or done ("Closed"), with the one line of what it
+// became. archivedAt is the older "set aside", which reads as closed. Moving it
+// is not writing in it, so the stage never touches updatedAt.
 const NOTEBOOK_STAGES = ['idea', 'in_progress', 'done'];
 const notebookBoardSchema = new mongoose.Schema({
   stage: { type: String, enum: NOTEBOOK_STAGES, default: 'idea' },
   movedAt: { type: Date, default: null },
-  archivedAt: { type: Date, default: null }
+  archivedAt: { type: Date, default: null },
+  became: { type: String, default: '', maxlength: 200 }
 }, { _id: false });
 
 const notebookEntrySchema = new mongoose.Schema({
