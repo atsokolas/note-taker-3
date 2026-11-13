@@ -48,7 +48,7 @@ struct SignInView: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.ink)
                 .disabled(working || username.isEmpty || password.isEmpty)
 
                 Button(creating ? "I already have an account" : "New here? Create an account") {
