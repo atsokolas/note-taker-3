@@ -225,8 +225,8 @@ test('a day reads as one page: its follow-ups, what it was written, and earlier 
 });
 test('day planning reads time, while note words become Open only after explicit selection and Add', async () => {
   today();
-  fireEvent.change(await screen.findByLabelText('Plan something'), { target: { value: 'IC meeting 2pm' } });
-  fireEvent.submit(screen.getByLabelText('Plan something').form);
+  fireEvent.change(await screen.findByLabelText('Add a line'), { target: { value: 'IC meeting 2pm' } });
+  fireEvent.submit(screen.getByLabelText('Add a line').form);
   await waitFor(() => expect(records.find(x => x.title === 'IC meeting')?.workItem).toMatchObject({ kind: 'appointment', plannedOn: '2026-10-26', startTime: '14:00', endTime: '14:30' }));
   const rail = screen.getByRole('complementary'); fireEvent.click(within(rail).getByRole('button', { name: 'Customer discovery' })); fireEvent.click(within(rail).getByRole('button', { name: /Fieldwell · pilot follow-up/ }));
   const writing = await screen.findByRole('textbox', { name: 'Work note writing' });

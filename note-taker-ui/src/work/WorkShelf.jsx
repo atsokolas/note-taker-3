@@ -6,7 +6,7 @@ import { displayDay, writtenDay } from './workPlannerModel';
 
 // Two pages look across everything, then projects, then notes. A note is listed once, in its folder;
 // its project shows on the project page and on the note's place line.
-export default function WorkShelf({ needs, projects, dragging, drag, onDropNote, notes, folders, place, current, todayCount, view, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose, onCollapse }) {
+export default function WorkShelf({ needs, projects, dragging, drag, onDropNote, notes, folders, place, current, view, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose, onCollapse }) {
   const [over, setOver] = React.useState(null);
   const [expanded, setExpanded] = React.useState({});
   const [sections, setSections] = React.useState({});
@@ -61,7 +61,7 @@ export default function WorkShelf({ needs, projects, dragging, drag, onDropNote,
   return <aside className="work-shelf" aria-label="Work notes"><button className="work-mobile-close" onClick={onClose}>Back to writing</button>
     <div className="work-shelf-search-row"><label className="work-shelf-search"><WorkIcon name="search" /><input type="search" aria-label="Search Work notes" placeholder="Search" value={query} onChange={event => onQuery(event.target.value)} /></label><button aria-label="New note" onClick={onCapture}><WorkIcon name="plus" /></button></div>
     <nav aria-label="Work navigation" className="work-primary-nav">
-      {[['today', 'Today', todayCount, true], ['needs', 'Needs you', needs.total]].map(([key, name, count, quiet]) => <button key={key} aria-current={view === key && !notes.some(current) ? 'page' : undefined} onClick={() => onScope(key)}><span>{name}</span>{count ? <small className={quiet ? 'work-sr-only' : undefined}>{count}</small> : null}</button>)}
+      <button aria-current={view === 'today' && !notes.some(current) ? 'page' : undefined} onClick={() => onScope('today')}><span>Today</span>{needs.total ? <small aria-label={`${needs.total} need you`}>{needs.total}</small> : null}</button>
     </nav>
     {section('projects', 'Projects', () => onScope('projects'), activeProjects, places(visibleProjects, 'project'), 'Projects')}
     {section('notes', 'Notes', () => onScope('notes'), null, <>{placeRow('', 'Inbox', inbox, () => onScope('inbox', ''))}{places(folders.filter(item => !item.archivedAt), 'folder')}<button className="work-add-folder" onClick={onNewFolder}><WorkIcon name="plus" /><span>New folder</span></button></>, 'Work folders')}

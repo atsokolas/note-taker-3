@@ -66,7 +66,18 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
 .work-shelf-foot button { padding-inline: 0; }
 .work-page { background: var(--noeis-paper); min-width: 0; padding: 40px clamp(24px, 6.25vw, 96px) 80px; }
 /* One surface: the week line sits over every Work page; each page then has one title, one sentence, one measure. */
-.work-page > .work-calendar, .work-page > .work-note-paper, .work-page > .work-index, .work-page > .work-outstanding, .work-page > .work-day-close { max-width: 820px; }
+.work-page > .work-calendar, .work-page > .work-note-paper, .work-page > .work-index { max-width: 820px; }
+/* Today: the day on the left, what needs you in a ruled margin on the right; one column once there is no room. */
+.work-home { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 0 56px; max-width: 1240px; }
+.work-home-margin { padding: 12px 0 0 28px; border-left: 1px solid var(--noeis-rule); }
+.work-home-margin .work-planner-task { flex-wrap: wrap; }
+.work-home-margin .work-carried { flex-basis: 100%; justify-content: flex-start; padding: 0 0 10px 24px; }
+.work-home-margin > section:first-of-type h2 { margin-top: 0; }
+@media (max-width: 1100px) { .work-home { grid-template-columns: minmax(0, 1fr); max-width: 820px; } .work-home-margin { padding: 8px 0 0; border-left: 0; } }
+/* The morning sentence: each part is struck through in ink as it gets done. */
+.work-morning { font-size: 18px; line-height: 1.6; color: var(--noeis-ink); max-width: 720px; }
+.work-morning s { text-decoration: none; color: var(--noeis-ink-muted); background: linear-gradient(currentColor, currentColor) left 58% / 0 1px no-repeat; animation: work-ink .42s cubic-bezier(.3, .7, .4, 1) forwards; }
+@media (prefers-reduced-motion: reduce) { .work-morning s { animation: none; background-size: 100% 1px; } }
 .work-calendar-fold { overflow: hidden; }
 
 .work-day { border-left: 1px solid var(--noeis-rule); min-width: 0; padding: 0 8px; }

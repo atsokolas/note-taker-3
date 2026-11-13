@@ -3,7 +3,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WorkNotes from './WorkNotes';
-import { WorkDayClose } from './WorkNeedsYou.jsx';
+import { WorkDayClose, morning } from './WorkNeedsYou.jsx';
 import WorkCalendar from './WorkCalendar';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
@@ -34,12 +34,32 @@ beforeEach(() => {
 const work = view => render(<MemoryRouter initialEntries={[`/work?view=${view}`]}><WorkNotes /></MemoryRouter>);
 const rail = () => within(screen.getByRole('complementary'));
 
-test('Needs you sits under Today in the rail with its count, and old Outstanding links open it', async () => {
-  work('outstanding');
-  await waitFor(() => expect(rail().getByRole('button', { name: /Needs you/ })).toHaveTextContent('Needs you2'));
-  expect(await screen.findByRole('heading', { name: 'Needs you' })).toBeInTheDocument();
-  expect(screen.getByText('2 things.')).toBeInTheDocument();
-  expect(screen.getByRole('navigation', { name: 'Work folders' })).toBeInTheDocument();
+test('Today is the home: its margin is Needs you, the rail counts it, and old Needs you and Outstanding links open it', async () => {
+  for (const view of ['needs', 'outstanding']) {
+    const { unmount } = work(view);
+    await waitFor(() => expect(rail().getByRole('button', { name: /Today/ })).toHaveTextContent('Today2'));
+    expect(rail().queryByRole('button', { name: /Needs you/ })).toBeNull();
+    expect(await screen.findByRole('heading', { name: 'Today', level: 1 })).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Needs you' })).getByRole('region', { name: 'Owed to you' })).toBeInTheDocument();
+    unmount();
+  }
+});
+
+test('the morning sentence says the day and crosses out each part as it is done', () => {
+  const needs = { waiting: [{ title: 'The data room login', waitingOn: 'Priya', sortedOn: '2026-11-04' }], fresh: [{}, {}], silent: [{ name: 'Pricing' }] };
+  const items = [
+    { kind: 'appointment', title: 'Call with Priya', plannedOn: '2026-11-13', startTime: '10:00', endTime: '10:45' },
+    { kind: 'appointment', title: 'Jo', plannedOn: '2026-11-13', startTime: '15:30', endTime: '16:00' },
+    { kind: 'task', title: 'Draft the risk section', plannedOn: '2026-11-13', oneThingOn: '2026-11-13', completed: true },
+    { kind: 'task', title: 'Send Sam the bands', plannedOn: '2026-11-13' }];
+  expect(morning(items, needs, '2026-11-13', '11:00')).toEqual([
+    { text: 'Call with Priya at 10:00.', done: true }, { text: 'Jo at 15:30.', done: false },
+    { text: 'Your one thing: draft the risk section.', done: true }, { text: 'One more line is planned.', done: false },
+    { text: 'Priya has owed you the data room login for 9 days.' }, { text: '2 lines from your notes need a place.' },
+    { text: 'Pricing has gone quiet.' }, { text: 'It’s Friday: read the week back.' }]);
+  const next = { kind: 'task', title: 'Call the auditor', plannedOn: '2026-11-13', oneThingOn: '2026-11-13' };
+  expect(morning([...items, next], { ...needs, oneThing: next }, '2026-11-13', '11:00')).toContainEqual({ text: 'Your one thing: call the auditor.', done: undefined });
+  expect(morning([], { waiting: [], fresh: [], silent: [] }, '2026-11-12', '09:00')).toEqual([{ text: 'A clear day, and nothing needs you.' }]);
 });
 
 test('a new line from a note is sorted onto Waiting on with the person, on the same record', async () => {
@@ -111,7 +131,7 @@ test('the check-in reads the week back as a new Work note, and offers the one it
   fireEvent.click(screen.getByRole('button', { name: 'Read the week back' }));
   expect(await screen.findByText('Agreed the pilot sites. · Fieldwell, 9 Nov')).toBeInTheDocument();
   expect(api.post).toHaveBeenCalledWith('/api/work-notes/week-edition', expect.anything(), expect.anything());
-  fireEvent.click(rail().getByRole('button', { name: /Needs you/ }));
+  fireEvent.click(rail().getByRole('button', { name: /Today/ }));
   expect(await screen.findByText(/Week of 5–11 Nov 2026 is drafted\./)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Open it' })).toBeInTheDocument();
 });
@@ -127,7 +147,7 @@ test('a quiet week says so, and a failed draft keeps the page in place', async (
   answer = async () => { throw { response: { status: 502, data: { error: 'Claude could not draft the week just now. Your notes are unchanged. Try again.' } } }; };
   fireEvent.click(screen.getByRole('button', { name: 'Read the week back' }));
   expect(await screen.findByText('Claude could not draft the week just now. Your notes are unchanged. Try again.')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Needs you' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Today', level: 1 })).toBeInTheDocument();
 });
 
 test('closing the day moves what is left to tomorrow, Monday or Someday, and says how tomorrow starts', () => {
