@@ -108,6 +108,38 @@ const addToHeld = (held, incoming, profile, filedBy, filedAt) => {
   return { added, readings, items: [...kept, ...added] };
 };
 
+/* Searching the stand. Every word of the query must appear somewhere in the
+   edition — its masthead lines or any item — so a hit is a paper that holds
+   the whole thought, not one that shares a stray word. The items that carry
+   the words come back with it, best first, so a caller can open the finding
+   rather than the whole issue. Nothing matches, nothing comes back. */
+const EDITION_ITEM_TEXT = ['title', 'sourceLabel', 'finding', 'boundary', 'plain', 'why', 'note', 'passage'];
+const searchTermsOf = (query = '') => [...new Set(String(query).toLowerCase().slice(0, 200).split(/\s+/).filter(Boolean))];
+const textOf = (row, keys) => keys.map(key => row?.[key] || '').join(' ').toLowerCase();
+
+const matchEdition = (edition = {}, terms = []) => {
+  if (!terms.length) return null;
+  const masthead = textOf(edition, ['title', 'headline', 'standfirst', 'throughLine']);
+  const items = (Array.isArray(edition.items) ? edition.items : []).map(item => ({
+    item,
+    text: textOf(item, EDITION_ITEM_TEXT)
+  }));
+  const whole = `${masthead} ${items.map(entry => entry.text).join(' ')}`;
+  if (!terms.every(term => whole.includes(term))) return null;
+  return items
+    .map(({ item, text }) => ({ item, hits: terms.filter(term => text.includes(term)).length }))
+    .filter(entry => entry.hits)
+    .sort((a, b) => b.hits - a.hits)
+    .slice(0, 3)
+    .map(({ item }) => ({
+      itemId: item.itemId,
+      title: item.title,
+      url: item.url,
+      section: item.section || '',
+      finding: item.plain || item.finding
+    }));
+};
+
 const serializeItem = (item) => {
   const row = item || {};
   return {
@@ -815,20 +847,31 @@ const buildEditionRouter = ({
       const profiles = await loadProfiles(req.user.id);
       const profile = resolveEditionProfile(req.query?.profile, { profiles });
       if (profile) query.profile = profile.key;
-      const editions = await Edition.find(query)
+      /* Inbox already loads 200. The stand can be asked for 500, never more. */
+      const limit = Math.min(Number(req.query?.limit) || 40, 500);
+      const terms = searchTermsOf(req.query?.q);
+      /* A search reads the same 500 the stand can show, then keeps the hits. */
+      const found = await Edition.find(query)
         .sort({ windowEnd: -1, createdAt: -1 })
-        /* Inbox already loads 200. The stand can be asked for 500, never more. */
-        .limit(Math.min(Number(req.query?.limit) || 40, 500))
+        .limit(terms.length ? 500 : limit)
         .lean();
+      const matched = terms.length
+        ? found.map(edition => ({ edition, matches: matchEdition(edition, terms) }))
+          .filter(entry => entry.matches).slice(0, limit)
+        : found.map(edition => ({ edition }));
+      const editions = matched.map(entry => entry.edition);
       const receipts = new Map(await Promise.all(
         [...new Set(editions.map(edition => edition.profile))]
           .map(async key => [key, await receiptsSinceFor(req.user.id, key)])
       ));
       return res.status(200).json({
-        editions: editions.map(edition => serializeEdition(edition, {
-          withItems: false,
-          profiles,
-          receiptsSince: receipts.get(edition.profile)
+        editions: matched.map(({ edition, matches }) => ({
+          ...serializeEdition(edition, {
+            withItems: false,
+            profiles,
+            receiptsSince: receipts.get(edition.profile)
+          }),
+          ...(matches ? { matches } : {})
         }))
       });
     } catch (error) {
@@ -1149,4 +1192,4 @@ const buildEditionRouter = ({
   return router;
 };
 
-module.exports = { buildEditionRouter, serializeEdition, serializeItem };
+module.exports = { buildEditionRouter, serializeEdition, serializeItem, matchEdition, searchTermsOf };

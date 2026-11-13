@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SEARCH_KINDS } from '../client.js';
+
 const pageTypes = ['topic', 'concept', 'entity', 'source', 'question', 'comparison', 'overview', 'project', 'log'];
 const statuses = ['draft', 'published', 'archived'];
 const visibilities = ['private', 'shared'];
@@ -15,6 +17,16 @@ export const readTools = [
     description: 'Verify this exact NOEIS grant with a metadata-only authenticated read. Returns stable workspace identity and enforced scopes without reading or creating user content.',
     inputSchema: {},
     handler: (client) => client.getConnectionInfo()
+  },
+  {
+    name: 'search_noeis',
+    description: 'Search the reader\'s whole Noeis workspace at once: Wiki pages, Library highlights and saved articles, and filed Editions. Start here when you do not know where something lives. Returns titles, snippets, ids and links; open a hit with the tool named in its `open` field. Read-only. A surface that could not answer is listed under `unavailable` rather than reported as empty.',
+    inputSchema: {
+      query: z.string().trim().min(1).max(200).describe('What to look for, in plain words.'),
+      kinds: z.array(z.enum(SEARCH_KINDS)).min(1).optional().describe('Narrow to wiki, library or editions. Defaults to all three.'),
+      limit: z.number().int().min(1).max(25).optional().default(5).describe('Most hits per surface.')
+    },
+    handler: (client, args) => client.searchNoeis(args)
   },
   {
     name: 'list_edition_profiles',
