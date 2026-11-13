@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import WorkItemSource from './WorkItemSource';
 import { noteTitle } from './workSession';
 import { displayDay, shiftDay, writtenDay } from './workPlannerModel';
@@ -8,10 +8,9 @@ const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one :
 const short = day => displayDay(day, { weekday: 'short', day: 'numeric', month: 'short' });
 const ago = days => days === 0 ? 'today' : days === 1 ? 'a day' : `${days} days`;
 
-// Needs you: every line and project that is waiting on a decision from you, on one page.
+// Needs you: the margin of Today, holding every line and project waiting on a decision from you.
 // Every row is a line a note or a day already holds; sorting one changes it everywhere it appears.
-export default function WorkNeedsYou({ needs, notes, folders, today, onSort, onAction, onCapture, onOpen, onProject, onSaveProject, onWeekEdition }) {
-  const [capture, setCapture] = useState('');
+export default function WorkNeedsYou({ needs, notes, folders, today, onSort, onAction, onOpen, onProject, onSaveProject, onWeekEdition }) {
   const [asking, setAsking] = useState(null);
   const [drafting, setDrafting] = useState(null);
   const [copied, setCopied] = useState('');
@@ -47,12 +46,7 @@ export default function WorkNeedsYou({ needs, notes, folders, today, onSort, onA
   };
   const quietLines = new Set(needs.quiet.map(item => item.id));
   const groups = [...folders.filter(folder => !folder.archivedAt).map(folder => ({ id: folder._id, name: folder.name })), { id: '', name: 'Not in a folder' }].map(group => ({ ...group, lines: needs.next.filter(item => !quietLines.has(item.id) && ((folderOf(item) || '') === group.id || (!group.id && !folders.some(folder => !folder.archivedAt && folder._id === folderOf(item))))) })).filter(group => group.lines.length);
-  const longest = [...needs.waiting].sort((a, b) => sortedSince(a).localeCompare(sortedSince(b)))[0];
-  const sense = !needs.total ? 'Nothing needs you. Rare, and well earned.'
-    : [`${needs.total === 1 ? 'One thing' : `${needs.total} things`}.`, longest && daysBetween(sortedSince(longest), today) >= CHASE_DAYS && `${longest.waitingOn} has owed you ${longest.title.charAt(0).toLowerCase()}${longest.title.slice(1)} for ${plural(daysBetween(sortedSince(longest), today), 'day')}.`, needs.silent[0] && `${needs.silent.map(item => item.name).join(' and ')} ${needs.silent.length === 1 ? 'has' : 'have'} gone quiet.`].filter(Boolean).join(' ');
-  return <section className="work-outstanding" aria-label="Needs you"><h1 className="work-page-title">Needs you</h1><p className="work-page-sense">{sense}</p>
-    <form className="work-outstanding-capture" onSubmit={event => { event.preventDefault(); if (capture.trim()) { onCapture(capture); setCapture(''); } }}><input aria-label="Add a line" placeholder="Add a line" value={capture} onChange={event => setCapture(event.target.value)} /><small>@name if someone owes you · a day to plan it · “someday” to set it aside</small></form>
-    {needs.oneThing ? <p className="work-one-thing"><small>Today’s one thing</small><span>{needs.oneThing.title}</span></p> : null}
+  return <section className="work-outstanding work-home-margin" aria-label="Needs you">
     {struckRows}
     {section('New from your notes', needs.fresh, freshRow, 'sort each once')}
     {section('Owed to you', needs.waiting, item => { const days = daysBetween(sortedSince(item), today); return row({ ...item, title: `${item.waitingOn} owes you ${item.title.charAt(0).toLowerCase()}${item.title.slice(1)}` }, <><time className={days >= CHASE_DAYS ? 'is-long' : ''}>{ago(days)}</time>{source(item)}<button onClick={() => setDrafting(drafting === item.id ? null : item.id)}>Nudge</button></>, draft(item)); })}
@@ -69,6 +63,33 @@ export default function WorkNeedsYou({ needs, notes, folders, today, onSort, onA
       {needs.gotBack.map(({ item, days }) => <p className="work-outstanding-line" key={item.id}>{item.waitingOn} sent {item.title.charAt(0).toLowerCase() + item.title.slice(1)}{days > 0 ? `, after ${plural(days, 'day')}` : ''}.</p>)}
       <p className="work-outstanding-tally">{plural(needs.done, 'thing')} closed this week{needs.lastWeek ? `, ${needs.done === needs.lastWeek ? 'the same as' : needs.done > needs.lastWeek ? `${needs.done - needs.lastWeek} more than` : `${needs.lastWeek - needs.done} fewer than`} last week` : ''}.</p></details> : null}
   </section>;
+}
+
+// The day as one sentence, written from the morning's plan and crossed out in ink as it gets done.
+// Nothing is stored: today's meetings, one thing and lines are read whether done or not, so the sentence keeps its shape all day.
+export function morning(items, needs, today, clock) {
+  const todays = items.filter(item => item.plannedOn === today);
+  const one = items.find(item => item.oneThingOn === today && ['task', 'question'].includes(item.kind));
+  const lines = todays.filter(item => ['task', 'question'].includes(item.kind) && item !== one);
+  const owed = [...needs.waiting].sort((a, b) => sortedSince(a).localeCompare(sortedSince(b)))[0], owedDays = owed ? daysBetween(sortedSince(owed), today) : 0;
+  const lower = text => text.charAt(0).toLowerCase() + text.slice(1);
+  const sentences = [
+    ...todays.filter(item => item.kind === 'appointment' && item.startTime).sort((a, b) => a.startTime.localeCompare(b.startTime)).map(item => ({ text: `${item.title} at ${item.startTime}.`, done: item.completed || (item.endTime || item.startTime) <= clock })),
+    one && { text: `Your one thing: ${lower(one.title)}.`, done: one.completed },
+    lines.length && { text: `${lines.length === 1 ? `One ${one ? 'more ' : ''}line is` : `${lines.length} ${one ? 'more ' : ''}lines are`} planned.`, done: lines.every(item => item.completed) },
+    owedDays >= CHASE_DAYS && { text: `${owed.waitingOn} has owed you ${lower(owed.title)} for ${plural(owedDays, 'day')}.` },
+    needs.fresh.length && { text: `${needs.fresh.length === 1 ? 'One line' : `${needs.fresh.length} lines`} from your notes ${needs.fresh.length === 1 ? 'needs' : 'need'} a place.` },
+    needs.silent[0] && { text: `${needs.silent.map(item => item.name).join(' and ')} ${needs.silent.length === 1 ? 'has' : 'have'} gone quiet.` },
+    new Date(`${today}T12:00:00Z`).getUTCDay() === 5 && { text: 'It’s Friday: read the week back.' }
+  ].filter(Boolean);
+  return sentences.length ? sentences : [{ text: 'A clear day, and nothing needs you.' }];
+}
+
+export function WorkMorning({ items, needs, today, timeZone }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const clock = window.setInterval(() => setNow(new Date()), 60000); return () => window.clearInterval(clock); }, []);
+  const clock = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now);
+  return <p className="work-page-sense work-morning">{morning(items, needs, today, clock).map(({ text, done }) => <React.Fragment key={text}>{done ? <s>{text}</s> : text} </React.Fragment>)}</p>;
 }
 
 // At the end of today, what is still open from it goes to tomorrow, Monday or Someday, and one sentence says how tomorrow starts.

@@ -7,7 +7,7 @@ import { listOf } from './workOutstanding';
 
 // The week line sits over every Work page. On Today it is followed by the day itself, read top to bottom like a page in a day book:
 // its appointments and follow-ups, what is carried from earlier, what was written, the margin.
-export default function WorkCalendar({ day, today, mode, onMode, onDay, items, notes, query, folders, projects = [], timeZone = deviceTimeZone(), page, mark, drag, onOpen, onStart, onEdit, onAction, onNew, onPlan, margin, oneThing }) {
+export default function WorkCalendar({ day, today, mode, onMode, onDay, items, notes, query, folders, projects = [], timeZone = deviceTimeZone(), page, mark, drag, onOpen, onStart, onEdit, onAction, onNew, onPlan, margin, oneThing, sense }) {
   const frame = useRef(null), contents = useRef(null), animation = useRef(null), origin = useRef(null);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const clock = window.setInterval(() => setNow(new Date()), 30000); return () => window.clearInterval(clock); }, []);
@@ -78,9 +78,9 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, n
     </div>
     </details>
     {page ? <div className="work-day-page">
-      <p className="work-page-sense work-sr-only">{daySentence}</p>
+      {sense || <p className="work-page-sense work-sr-only">{daySentence}</p>}
       {oneThing && day === today ? <p className="work-one-thing"><small>Today’s one thing</small><span>{oneThing.title}</span></p> : null}
-      <div className="work-day-lines">{selectedAppointments.length ? <section className="work-appointments" aria-label="Appointments">{selectedAppointments.map(appointmentRow)}</section> : null}<section className="work-priorities" aria-labelledby="work-priorities"><h2 id="work-priorities">Priorities</h2>{plan(day).map(item => taskRow(item))}</section><form className="work-plan-new" onSubmit={event => { event.preventDefault(); const line = event.currentTarget.elements.plan; if (line.value.trim()) onPlan(line.value); else onNew({ plannedOn: day }); line.value = ''; }}><input name="plan" aria-label="Plan something" placeholder="Plan something" title="A follow-up, or a meeting with a time: ‘IC meeting thu 2pm’. Enter on an empty line opens the full form." /></form></div>
+      <div className="work-day-lines">{selectedAppointments.length ? <section className="work-appointments" aria-label="Appointments">{selectedAppointments.map(appointmentRow)}</section> : null}<section className="work-priorities" aria-labelledby="work-priorities"><h2 id="work-priorities">Priorities</h2>{plan(day).map(item => taskRow(item))}</section><form className="work-plan-new" onSubmit={event => { event.preventDefault(); const line = event.currentTarget.elements.plan; if (line.value.trim()) onPlan(line.value); else onNew({ plannedOn: day }); line.value = ''; }}><input name="plan" aria-label="Add a line" placeholder="Add a line" title="A follow-up; a meeting with a time, ‘IC meeting thu 2pm’; @name if someone owes you; ‘someday’ to set it aside. Enter on an empty line opens the full form." /></form></div>
       {carried.length ? <details className="work-earlier"><summary>From earlier <span>({carried.length})</span></summary><section aria-labelledby="work-carried"><h2 id="work-carried" className="work-sr-only">Carried from earlier</h2>{carried.map(carriedRow)}</section></details> : null}
       {written.length ? <section aria-labelledby="work-written"><h2 id="work-written">Written {day === today ? 'today' : displayDay(day, { weekday: 'long' })}</h2>{written.map(note => <button className="work-index-note" key={note.clientId} {...drag(note)} onClick={() => onOpen(note.clientId)}><WorkIcon name="file" /><span>{noteTitle(note)}</span><small>{folderName(note)}</small></button>)}</section> : null}
       <details className="work-day-margin"><summary>Day margin</summary>{margin}</details>
