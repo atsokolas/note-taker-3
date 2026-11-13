@@ -32,6 +32,8 @@ const pickId = (value) => {
   return String(value);
 };
 
+export const SEARCH_KINDS = Object.freeze(['wiki', 'library', 'editions']);
+
 const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 const snippetFromPage = (page = {}, query = '', maxLength = 240) => {
@@ -1076,6 +1078,84 @@ export class NoeisClient {
         editions: editions.map(edition => ({ ...edition, id: pickId(edition) }))
       };
     });
+  }
+
+  /* The stand, asked for a thought. Only editions holding every word come
+     back, each with the items that carry them. */
+  searchEditions({ query, profile, limit = 20 } = {}) {
+    return this.request('/api/editions', { query: { q: query, profile, limit } }).then(payload => (
+      normalizeArrayPayload(payload, 'editions').map(edition => ({
+        ...edition,
+        id: pickId(edition),
+        matches: Array.isArray(edition.matches) ? edition.matches : []
+      }))
+    ));
+  }
+
+  /* One question to the whole workspace. Each surface keeps its own search
+     and its own ownership check; this only asks them together and says
+     which one could not answer, so a missing surface is never read as an
+     empty one. A refused credential is not a partial answer: it fails. */
+  async searchNoeis({ query, kinds = SEARCH_KINDS, limit = 5 } = {}) {
+    const q = cleanText(query);
+    if (!q) throw new NoeisApiError('query is required.', { status: 400 });
+    const wanted = SEARCH_KINDS.filter(kind => kinds.includes(kind));
+    const app = this.appUrl;
+    const asks = {
+      wiki: () => this.searchPages({ query: q, limit }).then(pages => pages.map(page => ({
+        kind: 'wiki_page',
+        id: page.id,
+        title: page.title,
+        snippet: page.snippet,
+        link: `${app}/wiki/workspace?page=${encodeURIComponent(page.id)}`,
+        updatedAt: page.updatedAt,
+        open: 'get_page'
+      }))),
+      library: () => Promise.all([
+        this.searchHighlights({ query: q, limit }),
+        this.searchArticles({ query: q, limit })
+      ]).then(([highlights, articles]) => [
+        ...highlights.map(highlight => ({
+          kind: 'highlight',
+          id: highlight.id,
+          title: highlight.articleTitle || 'Untitled article',
+          snippet: [highlight.text, highlight.note && `Note: ${highlight.note}`].filter(Boolean).join(' '),
+          link: `${app}/library?articleId=${encodeURIComponent(highlight.articleId)}&highlightId=${encodeURIComponent(highlight.id)}`,
+          updatedAt: highlight.createdAt,
+          open: 'get_highlight'
+        })),
+        ...articles.map(article => ({
+          kind: 'article',
+          id: article.id,
+          title: article.title,
+          snippet: [article.siteName, article.author].filter(Boolean).join(' · '),
+          link: `${app}/articles/${encodeURIComponent(article.id)}`,
+          updatedAt: article.updatedAt || article.createdAt,
+          open: 'get_article'
+        }))
+      ]),
+      editions: () => this.searchEditions({ query: q, limit }).then(editions => editions.map(edition => ({
+        kind: 'edition',
+        id: edition.id,
+        title: edition.title,
+        snippet: edition.matches[0]?.finding || edition.headline || edition.standfirst || '',
+        link: `${app}/editions/${encodeURIComponent(edition.id)}`,
+        updatedAt: edition.windowEnd || edition.updatedAt || null,
+        matches: edition.matches,
+        open: 'get_edition'
+      })))
+    };
+    const settled = await Promise.allSettled(wanted.map(kind => asks[kind]()));
+    const refused = settled.find(entry => entry.status === 'rejected' && [401, 403].includes(entry.reason?.status));
+    if (refused) throw refused.reason;
+    if (settled.every(entry => entry.status === 'rejected')) throw settled[0].reason;
+    const results = [];
+    const unavailable = [];
+    settled.forEach((entry, index) => {
+      if (entry.status === 'fulfilled') results.push(...entry.value);
+      else unavailable.push({ kind: wanted[index], error: String(entry.reason?.message || entry.reason) });
+    });
+    return { query: q, results, ...(unavailable.length ? { unavailable } : {}) };
   }
 
   getEdition({ editionId } = {}) {

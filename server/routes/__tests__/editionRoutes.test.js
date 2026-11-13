@@ -785,6 +785,48 @@ describe('the newsstand', () => {
     expect((await send('/api/editions?limit=999')).body.editions).toHaveLength(500);
   });
 
+  /* search_noeis asks the stand for a thought. Every word must be in the
+     paper, the items that carry them come back best first, and another
+     reader's paper is never read. */
+  it('searches the stand for a thought, and only the reader\'s own', async () => {
+    const paper = (over) => ({
+      profile: 'this_week_in_ai',
+      createdAt: 'then',
+      updatedAt: 'then',
+      ...over
+    });
+    Edition.rows.push(
+      paper({
+        _id: 'edition-s1',
+        userId: 'user-1',
+        title: 'Scaling week',
+        items: [
+          item({ itemId: 'a', title: 'Unrelated', finding: 'Nothing here.' }),
+          item({ itemId: 'b', title: 'Sparse scaling', finding: 'Mixture models scale cheaper.', plain: 'Sparse models cost less to scale.' })
+        ]
+      }),
+      paper({ _id: 'edition-s2', userId: 'user-1', title: 'Robotics week', items: [item({ itemId: 'c', title: 'Grippers', finding: 'Soft grippers held up.' })] }),
+      paper({ _id: 'edition-s3', userId: 'someone-else', title: 'Scaling week', items: [item({ itemId: 'd', title: 'Sparse scaling', finding: 'Theirs.' })] })
+    );
+
+    const hit = await send('/api/editions?q=sparse%20scaling');
+    expect(hit.status).toBe(200);
+    expect(hit.body.editions.map(row => row._id)).toEqual(['edition-s1']);
+    expect(hit.body.editions[0].matches).toEqual([
+      expect.objectContaining({ itemId: 'b', title: 'Sparse scaling', finding: 'Sparse models cost less to scale.' })
+    ]);
+    expect(hit.body.editions[0].items).toBeUndefined();
+
+    /* Every word, not any word: "sparse grippers" is in no single paper. */
+    expect((await send('/api/editions?q=sparse%20grippers')).body.editions).toEqual([]);
+    /* A masthead hit still counts, with no items to point at. */
+    const masthead = await send('/api/editions?q=robotics');
+    expect(masthead.body.editions.map(row => row._id)).toEqual(['edition-s2']);
+    expect(masthead.body.editions[0].matches).toEqual([]);
+    /* Without a query the stand is unchanged. */
+    expect((await send('/api/editions')).body.editions[0].matches).toBeUndefined();
+  });
+
   it('opens one edition, and says so when there is none', async () => {
     asAgent = true;
     const made = await send('/api/editions', 'POST', week());
