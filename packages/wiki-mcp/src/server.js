@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { createRequire } from 'node:module';
 import { z } from 'zod';
 import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js';
@@ -12,9 +13,12 @@ import chatgptAccessPolicy from './chatgptAccessPolicy.cjs';
 const { CHATGPT_ACCESS_PROFILE, isChatgptToolAllowed } = chatgptAccessPolicy;
 import { renderWikiSchemaPrompt, wikiSchemaPrompt } from './prompts/wiki_schema.js';
 
+// Report the published package version, so a client can tell which release it reached.
+const { version: packageVersion } = createRequire(import.meta.url)('../package.json');
+
 export const SERVER_INFO = {
   name: 'noeis-wiki',
-  version: '0.3.0'
+  version: packageVersion
 };
 
 const profileTool = {
