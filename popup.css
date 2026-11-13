@@ -24,12 +24,6 @@
   --noeis-font-reading: "Newsreader", "Iowan Old Style", Georgia, serif;
   --noeis-font-mono: "SFMono-Regular", Menlo, Consolas, monospace;
 
-  /* The names the shared switch stylesheet reads. */
-  --font-mono: var(--noeis-font-mono);
-  --text-primary: var(--noeis-ink);
-  --text-muted: var(--noeis-ink-subtle);
-  --border-subtle: var(--noeis-rule);
-  --paper: var(--noeis-paper);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -140,6 +134,24 @@ input {
   color: var(--noeis-ink-subtle);
   font-size: 12px;
 }
+
+/* Where the piece goes, said as one sentence, as in the Library: the phrase
+   is the control. Holding Shift says the other place, and saves there. */
+.route { margin: 4px 0 12px; color: var(--noeis-ink-muted); }
+
+.choice {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--noeis-ink);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--noeis-rule-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.choice:hover { text-decoration-color: var(--noeis-ink-subtle); }
 
 .primary {
   width: 100%;

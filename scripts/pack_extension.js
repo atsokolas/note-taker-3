@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 /* Packs the Chrome extension for the Web Store.
  *
- * The manifest sits at the repository root so the save card can import the
- * app's placement rules without a build step. That makes zipping the folder
- * dangerous: it would ship the server, the docs and anything else lying
- * there. This copies exactly the files the extension runs into
+ * The manifest sits at the repository root, beside the server, the docs and
+ * anything else lying there, so zipping the folder would ship all of it. This copies exactly the files the extension runs into
  * dist/extension, and zips that. scripts/extension_smoke.js loads the result
  * in Chromium, so a file missing from this list fails CI, not a reader. */
 const fs = require('fs');
@@ -20,18 +18,12 @@ const FILES = [
   'popup.html',
   'popup.css',
   'popup.js',
-  'save-card-switch.js',
   'margin.js',
   'Readability.js',
   'images/icon-16.png',
   'images/icon-32.png',
   'images/icon-48.png',
-  'images/icon-128.png',
-  // The placement switch's rules and looks, shared with the app.
-  'note-taker-ui/src/pages/placementSwitchModel.js',
-  'note-taker-ui/src/pages/placementModel.js',
-  'note-taker-ui/src/utils/timeWord.js',
-  'note-taker-ui/src/styles/placement-switch.css'
+  'images/icon-128.png'
 ];
 
 const pack = () => {
