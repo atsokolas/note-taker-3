@@ -69,7 +69,8 @@ export default function WorkNeedsYou({ needs, notes, folders, today, onSort, onA
 // Nothing is stored: today's meetings, one thing and lines are read whether done or not, so the sentence keeps its shape all day.
 export function morning(items, needs, today, clock) {
   const todays = items.filter(item => item.plannedOn === today);
-  const one = items.find(item => item.oneThingOn === today && ['task', 'question'].includes(item.kind));
+  // An open one thing wins over one already done today, so choosing a second after the first names the second.
+  const one = needs.oneThing || items.find(item => item.oneThingOn === today && item.completed && ['task', 'question'].includes(item.kind));
   const lines = todays.filter(item => ['task', 'question'].includes(item.kind) && item !== one);
   const owed = [...needs.waiting].sort((a, b) => sortedSince(a).localeCompare(sortedSince(b)))[0], owedDays = owed ? daysBetween(sortedSince(owed), today) : 0;
   const lower = text => text.charAt(0).toLowerCase() + text.slice(1);

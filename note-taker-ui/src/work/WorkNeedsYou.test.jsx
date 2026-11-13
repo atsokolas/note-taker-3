@@ -57,6 +57,8 @@ test('the morning sentence says the day and crosses out each part as it is done'
     { text: 'Your one thing: draft the risk section.', done: true }, { text: 'One more line is planned.', done: false },
     { text: 'Priya has owed you the data room login for 9 days.' }, { text: '2 lines from your notes need a place.' },
     { text: 'Pricing has gone quiet.' }, { text: 'It’s Friday: read the week back.' }]);
+  const next = { kind: 'task', title: 'Call the auditor', plannedOn: '2026-11-13', oneThingOn: '2026-11-13' };
+  expect(morning([...items, next], { ...needs, oneThing: next }, '2026-11-13', '11:00')).toContainEqual({ text: 'Your one thing: call the auditor.', done: undefined });
   expect(morning([], { waiting: [], fresh: [], silent: [] }, '2026-11-12', '09:00')).toEqual([{ text: 'A clear day, and nothing needs you.' }]);
 });
 
