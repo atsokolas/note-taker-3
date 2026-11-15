@@ -24,7 +24,7 @@ test('settling again says it is a revision, and a note without quotes says so', 
   await settleIntoWiki('notebook', 'note-1', status);
   expect(status.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
     title: '“Why moats erode” revised in Wiki',
-    summary: 'A new revision; the earlier words stay in the page history. No quoted passages to cite.'
+    summary: 'Updated. The old version is in the page’s history. No quoted passages to cite.'
   }));
 });
 

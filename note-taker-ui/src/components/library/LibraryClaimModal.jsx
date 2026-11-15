@@ -46,7 +46,7 @@ const LibraryClaimModal = ({ open, highlight, onClose, onCreate }) => {
     try {
       await onCreate({ claim: sentence, resolutionCriteria: criteria.trim(), highlight });
     } catch (holdError) {
-      setError(holdError?.response?.data?.error || 'That claim did not save.');
+      setError(holdError?.response?.data?.error || 'That view didn’t save. Try again.');
       setSaving(false);
     }
   };
@@ -95,7 +95,7 @@ const LibraryClaimModal = ({ open, highlight, onClose, onCreate }) => {
           />
           {/* The reason this field is worth filling, said once. */}
           <small className="muted">
-            Noeis watches your reading for it.
+            Name it and Noeis watches your reading for it.
           </small>
         </label>
 

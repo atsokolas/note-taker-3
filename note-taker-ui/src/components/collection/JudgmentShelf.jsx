@@ -28,7 +28,7 @@ const JudgmentShelf = ({ items = [], activeId = '', setAsideView = false }) => {
         {place('/judgment', 'Views', onIndex && !setAsideView, open)}
         {place('/judgment?view=parked', 'Set aside', onIndex && setAsideView, parked)}
         {place('/judgment/mirror#record', 'Record', false)}
-        {place('/judgment/mirror', 'The Mirror', false)}
+        {place('/judgment/mirror', 'Your track record', false)}
       </RoomShelfList>
     </RoomShelf>
   );

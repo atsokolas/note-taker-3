@@ -6,7 +6,7 @@ import { AGENT_DISPLAY_NAME, SPECIALIST_AGENT_LABEL, USER_BRIDGE_LABEL } from '.
 const CAPABILITY_LABELS = {
   sharedSkills: 'Shared skills',
   sharedThreads: 'Shared threads',
-  sharedArtifactDrafts: 'Shared artifact drafts',
+  sharedArtifactDrafts: 'Shared drafts',
   protocolHandoffs: 'Protocol handoffs',
   projectSearch: 'Project search',
   projectRead: 'Project read',

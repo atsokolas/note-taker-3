@@ -34,7 +34,7 @@ test('opens directly when embedded in the Wiki creation chooser', () => {
   expect(screen.queryByRole('button', { name: /create an investment dossier/i })).not.toBeInTheDocument();
   expect(screen.getByLabelText('Company ticker')).toBeInTheDocument();
   expect(screen.getByLabelText('Starting investment judgment')).toBeInTheDocument();
-  expect(screen.getByText(/enters Judgment only when you choose to track it/i)).toBeInTheDocument();
+  expect(screen.getByText(/Nothing else changes unless you track it/)).toBeInTheDocument();
 });
 
 test('creates a human-owned company dossier and opens first-head build review', async () => {

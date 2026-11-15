@@ -118,7 +118,7 @@ describe('JudgmentMirror', () => {
     expect(screen.queryByText(/Verdict record/)).not.toBeInTheDocument();
     expect(screen.queryByText(/counter-evidence/)).not.toBeInTheDocument();
     expect(screen.queryByText('—')).not.toBeInTheDocument();
-    expect(screen.getByText('No verdicts yet. The Mirror is allowed to be empty.')).toBeInTheDocument();
+    expect(screen.getByText('Nothing has been checked yet.')).toBeInTheDocument();
   });
 
   it('keeps calibration silent until there are enough outcomes, and never ranks', async () => {

@@ -155,7 +155,7 @@ test('unknown Continue outcome rejects replacement intents until the original re
     return { data: children.get(payload.operationId) };
   });
   await expect(session.continueFrom(note(), 'first')).rejects.toThrow('lost reply');
-  await expect(session.continueFrom(note({ _id: 'other' }), 'replacement')).rejects.toThrow(/recover/i);
+  await expect(session.continueFrom(note({ _id: 'other' }), 'replacement')).rejects.toThrow(/Finish the last “Continue” first/);
   expect(session.continuation().operationId).toBe('first');
   await session.continueFrom(session.continuation().source, 'first'); expect(children.size).toBe(1);
 });

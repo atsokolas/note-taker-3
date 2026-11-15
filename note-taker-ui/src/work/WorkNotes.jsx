@@ -346,7 +346,7 @@ export default function WorkNotes() {
   const signIn = session.authNeeded() ? <button onClick={() => { window.clearTimeout(timer.current); setNotice(''); setReauthenticate(true); }}>Log in to sync</button> : null;
   if (reauthenticate || locked || !session.isCurrent()) return <main className="work-locked">
     <h1>{locked || !session.isCurrent() ? 'Account changed' : 'Log in to sync'}</h1>
-    <p>{session.canLeave() ? (session.pending().length ? 'Your writing is on this device. Log back in to pick up where you were.' : 'Log back in to pick up where you were.') : 'You were logged out. Your writing is still on this page. Log back in to save it.'}</p>
+    <p>{session.canLeave() ? (session.pending().length ? 'Your writing is on this device. Log back in to pick up where you were.' : 'Log back in to pick up where you were.') : 'You were logged out. Your latest writing is only on this page, not saved on this device. Keep it open and log back in to save it.'}</p>
     {reauthenticate ? <Login recovery onLoginSuccess={() => {
       if (resumeWorkSession(session, localStorage.getItem('token') || '')) { setLocked(false); setReauthenticate(false); setNotice(''); session.load(); }
       else setNotice('That’s a different account. Log in to the one you started with to save this writing.');

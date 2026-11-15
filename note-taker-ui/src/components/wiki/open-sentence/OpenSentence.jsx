@@ -393,7 +393,7 @@ const ApplicationJudgment = ({
             label="A narrower definition"
             value={narrowerDraft}
             onChange={setNarrowerDraft}
-            placeholder="Keep the name. Change only the words that failed here."
+            placeholder="Change only the words that didn’t fit here"
           />
           {spans.some((span) => span.changed) ? (
             <p className="open-sentence-pocket__diff" aria-label="Changed words">
@@ -574,7 +574,7 @@ const DistinctionField = ({
         label="The distinction that would help"
         value={exploration.distinction || ''}
         onChange={(value) => onCommit(setDistinction(exploration, value))}
-        placeholder="Name the fork. Do not close the question."
+        placeholder="The two ways this could go"
       />
       {dated ? (
         <p className="open-sentence-pocket__qualification">{dated}</p>
@@ -616,7 +616,7 @@ const DistinctionField = ({
               label="Name this instrument"
               value={pending.name}
               onChange={nameInstrument}
-              placeholder="Name the instrument. Do not generate a definition."
+              placeholder="Name it"
               rows={1}
             />
           )}
@@ -815,7 +815,7 @@ const PressureBody = ({ pocketId, exploration, onCommit }) => {
         id={`${pocketId}-premise`}
         label="For this experiment"
         field="premise"
-        placeholder="Name the change. Do not invent a chain."
+        placeholder="What changes?"
         exploration={exploration}
         onCommit={onCommit}
       />

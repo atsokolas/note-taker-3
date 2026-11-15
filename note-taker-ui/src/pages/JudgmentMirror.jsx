@@ -135,7 +135,7 @@ const JudgmentMirror = () => {
         const next = await getJudgmentMirror({ stat });
         if (!cancelled) setMirror(next);
       } catch (_loadError) {
-        if (!cancelled) setError('The Mirror could not be read.');
+        if (!cancelled) setError('Couldn’t load your track record. Try again.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -249,7 +249,7 @@ const JudgmentMirror = () => {
                 <time>{date(verdict.recordedAt)}</time>
               </article>
             )) : (
-              <p className="judgment-mirror__silence">No verdicts yet. The Mirror is allowed to be empty.</p>
+              <p className="judgment-mirror__silence">Nothing has been checked yet.</p>
             )}
           </section>
 

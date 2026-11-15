@@ -24,14 +24,14 @@ export const authorLine = (author, pieces) => {
 const LibrarySourceTrace = ({ source, loading = false, error = '' }) => {
   if (loading) {
     return (
-      <section className="library-source-trace" aria-label="Source record" aria-live="polite" data-testid="library-source-trace">
+      <section className="library-source-trace" aria-label="Details" aria-live="polite" data-testid="library-source-trace">
         <p className="library-source-trace__status">Finding where you’ve used it…</p>
       </section>
     );
   }
   if (!source || typeof source !== 'object') {
     return error ? (
-      <section className="library-source-trace" aria-label="Source record" aria-live="polite" data-testid="library-source-trace">
+      <section className="library-source-trace" aria-label="Details" aria-live="polite" data-testid="library-source-trace">
         <p className="library-source-trace__status">Couldn’t load where you’ve used it.</p>
       </section>
     ) : null;

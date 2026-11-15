@@ -1159,7 +1159,7 @@ const WikiWorkspace = () => {
   const showQaFixtureControls = process.env.NODE_ENV !== 'production' && Boolean(qaMode);
 
   const createQaSourceFixture = useCallback(async () => {
-    setQaFixtureState({ status: 'loading', message: 'Creating seeded Library source provenance fixture...' });
+    setQaFixtureState({ status: 'loading', message: 'Creating a sample Library article…' });
     try {
       const result = await createLibrarySourceProvenanceFixture();
       const fixture = result?.fixture || {};

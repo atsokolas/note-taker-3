@@ -242,7 +242,7 @@ test('a finished book is written up in your wiki, and after that it is written u
   fireEvent.click(screen.getByRole('button', { name: 'Write it up in your wiki' }));
   expect(await screen.findByRole('link', { name: 'Middlemarch' })).toHaveAttribute('href', '/wiki/read/w9');
   expect(settleIntoWiki).toHaveBeenCalledWith('books', 'b2');
-  expect(screen.getByText(/Settled in Wiki/)).toBeInTheDocument();
+  expect(screen.getByText(/In your Wiki/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Write it up again' })).toBeInTheDocument();
 });
 

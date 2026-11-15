@@ -228,7 +228,7 @@ const linkReason = (link = {}) => {
   if (link.relationType === 'supports') return 'The knowledge graph says one page supports the other.';
   if (link.relationType === 'contradicts') return 'The knowledge graph says these pages are in tension.';
   if (link.relationType === 'extends') return 'The knowledge graph says one page extends the other.';
-  return 'The page health or graph metadata marks these pages as related.';
+  return 'These pages share sources or link to each other.';
 };
 
 const endpointId = (endpoint) => (

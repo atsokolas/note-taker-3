@@ -31,7 +31,7 @@ const open = async () => {
 const reauthenticate = async () => {
   const refresh = deferred(); api.get.mockReturnValueOnce(refresh.promise);
   localStorage.setItem('token', token('other')); fireEvent(window, new StorageEvent('storage', { key: 'token' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Log in to the original account' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in to that account' }));
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-password' } });
   fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
@@ -64,7 +64,7 @@ test('typing before deferred refresh retains its old base and conflicts instead 
   server = { ...remote }; await act(async () => refresh.resolve({ data: { entries: [server], items: [], folders: [] } }));
   expect(writing).toHaveTextContent('Local Cached words'); expect(writing.editor.state.selection.from).toBe(selection);
   fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
-  await screen.findByText('Both versions are kept. Your version remains in the editor.');
+  await screen.findByText('This note was changed somewhere else. Both versions are kept.');
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveTextContent('Local Cached words');
   expect(server.content).toBe(remote.content); expect(api.put.mock.calls[0][1].expectedRevision).toBe(2);
 });

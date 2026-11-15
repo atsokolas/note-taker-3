@@ -20,7 +20,7 @@ describe('JudgmentShelf', () => {
     expect(screen.getByRole('link', { name: 'Views 1' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Set aside 1' })).toHaveAttribute('href', '/judgment?view=parked');
     expect(screen.getByRole('link', { name: 'Record' })).toHaveAttribute('href', '/judgment/mirror#record');
-    expect(screen.getByRole('link', { name: 'The Mirror' })).toHaveAttribute('href', '/judgment/mirror');
+    expect(screen.getByRole('link', { name: 'Your track record' })).toHaveAttribute('href', '/judgment/mirror');
     expect(screen.queryByText(/μνήμη/)).not.toBeInTheDocument();
     expect(screen.queryByText('Compute')).not.toBeInTheDocument();
     expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();

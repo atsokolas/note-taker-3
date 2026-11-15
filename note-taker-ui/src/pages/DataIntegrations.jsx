@@ -3015,7 +3015,7 @@ const DataIntegrations = () => {
             />
           )}
           {notionConnection?.lastSyncAt ? (
-            <p className="muted small">Where it lands: Library search, Think retrieval, and Morning Paper source maintenance.</p>
+            <p className="muted small">They show up in Library search, in Think and in your Morning Paper.</p>
           ) : null}
           <div className="import-callout">
             <p className="muted-label">Live flow</p>

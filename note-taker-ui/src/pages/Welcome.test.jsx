@@ -86,7 +86,7 @@ describe('Welcome', () => {
 
   it('opens on what Noeis builds, and goes on to your reading', async () => {
     renderAt('');
-    expect(screen.getByRole('heading', { name: 'Noeis writes a wiki from what you read.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Start with what you’ve already read.' })).toBeInTheDocument();
     expect(screen.getByRole('article', { name: 'An example page' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Start from my reading' }));
     expect(where()).toBe('step=reading');

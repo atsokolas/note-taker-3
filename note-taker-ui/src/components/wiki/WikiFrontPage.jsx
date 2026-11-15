@@ -175,7 +175,7 @@ export const ArguesWithYou = ({ reading, onSettled }) => {
   return (
     <section className="wiki-collection__argues" aria-label="Your reading argues with you">
       {filed ? (
-        <p role="status">Filed against your view that {viewLink}.</p>
+        <p role="status">Added against your view that {viewLink}.</p>
       ) : (
         <>
           <p>

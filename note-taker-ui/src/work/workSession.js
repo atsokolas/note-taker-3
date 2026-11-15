@@ -55,7 +55,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
   };
   const continuation = () => {
     try { receipts.read().forEach(pending => continuations.set(pending.operationId, continuations.get(pending.operationId) || pending)); }
-    catch (_) { loadError = 'The earlier continuation receipt could not be read.'; }
+    catch (_) { loadError = 'Your last “Continue” couldn’t be read.'; }
     return continuations.values().next().value || null;
   };
   const forgetContinuation = pending => { receipts.remove(pending); continuations.delete(pending.operationId); };

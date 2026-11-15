@@ -891,7 +891,7 @@ const WikiConnectionTraces = ({ pageId }) => {
     <section
       ref={traceRef}
       className="wiki-read__infobox wiki-read__connections"
-      aria-label="Graph traces"
+      aria-label="Connections"
       tabIndex="-1"
     >
       <h2>Connections</h2>
