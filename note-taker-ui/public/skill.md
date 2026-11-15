@@ -7,6 +7,18 @@ contains no account identity, credential, or private workspace content. Public
 capabilities are also available at
 `https://www.noeis.io/.well-known/noeis-agent.json`.
 
+## Quick start
+
+```bash
+npm install -g @noeis/noeis-cli
+noeis connect claude-code --scope read   # or codex, hermes, openclaw, opencode
+```
+
+Approve in the browser, reload the runtime, call `connection_info`. Then ask
+`recall` in plain words ("what have I written about hiring?") and open any hit
+with `read`. Twelve core tools are listed; add more with
+`noeis mcp --toolsets=wiki,library,think,editions` or `all`.
+
 ## Finish line
 
 Connect and verify the intended runtime, workspace, and exact grant. Then stop.

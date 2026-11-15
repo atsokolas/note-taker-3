@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-import { SEARCH_KINDS } from '../client.js';
-
 const pageTypes = ['topic', 'concept', 'entity', 'source', 'question', 'comparison', 'overview', 'project', 'log'];
 const statuses = ['draft', 'published', 'archived'];
 const visibilities = ['private', 'shared'];
@@ -19,14 +17,21 @@ export const readTools = [
     handler: (client) => client.getConnectionInfo()
   },
   {
-    name: 'search_noeis',
-    description: 'Search the reader\'s whole Noeis workspace at once: Wiki pages, Library highlights and saved articles, and filed Editions. Start here when you do not know where something lives. Returns titles, snippets, ids and links; open a hit with the tool named in its `open` field. Read-only. A surface that could not answer is listed under `unavailable` rather than reported as empty.',
+    name: 'recall',
+    description: 'Ask everything the reader keeps: saved articles and their highlights with margin notes, Think notes, concepts, the views they hold, wiki pages and filed Editions. Ask in plain words, the way you would ask the reader; results are the passages that answer it, best first, each with its source id and a link. Start here for any question about what the reader has read, written or believes. Open a hit with the tool in its `open` field. Nothing returned means nothing they keep bears on it.',
     inputSchema: {
-      query: z.string().trim().min(1).max(200).describe('What to look for, in plain words.'),
-      kinds: z.array(z.enum(SEARCH_KINDS)).min(1).optional().describe('Narrow to wiki, library or editions. Defaults to all three.'),
-      limit: z.number().int().min(1).max(25).optional().default(5).describe('Most hits per surface.')
+      query: z.string().trim().min(1).max(500).describe('The question, in plain words.'),
+      limit: z.number().int().min(1).max(25).optional().default(8).describe('Most passages to return.')
     },
-    handler: (client, args) => client.searchNoeis(args)
+    handler: (client, args) => client.recall(args)
+  },
+  {
+    name: 'read',
+    description: 'Read one thing recall found, in full: an article with all its highlights and margin notes, a Think note, or a wiki page. Pass the `id` of a recall hit.',
+    inputSchema: {
+      id: z.string().min(1).describe('The id of a recall hit.')
+    },
+    handler: (client, args) => client.read(args)
   },
   {
     name: 'list_edition_profiles',

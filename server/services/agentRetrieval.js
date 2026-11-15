@@ -110,6 +110,12 @@ const noteUnits = note => passagesOf(
   key: `p${index}`, text, type: 'notebook', id: String(note._id), title: note.title || 'Note', updatedAt: note.updatedAt
 }));
 
+// A wiki page the reader keeps, passage by passage. Outside agents ask about
+// the wiki as often as the library, so recall can search it whole.
+const pageUnits = page => passagesOf(page.title, page.plainText).map((text, index) => ({
+  key: `p${index}`, text, type: 'wiki_page', id: String(page._id), title: page.title || 'Wiki page', updatedAt: page.updatedAt
+}));
+
 const conceptUnits = concept => [{
   key: 'd', text: concept.description || concept.name, type: 'concept', id: String(concept._id), title: concept.name, updatedAt: concept.updatedAt
 }];
@@ -210,6 +216,7 @@ const retrievePassages = async ({
   articleFilter = null,
   includeNotes = true,
   includeViews = includeNotes,
+  includePages = false,
   // The model's own searches are short and it judges what comes back, so
   // half the words of a query are enough to bring a passage back to it.
   forModel = false,
@@ -228,7 +235,7 @@ const retrievePassages = async ({
   const articleScope = { userId, ...(articleFilter || {}) };
   const articleFields = '_id title content highlights updatedAt';
   const noteFields = '_id title content blocks updatedAt';
-  const [articles, notes, concepts, views, corpusSize] = await Promise.all([
+  const [articles, notes, concepts, views, pages, corpusSize] = await Promise.all([
     findCandidates(Article, { userId, terms, filter: articleFilter || {}, fields: articleFields }),
     includeNotes ? findCandidates(NotebookEntry, { userId, terms, fields: noteFields }) : [],
     includeNotes ? findCandidates(TagMeta, { userId, terms, fields: '_id name description updatedAt' }) : [],
@@ -237,10 +244,14 @@ const retrievePassages = async ({
       ? WikiPage.find({ userId, 'judgment.currentJudgment': { $nin: ['', null] }, 'judgment.status': { $nin: ['closed', 'archived'] }, status: { $ne: 'archived' } })
         .select(VIEW_FIELDS).limit(200).lean()
       : [],
+    includePages && WikiPage
+      ? findCandidates(WikiPage, { userId, terms, filter: { status: { $ne: 'archived' } }, fields: '_id title plainText updatedAt' })
+      : [],
     Promise.all([
       Article.countDocuments(articleScope),
       includeNotes ? NotebookEntry.countDocuments({ userId }) : 0,
-      includeNotes ? TagMeta.countDocuments({ userId }) : 0
+      includeNotes ? TagMeta.countDocuments({ userId }) : 0,
+      includePages && WikiPage ? WikiPage.countDocuments({ userId, status: { $ne: 'archived' } }) : 0
     ]).then(counts => counts.reduce((sum, count) => sum + count, 0))
   ]);
 
@@ -259,12 +270,13 @@ const retrievePassages = async ({
   ]);
 
   // The source in hand is already in the conversation; retrieval looks past it.
-  const pooled = [...articles, ...semanticArticles, ...notes, ...semanticNotes, ...concepts, ...views];
+  const pooled = [...articles, ...semanticArticles, ...notes, ...semanticNotes, ...concepts, ...views, ...pages];
   const candidates = [
     ...[...articles, ...semanticArticles].flatMap(articleUnits),
     ...[...notes, ...semanticNotes].flatMap(noteUnits),
     ...concepts.flatMap(conceptUnits),
-    ...views.flatMap(viewUnits)
+    ...views.flatMap(viewUnits),
+    ...pages.flatMap(pageUnits)
   ].filter(unit => unit.id !== String(excludeId || ''));
   // Sources outside the pool share no word with the question; they still
   // count toward how rare each word is.
@@ -405,4 +417,4 @@ const readStandingContext = async ({ userId, models: { Article, WikiPage = null 
   };
 };
 
-module.exports = { retrievePassages, touches, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };
+module.exports = { retrievePassages, touches, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits, pageUnits } };

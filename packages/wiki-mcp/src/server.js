@@ -12,6 +12,7 @@ import { writeTools } from './tools/write.js';
 import chatgptAccessPolicy from './chatgptAccessPolicy.cjs';
 const { CHATGPT_ACCESS_PROFILE, isChatgptToolAllowed } = chatgptAccessPolicy;
 import { renderWikiSchemaPrompt, wikiSchemaPrompt } from './prompts/wiki_schema.js';
+import { listedTools, parseToolsets } from './toolsets.js';
 
 // Report the published package version, so a client can tell which release it reached.
 const { version: packageVersion } = createRequire(import.meta.url)('../package.json');
@@ -116,8 +117,26 @@ const errorContent = (error) => ({
   ]
 });
 
-export const createMcpServer = ({ client, token, apiUrl, appUrl, grantedScopes, accessProfile, resourceMetadataUrl } = {}) => {
+const WORK_LOOKUP_MS = 3000;
+
+/* Work tools are listed for a connection approved for Work. The hosted
+   endpoint knows the grant; a local server asks once, briefly, and lists
+   without them if the API is slow to answer. */
+const grantsWork = (client, grantedScopes) => {
+  if (grantedScopes) return Promise.resolve(grantedScopes.includes('work'));
+  let timer;
+  const timeout = new Promise(resolve => { timer = setTimeout(() => resolve(false), WORK_LOOKUP_MS); });
+  const asked = Promise.resolve()
+    .then(() => client.getConnectionInfo())
+    .then(info => (info?.grant?.scopes || []).includes('work'))
+    .catch(() => false);
+  return Promise.race([asked, timeout]).finally(() => clearTimeout(timer));
+};
+
+export const createMcpServer = ({ client, token, apiUrl, appUrl, grantedScopes, accessProfile, resourceMetadataUrl, toolsets = process.env.NOEIS_TOOLSETS } = {}) => {
   const resolvedClient = client || new NoeisClient({ token, apiUrl, appUrl });
+  const requestedSets = parseToolsets(toolsets);
+  let listing;
   // Bound validation work before Zod expands untrusted arrays and records.
   const server = new McpServer(SERVER_INFO, { maxToolInputElements: 10_000 });
 
@@ -164,8 +183,18 @@ export const createMcpServer = ({ client, token, apiUrl, appUrl, grantedScopes, 
 
   // SDK 1.29 retains OAuth schemes only inside _meta. Publish both placements
   // required by the host, while keeping SDK validation and dispatch unchanged.
+  // ChatGPT keeps its reviewed list whole; everyone else sees the toolsets asked for.
+  const listable = () => {
+    if (accessProfile === CHATGPT_ACCESS_PROFILE) return Promise.resolve(exposedTools);
+    listing ||= (requestedSets.has('work') || requestedSets.has('all')
+      ? Promise.resolve(requestedSets)
+      : grantsWork(resolvedClient, grantedScopes).then(work => (work ? new Set([...requestedSets, 'work']) : requestedSets))
+    ).then(sets => listedTools(exposedTools, sets));
+    return listing;
+  };
+
   server.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: exposedTools.map(tool => {
+    tools: (await listable()).map(tool => {
       const metadata = toolMetadata(tool, accessProfile);
       return {
         name: tool.name,
@@ -188,7 +217,8 @@ const printHelp = () => {
   process.stdout.write(`Environment:\n`);
   process.stdout.write(`  NOEIS_TOKEN       Agent token from Noeis Settings -> Connected agents\n`);
   process.stdout.write(`  NOEIS_API_URL     Optional API URL, defaults to ${DEFAULT_API_URL}\n`);
-  process.stdout.write(`  NOEIS_CONFIG_DIR  Optional config directory, defaults to ~/.config/noeis\n\n`);
+  process.stdout.write(`  NOEIS_CONFIG_DIR  Optional config directory, defaults to ~/.config/noeis\n`);
+  process.stdout.write(`  NOEIS_TOOLSETS    Tools to list besides core: library, think, wiki, editions, work, all\n\n`);
   process.stdout.write(`Without NOEIS_TOKEN, both are read from ${resolveConfigPath()},\n`);
   process.stdout.write(`which \`noeis login --token ntk_at_...\` writes.\n\n`);
 };
@@ -198,7 +228,8 @@ export const main = async (argv = []) => {
     printHelp();
     return;
   }
-  const server = createMcpServer();
+  const flag = argv.find(arg => arg.startsWith('--toolsets='));
+  const server = createMcpServer(flag ? { toolsets: flag.slice('--toolsets='.length) } : {});
   const transport = new StdioServerTransport();
   await server.connect(transport);
 };

@@ -4,7 +4,7 @@
  * existing capabilities. New routes/tools fail closed for ChatGPT. */
 const CHATGPT_ACCESS_PROFILE = 'chatgpt';
 const CHATGPT_READ_TOOLS = Object.freeze([
-  'get_profile', 'connection_info', 'list_edition_profiles', 'list_editions', 'get_edition',
+  'get_profile', 'connection_info', 'recall', 'read', 'list_edition_profiles', 'list_editions', 'get_edition',
   'list_pages', 'list_judgment_pages', 'get_page', 'get_page_markdown', 'search_pages',
   'get_schema', 'get_briefing', 'list_sources', 'list_backlinks', 'list_activity',
   'list_revisions', 'list_source_events', 'get_ingest_run', 'list_proposals',
@@ -19,6 +19,7 @@ const CHATGPT_WRITE_TOOLS = Object.freeze([
 const tools = new Set([...CHATGPT_READ_TOOLS, ...CHATGPT_WRITE_TOOLS]);
 const readPaths = [
   /^\/api\/agent-connection$/,
+  /^\/api\/recall(?:\/read\/[^/]+)?$/,
   /^\/api\/(?:articles|folders|highlights|questions|concepts|notebook|edition-profiles|editions)$/,
   /^\/articles\/[^/]+$/,
   /^\/api\/articles\/[^/]+\/highlights$/,

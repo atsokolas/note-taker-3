@@ -65,6 +65,7 @@ const snippetAroundQuery = (text, query, { limit = SNIPPET_LIMIT } = {}) => {
 
 module.exports = {
   SNIPPET_LIMIT,
+  escapeRegExp,
   cleanText,
   queryTokens,
   highlightFieldMatch,
