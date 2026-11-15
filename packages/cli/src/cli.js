@@ -339,7 +339,7 @@ const firstLine = text => String(text).trim().split('\n')[0].slice(0, 80);
 
 const printRecall = ({ results = [] }, io) => {
   if (!results.length) io.stdout.write('Nothing of yours bears on that.\n');
-  results.forEach(hit => io.stdout.write(`${hit.kind}\t${hit.id}\t${hit.title || 'Untitled'}\n    ${String(hit.passage || '').replace(/\s+/g, ' ').slice(0, 200)}\n`));
+  results.forEach(hit => io.stdout.write(`${hit.kind}\t${hit.id}\t${hit.title || 'Untitled'}${hit.pencil ? `\t(in pencil: ${hit.pencil})` : ''}\n    ${String(hit.passage || '').replace(/\s+/g, ' ').slice(0, 200)}\n`));
 };
 
 const runLogin = async (args, context) => {

@@ -113,6 +113,10 @@ const run = async () => {
     const mcp = new Client({ name: 'recall-test', version: '0.0.0' });
     await mcp.connect(clientSide);
 
+    /* Every agent is told, on connecting, to recall first and never to pass pencil off as the reader's. */
+    assert.match(mcp.getInstructions(), /call recall/);
+    assert.match(mcp.getInstructions(), /pencil[\s\S]*Never present it as the reader's own view/);
+
     const { tools } = await mcp.listTools();
     for (const name of ['recall', 'read']) {
       const tool = tools.find(entry => entry.name === name);

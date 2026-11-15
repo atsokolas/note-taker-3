@@ -80,3 +80,7 @@ a:hover {
 .add-to-project-menu button[aria-current] { background: color-mix(in srgb, var(--noeis-ink) 5%, transparent); }
 .add-to-project-menu small, .add-to-project-empty { font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 .add-to-project-empty { padding: 6px 14px; }
+
+/* Pencil: what an agent wrote, before the reader takes it up. */
+.pencil-line { display: flex; align-items: baseline; gap: 12px; margin: 0 0 14px; color: var(--text-secondary); font: italic 0.88rem/1.4 var(--font-serif); }
+.pencil-line button { padding: 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--text-primary); font: normal 0.78rem var(--font-sans); cursor: pointer; }

@@ -11,6 +11,7 @@ const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { recordSourceCorrection } = require('../services/authoredSourceCorrection');
 const { absorbPassage } = require('../utils/passages');
+const { pencilOf } = require('../services/agentTokenService');
 const { marksOfReading } = require('../services/closedBooks');
 
 const buildHighlightMutationRouter = ({
@@ -118,15 +119,10 @@ const buildHighlightMutationRouter = ({
           highlight: serializeHighlightWithArticle(article, held, { includeAnchor: true, normalizeItemType })
         });
       }
-      article.highlights.push(buildHighlightDocument({
-        text: typed,
-        note: thought,
-        tags,
-        color,
-        anchor,
-        page,
-        normalizeTags
-      }));
+      article.highlights.push({
+        ...buildHighlightDocument({ text: typed, note: thought, tags, color, anchor, page, normalizeTags }),
+        pencil: pencilOf(req)
+      });
       const updatedArticle = await article.save();
 
       const createdHighlight = updatedArticle.highlights?.[updatedArticle.highlights.length - 1];

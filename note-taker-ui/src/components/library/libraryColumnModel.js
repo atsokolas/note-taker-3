@@ -1,6 +1,14 @@
 import { humanizeLabel } from '../../utils/humanizeLabel';
 import { normalizeSpaces } from '../../utils/editorialText';
 
+/* The shelves beside All sources, by the name the reader sees. */
+export const SHELVES = [
+  ['set-aside', 'On the desk'],
+  ['later', 'Nightstand'],
+  ['kept', 'Keepers'],
+  ['pencil', 'Read by agents']
+];
+
 /** The publication, as a person would name it: "SemiAnalysis", not a hostname. */
 export const sourceLabel = (article) => {
   const explicit = normalizeSpaces(article?.source || article?.publication || article?.publisher || article?.siteName);

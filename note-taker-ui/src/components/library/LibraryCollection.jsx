@@ -14,7 +14,7 @@ import {
 import LibrarySourcePeek, { sourcePassage } from './LibrarySourcePeek';
 import { LibraryMenu } from './LibraryActions';
 import { EmptyState, PageHeader } from '../ui';
-import { sourceLabel } from './libraryColumnModel';
+import { SHELVES, sourceLabel } from './libraryColumnModel';
 import {
   buildEvergreenIndex,
   evergreenHref,
@@ -25,13 +25,13 @@ import { beginArticleDrag } from '../../pages/dragGrammar';
 import { useFinePointer } from '../../hooks/useMotionPreferences';
 import { sourceTitle } from '../../utils/sourceDisplayText';
 import { hasWaitedLong, tonightFrom } from './nightstand';
+import Pencil from '../pencil/Pencil';
+import { inkPencil } from '../../api/pencil';
 
 const LABELS = {
   all: 'Library',
   unfiled: 'Unfiled',
-  later: 'Nightstand',
-  'set-aside': 'On the desk',
-  kept: 'Keepers'
+  ...Object.fromEntries(SHELVES)
 };
 const MATCH_LABELS = {
   title: 'In the title',
@@ -313,6 +313,16 @@ export default function LibraryCollection({
     </>
   ) : null;
   const keep = row => onPlace(row._id, 'later');
+  /* Inked, it is yours: off the agents' shelf, and plain everywhere else. */
+  const ink = async (row) => {
+    await inkPencil({ kind: 'article', id: row._id });
+    setState(current => ({
+      ...current,
+      items: scope === 'pencil'
+        ? current.items.filter(item => item._id !== row._id)
+        : current.items.map(item => (item._id === row._id ? { ...item, pencil: null } : item))
+    }));
+  };
   const letGoOf = async (row) => {
     await onPlace(row._id, 'stream');
     setReleased(row);
@@ -463,6 +473,7 @@ export default function LibraryCollection({
                     {row.placementReason && row.placement !== 'stream' ? (
                       <p className="library-source-why">{row.placementReason}</p>
                     ) : null}
+                    <Pencil pencil={row.pencil} verb="saved this" onInk={() => ink(row)} />
                     {waitedLong ? (
                       <p className="library-still">
                         Still want this?{' '}

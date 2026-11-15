@@ -11,6 +11,8 @@ import { getHighlights } from '../api/highlights';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
 import NotebookCuttings from '../components/think/notebook/NotebookCuttings';
 import NoteStage from '../components/think/notebook/NoteStage';
+import Pencil from '../components/pencil/Pencil';
+import { inkPencil } from '../api/pencil';
 import { movedBoard, stageChange, stageOf } from '../components/think/notebook/notebookStages';
 import ThinkEntryEditor from '../components/think/ThinkEntryEditor';
 import ThinkBar from '../components/think/ThinkBar';
@@ -341,6 +343,14 @@ const ThinkNotes = () => {
   };
 
   /* Moving a piece lands at once and is put back if the server refuses it. */
+  const inkNote = async (id) => {
+    await inkPencil({ kind: 'note', id });
+    const inked = item => (String(item?._id) === String(id) ? { ...item, pencil: null } : item);
+    setNotes(current => current.map(inked));
+    setEntry(inked);
+    clearNotebookCache();
+  };
+
   const moveStage = async (id, stage, became) => {
     const note = notes.find(item => String(item?._id) === String(id));
     const before = note?.board || null;
@@ -590,7 +600,10 @@ const ThinkNotes = () => {
             <NotebookEditor
               entry={entry}
               stage={stageOf(entry.board)}
-              stageControl={<NoteStage board={entry.board} onMove={(stage, became) => moveStage(entry._id, stage, became)} />}
+              stageControl={<>
+                <Pencil pencil={entry.pencil} onInk={() => inkNote(entry._id)} />
+                <NoteStage board={entry.board} onMove={(stage, became) => moveStage(entry._id, stage, became)} />
+              </>}
               metaId="think-note-title"
               startPull={pullKey === openKey}
               saving={saving}

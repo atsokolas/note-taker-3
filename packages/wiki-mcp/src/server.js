@@ -22,6 +22,14 @@ export const SERVER_INFO = {
   version: packageVersion
 };
 
+/* What every agent is told on connecting, before it calls anything. */
+export const SERVER_INSTRUCTIONS = `This is the reader's own library in Noeis: what they read, marked and wrote, and the wiki that grows from it.
+
+- Before answering about the reader's reading, notes or views, call recall in plain words, then read the hits you use. Quote their words and give each hit's link.
+- A hit with pencil was written by an agent (it names which) and not yet taken up by the reader. Never present it as the reader's own view.
+- What you write lands in pencil, marked as yours, until the reader inks it. Write notes with create_notebook_entry, save what you read with create_article (full text when you have it), and keep a paper with file_edition_items.
+- If recall finds nothing, say the library has nothing on it rather than filling in.`;
+
 const profileTool = {
   name: 'get_profile',
   description: 'Identify the NOEIS account represented by this connection. The opaque profile id is stable across reconnects and contains no email or display name.',
@@ -138,7 +146,7 @@ export const createMcpServer = ({ client, token, apiUrl, appUrl, grantedScopes, 
   const requestedSets = parseToolsets(toolsets);
   let listing;
   // Bound validation work before Zod expands untrusted arrays and records.
-  const server = new McpServer(SERVER_INFO, { maxToolInputElements: 10_000 });
+  const server = new McpServer(SERVER_INFO, { instructions: SERVER_INSTRUCTIONS, maxToolInputElements: 10_000 });
 
   const exposedTools = accessProfile === CHATGPT_ACCESS_PROFILE
     ? toolDefinitions.filter(tool => isChatgptToolAllowed(tool.name))

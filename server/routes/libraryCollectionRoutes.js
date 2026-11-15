@@ -148,7 +148,8 @@ const buildLibraryCollectionRouter = ({
         'later',
         'set-aside',
         'kept',
-        'feed'
+        'feed',
+        'pencil'
       ].includes(scope) ||
       !['recent', 'oldest', 'title'].includes(sort) ||
       typeof query !== 'string' ||
@@ -178,6 +179,7 @@ const buildLibraryCollectionRouter = ({
       if (scope === 'later') match.placement = 'later';
       if (scope === 'set-aside') match.placement = 'setAside';
       if (scope === 'kept') match.evergreen = true;
+      if (scope === 'pencil') match.pencil = { $ne: null };
       const needle = query.replace(/\s+/g, ' ').trim();
       const ordering =
         sort === 'title'
@@ -186,7 +188,7 @@ const buildLibraryCollectionRouter = ({
               createdAt: sort === 'oldest' ? 1 : -1,
               _id: sort === 'oldest' ? 1 : -1
             };
-      const metadata = ['title', 'url', 'author', 'siteName', 'createdAt', 'folder', 'evergreen', 'placement', 'placementAt', 'placementReason'];
+      const metadata = ['title', 'url', 'author', 'siteName', 'createdAt', 'folder', 'evergreen', 'placement', 'placementAt', 'placementReason', 'pencil'];
       const metadataSelection = { ...Object.fromEntries(metadata.map((field) => [field, 1])), length: lengthProjection };
       const searchSelection = { ...metadataSelection, content: 1, highlights: 1 };
       let total, rows;
@@ -251,6 +253,7 @@ const buildLibraryCollectionRouter = ({
           placement: row.placement || 'stream',
           placementAt: row.placementAt || null,
           placementReason: row.placementReason || '',
+          pencil: row.pencil || null,
           minutes: readingMinutes(row.length),
           readingState,
           trace: personalTrace(withPlace),

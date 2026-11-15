@@ -343,7 +343,7 @@ export const writeTools = [
   },
   {
     name: 'create_article',
-    description: 'THE way an article gets into the reader\'s Library, where they open and read it. Every "save this", "add this to my library", "keep this article" is this tool — ingest_source is the wiki and leaves the Library untouched. Pass the full article text as content: without it the Library holds a title and a link, and the reader shows a highlight-only edition instead of the piece. Read the page first and send what you read; the server only falls back to fetching the URL itself when content is missing, and a paywall or a script-rendered page defeats it. The result says which of the three happened.',
+    description: 'THE way an article gets into the reader\'s Library, where they open and read it. Every "save this", "add this to my library", "keep this article" is this tool — ingest_source is the wiki and leaves the Library untouched. Pass the full article text as content: without it the Library holds a title and a link, and the reader shows a highlight-only edition instead of the piece. Read the page first and send what you read; the server only falls back to fetching the URL itself when content is missing, and a paywall or a script-rendered page defeats it. The result says which of the three happened. Save what you read for the reader as you go: it lands in pencil, on their "Read by agents" shelf, until they ink it. placement later puts it on their nightstand to read themselves.',
     inputSchema: {
       title: z.string().min(1),
       url: z.string().min(1),
@@ -351,7 +351,8 @@ export const writeTools = [
       folderId: z.string().optional(),
       author: z.string().optional(),
       publicationDate: z.string().optional(),
-      siteName: z.string().optional()
+      siteName: z.string().optional(),
+      placement: z.enum(['later']).optional().describe('later: the nightstand, for the reader to read themselves. Omit for the Library.')
     },
     handler: (client, args) => client.createArticle(args)
   },

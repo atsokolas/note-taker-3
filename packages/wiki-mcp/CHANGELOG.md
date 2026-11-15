@@ -4,6 +4,17 @@ Releases of `@noeis/wiki-mcp` on npm. The hosted endpoint at `<api>/mcp` runs
 the source in this folder and updates when the API redeploys; this file tracks
 what reaches `noeis mcp` and `noeis-wiki-mcp` through npm.
 
+## 0.5.1 (2026-11-15)
+
+### Added
+
+- The server sends `instructions` on connecting: recall before answering,
+  quote and link what you use, and never present pencil as the reader's view.
+- `recall` and `read` hits carry `pencil` (the agent that wrote them) for
+  notes, saved articles and highlights the reader has not inked.
+- `create_article` takes `placement: "later"` for the nightstand, and says
+  that what an agent saves waits on the reader's "Read by agents" shelf.
+
 ## 0.5.0 (2026-11-15)
 
 First publish since 0.4.4 (0.4.5 was numbered in the repo but never published).

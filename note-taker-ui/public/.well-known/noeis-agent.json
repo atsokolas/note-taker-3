@@ -23,12 +23,14 @@
     "humanApprovalRequired": true,
     "supportedScopes": [
       "read",
-      "agent-write"
+      "agent-write",
+      "work"
     ],
     "defaultScope": "read",
     "scopeRules": {
       "read": "Authenticated GET, HEAD, and OPTIONS requests. Reading can expose private workspace material.",
-      "agent-write": "Authenticated mutations in addition to reads. Individual product routes may impose stricter human-only or approval boundaries."
+      "agent-write": "Authenticated mutations in addition to reads. Individual product routes may impose stricter human-only or approval boundaries. Notes, saved articles and highlights an agent writes are kept in pencil, naming the connection, until the reader inks it.",
+      "work": "Work, the reader's private work notebook. Never implied by another scope; asked for by name on top of read or agent-write."
     },
     "unknownScopeBehavior": "reject"
   },
