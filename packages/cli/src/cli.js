@@ -215,10 +215,10 @@ const writeOpenClawRootConfig = ({ filePath, server }) => {
    command is printed for the person to run. */
 const addClaudeCodeServer = ({ server, env, io }) => {
   const run = command => spawnSync('claude', ['mcp', ...command], { env, encoding: 'utf8' });
+  const json = JSON.stringify({ type: 'stdio', ...server });
   run(['remove', '--scope', 'user', 'noeis-wiki']);
-  const added = run(['add-json', '--scope', 'user', 'noeis-wiki', JSON.stringify({ type: 'stdio', ...server })]);
-  if (added.status === 0) return 'Claude Code user settings (claude mcp add-json)';
-  io.stdout.write(`Could not reach the claude CLI. Run this once:\n  claude mcp add --scope user noeis-wiki -- noeis mcp\n`);
+  if (run(['add-json', '--scope', 'user', 'noeis-wiki', json]).status === 0) return 'Claude Code user settings (claude mcp add-json)';
+  io.stdout.write(`Could not reach the claude CLI. Run this once:\n  claude mcp add-json --scope user noeis-wiki '${json}'\n`);
   return [];
 };
 

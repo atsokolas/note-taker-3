@@ -348,6 +348,17 @@ const run = async () => {
   assert(grokToml.includes('[mcp_servers.noeis-wiki]') && grokToml.includes('args = ["mcp"]'));
   assert(!grokToml.includes('ntk_at_connected'));
 
+  /* Without the claude CLI, the printed command carries the same server,
+     config directory included. */
+  const noClaude = makeIo();
+  await runCli(['connect', 'claude-code', '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
+    env: { HOME: agentHome, XDG_CONFIG_HOME: path.join(agentHome, '.config'), NOEIS_CONFIG_DIR: agentHome, PATH: path.join(agentHome, 'nowhere') },
+    fetchImpl: connectFetch,
+    io: noClaude.io,
+    sleep: async () => {}
+  });
+  assert(noClaude.stdout.includes(`claude mcp add-json --scope user noeis-wiki '{"type":"stdio","command":"noeis","args":["mcp"],"env":{"NOEIS_CONFIG_DIR":${JSON.stringify(agentHome)}`));
+
   /* Claude Code is registered through its own CLI, at user scope. */
   fs.mkdirSync(path.join(agentHome, 'bin'));
   const claudeLog = path.join(agentHome, 'claude.log');
