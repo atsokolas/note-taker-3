@@ -49,7 +49,7 @@ const startApp = async ({ useRealMcp = false, appUrl = 'http://127.0.0.1:3000', 
   };
 };
 
-const request = (url, body, headers = {}) => fetch(`${url}/mcp`, {
+const request = (url, body, headers = {}, query = '') => fetch(`${url}/mcp${query}`, {
   method: 'POST',
   headers: {
     Accept: 'application/json, text/event-stream',
@@ -175,7 +175,17 @@ const run = async () => {
       method: 'tools/list',
       params: {}
     }, { Authorization: 'Bearer ntk_at_test' });
-    const tools = await responsePayload(listed);
+    const core = await responsePayload(listed);
+    assert(core.result.tools.some(tool => tool.name === 'recall'), 'recall is core');
+    assert(!core.result.tools.some(tool => tool.name === 'list_judgment_pages'), 'only core is listed by default');
+    const refused = await request(realApp.url, {
+      jsonrpc: '2.0', id: 5, method: 'tools/list', params: {}
+    }, { Authorization: 'Bearer ntk_at_test' }, '?toolsets=everything');
+    assert.strictEqual(refused.status, 400);
+    const everything = await request(realApp.url, {
+      jsonrpc: '2.0', id: 6, method: 'tools/list', params: {}
+    }, { Authorization: 'Bearer ntk_at_test' }, '?toolsets=all');
+    const tools = await responsePayload(everything);
     assert(tools.result.tools.some(tool => tool.name === 'list_pages'));
     const profile = tools.result.tools.find(tool => tool.name === 'get_profile');
     assert.deepStrictEqual(profile.securitySchemes, [{ type: 'oauth2', scopes: ['read'] }]);

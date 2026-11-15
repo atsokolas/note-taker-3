@@ -1,3 +1,4 @@
+const { escapeRegExp } = require('../utils/searchSnippet');
 const express = require('express');
 const {
   HIGHLIGHT_AGGREGATE_PROJECTION,
@@ -132,7 +133,8 @@ const buildFeedbackHighlightRouter = ({
         }
       }
       if (q) {
-        const regex = new RegExp(q, 'i');
+        // Searched as written, never as a pattern: `C++` is a word, not an error.
+        const regex = new RegExp(escapeRegExp(q), 'i');
         highlightMatch.$or = [
           { 'highlights.text': regex },
           { 'highlights.note': regex },
@@ -204,7 +206,7 @@ const buildFeedbackHighlightRouter = ({
         { $match: { 'highlights.type': 'claim' } }
       ];
       if (queryText) {
-        const regex = new RegExp(queryText, 'i');
+        const regex = new RegExp(escapeRegExp(queryText), 'i');
         pipeline.push({
           $match: {
             $or: [

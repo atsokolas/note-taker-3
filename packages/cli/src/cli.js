@@ -431,7 +431,7 @@ const runConnect = async (args, context) => {
 
 const runMcp = async (args, context) => {
   if (args.includes('--help') || args.includes('-h')) {
-    context.io.stdout.write(`Noeis MCP bridge\n\nUsage: noeis mcp\n\nReads token/API settings from NOEIS_CONFIG_DIR or ~/.config/noeis/config.json.\n`);
+    context.io.stdout.write(`Noeis MCP bridge\n\nUsage: noeis mcp [--toolsets=wiki,library,...]\n\nReads token/API settings from NOEIS_CONFIG_DIR or ~/.config/noeis/config.json.\nLists the core tools; add library, think, wiki, editions, work or all to list more.\n`);
     return;
   }
   const auth = resolveAuth(context);
@@ -446,7 +446,7 @@ const runMcp = async (args, context) => {
       const localMcpPath = new URL('../../wiki-mcp/src/server.js', import.meta.url);
       mod = await import(localMcpPath.href);
     }
-    await mod.main([]);
+    await mod.main(args);
   } catch (error) {
     throw new NoeisCliError(`Unable to start Noeis MCP bridge. Install the CLI with its MCP dependency or publish/install @noeis/wiki-mcp. ${error.message || error}`);
   }

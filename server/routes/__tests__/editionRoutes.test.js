@@ -785,7 +785,7 @@ describe('the newsstand', () => {
     expect((await send('/api/editions?limit=999')).body.editions).toHaveLength(500);
   });
 
-  /* search_noeis asks the stand for a thought. Every word must be in the
+  /* recall asks the stand for a thought. Every word must be in the
      paper, the items that carry them come back best first, and another
      reader's paper is never read. */
   it('searches the stand for a thought, and only the reader\'s own', async () => {

@@ -11,6 +11,7 @@ async function connect(id, scopes) {
       createNotebookEntry: async () => { writes++; return { id: 'saved', content: 'reader thought' }; }
     },
     grantedScopes: scopes,
+    toolsets: 'all',
     resourceMetadataUrl: 'https://noeis.example/.well-known/oauth-protected-resource/mcp'
   });
   const client = new Client({ name: 'chatgpt-test', version: '1' });

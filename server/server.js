@@ -22,7 +22,7 @@ const {
 } = require('./ai/embeddingJobs');
 const { EVENT_NAMES, trackEvent, trackReturnVisit } = require('./utils/analytics');
 const { EmbeddingError, isEmbeddingConfigured } = require('./ai/embed');
-const { similarToSource } = require('./ai/semanticSearch');
+const { semanticSearch, similarToSource } = require('./ai/semanticSearch');
 const { buildEmbeddingId } = require('./ai/embeddingTypes');
 const { buildConnectionScopeQuery } = require('./utils/connectionScopeQuery');
 const { asObjectIdOrNull } = require('./utils/notebookIdentity');
@@ -587,6 +587,7 @@ const { buildMarketingAnalyticsRouter } = require('./routes/marketingAnalyticsRo
 const { buildMarketingFunnelRouter } = require('./routes/marketingFunnelRoutes');
 const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes');
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
+const { buildRecallRouter } = require('./routes/recallRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
 const { buildWikiClaimDispositionRouter } = require('./routes/wikiClaimDispositionRoutes');
@@ -5307,6 +5308,15 @@ const filterOutIds = (items, type, ids) => {
     return !ids.has(String(item.objectId));
   });
 };
+
+app.use(buildRecallRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  Article,
+  NotebookEntry,
+  TagMeta,
+  WikiPage,
+  semanticSearch
+}));
 
 app.use(buildSemanticSearchRouter({
   authenticateToken,

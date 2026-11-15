@@ -160,8 +160,8 @@ claude mcp add --scope user --transport http noeis \
 ```
 
 Run `claude mcp list` to see it connected, then ask Claude something like
-"search my Noeis for sparse models". It will call `search_noeis` and can open
-any hit with the tool that hit names.
+"what have I read about sparse models?". It will call `recall` and can open
+any hit with `read`.
 
 ## Codex
 
@@ -221,16 +221,31 @@ For local development:
 Both lists below are the complete tool surface, checked against `toolDefinitions`
 by `test/server.test.js` — a tool added without a line here fails the suite.
 
-Read tools return normalized JSON. Start with `connection_info` after setup: it
-verifies the authenticated workspace and issued grant without reading user content.
-Then an agent can list pages, choose one, read it, inspect references, and catch up
-on recent activity with a read-scoped token. When an agent does not know where
-something lives, `search_noeis` asks the Wiki, the Library (highlights and saved
-articles) and the Editions at once, and returns each hit with its id, a snippet,
-a link and the tool that opens it:
+An agent is shown the **core** tools unless its runtime asks for more, because
+every listed tool costs context on each turn. Core is twelve tools: `recall`,
+`read`, `connection_info`, `list_pages`, `get_page_markdown`, `create_page`,
+`create_article`, `create_highlight`, `create_notebook_entry`,
+`update_notebook_entry`, `list_edition_profiles` and `file_edition_items`.
+Every other tool below stays callable and is listed when you ask for its
+toolset: `library`, `think`, `wiki`, `editions`, `work` or `all`.
+
+```bash
+noeis mcp --toolsets=wiki,library     # local, or NOEIS_TOOLSETS=wiki,library
+https://<api>/mcp?toolsets=wiki        # hosted
+```
+
+Work tools are listed by themselves for a connection approved with `--work`.
+
+Start with `recall`. It asks everything the reader keeps (saved articles and
+their highlights with margin notes, Think notes, concepts, held views, wiki
+pages and Editions) with the same retrieval the in-app partner uses, so a plain
+question like "what have I written about hiring" finds the reader's own notes.
+Each hit carries a passage, an id, a link and the tool that opens it, usually
+`read`. Read tools return normalized JSON:
 
 - `connection_info`
-- `search_noeis`
+- `recall`
+- `read`
 - `get_profile`
 - `list_edition_profiles`
 - `list_editions`

@@ -1,3 +1,4 @@
+const { escapeRegExp } = require('../utils/searchSnippet');
 const { plainNotebookText } = require('../services/authoredWorkDiscovery');
 const { recordRevision, snapshotOf } = require('../services/entryHistory');
 const { notebookCuttings, sanitizeNotebookWorkbench, sanitizeNotebookTarget } = require('../utils/notebookWorkbench');
@@ -296,7 +297,7 @@ const buildNotebookRouter = ({
       const queryText = String(req.query.q || '').trim();
       const query = { userId, type: 'claim' };
       if (queryText) {
-        const regex = new RegExp(queryText, 'i');
+        const regex = new RegExp(escapeRegExp(queryText), 'i');
         query.$or = [
           { title: regex },
           { content: regex },

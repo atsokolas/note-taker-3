@@ -65,6 +65,15 @@ describe('retrievePassages', () => {
     expect(results[0].snippet).toMatch(/Tired people make worse decisions/);
   });
 
+  it('searches wiki pages only when asked, as an outside agent asks', async () => {
+    const WikiPage = model([{ _id: 'pg1', title: 'Hiring loops', plainText: 'Structured interviews with a scorecard beat unstructured chats for hiring.', updatedAt: new Date('2026-01-01') }]);
+    const asked = { userId: 'u1', query: 'What does my wiki say about structured hiring interviews?' };
+    const without = await retrievePassages({ ...asked, includeViews: false, models: { ...library(), WikiPage } });
+    expect(without.map(item => item.id)).not.toContain('pg1');
+    const withPages = await retrievePassages({ ...asked, includeViews: false, includePages: true, models: { ...library(), WikiPage } });
+    expect(withPages[0]).toMatchObject({ type: 'wiki_page', id: 'pg1' });
+  });
+
   it('finds what the reader wrote in the margin', async () => {
     const results = await retrievePassages({ userId: 'u1', query: 'What did I note about code review?', models: library() });
     expect(results.map(item => item.id)).toEqual(['checklists']);

@@ -4,16 +4,25 @@ Releases of `@noeis/wiki-mcp` on npm. The hosted endpoint at `<api>/mcp` runs
 the source in this folder and updates when the API redeploys; this file tracks
 what reaches `noeis mcp` and `noeis-wiki-mcp` through npm.
 
-## 0.5.0 (2026-11-13)
+## 0.5.0 (unreleased)
 
 First publish since 0.4.4 (0.4.5 was numbered in the repo but never published).
-Tools: 90, up from 83.
+Tools: 91, up from 83. Twelve are listed by default.
 
 ### Added
 
-- `search_noeis`: one read-only call that searches the Wiki, the Library
-  (highlights and saved articles) and Editions together, so an agent can find
-  where something lives before it opens it.
+- `recall`: one read-only question to everything the reader keeps (saved
+  articles, highlights with margin notes, Think notes, concepts, held views,
+  wiki pages and Editions), answered by the retrieval the in-app partner uses
+  instead of a whole-phrase text match. "What have I written about hiring"
+  now finds the reader's own notes.
+- `read`: open any `recall` hit in full by its id.
+- Toolsets. Only the twelve core tools are listed unless the runtime asks for
+  more with `--toolsets=` / `NOEIS_TOOLSETS` (local) or `?toolsets=` (hosted):
+  `library`, `think`, `wiki`, `editions`, `work`, `all`. Unlisted tools stay
+  callable. The tool list an agent pays for on every turn falls from about
+  85,600 characters to about 16,800. Work tools list themselves for a
+  connection approved for Work.
 - Work for approved agents: `list_work`, `get_work_note`, `create_work_note`,
   `update_work_note`, `create_work_folder`, `update_work_folder`, for a
   connection approved with `--work`.
