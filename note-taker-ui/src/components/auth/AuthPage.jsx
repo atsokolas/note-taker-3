@@ -1,13 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import '../../styles/signin.css';
+import NoeisMark from '../brand/NoeisMark';
 
 /* Log in and Create account share one quiet page: the name, a heading, the
    form, and the way to the other one. Nothing beside it competes with the
    form, because the form is the only thing anyone came here to do. */
 export const AuthPage = ({ title, lede, children, footer }) => (
   <main className="signin">
-    <Link to="/" className="signin__brand">Noeis</Link>
+    <Link to="/" className="signin__brand"><NoeisMark />Noeis</Link>
     <div className="signin__column">
       <h1>{title}</h1>
       {lede ? <p className="signin__lede">{lede}</p> : null}

@@ -5825,13 +5825,7 @@ textarea.think-share-view__offer-field {
   letter-spacing: -0.01em;
 }
 
-.shared-concept-topbar__brand-mark {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, var(--accent, #36e4ff), color-mix(in srgb, var(--accent, #36e4ff) 50%, var(--text-secondary)));
-  display: inline-block;
-}
+
 
 .shared-concept-topbar__actions {
   display: inline-flex;

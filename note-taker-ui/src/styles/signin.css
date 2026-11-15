@@ -12,7 +12,9 @@
 }
 
 .signin a.signin__brand {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   max-width: 1080px;
   margin: 0 auto;
   color: inherit;

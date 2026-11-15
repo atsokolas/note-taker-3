@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, useLocation } from 'react-router-dom';
+import NoeisMark from '../components/brand/NoeisMark';
 import FocusMode from '../components/think/FocusMode';
 import { namesAThinkObject } from '../pages/thinkNotesModel';
 import SystemStatus from './SystemStatus';
@@ -177,6 +178,7 @@ const TopBar = ({
         <div className="topbar__left">
           <div className="topbar__brand-nav">
             <NavLink to="/wiki" className="topbar__brand" aria-label="Noeis home">
+              <NoeisMark />
               Noeis
             </NavLink>
             <nav className="topbar__primary-nav" aria-label="Primary navigation">
