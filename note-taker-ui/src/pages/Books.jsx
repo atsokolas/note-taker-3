@@ -266,7 +266,7 @@ const Closing = ({ book, marks, saved, writeUp, onChange, children }) => {
       setAsking(false);
       setSaid(closed.closingLine
         ? `It comes back to you on ${longDate(dayOf(closed.finishedOn, 1))}.`
-        : 'Closed without a sentence, so nothing comes back. You can still write one.');
+        : 'No sentence, so nothing will come back to you. You can still write one.');
       return true;
     } catch (_) {
       setSaid('The book did not close. Try it again.');
@@ -586,7 +586,7 @@ const Book = ({ id }) => {
     objectType: 'article',
     objectId: id,
     title: article?.title || 'A book',
-    orientation: 'Think with this book from what you marked in it and wrote beside it.'
+    orientation: 'Ask the book, using what you marked and wrote.'
   });
 
   useEffect(() => {

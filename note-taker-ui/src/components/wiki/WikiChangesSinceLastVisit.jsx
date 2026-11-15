@@ -113,7 +113,7 @@ const WikiChangesSinceLastVisit = ({
         <div className="wiki-changes-banner__body">
           {counts.added > 0 ? (
             <div className="wiki-changes-banner__group wiki-changes-banner__group--added">
-              <h4 className="wiki-changes-banner__group-title">New claims</h4>
+              <h4 className="wiki-changes-banner__group-title">Added</h4>
               <ul className="wiki-changes-banner__list">
                 {previewAdded.map((text, index) => (
                   <li key={`added-${index}`} className="wiki-changes-banner__item">
@@ -133,7 +133,7 @@ const WikiChangesSinceLastVisit = ({
 
           {counts.removed > 0 ? (
             <div className="wiki-changes-banner__group wiki-changes-banner__group--removed">
-              <h4 className="wiki-changes-banner__group-title">Removed claims</h4>
+              <h4 className="wiki-changes-banner__group-title">Removed</h4>
               <ul className="wiki-changes-banner__list">
                 {previewRemoved.map((text, index) => (
                   <li key={`removed-${index}`} className="wiki-changes-banner__item">
@@ -153,7 +153,7 @@ const WikiChangesSinceLastVisit = ({
 
           {counts.changed > 0 ? (
             <div className="wiki-changes-banner__group wiki-changes-banner__group--changed">
-              <h4 className="wiki-changes-banner__group-title">Evidence updates</h4>
+              <h4 className="wiki-changes-banner__group-title">New sources</h4>
               <ul className="wiki-changes-banner__list">
                 {previewChanged.map((entry, index) => (
                   <li key={`changed-${index}`} className="wiki-changes-banner__item">

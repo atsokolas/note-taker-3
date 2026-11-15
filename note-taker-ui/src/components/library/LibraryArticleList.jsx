@@ -223,7 +223,7 @@ const LibraryArticleList = ({
     >
       <SectionHeader
         title="Articles"
-        subtitle="Saved reads and source material."
+        subtitle="Everything you’ve saved."
         className="library-section-head is-articles"
       />
       {onQueryChange ? (

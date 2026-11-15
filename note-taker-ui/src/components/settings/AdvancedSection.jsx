@@ -41,7 +41,7 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
       <div className="settings-redesign__pagehead">
         <div>
           <h2>Advanced</h2>
-          <p className="settings-redesign__help" style={{ marginTop: '0.45rem' }}>Tools that deserve a deliberate visit.</p>
+          <p className="settings-redesign__help" style={{ marginTop: '0.45rem' }}>Rarely needed.</p>
         </div>
       </div>
 

@@ -134,7 +134,7 @@ const WikiEmergingProposals = () => {
       <section className="wiki-emerging wiki-emerging--loading" aria-label="Emerging Wikis">
         <header className="wiki-emerging__head">
           <span className="wiki-emerging__eyebrow">Emerging Wikis</span>
-          <h2>Finding latent pages in your archive...</h2>
+          <h2>Looking for topics with no page yet…</h2>
         </header>
       </section>
     );
@@ -146,7 +146,7 @@ const WikiEmergingProposals = () => {
     <section className="wiki-emerging" aria-label="Emerging Wikis" data-testid="wiki-emerging-proposals">
       <header className="wiki-emerging__head">
         <span className="wiki-emerging__eyebrow">Emerging Wikis</span>
-        <h2>Noeis noticed ideas that may deserve pages</h2>
+        <h2>Topics in your reading with no page yet</h2>
       </header>
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
       <div className="wiki-emerging__grid">

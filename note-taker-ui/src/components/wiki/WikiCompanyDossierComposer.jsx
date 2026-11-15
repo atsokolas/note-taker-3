@@ -99,7 +99,7 @@ const WikiCompanyDossierComposer = ({
       {open ? (
         <form onSubmit={handleSubmit} className="wiki-company-dossier__form">
           <p>
-            Noeis uses free SEC filings and opens a private research draft. It enters Judgment only when you choose to track it.
+            Noeis reads the company’s SEC filings and writes a private page. Nothing else changes unless you track it.
           </p>
           <label>
             Ticker

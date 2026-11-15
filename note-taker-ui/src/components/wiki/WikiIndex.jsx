@@ -15,9 +15,7 @@ import {
   buildWikiGraphData,
   filterWikiGraphPages,
   formatDate,
-  formatCorpusShapeSummary,
   labelFor,
-  summarizeCorpusShape,
   summarizeWikiGraph
 } from './wikiGraph';
 import {
@@ -538,7 +536,7 @@ const WikiGraph = ({ graph, mapGraph, onOpenPage }) => {
               </ul>
             </section>
           ) : (
-            <p className="wiki-graph__trace-empty">No source or thinking objects are attached to this map node yet.</p>
+            <p className="wiki-graph__trace-empty">Nothing linked here yet.</p>
           )}
           {selectedNodeLinks.length ? (
             <ul>
@@ -651,7 +649,6 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
 
   const graph = useMemo(() => buildWikiGraphData(filteredPages, mapGraph), [filteredPages, mapGraph]);
   const graphSummary = useMemo(() => summarizeWikiGraph(graph), [graph]);
-  const corpusShape = useMemo(() => summarizeCorpusShape(mapGraph), [mapGraph]);
   const persistedEdgeCount = Array.isArray(mapGraph.edges) ? mapGraph.edges.length : Array.isArray(mapGraph.links) ? mapGraph.links.length : 0;
   const graphSyncState = useMemo(() => {
     if (!pages.length) return { status: 'empty', label: 'No pages yet', stale: false };
@@ -827,7 +824,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
       <form className="wiki-index-source-drop" aria-label="Drop source into wiki" onSubmit={handleIngestSource}>
         <div>
           <span>Drop source</span>
-          <p>Paste a URL or text excerpt to let the wiki look for pages it should update.</p>
+          <p>Paste a link or some text. Noeis finds the pages it changes.</p>
         </div>
         <div className="wiki-index-source-drop__control">
           <div className="wiki-index-source-drop__modes" role="group" aria-label="Source type">
@@ -881,21 +878,10 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
           </button>
         ) : null}
       </section>
-      <section className="wiki-corpus-shape" aria-label="Corpus shape">
-        <div className="wiki-corpus-shape__summary">
-          <span>Corpus shape</span>
-          <strong>{formatCorpusShapeSummary(corpusShape)}</strong>
-        </div>
-        <div className="wiki-corpus-shape__metrics">
-          <span><b>{corpusShape.wikiBridges || 0}</b> wiki bridges</span>
-          <span><b>{corpusShape.wikiClaims || 0}</b> claim atoms</span>
-          <span><b>{corpusShape.totalNodes || 0}</b> graph objects</span>
-        </div>
-      </section>
       {isSparseWiki ? (
         <section className="wiki-graph-sparse-hint" aria-label="Sparse wiki note">
           <span>Early map</span>
-          <p>With fewer than ten pages, the next useful move is not more map-reading. Build one bridge page, add one source, or review the page list until relationships appear.</p>
+          <p>The map fills in at about ten pages. Add a few more first.</p>
           <div className="wiki-graph-sparse-hint__actions">
             <button type="button" onClick={handleBuildPage}>Build bridge page</button>
             <button type="button" onClick={handleOpenSources}>Add source</button>
@@ -911,10 +897,9 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
         </section>
       ) : null}
       {!loading && graph.nodes.length && !isSparseWiki ? (
-        <section className="wiki-graph-next-moves" aria-label="Map workbench">
+        <section className="wiki-graph-next-moves" aria-label="What to do next">
           <div>
-            <span>Map workbench</span>
-            <p>Start with the page or bridge the graph can justify right now.</p>
+            <span>Next</span>
           </div>
           <ol>
             {mapNextMoves.map((move, index) => (

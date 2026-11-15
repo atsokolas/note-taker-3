@@ -51,7 +51,7 @@ const DataSection = () => {
       a.download = `noeis-export-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      setStatus('Structured export download requested. Check your downloads folder to confirm the file landed.');
+      setStatus('Downloading. It’ll be in your Downloads folder.');
       setManifest(buildManifestFromPayload(res.data));
     } catch (err) {
       setError(err.response?.data?.error || 'Export failed.');
@@ -96,7 +96,7 @@ const DataSection = () => {
 
       <div className="settings-redesign__data-row" id="export-json">
         <div>
-          <h3 style={{ margin: '0 0 0.35rem' }}>Structured export</h3>
+          <h3 style={{ margin: '0 0 0.35rem' }}>Everything, as JSON</h3>
           <p className="settings-redesign__help">Articles, highlights, notebook entries, collections, tags, and saved views. Not a restorable backup by itself.</p>
         </div>
         <button type="button" className="settings-redesign__link" onClick={loadManifest} disabled={loading}>
@@ -123,7 +123,7 @@ const DataSection = () => {
             <li className="settings-redesign__fact"><span>Not included</span><span>{manifest.omissions.join(', ')}</span></li>
           </ul>
           <Button variant="primary" style={{ marginTop: '1rem' }} onClick={downloadJson} disabled={loading}>
-            Download structured JSON
+            Download
           </Button>
         </div>
       ) : null}

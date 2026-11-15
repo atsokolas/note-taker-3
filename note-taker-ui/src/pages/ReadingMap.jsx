@@ -366,7 +366,7 @@ const ReadingMap = () => {
     if (!ready) return 'The map appears once there is enough reading to draw: about eight sources with passages you marked.';
     if (narrow) return 'Your sources, gathered by what they are about.';
     return map.gaps?.length
-      ? 'Each dot is a source, set beside the ones that mean the same thing. The italic names are what you write about and have barely read.'
+      ? 'Each dot is an article. Similar ones sit together. Names in italics are topics you write about but haven’t read much on.'
       : 'Each dot is a source, set beside the ones that mean the same thing. Larger dots are where you marked more.';
   })();
 

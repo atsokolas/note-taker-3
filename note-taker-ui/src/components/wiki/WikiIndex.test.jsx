@@ -207,12 +207,12 @@ describe('WikiIndex graph', () => {
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('8 standalone pages');
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('0 evidence overlaps');
     expect(screen.getByLabelText('Wiki map signals')).not.toHaveTextContent('Review latest connections');
-    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Review weak bridge');
-    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Enterprise AI Memory ↔ Investing');
-    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Open center page');
-    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Build missing bridge');
-    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Extra Wiki Page 1');
-    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Fresh source gap');
+    expect(screen.getByLabelText('What to do next')).toHaveTextContent('Review weak bridge');
+    expect(screen.getByLabelText('What to do next')).toHaveTextContent('Enterprise AI Memory ↔ Investing');
+    expect(screen.getByLabelText('What to do next')).toHaveTextContent('Open center page');
+    expect(screen.getByLabelText('What to do next')).toHaveTextContent('Build missing bridge');
+    expect(screen.getByLabelText('What to do next')).toHaveTextContent('Extra Wiki Page 1');
+    expect(screen.getByLabelText('What to do next')).toHaveTextContent('Fresh source gap');
     expect(screen.getByRole('button', { name: 'Open center' })).toBeInTheDocument();
     expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('Connections need review');
     expect(screen.getByRole('button', { name: 'Review connections' })).toBeInTheDocument();
@@ -228,8 +228,6 @@ describe('WikiIndex graph', () => {
     // summary mode is the point: the map renders titles, types and source
     // names, and a full fetch of 500 pages is the 57-second path.
     expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, summary: 1 });
-    expect(screen.getByLabelText('Corpus shape')).toHaveTextContent('1 wiki · 2 working thoughts · 2 library atoms · 0 live edges');
-    expect(screen.getByLabelText('Corpus shape')).toHaveTextContent('5 graph objects');
 
     fireEvent.change(screen.getByLabelText('Page type'), { target: { value: 'source' } });
     expect(screen.getByText('1 page · 0 links')).toBeInTheDocument();
@@ -330,7 +328,7 @@ describe('WikiIndex graph', () => {
     const panel = screen.getByLabelText('Selected map page');
     expect(panel).toHaveTextContent('Investing');
     expect(panel).toHaveTextContent('Referenced page');
-    expect(panel).toHaveTextContent('No source or thinking objects are attached to this map node yet.');
+    expect(panel).toHaveTextContent('Nothing linked here yet.');
     expect(onOpenPage).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open page' }));

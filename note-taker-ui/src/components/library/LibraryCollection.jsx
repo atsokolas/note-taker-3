@@ -34,11 +34,11 @@ const LABELS = {
   kept: 'Keepers'
 };
 const MATCH_LABELS = {
-  title: 'Matched title',
-  thought: 'Matched your thought',
-  passage: 'Matched passage',
-  body: 'Matched source text',
-  record: 'Matched source record'
+  title: 'In the title',
+  thought: 'In your note',
+  passage: 'In a highlight',
+  body: 'In the text',
+  record: 'In the details'
 };
 const TRACE_LABELS = {
   thought: 'Your thought',
@@ -176,7 +176,7 @@ export default function LibraryCollection({
           setState((current) => ({
             ...current,
             loading: false,
-            error: 'Your collection could not load. Please retry.'
+            error: 'Your Library didn’t load. Try again.'
           }));
       }
     },
@@ -369,7 +369,7 @@ export default function LibraryCollection({
           {state.loading
             ? 'Searching saved sources…'
             : `${state.total} matching sources in ${scope === 'all' ? 'your Library' : 'this collection'}.`}{' '}
-          Searches saved titles, source text, and passage notes.{' '}
+          Searches titles, text, highlights and notes.{' '}
           <Link className="library-search-trail" to={`/library/trail?subject=${encodeURIComponent(query.trim())}`}>
             What to read next on it →
           </Link>

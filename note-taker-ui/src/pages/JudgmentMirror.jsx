@@ -168,7 +168,7 @@ const JudgmentMirror = () => {
       <Link className={`judgment-back ${step(1)}`} to="/judgment">← Views</Link>
       <header className={step(1)}>
         <p>The casebook looking back</p>
-        <h1 id="judgment-mirror-title">The Mirror</h1>
+        <h1 id="judgment-mirror-title">Your track record</h1>
         <p>No score. Just the shape of how you change your mind. Every number is a door.</p>
       </header>
 
@@ -215,7 +215,7 @@ const JudgmentMirror = () => {
 
           {due.length ? (
             <section className="judgment-mirror__due">
-              <h2>The date arrived</h2>
+              <h2>Time to check</h2>
               {due.map((item) => (
                 <Link key={item.pageId} to={`/judgment/${item.pageId}`}>
                   <span>{item.claim}</span>
@@ -255,7 +255,7 @@ const JudgmentMirror = () => {
 
           {calibration?.private && calibration.overall?.sufficient && Array.isArray(calibration.byConfidence) ? (
             <section className="judgment-mirror__calibration" aria-labelledby="mirror-calibration-title">
-              <h2 id="mirror-calibration-title">How certainty met the later world</h2>
+              <h2 id="mirror-calibration-title">How sure you were, and what happened</h2>
               <p className="judgment-mirror__selection">{calibration.selection}</p>
               {calibration.byConfidence.map(band => <p key={band.confidence || 'band'}>{bandLine(band)}</p>)}
             </section>

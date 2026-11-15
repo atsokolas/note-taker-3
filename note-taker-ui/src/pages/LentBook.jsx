@@ -58,7 +58,7 @@ export default function LentBook() {
           line={book.closingLine ? <blockquote>{book.closingLine}</blockquote> : null}
         />
       ) : <p className="books__quiet">They are still reading it.</p>}
-      <p className="books__quiet">Kept in <Link to="/">Noeis</Link>, where a book is read with one line typed beside it.</p>
+      <p className="books__quiet">Kept in <Link to="/">Noeis</Link>, where you type a line as you read.</p>
     </main>
   );
 }

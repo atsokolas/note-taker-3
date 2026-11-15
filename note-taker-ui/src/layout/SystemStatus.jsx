@@ -123,7 +123,7 @@ const SystemStatus = ({
         <SystemStatusPopover open={open} anchorRef={menuRef} popoverRef={popoverRef}>
           {recoverableFailure ? (
             <section className="system-status__section system-status__section--failure" role="status">
-              <p className="system-status__section-kicker">Recoverable failure</p>
+              <p className="system-status__section-kicker">Something didn’t finish</p>
               <p className="system-status__section-title">{recoverableFailure.stage}</p>
               <p className="system-status__section-body">{recoverableFailure.message}</p>
               {recoverableFailure.retryable !== false && onRetryFailure ? (

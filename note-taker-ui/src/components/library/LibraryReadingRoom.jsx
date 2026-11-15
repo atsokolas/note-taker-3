@@ -74,7 +74,7 @@ export default function LibraryReadingRoom({ onOpen }) {
     <section className="reading-room" aria-label="Reading room" data-testid="library-reading-room">
       {weather ? (
         <p className="reading-room__weather" data-testid="reading-weather">
-          <span className="reading-room__eyebrow">Last week's reading weather</span>
+          <span className="reading-room__eyebrow">Last week</span>
           {weather}
         </p>
       ) : null}
@@ -86,7 +86,7 @@ export default function LibraryReadingRoom({ onOpen }) {
           <p className="reading-room__detail">
             {[pickLine(pick), pick.siteName || pick.author].filter(Boolean).join(' · ')}
           </p>
-          <p className="reading-room__rule">One a day from the back of the shelf: the oldest pieces you saved yourself.</p>
+          <p className="reading-room__rule">One a day, from the oldest things you saved.</p>
         </div>
       ) : null}
 
