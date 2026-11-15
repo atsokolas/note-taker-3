@@ -33,7 +33,7 @@ const diffRevisionClaims = (revision = {}) => {
 };
 
 const claimImpactSummary = (claimImpacts = []) => {
-  if (!claimImpacts.length) return 'not yet analyzed — queued';
+  if (!claimImpacts.length) return '';
   const supported = claimImpacts.filter(row => row.afterSupport === 'supported' && row.beforeSupport !== 'supported').length;
   const contradicted = claimImpacts.filter(row => row.afterSupport === 'conflicted' && row.beforeSupport !== 'conflicted').length;
   return [
