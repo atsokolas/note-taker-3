@@ -92,14 +92,19 @@ const passagesOf = (title, content) => {
   return chunks.length ? chunks : (body ? [body] : []);
 };
 
+// Who wrote it, when an agent did and the reader has not inked it.
+const penOf = record => record?.pencil?.agent || undefined;
+
 const articleUnits = article => [
-  ...passagesOf(article.title, stripImportChrome(article.content)).map((text, index) => ({ key: `p${index}`, text })),
+  ...passagesOf(article.title, stripImportChrome(article.content)).map((text, index) => ({ key: `p${index}`, text, pencil: penOf(article) })),
   ...(Array.isArray(article.highlights) ? article.highlights : [])
     .filter(highlight => highlight?.text || highlight?.note)
     .map(highlight => ({
       key: `h${highlight._id}`,
-      // A note keeps its line breaks but no blank line: a blank line ends the passage.
-      text: [highlight.text, highlight.note ? `${NOTE_LABEL} ${String(highlight.note).replace(/\s*\n\s*\n\s*/g, '\n')}` : ''].filter(Boolean).join(' ')
+      // A note keeps its line breaks but no blank line: a blank line ends the
+      // passage. An agent's note is labelled as its own, never the reader's.
+      text: [highlight.text, highlight.note ? `${penOf(highlight) ? `${penOf(highlight)}'s note:` : NOTE_LABEL} ${String(highlight.note).replace(/\s*\n\s*\n\s*/g, '\n')}` : ''].filter(Boolean).join(' '),
+      pencil: penOf(highlight)
     }))
 ].map(unit => ({ ...unit, type: 'article', id: String(article._id), title: article.title || 'Article', updatedAt: article.updatedAt }));
 
@@ -107,7 +112,7 @@ const noteUnits = note => passagesOf(
   note.title,
   [note.content, ...(Array.isArray(note.blocks) ? note.blocks.map(block => block?.text) : [])].filter(Boolean).join('\n')
 ).map((text, index) => ({
-  key: `p${index}`, text, type: 'notebook', id: String(note._id), title: note.title || 'Note', updatedAt: note.updatedAt
+  key: `p${index}`, text, type: 'notebook', id: String(note._id), title: note.title || 'Note', updatedAt: note.updatedAt, pencil: penOf(note)
 }));
 
 // A wiki page the reader keeps, passage by passage. Outside agents ask about
@@ -233,8 +238,8 @@ const retrievePassages = async ({
     ? await semanticSearch({ query: asked, userId, limit: 20, types: SEMANTIC_TYPES }).catch(() => [])
     : [];
   const articleScope = { userId, ...(articleFilter || {}) };
-  const articleFields = '_id title content highlights updatedAt';
-  const noteFields = '_id title content blocks updatedAt';
+  const articleFields = '_id title content highlights pencil updatedAt';
+  const noteFields = '_id title content blocks pencil updatedAt';
   const [articles, notes, concepts, views, pages, corpusSize] = await Promise.all([
     findCandidates(Article, { userId, terms, filter: articleFilter || {}, fields: articleFields }),
     includeNotes ? findCandidates(NotebookEntry, { userId, terms, fields: noteFields }) : [],
@@ -329,6 +334,7 @@ const retrievePassages = async ({
       // The passage you marked, when the best answer in a source is one.
       ...(unit.type === 'article' && unit.key.startsWith('h') ? { highlightId: unit.key.slice(1) } : {}),
       ...(unit.held ? { held: unit.held } : {}),
+      ...(unit.pencil ? { pencil: unit.pencil } : {}),
       // Whether it clears the bar a reader is served by without the model.
       ...(forModel ? { servable: unit.matched >= strictly || unit.semantic !== undefined } : {}),
       updatedAt: unit.updatedAt,
@@ -359,23 +365,28 @@ const bestPassage = (input = {}) => topPassages({ ...input, limit: 1 })[0]?.text
 // and margin notes, or a notebook page. Only the reader's own.
 const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPage = null, TagMeta = null } }) => {
   if (!/^[a-f0-9]{24}$/i.test(String(id || ''))) return null;
-  const article = await Article.findOne({ _id: id, userId }).select('_id title content highlights updatedAt').lean();
+  const article = await Article.findOne({ _id: id, userId }).select('_id title content highlights pencil updatedAt').lean();
   if (article) {
     return {
       type: 'article',
       id: String(article._id),
       title: article.title || 'Article',
-      fullText: articleUnits(article).map(unit => unit.text).join('\n\n'),
+      // A mark an agent made on an article the reader saved says so.
+      fullText: articleUnits(article)
+        .map(unit => unit.pencil && unit.pencil !== penOf(article) ? `(In pencil, by ${unit.pencil}) ${unit.text}` : unit.text)
+        .join('\n\n'),
+      pencil: penOf(article),
       updatedAt: article.updatedAt
     };
   }
-  const note = await NotebookEntry.findOne({ _id: id, userId }).select('_id title content blocks updatedAt').lean();
+  const note = await NotebookEntry.findOne({ _id: id, userId }).select('_id title content blocks pencil updatedAt').lean();
   if (note) {
     return {
       type: 'notebook',
       id: String(note._id),
       title: note.title || 'Note',
       fullText: noteUnits(note).map(unit => unit.text).join('\n\n'),
+      pencil: penOf(note),
       updatedAt: note.updatedAt
     };
   }

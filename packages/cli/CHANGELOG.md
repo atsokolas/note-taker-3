@@ -9,6 +9,7 @@ Releases of `@noeis/noeis-cli` on npm.
 - `noeis search`, `noeis read`, `noeis save` and `noeis note`: recall, open,
   save a link or text to the Library (or the nightstand with `--later`), and
   write a note in Think, from any shell or agent that runs commands.
+  `search` marks a hit an agent wrote, and the reader hasn't inked, as in pencil.
 - `noeis connect claude-desktop`, `cursor` and `vscode`, written with absolute
   paths because desktop apps don't see the shell's PATH.
 

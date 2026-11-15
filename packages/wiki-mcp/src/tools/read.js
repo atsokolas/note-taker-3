@@ -18,7 +18,7 @@ export const readTools = [
   },
   {
     name: 'recall',
-    description: 'Ask everything the reader keeps: saved articles and their highlights with margin notes, Think notes, concepts, the views they hold, wiki pages and filed Editions. Ask in plain words, the way you would ask the reader; results are the passages that answer it, best first, each with its source id and a link. Start here for any question about what the reader has read, written or believes. Open a hit with the tool in its `open` field. Nothing returned means nothing they keep bears on it.',
+    description: 'Ask everything the reader keeps: saved articles and their highlights with margin notes, Think notes, concepts, the views they hold, wiki pages and filed Editions. Ask in plain words, the way you would ask the reader; results are the passages that answer it, best first, each with its source id and a link. Start here for any question about what the reader has read, written or believes. Open a hit with the tool in its `open` field. A hit with `pencil` was written by the agent it names and not yet taken up by the reader: never present it as their view. Nothing returned means nothing they keep bears on it.',
     inputSchema: {
       query: z.string().trim().min(1).max(500).describe('The question, in plain words.'),
       limit: z.number().int().min(1).max(25).optional().default(8).describe('Most passages to return.')

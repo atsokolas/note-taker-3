@@ -588,6 +588,7 @@ const { buildMarketingFunnelRouter } = require('./routes/marketingFunnelRoutes')
 const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes');
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildRecallRouter } = require('./routes/recallRoutes');
+const { buildPencilRouter } = require('./routes/pencilRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
 const { buildWikiClaimDispositionRouter } = require('./routes/wikiClaimDispositionRoutes');
@@ -5308,6 +5309,8 @@ const filterOutIds = (items, type, ids) => {
     return !ids.has(String(item.objectId));
   });
 };
+
+app.use(buildPencilRouter({ authenticateToken, humanOnly: requireHumanReader, Article, NotebookEntry }));
 
 app.use(buildRecallRouter({
   authenticateToken: authenticateUserOrAgentToken,

@@ -47,6 +47,7 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
           title: hit.title,
           passage: hit.snippet,
           ...(hit.held ? { held: hit.held } : {}),
+          ...(hit.pencil ? { pencil: hit.pencil } : {}),
           updatedAt: hit.updatedAt
         }))
       });
@@ -60,7 +61,7 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
     try {
       const source = await readSource({ userId: new mongoose.Types.ObjectId(req.user.id), id: req.params.id, models });
       if (!source) return res.status(404).json({ error: 'Nothing of yours has that id.' });
-      res.json({ kind: kindOf(source), id: source.id, title: source.title, text: source.fullText, updatedAt: source.updatedAt });
+      res.json({ kind: kindOf(source), id: source.id, title: source.title, text: source.fullText, ...(source.pencil ? { pencil: source.pencil } : {}), updatedAt: source.updatedAt });
     } catch (error) {
       console.error('[recall] read failed', error.message);
       res.status(500).json({ error: 'Read failed.' });

@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { CHATGPT_ACCESS_PROFILE, isChatgptRequestAllowed } = require('./chatgptAccessPolicy');
+const { runtimeLabel } = require('./agentRuntime');
 
 const AGENT_TOKEN_PREFIX = 'ntk_at_';
 /* What each scope lets a token do. `capture` is a person's own desktop: it
@@ -78,6 +79,15 @@ const requiredScopeForRequest = (req = {}) => {
 
 const hasRequiredScope = (token = {}, scope = 'read') => {
   return normalizeAgentTokenScopes(token.scopes || []).some(held => SCOPE_GRANTS[held].includes(scope));
+};
+
+/* What an agent writes is in pencil until the reader inks it: the
+   connection that wrote it, and when. The reader, and their own desktop
+   bringing things in with `capture` alone, write in ink (null). */
+const pencilOf = (req = {}) => {
+  const token = req.agentToken;
+  if (!token || !hasRequiredScope(token, 'agent-write')) return null;
+  return { agent: token.label || runtimeLabel(token.runtime), tokenId: token.id, at: new Date() };
 };
 
 const buildAuthenticateAgentToken = ({
@@ -184,6 +194,7 @@ module.exports = {
   createAgentTokenSecret,
   hashAgentTokenSecret,
   normalizeAgentTokenScopes,
+  pencilOf,
   sanitizeAgentToken,
   buildAuthenticateAgentToken,
   requiredScopeForRequest

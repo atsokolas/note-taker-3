@@ -173,6 +173,14 @@ const importMetaSchema = new mongoose.Schema({
 }, { _id: false });
 
 // Article Schema and Model - MODIFIED TO INCLUDE userId
+/* Written by an agent and not yet taken up by the reader: which connection
+   wrote it, and when. Ink is the absence of pencil. */
+const pencilSchema = new mongoose.Schema({
+  agent: { type: String, default: '' },
+  tokenId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  at: { type: Date, default: Date.now }
+}, { _id: false });
+
 const articleSchema = new mongoose.Schema({
   url: { type: String, required: true },
   title: { type: String, required: true },
@@ -208,8 +216,10 @@ const articleSchema = new mongoose.Schema({
     /* The printed page, for a mark made at the reading desk. A Kindle mark
        has a location instead, kept where its import put it. */
     page: { type: Number, min: 1 },
-    importMeta: { type: importMetaSchema, default: () => ({}) }
+    importMeta: { type: importMetaSchema, default: () => ({}) },
+    pencil: { type: pencilSchema, default: null }
   }],
+  pencil: { type: pencilSchema, default: null },
   pdfs: { type: [pdfAttachmentSchema], default: [] },
   author: { type: String, default: '' },
   publicationDate: { type: String, default: '' },
@@ -456,6 +466,7 @@ const notebookBoardSchema = new mongoose.Schema({
 
 const notebookEntrySchema = new mongoose.Schema({
   title: { type: String, default: '', trim: true },
+  pencil: { type: pencilSchema, default: null },
   content: { type: String, default: '' },
   blocks: { type: [notebookBlockSchema], default: [] },
   asidePieces: { type: [notebookAsidePieceSchema], default: [] },

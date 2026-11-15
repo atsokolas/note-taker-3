@@ -124,7 +124,13 @@ const runAgentLoop = async ({
       const found = (await search(String(args.query || ''))).slice(0, TOOL_RESULT_PASSAGES);
       show(found);
       return found.length
-        ? found.map(item => ({ id: item.id, title: item.title, passage: item.fullText || item.snippet }))
+        ? found.map(item => ({
+          id: item.id,
+          title: item.title,
+          passage: item.fullText || item.snippet,
+          // An agent's words are never quoted back as the reader's own.
+          ...(item.pencil ? { pencil: `Written by ${item.pencil}, not yet taken up by the reader.` } : {})
+        }))
         : { result: 'Nothing in the library bears on this query.' };
     }
     if (name === 'read_page_history' && history) {

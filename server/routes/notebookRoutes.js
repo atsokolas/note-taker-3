@@ -1,4 +1,5 @@
 const { escapeRegExp } = require('../utils/searchSnippet');
+const { pencilOf } = require('../services/agentTokenService');
 const { plainNotebookText } = require('../services/authoredWorkDiscovery');
 const { recordRevision, snapshotOf } = require('../services/entryHistory');
 const { notebookCuttings, sanitizeNotebookWorkbench, sanitizeNotebookTarget } = require('../utils/notebookWorkbench');
@@ -166,6 +167,7 @@ const buildNotebookRouter = ({
               folder: 1,
               type: 1,
               board: 1,
+              pencil: 1,
               'workingState.nextTimeLine.text': 1,
               ...(compact ? {} : {
                 claimId: 1, tags: 1, linkedArticleId: 1, linkedHighlightIds: 1, importMeta: 1,
@@ -233,6 +235,7 @@ const buildNotebookRouter = ({
       }
       const newEntry = new NotebookEntry({
         title: String(title || '').trim(),
+        pencil: pencilOf(req),
         content: content || '',
         blocks: nextBlocks,
         asidePieces: sanitizeAsidePieces(Array.isArray(asidePieces) ? asidePieces : []),
@@ -788,6 +791,8 @@ const buildNotebookRouter = ({
       if (asidePieces !== undefined) {
         updates.asidePieces = sanitizeAsidePieces(Array.isArray(asidePieces) ? asidePieces : []);
       }
+      // The words are in the hand that last wrote them: an agent's in pencil, yours in ink.
+      if ([title, content, blocks].some(value => value !== undefined)) updates.pencil = pencilOf(req);
       if (folder !== undefined) updates.folder = asObjectIdOrNull(folder);
       if (tags !== undefined) updates.tags = normalizeTags(tags);
       if (linkedArticleId !== undefined) updates.linkedArticleId = asObjectIdOrNull(linkedArticleId);

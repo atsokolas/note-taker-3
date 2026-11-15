@@ -557,10 +557,10 @@ export class NoeisClient {
      that goes wrong here: a save with no article text. The receipt says where the
      body came from, so an agent that saved a shell can read the page and save
      again instead of moving on to highlights. */
-  createArticle({ title, url, content = '', folderId, author, publicationDate, siteName } = {}) {
+  createArticle({ title, url, content = '', folderId, author, publicationDate, siteName, placement } = {}) {
     return this.request('/save-article', {
       method: 'POST',
-      body: { title, url, content, folderId, author, publicationDate, siteName }
+      body: { title, url, content, folderId, author, publicationDate, siteName, placement }
     }).then(payload => {
       const contentLength = String(payload?.content || '').length;
       return {

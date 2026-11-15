@@ -3,6 +3,8 @@
 // on a throwaway database, a real agent token, and the published MCP server
 // over stdio. It scores what the agent gets back from `recall`, not what any
 // model then writes, and reports what the tool list costs the agent's context.
+// Last, it writes a note as the agent and checks recall hands it back in
+// pencil, never as the reader's own.
 //
 //   npm run agent:eval:mcp                    report
 //   npm run agent:eval:mcp -- --verbose       print every hit
@@ -75,7 +77,7 @@ const main = async () => {
 
     const { createAgentTokenSecret, hashAgentTokenSecret } = require('../server/services/agentTokenService');
     const secret = createAgentTokenSecret();
-    await AgentToken.create({ userId, label: 'MCP eval', runtime: 'eval', hashedSecret: hashAgentTokenSecret(secret), scopes: ['read'] });
+    await AgentToken.create({ userId, label: 'MCP eval', runtime: 'eval', hashedSecret: hashAgentTokenSecret(secret), scopes: ['read', 'agent-write'] });
 
     const port = 20000 + crypto.randomInt(20000);
     api = await startApi({ uri, port });
@@ -109,7 +111,14 @@ const main = async () => {
       if (flag('verbose')) body.results.forEach(hit => console.log(`    ${hit.kind.padEnd(10)} ${keyOf[hit.id] || hit.id}  ${String(hit.passage || '').slice(0, 90)}`));
     }
     console.log(`\n${passed}/${AGENT_CASES.length} questions answered from the right sources (top ${TOP_K})`);
-    if (flag('check') && passed < AGENT_CASES.length) process.exitCode = 1;
+
+    const written = await mcp.callTool({ name: 'create_notebook_entry', arguments: { title: 'Panels and charisma', content: 'Interview panels overweight charisma and underweight the work sample.' } });
+    const noteId = written.isError ? '' : JSON.parse(written.content[0].text).id;
+    const back = await mcp.callTool({ name: 'recall', arguments: { query: 'do interview panels overweight charisma', limit: TOP_K } });
+    const hit = back.isError ? null : JSON.parse(back.content[0].text).results.find(result => result.id === noteId);
+    const inPencil = Boolean(noteId) && hit?.pencil === 'MCP eval';
+    console.log(`pencil            ${inPencil ? 'pass' : `fail  ${hit ? `came back as ${hit.pencil || 'the reader\'s own'}` : 'note not recalled'}`}`);
+    if (flag('check') && (passed < AGENT_CASES.length || !inPencil)) process.exitCode = 1;
   } finally {
     if (mcp) await mcp.close().catch(() => {});
     if (api) api.kill();
