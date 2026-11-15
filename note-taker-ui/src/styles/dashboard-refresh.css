@@ -557,6 +557,9 @@ body.noeis-editorial .topbar__brand-nav {
 }
 
 body.noeis-editorial .topbar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--vellum-ink);
   font-family: var(--font-serif);
   font-size: 1.82rem;
