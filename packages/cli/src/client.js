@@ -127,8 +127,11 @@ export class NoeisCliClient {
     return this.request('/api/import/text', { method: 'POST', body: { text, title } });
   }
 
+  /* Plain text, one paragraph a line: sent as content alone, the API would
+     read it as HTML and lose anything in angle brackets and every line break. */
   createNote({ title, content } = {}) {
-    return this.request('/api/notebook', { method: 'POST', body: { title, content } });
+    const blocks = content.split('\n').filter(line => line.trim()).map(text => ({ type: 'paragraph', text }));
+    return this.request('/api/notebook', { method: 'POST', body: { title, content, blocks } });
   }
 
   createPage({ title, pageType, body, sourceScope } = {}) {

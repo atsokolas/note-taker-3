@@ -139,10 +139,10 @@ const run = async () => {
   /* note writes to Think, titled by its first line unless told. */
   const noteIo = makeIo();
   await runCli(['note', 'Hiring is a bet on slope.'], { env, fetchImpl, io: noteIo.io });
-  assert.deepStrictEqual(bodyOf('/api/notebook'), { title: 'Hiring is a bet on slope.', content: 'Hiring is a bet on slope.' });
+  assert.deepStrictEqual(bodyOf('/api/notebook'), { title: 'Hiring is a bet on slope.', content: 'Hiring is a bet on slope.', blocks: [{ type: 'paragraph', text: 'Hiring is a bet on slope.' }] });
   assert.strictEqual(noteIo.stdout, 'Noted in Think: Hiring is a bet on slope. (n2)\n');
-  await runCli(['note', '-', '--title', 'Session'], { env, fetchImpl, io: makeIo().io, readStdin: () => 'Line one\nLine two' });
-  assert.deepStrictEqual(bodyOf('/api/notebook'), { title: 'Session', content: 'Line one\nLine two' });
+  await runCli(['note', '-', '--title', 'Session'], { env, fetchImpl, io: makeIo().io, readStdin: () => 'Use <widget> here\n\nKeep this line.' });
+  assert.deepStrictEqual(bodyOf('/api/notebook').blocks, [{ type: 'paragraph', text: 'Use <widget> here' }, { type: 'paragraph', text: 'Keep this line.' }]);
 
   assert.strictEqual(DEFAULT_API_URL, 'https://note-taker-3-unrg.onrender.com');
 
