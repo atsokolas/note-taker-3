@@ -2,6 +2,16 @@
 
 Releases of `@noeis/noeis-cli` on npm.
 
+## 0.1.13 (2026-11-15)
+
+### Added
+
+- `noeis search`, `noeis read`, `noeis save` and `noeis note`: recall, open,
+  save a link or text to the Library (or the nightstand with `--later`), and
+  write a note in Think, from any shell or agent that runs commands.
+- `noeis connect claude-desktop`, `cursor` and `vscode`, written with absolute
+  paths because desktop apps don't see the shell's PATH.
+
 ## 0.1.12 (2026-11-15)
 
 ### Added

@@ -111,6 +111,29 @@ export class NoeisCliClient {
     return this.request('/api/wiki/activity', { query: { limit, since } });
   }
 
+  recall({ query, limit } = {}) {
+    return this.request('/api/recall', { query: { q: query, limit } });
+  }
+
+  read(id) {
+    return this.request(`/api/recall/read/${encodeURIComponent(id)}`);
+  }
+
+  saveLink({ url, placement, title } = {}) {
+    return this.request('/api/import/url', { method: 'POST', body: { url, placement, title } });
+  }
+
+  saveText({ text, title } = {}) {
+    return this.request('/api/import/text', { method: 'POST', body: { text, title } });
+  }
+
+  /* Plain text, one paragraph a line: sent as content alone, the API would
+     read it as HTML and lose anything in angle brackets and every line break. */
+  createNote({ title, content } = {}) {
+    const blocks = content.split('\n').filter(line => line.trim()).map(text => ({ type: 'paragraph', text }));
+    return this.request('/api/notebook', { method: 'POST', body: { title, content, blocks } });
+  }
+
   createPage({ title, pageType, body, sourceScope } = {}) {
     return this.request('/api/wiki/pages', {
       method: 'POST',
