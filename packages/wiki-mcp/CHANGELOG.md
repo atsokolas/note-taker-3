@@ -4,7 +4,7 @@ Releases of `@noeis/wiki-mcp` on npm. The hosted endpoint at `<api>/mcp` runs
 the source in this folder and updates when the API redeploys; this file tracks
 what reaches `noeis mcp` and `noeis-wiki-mcp` through npm.
 
-## 0.5.0 (unreleased)
+## 0.5.0 (2026-11-15)
 
 First publish since 0.4.4 (0.4.5 was numbered in the repo but never published).
 Tools: 91, up from 83. Twelve are listed by default.

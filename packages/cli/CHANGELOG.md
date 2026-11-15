@@ -2,7 +2,16 @@
 
 Releases of `@noeis/noeis-cli` on npm.
 
-## 0.1.12 (unreleased)
+## 0.1.12 (2026-11-15)
+
+### Added
+
+- `noeis connect muse` (Muse Code) and `noeis connect grok` (Grok Build).
+
+### Fixed
+
+- `noeis connect claude-code` registers the server with `claude mcp add-json
+  --scope user`; it used to write a file Claude Code never reads.
 
 ### Changed
 
