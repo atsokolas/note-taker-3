@@ -170,8 +170,8 @@ describe('QuestionShareModal', () => {
     expect(screen.getByTestId('question-share-preview')).not.toHaveTextContent('Same fact, different time horizon.');
     expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
     expect(screen.getByText('It is not on the page yet.')).toBeInTheDocument();
-    expect(screen.queryByLabelText('What holds')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Let this sit beside the question' }));
+    expect(screen.queryByLabelText('Where you agree')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add to the question' }));
     await waitFor(() => expect(placeQuestionContribution).toHaveBeenCalledWith('q1', 'c1'));
     expect(await screen.findByTestId('question-share-preview')).toHaveTextContent('Same fact, different time horizon.');
     expect(screen.queryByTestId('question-share-waiting')).not.toBeInTheDocument();
@@ -253,11 +253,11 @@ describe('QuestionShareModal', () => {
     });
     render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
     expect(await screen.findByTestId('question-share-waiting')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Let this sit beside the question' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to the question' }));
     expect(await screen.findByTestId('question-share-conflict')).toHaveTextContent('They took this back.');
     expect(screen.queryByTestId('question-share-waiting')).not.toBeInTheDocument();
     expect(screen.getByTestId('question-share-preview')).not.toHaveTextContent('Same fact, different time horizon.');
-    expect(screen.queryByText('That reading did not sit beside the question.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Couldn’t add that. Try again.')).not.toBeInTheDocument();
     expect(getQuestionShare).toHaveBeenCalledTimes(2);
   });
 
@@ -341,10 +341,10 @@ describe('QuestionShareModal', () => {
     render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
     expect(await screen.findByTestId('question-share-brief-form')).toBeInTheDocument();
     expect(screen.queryByTestId('question-share-brief')).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('What holds'), {
+    fireEvent.change(screen.getByLabelText('Where you agree'), {
       target: { value: 'The fact is shared. The horizon is not.' }
     });
-    fireEvent.change(screen.getByLabelText('What you still hold'), {
+    fireEvent.change(screen.getByLabelText('What you still think'), {
       target: { value: 'The window may close before compounding pays.' }
     });
     fireEvent.change(screen.getByLabelText('What could move this'), {

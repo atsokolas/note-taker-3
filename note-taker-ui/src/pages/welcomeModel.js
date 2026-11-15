@@ -1,16 +1,13 @@
 /* What first run says, kept apart from how it is drawn so the words can be
    tested without a browser. Every function here is pure. */
 
-import { oneSentence } from './judgmentModel';
-
 const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 const countWord = n => COUNT_WORDS[n] || String(n);
 
 export const STEPS = [
   { id: 'start', label: 'What it builds' },
   { id: 'reading', label: 'Your reading' },
-  { id: 'page', label: 'Your first page' },
-  { id: 'moment', label: 'What it says' }
+  { id: 'page', label: 'Your first page' }
 ];
 
 /* The page first run opens on: what a Noeis page looks like, shown as an
@@ -131,24 +128,6 @@ export const proposalSources = (count = 0) => (
   count === 1 ? 'from one of your sources' : `from ${countWord(count)} of your sources`
 );
 
-/* A view is a sentence someone could disagree with. One word is a topic, and a
-   topic cannot be supported or cut against. */
-export const viewProblem = (draft = '') => {
-  const sentence = oneSentence(draft);
-  if (!sentence) return '';
-  if (words(sentence).length < 3) return 'A view is a sentence someone could disagree with. Say what you think about it.';
-  return '';
-};
-
-/* Only the first sentence is held. Saying so before Hold beats discovering it
-   after. */
-export const extraSentenceNotice = (draft = '') => {
-  const text = String(draft || '').trim();
-  const sentence = oneSentence(text);
-  if (!sentence || sentence.length >= text.replace(/\s+/g, ' ').length - 1) return '';
-  return 'Noeis holds the first sentence. You can add the rest as a reason later.';
-};
-
 const MIN_PROSE_WORDS = 40;
 const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/gi;
 
@@ -194,14 +173,6 @@ export const passageTitle = (prose = '', max = 60) => {
   return `${cut.slice(0, cut.lastIndexOf(' ') > 20 ? cut.lastIndexOf(' ') : max).replace(/[,;:]$/, '')}…`;
 };
 
-const capitalize = (value = '') => value.charAt(0).toUpperCase() + value.slice(1);
-
-export const passagesHeadline = (count = 0) => (
-  count === 1
-    ? 'One passage you saved bears on this.'
-    : `${capitalize(countWord(count))} passages you saved bear on this.`
-);
-
 export const readwiseReceipt = ({ importedHighlights = 0, importedArticles = 0 } = {}) => {
   if (!importedHighlights && !importedArticles) return 'Readwise is connected. Nothing new came in.';
   const highlights = `${importedHighlights} ${importedHighlights === 1 ? 'highlight' : 'highlights'}`;
@@ -209,6 +180,7 @@ export const readwiseReceipt = ({ importedHighlights = 0, importedArticles = 0 }
   return `${highlights} from ${sources} came in from Readwise.`;
 };
 
+/* When a passage was saved, as a reader says it. */
 export const savedOn = (value, now = new Date()) => {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return '';
@@ -220,32 +192,25 @@ export const savedOn = (value, now = new Date()) => {
   })}`;
 };
 
-/* The words that brought a passage here, marked where they occur. Retrieval
-   cannot tell support from contradiction, so the honest thing to show is why it
-   came up and let the reader decide what it does. */
-export const markMatches = (text = '', terms = []) => {
-  const stems = (Array.isArray(terms) ? terms : [])
-    .map(term => String(term || '').toLowerCase().trim())
-    .filter(term => term.length > 2);
-  if (!stems.length) return [{ text, match: false }];
-  const matches = (word) => {
-    const bare = word.toLowerCase().replace(/[^a-z0-9'-]/g, '');
-    return bare.length > 2 && stems.some(stem => bare === stem || (stem.length >= 4 && bare.startsWith(stem)));
-  };
-  return String(text || '')
-    .split(/(\s+)/)
-    .filter(Boolean)
-    .reduce((segments, piece) => {
-      const match = !/^\s+$/.test(piece) && matches(piece);
-      const last = segments[segments.length - 1];
-      if (!match && last && !last.match) last.text += piece;
-      else segments.push({ text: piece, match });
-      return segments;
-    }, []);
+/* A page title without the site name it carries ("… | Collab Fund"). */
+const bareTitle = (title = '') => String(title || '').split(/\s+[|–—-]\s+/)[0].trim();
+
+/* What is being read while a page is written, named so the wait is about the
+   reader's own sources and not a spinner. */
+export const readingList = (titles = [], max = 3) => {
+  const named = (Array.isArray(titles) ? titles : []).map(bareTitle).filter(Boolean);
+  if (!named.length) return 'your sources';
+  const quoted = named.slice(0, max).map(title => `“${title}”`);
+  const rest = named.length - max;
+  if (rest > 0) return `${quoted.join(', ')} and ${rest === 1 ? 'one more' : `${countWord(rest)} more`}`;
+  if (quoted.length === 1) return quoted[0];
+  return `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}`;
 };
 
-export const FILED_LINE = {
-  why: 'Filed under why you hold it.',
-  against: 'Filed against it.',
-  skip: 'Set aside.'
-};
+/* When nothing recurs across the library yet, the titles of what was just
+   brought stand in as topics, trimmed of the site name a page title carries. */
+export const sourceTopics = (titles = [], max = 3) => [...new Set(
+  (Array.isArray(titles) ? titles : [])
+    .map(bareTitle)
+    .filter(title => title && words(title).length <= 8)
+)].slice(0, max);

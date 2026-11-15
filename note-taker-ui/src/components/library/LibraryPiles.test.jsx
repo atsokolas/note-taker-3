@@ -68,7 +68,7 @@ describe('LibraryPiles', () => {
     expect(laterTitles).toEqual(['old-later', 'new-later']);
     expect(screen.queryByRole('button', { name: 'new-aside' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open the stack' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
     const asideTitles = [...document.querySelectorAll('.library-pile--setAside .library-pile__title')]
       .map((button) => button.textContent);
     expect(asideTitles).toEqual(['new-aside', 'old-aside']);
@@ -129,7 +129,7 @@ describe('sentence-flight onto the piles', () => {
       <LibraryPiles articles={[aside('new-aside', '2026-08-20T00:00:00.000Z')]} />
     );
     const title = screen.getByRole('button', { name: 'new-aside' });
-    expect(screen.queryByRole('button', { name: 'Open the stack' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show all' })).not.toBeInTheDocument();
     expect(title.animate).toHaveBeenCalledTimes(1);
     expect(title.closest('.library-pile')).toHaveClass('noeis-meander', 'is-open', 'is-warm');
     expect(title.closest('.library-pile__sheet')).not.toBeNull();
@@ -139,9 +139,9 @@ describe('sentence-flight onto the piles', () => {
     render(
       <LibraryPiles articles={[aside('new-aside', '2026-08-20T00:00:00.000Z')]} />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Open the stack' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Close the stack' }));
-    expect(screen.getByRole('button', { name: 'Open the stack' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.getByRole('button', { name: 'Show all' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'new-aside' })).not.toBeInTheDocument();
   });
 
@@ -208,7 +208,7 @@ describe('the Set aside stack', () => {
     fireEvent.drop(laterPile, piece('a1'));
     expect(onPlace).toHaveBeenCalledWith('a1', 'later');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open the stack' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
     const asidePile = screen.getByLabelText('Set aside');
     fireEvent.drop(asidePile, piece('a2'));
     expect(onPlace).toHaveBeenCalledWith('a2', 'setAside');

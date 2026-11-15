@@ -47,7 +47,7 @@ test('opening only verifies and reads; fixed content is visible and one click ex
   expect(screen.getByLabelText('Source 1 exact text')).toHaveValue(plan.sources[0].text);
   expect(screen.getByLabelText('Exact reader thought')).toHaveValue(plan.highlight.note);
   fireEvent.click(save);
-  expect((await screen.findByLabelText('Verified private setup receipt')).value).toContain('not_run');
+  expect((await screen.findByLabelText('Verified private setup record')).value).toContain('not_run');
   expect(save).toBeDisabled(); expect(session.run).toHaveBeenCalledTimes(1);
 });
 
@@ -67,7 +67,7 @@ test('double-click guard and uncertain outcome require read-only check before an
   reject(Object.assign(new Error('Uncertain write; check saved state.'), { reviewerSetup: true }));
   await screen.findByRole('alert'); expect(save).toBeDisabled();
   session.inspect.mockResolvedValue(complete); fireEvent.click(screen.getByRole('button', { name: 'Check saved state' }));
-  await screen.findByLabelText('Verified private setup receipt'); expect(session.run).toHaveBeenCalledTimes(1);
+  await screen.findByLabelText('Verified private setup record'); expect(session.run).toHaveBeenCalledTimes(1);
 });
 
 test.each(['token', 'refreshToken', null])('session change (%s) aborts and removes fixture actions without resuming the previous account', async key => {
@@ -88,10 +88,10 @@ test('Edition setup needs an explicit read, then one save exposes its own receip
   expect(save).toBeDisabled(); expect(session.runEdition).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Check Edition setup' }));
   await waitFor(() => expect(save).not.toBeDisabled());
-  fireEvent.click(save); await screen.findByLabelText('Verified private Edition receipt');
+  fireEvent.click(save); await screen.findByLabelText('Verified private Edition record');
   expect(save).toBeDisabled(); expect(session.runEdition).toHaveBeenCalledTimes(1); expect(session.run).not.toHaveBeenCalled();
   expect(screen.getByRole('link', { name: 'Open the private fictional Edition' })).toHaveAttribute('href', '/editions/edition');
-  expect(screen.getByLabelText('Verified private setup receipt')).toBeInTheDocument();
+  expect(screen.getByLabelText('Verified private setup record')).toBeInTheDocument();
 });
 
 test('Edition uncertainty keeps read-only reconciliation available and prevents another save', async () => {

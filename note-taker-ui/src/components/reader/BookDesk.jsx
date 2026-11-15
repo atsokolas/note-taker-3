@@ -7,7 +7,7 @@ import { scopedKey } from '../../utils/browserScope';
 import { buildConceptPath } from '../../utils/sourceRoutes';
 import { pagePhoto } from '../../utils/pagePhoto';
 import {
-  completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastTime, markedBefore, monthOf, pageNow, pagesOf,
+  completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastTime, markedBefore, midThought, monthOf, pageNow, pagesOf,
   readingSince, readLine, setDownOn, sittingLabel, sittingOf, tallyLine
 } from './bookDesk';
 import '../../styles/book-desk.css';
@@ -37,12 +37,12 @@ const receiptFor = (sent, saved, known, earlier) => {
   if (earlier) return `You marked this in ${yearOf(earlier)} too.`;
   if (known) {
     return /\bLocation\b/.test(saved.location || '')
-      ? 'You marked this on your Kindle too. It is one mark now, with your note.'
+      ? 'You marked this on your Kindle too. Now it’s one highlight, with your note.'
       : 'You had marked this already. It is one mark now.';
   }
   if (!sent.text || !isUnfinished(sent.text)) return '';
   return isUnfinished(saved.text)
-    ? 'Kept as you typed it. The middle fills in when the Kindle or the book brings it.'
+    ? 'Saved. The middle fills in from your Kindle, or from a photo of the page.'
     : 'Filled in from the book.';
 };
 
@@ -108,9 +108,11 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   const lineRef = useRef(null);
 
   const sitting = sittingOf(now);
-  const last = sitting.length ? null : lastTime(now);
   const [touched, setTouched] = useState(false);
   const setDown = touched ? null : setDownOn(article, now);
+  // The first line you type tonight finishes it, unless Escape starts a new one.
+  const unfinished = sitting.length || setDown || touched ? null : midThought(now);
+  const last = sitting.length || unfinished ? null : lastTime(now);
   const typed = readLine(line, page);
   const waiting = marks.filter(mark => mark.text && isUnfinished(mark.text));
   const ghost = typed.text && !isUnfinished(typed.text) ? completionFor(typed.text, marks) : '';
@@ -171,29 +173,38 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     setPage(turned);
     setLine('');
     setReceipt('');
-    /* A note sent with ⌥↩ goes under the quote above it; a line of only
-       #tags files the mark you just made. */
-    const onto = attach && note
+    /* A note sent with ⌥↩ goes under the quote above it, one that finishes
+       last night's thought runs on from it; a line of only #tags files the
+       mark you just made. */
+    const finishing = !attach && note && unfinished?.mark;
+    const onto = finishing || (attach && note
       ? [...sent.current].reverse().map(({ id }) => marks.find(mark => mark._id === id)).find(mark => mark?.text)
-      : !text && !note && tags.length && marks.find(mark => mark._id === sent.current[sent.current.length - 1]?.id);
+      : !text && !note && tags.length && marks.find(mark => mark._id === sent.current[sent.current.length - 1]?.id));
     if (onto) {
+      // Taken at once, so a second Return is a line of its own.
+      if (finishing) setTouched(true);
       const payload = {
-        ...(note ? { note: joinNotes(onto.note, note) } : {}),
+        ...(note ? { note: finishing ? `${onto.note} ${note}` : joinNotes(onto.note, note) } : {}),
         ...(tags.length ? { tags: [...new Set([...(onto.tags || []), ...tags])] } : {})
       };
       const saved = await updateHighlight({ articleId, highlightId: onto._id, payload }).catch(() => null);
       if (saved) {
+        sent.current.push({ id: onto._id, before: onto });
         onReplace?.(onto._id, { ...onto, ...saved });
         setReceipt(filedUnder(tags));
         setTouched(true);
+        return;
       }
-      else setLine(line);
-      return;
+      // Offline, the rest of the thought waits as a line of its own.
+      if (!finishing) {
+        setLine(line);
+        return;
+      }
     }
     if (!text && !note) {
       if (tags.length) {
         setLine(line);
-        setReceipt('A #word files the line it is on, or the mark you just made.');
+        setReceipt('A #word tags this line.');
       }
       return;
     }
@@ -218,7 +229,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       if (filled.length) setInked(filled[0]._id);
       setReceipt(filled.length
         ? `Finished ${quotes(filled.length)} from the page.`
-        : 'Nothing on that page finishes a quote you typed by its ends.');
+        : 'Couldn’t find the rest of your quote on that page.');
     } catch (error) {
       setReceipt(error?.response?.data?.error || 'The page could not be read. Try it again in better light.');
     }
@@ -256,6 +267,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       takeBack();
     } else if (event.key === 'Escape') {
       setLine('');
+      if (unfinished) setTouched(true);
     }
   };
 
@@ -264,9 +276,10 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       <p className="book-desk__lede">
         {sitting.length ? <><span className="book-desk__label">{sittingLabel(new Date(sitting[sitting.length - 1].createdAt))}</span>{tallyLine(sitting)}</>
           : setDown ? <><span className="book-desk__label">Set down in {monthOf(setDown)}</span>Why’d you stop?</>
+          : unfinished ? <><span className="book-desk__label">You stopped mid-thought{unfinished.mark.page ? `, p. ${unfinished.mark.page}` : ''}</span><q className="book-desk__own">{unfinished.words}</q></>
           : last ? <><span className="book-desk__label">Last time{last.page ? `, p. ${last.page}` : ''}</span><q className={last.own ? 'book-desk__own' : ''}>{last.words}</q></>
             : lastReading?.finishedOn ? <><span className="book-desk__label">Read before, finished {monthOf(dayOf(lastReading.finishedOn))}</span>{lastReading.closingLine ? <q>{lastReading.closingLine}</q> : 'What you marked then is here in faded ink.'}</>
-              : 'Type as you read. A number turns the page, a quote mark makes the line the book’s own words, and a #word files it under that concept.'}
+              : 'Type as you read. A page number sets the page, a quote mark starts a quote, and a #word tags the line.'}
       </p>
 
       <BookPages marks={marks} since={since} inked={inked} doorFor={doorFor} />
@@ -294,7 +307,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
             aria-label="Type a quote, a note or a question"
             enterKeyHint="send"
             value={line}
-            placeholder={setDown ? 'Why you stopped, or the next line' : 'A quote, or what you think'}
+            placeholder={setDown ? 'Why you stopped, or the next line' : unfinished ? 'The rest of that thought' : 'A quote, or what you think'}
             onChange={(event) => setLine(event.target.value)}
             onKeyDown={press}
           />
@@ -303,11 +316,12 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       <p className="book-desk__hint" aria-live="polite" data-said={receipt || ghost || then ? true : undefined}>
         {receipt || (ghost ? 'Tab takes the rest of the passage you marked'
           : then ? <>In {yearOf(then)}, on this page: <q>{then.text || then.note}</q></>
-            : 'Return keeps the line. Option-Return adds it to the quote above.')}
+            : unfinished ? 'Return finishes it. Escape starts a new line.'
+              : 'Return keeps the line. Option-Return adds it to the quote above.')}
       </p>
       {waiting.length ? (
         <label className="book-desk__photo">
-          {waiting.length === 1 ? 'Photograph the page to finish the quote you typed by its ends' : `Photograph the page to finish the ${waiting.length} quotes you typed by their ends`}
+          {waiting.length === 1 ? 'Photograph the page to fill in your quote' : `Photograph the page to fill in your ${waiting.length} quotes`}
           <input type="file" accept="image/*" capture="environment" onChange={photograph} />
         </label>
       ) : null}

@@ -55,7 +55,7 @@ describe('Connections agents', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: 'Agents you have authorized' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
     expect(screen.getByText('Research companion')).toBeInTheDocument();
     expect(screen.getByText('Codex · Read only')).toBeInTheDocument();
     expect(screen.getByText('Approved · waiting for first request')).toBeInTheDocument();
@@ -69,14 +69,14 @@ describe('Connections agents', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Give instructions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect an agent' }));
     fireEvent.change(screen.getByLabelText('Name this connection'), {
       target: { value: 'Weekend research' }
     });
     fireEvent.change(screen.getByLabelText('Where does your agent run?'), {
       target: { value: 'openclaw' }
     });
-    fireEvent.click(screen.getByRole('radio', { name: /Read NOEIS/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Read Reads/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Copy instructions' }));
 
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1));
@@ -98,10 +98,10 @@ describe('Connections agents', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Manage Research companion' }));
     fireEvent.click(screen.getByRole('button', { name: 'Revoke this access' }));
 
-    expect(screen.getByText(/Future requests using this credential will stop/i)).toBeInTheDocument();
-    expect(screen.getByText(/Already imported material and completed work stay/i)).toBeInTheDocument();
+    expect(screen.getByText(/It stops working at once/i)).toBeInTheDocument();
+    expect(screen.getByText(/What it already saved stays/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm revoke' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke', exact: true }));
     expect(tokenModel.handleRevokeToken).toHaveBeenCalledWith('token-1');
   });
 });

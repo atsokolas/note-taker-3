@@ -193,15 +193,14 @@ describe('LibrarySourceList', () => {
       loadingMore: true,
       onLoadMore: jest.fn()
     });
-    expect(screen.getByTestId('library-source-coverage')).toHaveTextContent(/Showing recent sources/i);
+    expect(screen.getByTestId('library-source-coverage')).toHaveTextContent(/Showing recent matches/i);
     expect(screen.getByTestId('library-source-load-more')).toBeDisabled();
     expect(screen.getByTestId('library-source-load-more')).toHaveTextContent('Loading more…');
   });
 
-  it('omits a false source-scan warning when recent coverage is exact', () => {
+  it('says nothing about ranking internals when every match is loaded', () => {
     renderList({
       coverage: { status: 'partial', limitations: ['material_movements_limited_to_50'] },
-      counts: { recent: { value: 3, exact: true } },
       sourceView: 'recent'
     });
     expect(screen.queryByTestId('library-source-coverage')).not.toBeInTheDocument();

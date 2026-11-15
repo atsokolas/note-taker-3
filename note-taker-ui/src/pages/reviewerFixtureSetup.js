@@ -89,12 +89,12 @@ export const createFixtureSession = ({ client, storage, locks }) => {
   let owner = ''; let key = ''; let journal;
   const readSaved = storageKey => {
     try { return JSON.parse(storage.getItem(storageKey) || 'null'); }
-    catch (_) { throw pause('Durable setup state is unavailable; no writes are allowed.'); }
+    catch (_) { throw pause('Saved setup state is unavailable; no writes are allowed.'); }
   };
   const persist = (storageKey, value) => {
     const serialized = JSON.stringify(value);
     try { storage.setItem(storageKey, serialized); if (storage.getItem(storageKey) !== serialized) throw new Error(); }
-    catch (_) { throw pause('Durable setup state could not be confirmed; setup is paused.'); }
+    catch (_) { throw pause('Saved setup state could not be confirmed; setup is paused.'); }
   };
   const loadJournal = () => {
     const parsed = readSaved(key);
@@ -314,7 +314,7 @@ export const createFixtureSession = ({ client, storage, locks }) => {
 
 export const editionFixtureReceipt = state => {
   if (state?.identity?.userId !== plan.edition.ownerId || !state.complete || !state.edition?.complete) {
-    throw pause('An Edition receipt requires complete exact readback.');
+    throw pause('An Edition record requires complete exact readback.');
   }
   return { version: plan.version, ownerId: state.identity.userId, verifiedAt: state.verifiedAt,
     status: 'persisted_and_read_back', profile: state.edition.profile, editionId: idOf(state.edition.issue),
@@ -327,7 +327,7 @@ export const editionFixtureReceipt = state => {
 };
 
 export const fixtureReceipt = state => {
-  if (!state.complete) throw pause('A receipt requires complete exact readback.');
+  if (!state.complete) throw pause('A record requires complete exact readback.');
   return ({
   version: plan.version, ownerId: state.identity.userId, verifiedAt: state.verifiedAt,
   status: state.complete ? 'persisted_and_read_back' : 'incomplete',

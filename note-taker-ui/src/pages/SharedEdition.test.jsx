@@ -121,7 +121,7 @@ describe('a paper someone published', () => {
   it('carries the standard in its own words, for someone who has never heard of Noeis', async () => {
     getPublicEdition.mockResolvedValue(paper());
     render(<SharedEdition />);
-    await waitFor(() => expect(screen.getByText(/not a list of links/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/between this and a list of links/)).toBeInTheDocument());
   });
 
   it('asks indexes not to list an unlisted share', async () => {

@@ -119,7 +119,7 @@ const WikiReaderContext = ({
         </button>
         {clean(source.limit || source.boundary) ? (
           <p className="wiki-reader-context__boundary">
-            <span className="wiki-reader-context__kicker">What this does not settle</span>
+            <span className="wiki-reader-context__kicker">What this doesn’t answer</span>
             {clean(source.limit || source.boundary)}
           </p>
         ) : null}
@@ -245,7 +245,7 @@ const WikiReaderContext = ({
       <div className="wiki-reader-context">
         <PanelHeader label="A note for future you" onClose={onClose} />
         <h2>Why I changed it.</h2>
-        <p className="wiki-reader-context__quiet">Optional. The revision was already accepted. This note is private.</p>
+        <p className="wiki-reader-context__quiet">Optional, and private.</p>
         <label className="wiki-reader-context__kicker" htmlFor="wiki-private-reason">Your reason · private</label>
         <textarea
           id="wiki-private-reason"
@@ -270,14 +270,13 @@ const WikiReaderContext = ({
             <span className="wiki-reader-context__kicker">{change.kind}</span>
             <p>{clean((change.after || change.before)?.text)}</p>
           </div>
-        )) : <p>No paragraph wording or citation changes between these two stored versions.</p>}
+        )) : <p>Nothing changed between these versions.</p>}
         <div className="wiki-reader-context__actions">
           <button type="button" className="wiki-reader-context__primary" onClick={onShowInPage}>
             Show only what changed
           </button>
           <button type="button" onClick={onSeenChanges}>I’ve seen these changes</button>
         </div>
-        <p className="wiki-reader-context__quiet">Seen is only a reading marker. It does not accept a candidate or set a reviewed date.</p>
       </div>
     );
   }
@@ -287,7 +286,7 @@ const WikiReaderContext = ({
       <div className="wiki-reader-context">
         <PanelHeader label="A sentence with its moment" onClose={onClose} />
         <h2>The words, as they were.</h2>
-        {panel.text ? <Quote>{panel.text}</Quote> : <p>This historical snapshot is unavailable. Current text will not be substituted silently.</p>}
+        {panel.text ? <Quote>{panel.text}</Quote> : <p>This old version wasn’t saved.</p>}
         <p className="wiki-reader-context__quiet">{panel.label || wikiRevisionLabel({ page, revisionId: panel.revisionId, historical: panel.historical, proposed: panel.proposed })}</p>
         <div className="wiki-reader-context__actions">
           {panel.text ? <button type="button" className="wiki-reader-context__primary" onClick={onCopyReference}>Copy these words + reference</button> : null}

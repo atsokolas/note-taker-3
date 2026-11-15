@@ -385,10 +385,11 @@ html[data-ui-motion='reduced'] :is(.theme-picker, .theme-picker__dialog) {
   gap: 12px;
   min-height: 46px;
   min-width: min(100%, 280px);
-  padding: 6px 14px 6px 8px;
-  border: 1px solid var(--noeis-rule-strong);
-  border-radius: 10px;
-  background: var(--noeis-paper);
+  padding: 6px 0;
+  border: 0;
+  border-bottom: 1px solid var(--noeis-rule-strong);
+  border-radius: 0;
+  background: transparent;
   color: var(--noeis-ink);
   font: inherit;
   font-size: 0.86rem;
@@ -397,7 +398,7 @@ html[data-ui-motion='reduced'] :is(.theme-picker, .theme-picker__dialog) {
 }
 
 .theme-picker-trigger:hover {
-  background: var(--noeis-mix-lift);
+  border-bottom-color: var(--noeis-ink);
 }
 
 .theme-picker-trigger:focus-visible {

@@ -104,7 +104,7 @@ test('a new frontend never sends planning or continuation writes to the previous
   api.get.mockResolvedValue({ data: { entries: [], folders: [] } }); await session.load();
   const id = session.capture({ title: 'Keep my pending follow-up', workItem: { kind: 'task' } }); session.edit(id, { title: 'Keep my pending follow-up' });
   api.post = jest.fn(); expect(await session.flush(id)).toBe(false); expect(api.post).not.toHaveBeenCalled(); expect(session.pending()).toHaveLength(1); expect(session.canLeave()).toBe(true);
-  await expect(session.continueFrom({ _id: 'note' }, 'rollout-intent')).rejects.toThrow(/matching server/); expect(api.post).not.toHaveBeenCalled();
+  await expect(session.continueFrom({ _id: 'note' }, 'rollout-intent')).rejects.toThrow(/Noeis is updating/); expect(api.post).not.toHaveBeenCalled();
   api.get.mockResolvedValue({ data: { entries: [], items: [], folders: [] } }); await session.load();
   api.post.mockImplementation(async (_, body) => ({ data: { ...body, _id: 'saved-task', revision: 0 } }));
   api.put.mockImplementation(async (_, body) => ({ data: { ...body, _id: 'saved-task', revision: 1 } }));

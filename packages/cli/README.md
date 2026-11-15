@@ -30,6 +30,9 @@ Use `--scope read-write` only when the human explicitly chose the broader
 `read` + `agent-write` grant. Unknown scopes are rejected instead of widened or
 silently replaced.
 
+Add `--work` to also let the agent into Work, the private work notebook, with
+the same read or read-write access. No other scope includes it.
+
 The generated runtime MCP config calls `noeis mcp`. The raw token stays in one place: the Noeis CLI config, normally `~/.config/noeis/config.json`. Generated MCP configs should not copy `NOEIS_TOKEN`.
 
 For OpenClaw, `noeis connect openclaw --scope read` writes both the XDG MCP file

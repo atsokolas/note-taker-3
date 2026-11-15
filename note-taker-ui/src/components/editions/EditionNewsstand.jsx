@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { costLine, coverFigure, frontPage, headlineOf, issueLine, latestOf, newCountOf, updatedLine, windowLine } from '../../pages/editionModel';
+import { costLine, coverFigure, dekOf, frontPage, headlineOf, issueLine, latestOf, newCountOf, updatedLine, windowLine } from '../../pages/editionModel';
 import { Figures, Passage, SourceLink, Why } from './EditionLayer';
 
 /* Each paper wears its own cover, in the house's own inks. */
@@ -39,6 +39,13 @@ function Cover({ papers, paper, opened, open = false }) {
     : <Link className={className} data-noeis-item to={`/editions?open=${encodeURIComponent(paper.profile)}`}>{face}</Link>;
 }
 
+/* Under each headline: why the agent filed it, or else what it found. */
+function Blurb({ item }) {
+  if (item.why) return <Why item={item} />;
+  const dek = dekOf(item);
+  return dek ? <p className="stand__dek">{dek}</p> : null;
+}
+
 /**
  * A magazine, opened: the cover on the left page; on the right, what is in
  * the issue and its feature, the finding with the most you can check. Esc,
@@ -68,12 +75,13 @@ function Spread({ papers, paper, opened }) {
         <div className="stand__page">
           {issue?.items?.length ? (
             <>
-              <h2 className="stand__contents-head">In this issue <span>{costLine(issue.items)}</span></h2>
+              <h2 className="stand__contents-head">In this issue <span>{[updatedLine(issue), costLine(issue.items)].filter(Boolean).join(' · ')}</span></h2>
               <ol className="stand__contents">
                 {issue.items.map((item, index) => (
                   <li key={item.itemId}>
                     <span className="stand__number">{String(index + 1).padStart(2, '0')}</span>
                     <Link to={findingPath(issue, item)}>{headlineOf(item)}</Link>
+                    <Blurb item={item} />
                     <SourceLink item={item} />
                   </li>
                 ))}

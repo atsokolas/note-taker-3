@@ -22,7 +22,7 @@ const InsertHighlightModal = ({ open, highlights, loading, error, onClose, onSel
       <div className="modal-content modal-content--insert">
         <div className="modal-header">
           <div>
-            <h3>Insert Highlight</h3>
+            <h3>Insert highlight</h3>
             <p className="muted small">Search by text, tag, or article.</p>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="Close">×</button>

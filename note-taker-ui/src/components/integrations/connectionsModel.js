@@ -85,7 +85,7 @@ export const projectSourceConnection = ({
 
   if (access === 'revoked') {
     stateLabel = 'Access revoked';
-    detail = savedCopy ? `${savedCopy} remain in NOEIS.` : 'Previously imported material remains in NOEIS.';
+    detail = savedCopy ? `${savedCopy} remain in NOEIS.` : 'What you already brought in stays.';
     nextAction = 'Reconnect';
     tone = 'warning';
   } else if (access === 'error') {
@@ -95,7 +95,7 @@ export const projectSourceConnection = ({
     tone = 'warning';
   } else if (importState === 'running') {
     stateLabel = 'Import in progress';
-    detail = String(session?.progress?.stage || 'The durable import job is running.').replace(/_/g, ' ');
+    detail = String(session?.progress?.stage || 'Bringing it in…').replace(/_/g, ' ');
     nextAction = 'View progress';
     tone = 'working';
   } else if (importState === 'failed') {
@@ -110,12 +110,12 @@ export const projectSourceConnection = ({
     tone = 'warning';
   } else if (access === 'connected' && hasSavedHistory) {
     stateLabel = 'Imported into NOEIS';
-    detail = savedCopy || 'The latest import receipt is available.';
+    detail = savedCopy || 'Done.';
     nextAction = 'Review changes';
     tone = 'connected';
   } else if (access === 'connected') {
     stateLabel = 'Connected · nothing imported yet';
-    detail = 'Authorization is current. Import remains a separate result.';
+    detail = 'Connected. Nothing brought in yet.';
     nextAction = 'Review import';
     tone = 'warning';
   }
@@ -182,7 +182,7 @@ export const projectAgentGrant = (token = {}, now = new Date()) => {
   const revoked = token.status === 'revoked' || Boolean(token.revokedAt);
   const expired = Boolean(token.expiresAt && new Date(token.expiresAt).getTime() <= now.getTime());
   const observed = Boolean(token.lastUsedAt);
-  const scopeLabel = scopes.includes('agent-write') ? 'Read and write' : 'Read only';
+  const scopeLabel = `${scopes.includes('agent-write') ? 'Read and write' : 'Read only'}${scopes.includes('work') ? ', Work included' : ''}`;
 
   return {
     id: String(token.id || token._id || ''),
@@ -201,10 +201,10 @@ export const projectAgentGrant = (token = {}, now = new Date()) => {
     detail: revoked
       ? 'Future requests are blocked. Completed work remains.'
       : expired
-        ? 'A fresh human authorization is required.'
+        ? 'Approve it again to keep it working.'
         : observed
           ? `Last request ${new Date(token.lastUsedAt).toLocaleString()}`
-          : 'No successful request has been recorded yet.',
+          : 'It hasn’t used Noeis yet.',
     ready: !revoked && !expired && observed,
     tone: revoked || expired ? 'off' : observed ? 'connected' : 'waiting',
     lastUsedAt: token.lastUsedAt || null,

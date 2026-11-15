@@ -4,11 +4,13 @@ const { CHATGPT_ACCESS_PROFILE, isChatgptRequestAllowed } = require('./chatgptAc
 const AGENT_TOKEN_PREFIX = 'ntk_at_';
 /* What each scope lets a token do. `capture` is a person's own desktop: it
    brings links, files and text in and sees the nightstand, and writes
-   nothing else. */
+   nothing else. `work` opens Work and is never implied by another scope:
+   it is asked for by name, on top of read or agent-write. */
 const SCOPE_GRANTS = {
   read: ['read'],
   capture: ['capture'],
-  'agent-write': ['read', 'capture', 'agent-write']
+  'agent-write': ['read', 'capture', 'agent-write'],
+  work: ['work']
 };
 const AGENT_TOKEN_SCOPES = Object.keys(SCOPE_GRANTS);
 const AGENT_TOKEN_SCOPE_SET = new Set(AGENT_TOKEN_SCOPES);

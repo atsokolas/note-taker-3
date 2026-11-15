@@ -284,12 +284,12 @@ describe('OpenedLibraryPassage', () => {
     fireEvent.change(screen.getByLabelText('Try saying it'), {
       target: { value: 'Care is letting a child find the path without being carried.' }
     });
-    expect(screen.getByText('A rehearsal, not a grade.')).toBeInTheDocument();
+    expect(screen.getByText('Practice. Nothing is scored.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Keep this as unwritten work' }));
     fireEvent.change(screen.getByLabelText('What this collection could become'), {
       target: { value: 'Who gets to experiment, and who pays for the mistake?' }
     });
-    expect(screen.getByText('Unwritten work, not the article.')).toBeInTheDocument();
+    expect(screen.getByText('Notes for later, not the article.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Read around this' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Try without this source' }));
     expect(screen.queryByRole('button', { name: 'Read around this' })).not.toBeInTheDocument();

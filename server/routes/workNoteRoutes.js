@@ -1,4 +1,5 @@
 const { createWorkNoteReadiness } = require('../services/workNoteReadiness');
+const { EDITION_TAG, draftWeekEdition } = require('../services/workWeekEdition');
 const express = require('express');
 const mongoose = require('mongoose');
 const { inWork, workOperationIndex } = require('../models/knowledgeContext');
@@ -18,11 +19,21 @@ function validateReferences(value, inBlocks = false) {
     validateReferences(child, inBlocks || key === 'blocks');
   }
 }
-function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder, readiness = createWorkNoteReadiness({ NotebookEntry }) }) {
+// What a project keeps from elsewhere in Noeis: a kind, an id and the title it had. Nothing is fetched or followed.
+function projectLinks(links) {
+  if (!Array.isArray(links) || links.length > 100 || links.some(link => !['article', 'wiki', 'book'].includes(link?.kind) || typeof link.id !== 'string' || !/^[\w-]{1,64}$/.test(link.id) || typeof (link.title ?? '') !== 'string')) throw fail(400, 'Choose things from your Library, Wiki or Books.');
+  return links.map(({ kind, id, title = '' }) => ({ kind, id, title: title.slice(0, 300) }));
+}
+// A project's Monday answers: a day and one line each, the newest year of them kept.
+function checkIns(answers) {
+  if (!Array.isArray(answers) || answers.some(answer => !date(answer?.on) || typeof answer.text !== 'string' || !answer.text.trim())) throw fail(400, 'Each check-in needs a day and a line.');
+  return answers.slice(-52).map(({ on, text }) => ({ on, text: text.trim().slice(0, 500) }));
+}
+function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder, readiness = createWorkNoteReadiness({ NotebookEntry }), draftWeek = draftWeekEdition }) {
   const router = express.Router();
   router.use('/api/work-notes', authenticateToken, (req, res, next) => {
     res.set('Cache-Control', 'no-store, private');
-    if (req.agentToken || req.personalAgent || req.authInfo?.tokenSource === 'agent-token') return res.status(403).json({ error: 'Only the human owner can do this.' });
+    if (req.agentToken && !req.agentToken.scopes.includes('work')) return res.status(403).json({ error: 'This connection has no Work access. Reconnect it with --work to let it into Work.' });
     if (!readiness.isReady()) return res.status(503).json({ code: 'work_unavailable', error: 'Work notes are not ready. Please retry shortly.' });
     next();
   });
@@ -39,7 +50,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (!current) Object.assign(result, captureFields(body));
     if (body.workItem !== undefined) {
       if (current && !current.workItem) throw fail(400, 'A note cannot become a planner item.');
-      result.workItem = await workItemFields(body.workItem, current?.workItem, id => mongoose.isValidObjectId(id) && inWork(NotebookEntry.findOne({ _id: id, userId: req.user.id, workItem: { $exists: false } })));
+      result.workItem = await workItemFields(body.workItem, current?.workItem, id => mongoose.isValidObjectId(id) && inWork(NotebookEntry.findOne({ _id: id, userId: req.user.id, workItem: { $exists: false } })), id => inWork(NotebookFolder.findOne({ _id: id, userId: req.user.id })));
     }
     if (body.workActions?.length) result.workItem = applyWorkActions(result.workItem || current?.workItem, body.workActions);
     for (const key of ['title', 'content', 'withText']) if (body[key] !== undefined) {
@@ -54,9 +65,9 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       if (!date(body.occurredOn)) throw fail(400, 'occurredOn must be a calendar date.');
       result.occurredOn = body.occurredOn;
     }
-    if (body.folder !== undefined) {
-      if (body.folder && (!mongoose.isValidObjectId(body.folder) || !await inWork(NotebookFolder.exists({ _id: body.folder, userId: req.user.id, ...((current?.folder && String(current.folder) === body.folder) ? {} : { archivedAt: null }) })))) throw fail(400, 'Choose one of your Work notebooks.');
-      result.folder = body.folder || null;
+    for (const [key, kind, error] of [['folder', { $ne: 'project' }, 'Choose one of your Work notebooks.'], ['project', 'project', 'Choose one of your projects.']]) if (body[key] !== undefined) {
+      if (body[key] && (!mongoose.isValidObjectId(body[key]) || !await inWork(NotebookFolder.exists({ _id: body[key], userId: req.user.id, kind, ...((current?.[key] && String(current[key]) === body[key]) ? {} : { archivedAt: null }) })))) throw fail(400, error);
+      result[key] = body[key] || null;
     }
     return result;
   }
@@ -76,6 +87,10 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       inWork(NotebookFolder.find({ userId: req.user.id })).sort({ sortOrder: 1, name: 1 })
     ]); res.json({ entries: entries.filter(entry => !entry.workItem), items: entries.filter(entry => entry.workItem), folders });
   }));
+  // The other rooms ask only for the projects, to offer "Add to project".
+  router.get('/api/work-notes/projects', handle(async (req, res) => {
+    res.json(await inWork(NotebookFolder.find({ userId: req.user.id, kind: 'project', archivedAt: null })).sort({ sortOrder: 1, name: 1 }));
+  }));
   let folderIndex;
   const ensureFolderIndex = () => folderIndex ||= NotebookFolder.collection.createIndex(workOperationIndex.keys, workOperationIndex.options).catch(() => { folderIndex = null; throw fail(503, 'Folder saving is not ready. Retry shortly.'); });
   router.post('/api/work-notes/folders', handle(async (req, res) => {
@@ -85,7 +100,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     await ensureFolderIndex();
     let folder = operationId && await inWork(NotebookFolder.findOne({ userId: req.user.id, operationId }));
     if (!folder) {
-      try { folder = await NotebookFolder.create({ name: req.body.name, userId: req.user.id, knowledgeContext: 'work', ...(operationId ? { operationId } : {}) }); }
+      try { folder = await NotebookFolder.create({ name: req.body.name, userId: req.user.id, knowledgeContext: 'work', kind: req.body.kind === 'project' ? 'project' : 'folder', ...(operationId ? { operationId } : {}) }); }
       catch (error) { if (error.code !== 11000 || !operationId) throw error; folder = await inWork(NotebookFolder.findOne({ userId: req.user.id, operationId })); }
     }
     res.status(201).json(folder);
@@ -100,7 +115,11 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     }
     const values = {};
     if (req.body.name !== undefined) { if (typeof req.body.name !== 'string' || !req.body.name.trim()) throw fail(400, 'Folder name is required.'); values.name = req.body.name; }
-    if (req.body.archived !== undefined) { if (typeof req.body.archived !== 'boolean') throw fail(400, 'Choose archive or restore.'); values.archivedAt = req.body.archived ? new Date() : null; }
+    if (req.body.archived !== undefined) { if (typeof req.body.archived !== 'boolean') throw fail(400, 'Choose done or reopen.'); values.archivedAt = req.body.archived ? new Date() : null; }
+    if (req.body.paused !== undefined) { if (typeof req.body.paused !== 'boolean') throw fail(400, 'Choose pause or resume.'); values.pausedAt = req.body.paused ? new Date() : null; }
+    for (const key of ['brief', 'closingLine']) if (req.body[key] !== undefined) { if (typeof req.body[key] !== 'string') throw fail(400, `${key} must be text.`); values[key] = req.body[key]; }
+    if (req.body.links !== undefined) values.links = projectLinks(req.body.links);
+    if (req.body.checkIns !== undefined) values.checkIns = checkIns(req.body.checkIns);
     if (req.body.operationId) values.lastMutationId = req.body.operationId;
     const folder = await inWork(NotebookFolder.findOneAndUpdate({ _id: current._id, userId: req.user.id, ...folderRevision(req.body.expectedRevision) }, { $set: values, $inc: { revision: 1 } }, { new: true, runValidators: true }));
     if (!folder) throw fail(409, 'This folder changed. Reload it before trying again.', current);
@@ -111,7 +130,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (!Array.isArray(order) || !order.length || new Set(order.map(row => row.id)).size !== order.length || order.some(row => !mongoose.isValidObjectId(row.id) || !revision(row.revision))) throw fail(400, 'Confirm the folders and their revisions.');
     const session = await NotebookFolder.db.startSession(); let folders;
     try { await session.withTransaction(async () => {
-      const current = await inWork(NotebookFolder.find({ userId: req.user.id, archivedAt: null })).session(session);
+      const current = await inWork(NotebookFolder.find({ userId: req.user.id, kind: { $ne: 'project' }, archivedAt: null })).session(session);
       if (current.length !== order.length || current.some(folder => !order.some(row => row.id === String(folder._id)))) throw fail(409, 'The active folders changed. Reload before reordering.');
       if (current.every(folder => folder.lastMutationId === operationId)) { folders = current.sort((a, b) => a.sortOrder - b.sortOrder); if (folders.some((folder, index) => String(folder._id) !== order[index].id)) throw fail(409, 'This request was used for a different order.'); return; }
       folders = [];
@@ -131,6 +150,23 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       catch (error) { if (error.code !== 11000) throw error; entry = await duplicate(req, operationId, 'create'); }
     }
     res.status(201).json(entry);
+  }));
+  // The last seven days read back as an Edition. The draft is a new Work note, so it is edited, filed and kept like any other.
+  router.post('/api/work-notes/week-edition', handle(async (req, res) => {
+    if (req.agentToken) throw fail(403, 'Only you can draft the week from your Work notes.');
+    const operationId = operation(req), source = 'week-edition';
+    let note = await duplicate(req, operationId, source);
+    if (note) return res.status(201).json({ note });
+    if (!date(req.body.through)) throw fail(400, 'Choose the last day of the week.');
+    const capture = captureFields({ timeZone: req.body.timeZone });
+    const notes = await inWork(NotebookEntry.find({ userId: req.user.id, workItem: { $exists: false } })).lean();
+    let result;
+    try { result = await draftWeek({ notes, through: req.body.through }); }
+    catch (error) { throw fail(error.status === 503 ? 503 : 502, error.status === 503 ? 'Week Editions need Claude, and Claude is not connected right now.' : 'Claude could not draft the week just now. Your notes are unchanged. Try again.'); }
+    if (!result.draft) return res.json({ silence: result.silence });
+    try { note = await NotebookEntry.create({ ...result.draft, ...capture, occurredOn: req.body.through, tags: [EDITION_TAG], userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: source }); }
+    catch (error) { if (error.code !== 11000) throw error; note = await duplicate(req, operationId, source); }
+    res.status(201).json({ note });
   }));
   router.get('/api/work-notes/:id', handle(async (req, res) => {
     const entry = await find(req); if (!entry) throw fail(404, 'Work note not found.'); res.json(entry);
@@ -169,7 +205,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
         if (source.workItem) throw fail(400, 'Continue an authored note, not a planner item.');
         const line = source.workingState?.nextTimeLine;
         const continuationBridge = line?.text?.trim() ? { entryId: String(source._id), title: source.title, occurredOn: source.occurredOn, text: line.text, target: line.target?.toObject ? line.target.toObject() : line.target, revision: source.revision, workbenchRevision: source.workingState.revision } : null;
-        [entry] = await NotebookEntry.create([{ ...captureFields(req.body), userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: sourceKey, occurredOn, folder: source.folder, continuesFromEntryId: source._id, continuationBridge }], { session });
+        [entry] = await NotebookEntry.create([{ ...captureFields(req.body), userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: sourceKey, occurredOn, folder: source.folder, project: source.project, continuesFromEntryId: source._id, continuationBridge }], { session });
       });
     } catch (error) { if (error.code !== 11000) throw error; entry = await duplicate(req, operationId, sourceKey); }
     finally { await session.endSession(); }

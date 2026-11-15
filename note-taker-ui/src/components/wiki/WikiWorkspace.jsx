@@ -470,7 +470,7 @@ const WorkspaceSources = ({ onFeedSource }) => {
             <Link to={buildCanonicalArticlePath(article._id || article.id)}>{sourceTitle(article)}</Link>
             {article.url ? <span>{article.url}</span> : null}
             <button type="button" onClick={() => onFeedSource?.(article)}>
-              Feed to wiki
+              Add to Wiki
             </button>
           </li>
         ))}
@@ -813,15 +813,15 @@ const WikiIngestResultCard = ({ run = {}, onNavigate, onBuildFromSource, onRevie
     }
   };
   return (
-    <div className="wiki-workspace-ingest-card" aria-label="Source ripple result">
+    <div className="wiki-workspace-ingest-card" aria-label="What this changes result">
       <header>
-        <span className="wiki-index__eyebrow">Source ripple</span>
+        <span className="wiki-index__eyebrow">What this changes</span>
         <strong>{sourceTitle(source)}</strong>
       </header>
       <p>{summarizeIngestRun(run)}</p>
       {candidateRows.length ? (
-        <section className="wiki-workspace-ingest-card__plan" aria-label="Candidate update plan">
-          <span>Candidate update plan</span>
+        <section className="wiki-workspace-ingest-card__plan" aria-label="Suggested changes">
+          <span>Suggested changes</span>
           <ol>
             {candidateRows.slice(0, 6).map((row) => {
               const destination = ingestCandidateDestination(row);
@@ -840,7 +840,7 @@ const WikiIngestResultCard = ({ run = {}, onNavigate, onBuildFromSource, onRevie
                   <div>
                     <strong>{row.title}</strong>
                     <p>{row.reason}</p>
-                    <small>{row.confidence} · provenance: {ingestCandidateProvenanceLabel(row, source)}</small>
+                    <small>{row.confidence} · from: {ingestCandidateProvenanceLabel(row, source)}</small>
                     {graphTraceLabel ? (
                       <span className="wiki-workspace-ingest-card__trace">{graphTraceLabel}</span>
                     ) : null}
@@ -1159,7 +1159,7 @@ const WikiWorkspace = () => {
   const showQaFixtureControls = process.env.NODE_ENV !== 'production' && Boolean(qaMode);
 
   const createQaSourceFixture = useCallback(async () => {
-    setQaFixtureState({ status: 'loading', message: 'Creating seeded Library source provenance fixture...' });
+    setQaFixtureState({ status: 'loading', message: 'Creating a sample Library article…' });
     try {
       const result = await createLibrarySourceProvenanceFixture();
       const fixture = result?.fixture || {};
@@ -1291,13 +1291,13 @@ const WikiWorkspace = () => {
               <p className="wiki-index__eyebrow">First visit</p>
               <h1 id="wiki-workspace-onboarding-title">Start the wiki with one page or one source.</h1>
               <p>
-                Build a page from a topic, or feed a Library source and let the wiki decide what should change.
+                Name a topic, or pick an article. Noeis writes the page and cites where each line came from.
                 {` ${AGENT_DISPLAY_NAME}`} answers questions about any of it with ⌘J.
               </p>
             </div>
             <div className="wiki-workspace-onboarding__actions">
               <Button type="button" variant="primary" onClick={() => { dismissFirstVisitOnboarding(); focusBuild(); }}>Build page</Button>
-              <Button type="button" onClick={() => { dismissFirstVisitOnboarding(); openSources(); }}>Feed a source</Button>
+              <Button type="button" onClick={() => { dismissFirstVisitOnboarding(); openSources(); }}>Add an article</Button>
             </div>
             <button
               type="button"

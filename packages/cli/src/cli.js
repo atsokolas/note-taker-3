@@ -11,7 +11,7 @@ import { DEFAULT_API_URL, DEFAULT_APP_URL, readConfig, resolveAuth, writeConfig 
 const HELP = `Noeis CLI
 
 Usage:
-  noeis connect [claude-code|codex|hermes|openclaw|opencode] [--scope read|read-write] [--label name] [--no-browser]
+  noeis connect [claude-code|codex|hermes|openclaw|opencode] [--scope read|read-write] [--work] [--label name] [--no-browser]
   noeis mcp [--help]
   noeis login [--token ntk_at_...] [--api-url https://note-taker-3-unrg.onrender.com]
   noeis pages list [--query text] [--status draft|published|archived] [--page-type type] [--limit n] [--json]
@@ -30,12 +30,14 @@ Environment:
 const CONNECT_HELP = `Noeis agent connect
 
 Usage:
-  noeis connect [claude-code|codex|hermes|openclaw|opencode] [--scope read|read-write] [options]
+  noeis connect [claude-code|codex|hermes|openclaw|opencode] [--scope read|read-write] [--work] [options]
 
 Options:
   --label <name>       Label shown on the Noeis browser approval screen
   --scope <read|read-write>
                        Requested grant. Defaults to read
+  --work               Also let the agent into Work (your private work notebook),
+                       with the same read or read-write access. Off unless asked
   --api-url <url>      API URL, defaults to ${DEFAULT_API_URL}
   --app-url <url>      Browser approval app URL, defaults to ${DEFAULT_APP_URL}
   --no-browser         Print the approval URL without opening a browser
@@ -45,6 +47,7 @@ Options:
 Examples:
   noeis connect openclaw --scope read
   noeis connect hermes --scope read-write
+  noeis connect claude-code --scope read-write --work
   noeis connect codex --no-browser
 `;
 
@@ -55,11 +58,13 @@ const optionValue = (args, name, fallback = '') => {
 };
 
 const hasFlag = (args, name) => args.includes(name);
+// Flags that take no value, so the word after one is still a positional.
+const SWITCHES = new Set(['--json', '--work', '--no-browser', '--no-config', '--print-token']);
 
 const compactArgs = (args) => args.filter((arg, index) => {
   if (arg.startsWith('-')) return false;
   const previous = args[index - 1];
-  if (previous?.startsWith('-') && !['--json'].includes(previous)) return false;
+  if (previous?.startsWith('-') && !SWITCHES.has(previous)) return false;
   return true;
 });
 
@@ -114,11 +119,11 @@ const normalizeRuntime = (value = '') => {
 
 const runtimeLabel = (runtime = 'agent') => RUNTIME_LABELS[runtime] || 'Noeis agent';
 
-const resolveConnectScopes = (value = 'read') => {
+const resolveConnectScopes = (value = 'read', work = false) => {
   const scope = String(value || 'read').trim().toLowerCase();
-  if (scope === 'read') return ['read'];
-  if (scope === 'read-write' || scope === 'agent-write') return ['read', 'agent-write'];
-  throw new NoeisCliError('Unsupported --scope. Use read or read-write.');
+  const access = { read: ['read'], 'read-write': ['read', 'agent-write'], 'agent-write': ['read', 'agent-write'] }[scope];
+  if (!access) throw new NoeisCliError('Unsupported --scope. Use read or read-write.');
+  return work ? [...access, 'work'] : access;
 };
 
 const safeReadJson = (filePath) => {
@@ -331,7 +336,7 @@ const runConnect = async (args, context) => {
   const appUrl = optionValue(args, '--app-url', auth.appUrl || DEFAULT_APP_URL);
   const apiUrl = optionValue(args, '--api-url', auth.apiUrl || DEFAULT_API_URL);
   const label = optionValue(args, '--label', `${runtimeLabel(runtime)} local`);
-  const requestedScopes = resolveConnectScopes(optionValue(args, '--scope', 'read'));
+  const requestedScopes = resolveConnectScopes(optionValue(args, '--scope', 'read'), hasFlag(args, '--work'));
   const timeoutSec = Math.max(15, Math.min(Number(optionValue(args, '--timeout', '300')) || 300, 1800));
   const fetchImpl = context.fetchImpl || global.fetch;
   const io = context.io || { stdout: process.stdout, stderr: process.stderr };
@@ -412,7 +417,7 @@ const runConnect = async (args, context) => {
   }
 
   const scopeLabel = requestedScopes.includes('agent-write') ? 'read/write' : 'read-only';
-  io.stdout.write(`Connected ${runtimeLabel(runtime)} with ${scopeLabel} Noeis access.\n`);
+  io.stdout.write(`Connected ${runtimeLabel(runtime)} with ${scopeLabel} Noeis access${requestedScopes.includes('work') ? ', Work included' : ''}.\n`);
   io.stdout.write(`Verified workspace ${connectionInfo?.workspace?.label || connectionInfo?.workspace?.id || 'identity unavailable'}.\n`);
   io.stdout.write(`Saved Noeis CLI config to ${configPath}\n`);
   const runtimeConfigPaths = Array.isArray(runtimeConfigPath) ? runtimeConfigPath : (runtimeConfigPath ? [runtimeConfigPath] : []);

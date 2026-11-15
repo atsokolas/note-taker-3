@@ -589,7 +589,7 @@ const streamMaintainWikiPageOnce = async (id, options = {}, handlers = {}) => {
   if (!res.body?.getReader) {
     const body = await res.json();
     handlers.onPage?.(body);
-    throw interruptedWikiStreamError('The dossier endpoint closed without a completion receipt. Noeis will resume it.');
+    throw interruptedWikiStreamError('The page stopped before it finished. Noeis will pick it up again.');
   }
 
   const reader = res.body.getReader();

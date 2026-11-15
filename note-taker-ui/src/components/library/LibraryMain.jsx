@@ -120,9 +120,9 @@ const LibraryMain = ({
     onSelectArticle?.(source?.id);
   }, [onOpenSource, onSelectArticle]);
   const viewLabel = sourceView === 'active'
-    ? 'Active in my thinking'
+    ? 'In use'
     : sourceView === 'needs_review'
-      ? 'Needs review'
+      ? 'Changes to check'
       : sourceView === 'unconnected'
         ? 'Unconnected'
         : 'Recently added';
@@ -133,7 +133,7 @@ const LibraryMain = ({
     ? reviewBacklogCount
     : mixedReviewTotal;
   const viewSubtitle = sourceView === 'active'
-    ? 'Sources currently supporting, challenging, or changing your work.'
+    ? 'Articles you’ve quoted in notes or pages.'
     : sourceView === 'needs_review'
       ? formatReviewTriageFrame({
         promotedCount: surfacedReviewCount,
@@ -142,8 +142,8 @@ const LibraryMain = ({
           : 0
       })
       : sourceView === 'unconnected'
-        ? 'Sources not yet used by a durable thinking object.'
-        : 'Sources in the order they entered your Library.';
+        ? 'Articles you haven’t used in a note or page yet.'
+        : 'Newest first.';
   const relevancePending = isMixedBrowse && relevance.loading;
   const relevanceFailed = Boolean(
     isMixedBrowse
@@ -151,11 +151,11 @@ const LibraryMain = ({
     && relevance.sources.length === 0
   );
   const sourceViewEmptyLabel = sourceView === 'active'
-    ? 'No visible source is currently used by a durable thinking object.'
+    ? 'Nothing here is in a note or page yet.'
     : sourceView === 'needs_review'
-      ? 'No visible source is attached to an unresolved change.'
+      ? 'Nothing to check.'
       : sourceView === 'unconnected'
-        ? 'Every visible source is connected.'
+        ? 'Every article is in use.'
         : 'No sources saved yet.';
 
   if (scope === 'highlights') {
@@ -177,15 +177,15 @@ const LibraryMain = ({
     const isInitialLoad = articleLoading && !hasReadableArticle;
     const isUnavailable = !articleLoading && !hasReadableArticle && Boolean(articleError);
     const unavailableTitle = articleErrorKind === 'missing'
-      ? 'This source left the shelf.'
+      ? 'This article isn’t in your Library any more.'
       : articleErrorKind === 'unavailable'
-        ? 'This source belongs elsewhere.'
-        : 'The shelf did not answer.';
+        ? 'This belongs to another account.'
+        : 'Couldn’t load.';
     const unavailableCopy = articleErrorKind === 'missing'
       ? 'It may have been deleted since this link was made.'
       : articleErrorKind === 'unavailable'
         ? 'The link is valid, but this account cannot read it.'
-        : 'Your place is held. Try again when the connection settles.';
+        : 'Couldn’t connect. Your place is kept. Try again.';
 
     return (
       <div className={`section-stack library-main-reading ${articleLoading ? 'is-loading' : ''} ${articleError ? 'has-error' : ''}`.trim()}>
@@ -215,7 +215,6 @@ const LibraryMain = ({
               {onRetryArticle ? <button type="button" onClick={onRetryArticle}>Try again</button> : null}
               <button type="button" onClick={() => onSelectArticle?.('')}>Back to Library</button>
             </div>
-            <span className="library-reader-state__thread" aria-hidden="true">The thread remains tied here.</span>
           </section>
         )}
         {hasReadableArticle && (
@@ -311,7 +310,7 @@ const LibraryMain = ({
               suppressedCount={suppressedCount}
               latestReceipt={latestReceipt}
               title="Articles · offline fallback"
-              subtitle="Source context is temporarily unavailable; your saved articles remain accessible."
+              subtitle="Couldn’t load everything. Your articles are all here."
             />
           )}
         </div>
@@ -344,7 +343,7 @@ const LibraryMain = ({
         suppressedCount={suppressedCount}
         latestReceipt={latestReceipt}
         title="Articles"
-        subtitle="Saved reads and source material."
+        subtitle="Everything you’ve saved."
       />
       {piles}
     </div>

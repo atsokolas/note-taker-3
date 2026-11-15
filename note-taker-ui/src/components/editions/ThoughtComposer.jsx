@@ -85,7 +85,7 @@ export default function ThoughtComposer({
     } catch (err) {
       setError(
         err?.response?.status === 409
-          ? 'This thought changed elsewhere. Your draft is safe here. Copy it, then reload the saved thought before replacing it.'
+          ? 'You changed this somewhere else too. Your draft is safe. Copy it, then reload.'
           : 'Not saved. Your draft stays here; please retry.'
       );
     } finally {

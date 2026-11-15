@@ -1,4 +1,5 @@
 export const SETTINGS_SECTIONS = Object.freeze({
+  account: { id: 'account', label: 'Account' },
   appearance: { id: 'appearance', label: 'Appearance' },
   delivery: { id: 'delivery', label: 'Delivery' },
   data: { id: 'data', label: 'Your data' },
@@ -6,6 +7,22 @@ export const SETTINGS_SECTIONS = Object.freeze({
 });
 
 export const SETTINGS_REGISTRY = Object.freeze([
+  {
+    id: 'password',
+    section: 'account',
+    title: 'Change your password',
+    description: 'Give the current one and a new one.',
+    keywords: 'password change reset account security login',
+    focusId: 'account-password'
+  },
+  {
+    id: 'close-account',
+    section: 'account',
+    title: 'Close your account',
+    description: 'End access everywhere and have your data erased.',
+    keywords: 'delete close remove account erase leave cancel',
+    focusId: 'account-close'
+  },
   {
     id: 'reading-size',
     section: 'appearance',
@@ -36,8 +53,7 @@ export const SETTINGS_REGISTRY = Object.freeze([
     title: 'Motion',
     description: 'Follow the device or choose less motion.',
     keywords: 'animation motion moving wiggle reduce dizzy',
-    focusId: 'motion',
-    unfold: 'motion-more'
+    focusId: 'motion'
   },
   {
     id: 'email',
@@ -56,14 +72,6 @@ export const SETTINGS_REGISTRY = Object.freeze([
     focusId: 'export-json'
   },
   {
-    id: 'wiki-rules',
-    section: 'advanced',
-    title: 'Wiki instructions',
-    description: 'Guidance for wiki maintenance and ask flows.',
-    keywords: 'schema wiki instructions prompt rules guidance',
-    focusId: 'wiki-instructions'
-  },
-  {
     id: 'diagnostics',
     section: 'advanced',
     title: 'Diagnostics',
@@ -75,7 +83,7 @@ export const SETTINGS_REGISTRY = Object.freeze([
     id: 'connections',
     section: 'connections',
     title: 'Agent access is in Connections',
-    description: 'Credentials, grants, imports and revocation.',
+    description: 'Agents and imports you’ve connected.',
     keywords: 'agent token mcp permission access integration connect',
     externalPath: '/connections'
   },
@@ -83,9 +91,9 @@ export const SETTINGS_REGISTRY = Object.freeze([
     id: 'help',
     section: 'help',
     title: 'Help and shortcuts',
-    description: 'A refresher without resetting your workspace.',
+    description: 'What each room is for, and the keys.',
     keywords: 'help onboarding tour shortcut keyboard',
-    action: 'help'
+    externalPath: '/how-to-use'
   }
 ]);
 

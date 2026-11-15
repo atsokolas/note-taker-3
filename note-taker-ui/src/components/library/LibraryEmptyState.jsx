@@ -41,10 +41,10 @@ export default function LibraryEmptyState({
       <EmptyState
         data-testid="library-empty-search"
         eyebrow="Library · Search"
-        title={<>{hasMore ? 'No loaded sources' : 'No sources'} match &ldquo;{query}&rdquo;</>}
+        title={<>{hasMore ? 'No matches yet' : 'No sources'} match &ldquo;{query}&rdquo;</>}
         actions={onClearSearch ? clearSearch(onClearSearch) : null}
       >
-        {hasMore ? 'More sources remain outside the loaded pages.' : null}
+        {hasMore ? 'Load more to search the rest.' : null}
       </EmptyState>
     );
   }
@@ -54,7 +54,7 @@ export default function LibraryEmptyState({
       <EmptyState
         data-testid="library-empty-suppressed"
         eyebrow="Library · Sources"
-        title="No visible sources in this view."
+        title="Nothing here."
         actions={<Link className={primary} to="/library?scope=all&showSuppressed=1">Show review imports</Link>}
       >
         {filteredOutCount} {filteredOutCount === 1 ? 'source is' : 'sources are'} hidden by review-import filters.
@@ -87,20 +87,19 @@ export default function LibraryEmptyState({
       <EmptyState
         data-testid="library-empty-first-run"
         eyebrow={eyebrow}
-        title="Save your first source"
+        title="Save your first article"
         actions={(
           <>
             <Link className={primary} to="/connections#sources">Connect a source</Link>
             <a className={quietLink} href={TOUR_EXTENSION_URL} target="_blank" rel="noopener noreferrer">
               Install browser extension
             </a>
-            <Link className={quietLink} to="/how-to-use">See the full walkthrough</Link>
+            <Link className={quietLink} to="/how-to-use">What each room is for</Link>
           </>
         )}
       >
         <p>
-          Connect Readwise, import notes, or use the browser extension to save articles.
-          Sources you add show up here, ready to read, highlight, and turn into concepts.
+          Paste a link, bring in Kindle or Readwise, or add the browser extension.
         </p>
         {latestReceipt?.summary ? (
           <p data-testid="library-empty-receipt">Last import: {latestReceipt.summary}</p>
@@ -129,7 +128,7 @@ export default function LibraryEmptyState({
         data-testid="library-empty-suppressed"
         data-scope={scope}
         eyebrow={eyebrow}
-        title="No visible sources in this view."
+        title="Nothing here."
         actions={(
           <>
             <Link

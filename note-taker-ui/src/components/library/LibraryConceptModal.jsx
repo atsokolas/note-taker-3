@@ -23,7 +23,7 @@ const LibraryConceptModal = ({ open, highlight, onClose, onSelect }) => {
     <div className="modal-overlay">
       <div className="modal-content" style={{ maxWidth: 520 }}>
         <div className="modal-header">
-          <h3>Add to Concept</h3>
+          <h3>Add to concept</h3>
           <button className="icon-button" onClick={onClose}>×</button>
         </div>
         {loading && <p className="muted small">Loading concepts…</p>}

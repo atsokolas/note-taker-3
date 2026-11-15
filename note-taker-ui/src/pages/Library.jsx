@@ -277,7 +277,7 @@ const Library = () => {
     if (filingLaunching) return;
     setFilingLaunching(true);
     systemStatus.clearRecoverableFailure();
-    systemStatus.setBackgroundWork({ label: 'Filing the library', stage: 'Staging suggestions' });
+    systemStatus.setBackgroundWork({ label: 'Filing the library', stage: 'Thinking about folders…' });
     try {
       const result = await startLibraryFilingSuggestions();
       const receipt = result?.receipt && typeof result.receipt === 'object' ? result.receipt : null;
@@ -287,7 +287,7 @@ const Library = () => {
         : '/think?tab=threads';
       systemStatus.setLatestReceipt(normalizeSystemReceipt(receipt, { href }) || {
         title: 'Filing suggestions ready',
-        summary: receipt?.summary || 'Review the staged plan in Think.',
+        summary: receipt?.summary || 'Suggestions are ready in Think.',
         status: 'needs_review',
         href
       });
@@ -891,8 +891,8 @@ const Library = () => {
     objectId: exactSourceId,
     title: exactSourceTitle || selectedFolderName || 'Library',
     orientation: exactSourceId === 'library'
-      ? 'Recover source material, its provenance, and the thinking it already supports.'
-      : 'Inspect this exact source, where it came from, and where it can move next.'
+      ? 'Where this came from, and where you’ve used it.'
+      : 'Where this came from, and where you’ve used it.'
   };
 
   const screenableFolder = useMemo(() => {

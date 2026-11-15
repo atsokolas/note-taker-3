@@ -55,6 +55,10 @@ test('real Mongo: moving a note on the board files it without touching the writi
     assert.equal(stored.updatedAt.getTime(), writtenAt, 'filing is not writing: updatedAt stays where the writer left it');
     assert.equal(stored.blocks[0].text, 'Prices stay low.');
 
+    const closed = await move(essay._id, { stage: 'done', became: '  Sent to   Sam. ' });
+    assert.equal(closed.body.board.became, 'Sent to Sam.', 'closing keeps one plain line of what the piece became');
+    assert.equal((await move(essay._id, { stage: 'idea', became: 'x' })).status, 400, 'became belongs to closing');
+
     const restored = await move(essay._id, { archived: false });
     assert.equal(restored.body.board.archivedAt, null);
     assert.equal(restored.body.board.stage, 'done');

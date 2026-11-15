@@ -229,12 +229,10 @@ const renderHomeFallback = (content) => `
   <main class="seo-page">
     <article class="seo-shell">
       <header class="seo-hero">
-        <p class="eyebrow">${escapeHtml(content.home.eyebrow)}</p>
         <h1>${escapeHtml(content.home.headline)}</h1>
         <p class="lede">${escapeHtml(content.home.lede)}</p>
         <div class="cta-row">
           <a class="button primary" href="${escapeHtml(buildMarketingHref(content.home.primaryCta.href, { entry: 'home', cta: 'hero', pageType: 'home' }))}">${escapeHtml(content.home.primaryCta.label)}</a>
-          <a class="button secondary" href="${escapeHtml(content.home.secondaryCta.href)}">${escapeHtml(content.home.secondaryCta.label)}</a>
         </div>
       </header>
       <section class="card" id="how-it-works">
@@ -268,26 +266,21 @@ const renderHomeFallback = (content) => `
 
 const renderGuideHubPage = (content) => {
   const guides = `${renderAgentGuideCard(content)}${renderGuideCards(content)}`;
+  const copy = content.hubs.guides;
   const canonical = buildUrl(content.site.host, '/guides');
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Noeis Guides for Source-Grounded Research and Knowledge Work</title>
-    <meta
-      name="description"
-      content="Opinionated guides on source-grounded research workflows, reliable recall, reading-to-draft systems, and evidence-backed synthesis for serious readers."
-    />
+    <title>${escapeHtml(copy.title)}</title>
+    <meta name="description" content="${escapeHtml(copy.description)}" />
     <meta name="robots" content="index,follow" />
     <link rel="canonical" href="${canonical}" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="${escapeHtml(content.site.name)}" />
-    <meta property="og:title" content="Noeis Guides for Source-Grounded Research and Knowledge Work" />
-    <meta
-      property="og:description"
-      content="Opinionated guides on source-grounded research workflows, reliable recall, reading-to-draft systems, and evidence-backed synthesis."
-    />
+    <meta property="og:title" content="${escapeHtml(copy.title)}" />
+    <meta property="og:description" content="${escapeHtml(copy.description)}" />
     <meta property="og:url" content="${canonical}" />
     <meta property="og:image" content="${buildUrl(content.site.host, '/og-image.png')}" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -299,10 +292,8 @@ const renderGuideHubPage = (content) => {
       <article class="seo-shell">
         <header class="seo-hero">
           <p class="eyebrow">Guides</p>
-          <h1>Practical Guides for Source-Grounded Research and Knowledge Work</h1>
-          <p class="lede">
-            These guides are built for founders, writers, researchers, analysts, and serious readers evaluating better workflows for source-grounded research, recall, synthesis, and drafts.
-          </p>
+          <h1>${escapeHtml(copy.headline)}</h1>
+          <p class="lede">${escapeHtml(copy.lede)}</p>
           <div class="grid">
 ${guides}
           </div>
@@ -314,26 +305,21 @@ ${guides}
 };
 
 const renderExamplesPage = (content) => {
+  const copy = content.hubs.examples;
   const canonical = buildUrl(content.site.host, '/examples');
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Source-Grounded Wiki Examples | Noeis</title>
-    <meta
-      name="description"
-      content="Curated source-grounded Noeis wiki examples for serious readers evaluating evidence-backed research workflows."
-    />
+    <title>${escapeHtml(copy.title)}</title>
+    <meta name="description" content="${escapeHtml(copy.description)}" />
     <meta name="robots" content="index,follow" />
     <link rel="canonical" href="${canonical}" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="${escapeHtml(content.site.name)}" />
-    <meta property="og:title" content="Source-Grounded Wiki Examples | Noeis" />
-    <meta
-      property="og:description"
-      content="Curated source-grounded Noeis wiki examples for serious readers evaluating evidence-backed research workflows."
-    />
+    <meta property="og:title" content="${escapeHtml(copy.title)}" />
+    <meta property="og:description" content="${escapeHtml(copy.description)}" />
     <meta property="og:url" content="${canonical}" />
     <meta property="og:image" content="${buildUrl(content.site.host, '/og-image.png')}" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -342,9 +328,9 @@ const renderExamplesPage = (content) => {
     <script type="application/ld+json">${JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
-      name: 'Source-Grounded Wiki Examples',
+      name: copy.headline,
       url: canonical,
-      description: 'Curated source-grounded Noeis wiki examples for serious readers evaluating evidence-backed research workflows.',
+      description: copy.description,
       publisher: {
         '@type': 'Organization',
         name: content.site.name,
@@ -363,17 +349,14 @@ const renderExamplesPage = (content) => {
       <article class="seo-shell">
         <header class="seo-hero">
           <p class="eyebrow">Examples</p>
-          <h1>Source-Grounded Wiki Examples</h1>
-          <p class="lede">
-            Curated public Noeis wikis show how serious readers can turn source material into durable pages, claims, and reusable research structure.
-          </p>
+          <h1>${escapeHtml(copy.headline)}</h1>
+          <p class="lede">${escapeHtml(copy.lede)}</p>
           <div class="grid">
 ${renderStarterPackCards(content)}
           </div>
         </header>
         <section class="card">
-          <h2>Why these examples are curated</h2>
-          <p>Shared wiki pages should be indexable only when they are intentional public examples. This page points search engines and readers to selected examples instead of treating every shared page as a growth asset.</p>
+          <h2>Start your own</h2>
           <div class="cta-row">
             <a class="button primary" href="/register?via=marketing&amp;entry=examples&amp;cta=examples&amp;page_type=examples">Build your own research wiki</a>
             <a class="button secondary" href="/from-saved-article-to-draft-in-noeis">See the draft workflow</a>

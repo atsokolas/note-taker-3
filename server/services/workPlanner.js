@@ -8,14 +8,26 @@ function captureFields(body) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(capturedAt)).map(part => [part.type, part.value]));
   return { capturedAt: new Date(capturedAt), timeZone, takenOn: `${parts.year}-${parts.month}-${parts.day}` };
 }
-async function workItemFields(input, current, findNote) {
+async function workItemFields(input, current, findNote, findFolder = async () => null) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw fail(400, 'Choose a Work item.');
-  const allowed = ['kind', 'noteId', 'plannedOn', 'dueOn', 'priority', 'startTime', 'endTime'];
+  const allowed = ['kind', 'noteId', 'plannedOn', 'dueOn', 'priority', 'startTime', 'endTime', 'list', 'waitingOn', 'sortedOn', 'returnOn', 'oneThingOn', 'origin'];
   if (Object.keys(input).some(key => !allowed.includes(key))) throw fail(400, 'Work item history is maintained by its actions.');
   const item = { ...current, ...input, history: current?.history || [] };
   if (!['task', 'question', 'appointment', 'jot'].includes(item.kind) || (current && current.kind !== item.kind)) throw fail(400, 'Choose a supported Work item kind.');
-  if (item.noteId && !await findNote(item.noteId)) throw fail(400, 'Link one of your Work notes.');
-  for (const key of ['plannedOn', 'dueOn']) if (item[key] && !validDay(item[key])) throw fail(400, 'Choose a valid calendar date.');
+  const note = item.noteId && await findNote(item.noteId);
+  if (item.noteId && !note) throw fail(400, 'Link one of your Work notes.');
+  if (current?.origin) {
+    if (item.noteId !== current.noteId || (input.origin !== undefined && JSON.stringify(input.origin) !== JSON.stringify(current.origin))) throw fail(400, 'The original source is kept with this follow-up.');
+    item.origin = current.origin;
+  } else if (input.origin !== undefined) {
+    if (current || !note || !['task', 'question'].includes(item.kind)) throw fail(400, 'Create a follow-up from one of your Work notes.');
+    item.origin = await require('./workProvenance').workOrigin(input.origin, note, findFolder);
+  }
+  for (const key of ['plannedOn', 'dueOn', 'sortedOn', 'returnOn', 'oneThingOn']) if (item[key] && !validDay(item[key])) throw fail(400, 'Choose a valid calendar date.');
+  // Outstanding sorts a line onto one list; waiting needs the person it waits on.
+  if (item.list != null && !['next', 'waiting', 'someday'].includes(item.list)) throw fail(400, 'Choose Next, Waiting on or Someday.');
+  if (item.waitingOn != null && (typeof item.waitingOn !== 'string' || item.waitingOn.length > 80)) throw fail(400, 'Name who this is waiting on in 80 characters or fewer.');
+  if (item.list === 'waiting' && !item.waitingOn?.trim()) throw fail(400, 'Name who this is waiting on.');
   if (current && input.plannedOn !== undefined && input.plannedOn !== current.plannedOn) throw fail(400, 'Move this item with a planning action.');
   if (item.priority !== undefined && (!Number.isInteger(item.priority) || item.priority < 0 || item.priority > 3)) throw fail(400, 'Choose one of three priority places.');
   for (const key of ['startTime', 'endTime']) if (item[key] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(item[key])) throw fail(400, 'Choose a valid time.');

@@ -1,7 +1,7 @@
 import {
   aheadLine, barsOf, byHand, byPaper, bySection, costLine, datelineLine, handsOf,
   issueLine, newCountOf, passageHref, publicSourceHref, sourceLine, sourceNote, sureLine, watchThreads,
-  runGrid, sectionTones, standLayout, stateOf, windowLine, frontPage, coverFigure, updatedLine
+  runGrid, sectionTones, standLayout, stateOf, windowLine, frontPage, coverFigure, updatedLine, dekOf
 } from './editionModel';
 
 describe('the window a paper covers', () => {
@@ -352,3 +352,10 @@ describe('the stand as a front page and a newsstand', () => {
   });
 });
 
+
+it('gives a contents line the first sentence of the finding, unless the headline already says it', () => {
+  expect(dekOf({ title: 'Source', finding: 'Few recover.  Most stop at the first error.' })).toBe('Few recover.');
+  expect(dekOf({ plain: 'Few recover.', finding: 'Few recover. Most stop.' })).toBe('');
+  expect(dekOf({ title: 'Source', finding: 'No full stop here' })).toBe('No full stop here');
+  expect(dekOf({ title: 'Source' })).toBe('');
+});

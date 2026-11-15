@@ -5,6 +5,18 @@ const statuses = ['draft', 'published', 'archived'];
 const visibilities = ['private', 'shared'];
 
 const optionalEnum = (values) => z.enum(values).optional();
+// A line on the reader's Work list, in the fields Work itself keeps.
+const workLine = z.object({
+  kind: z.enum(['task', 'question', 'appointment', 'jot']),
+  list: z.enum(['next', 'waiting', 'someday']).optional().describe('Where Outstanding keeps it. waiting needs waitingOn.'),
+  waitingOn: z.string().max(80).optional().describe('Who it waits on.'),
+  dueOn: z.string().optional().describe('YYYY-MM-DD.'),
+  plannedOn: z.string().optional().describe('The day it is planned for, YYYY-MM-DD.'),
+  priority: z.number().int().min(0).max(3).optional(),
+  startTime: z.string().optional().describe('HH:MM, for an appointment.'),
+  endTime: z.string().optional().describe('HH:MM, for an appointment.'),
+  noteId: z.string().optional().describe('The Work note it came from.')
+}).describe('Makes this a line on the Work list rather than a note.');
 const pageIdShape = {
   pageId: z.string().describe('Noeis wiki page id.')
 };
@@ -602,5 +614,59 @@ export const writeTools = [
       highlightId: z.string().describe('Highlight id.')
     },
     handler: (client, args) => client.pinHighlightToConcept(args)
+  },
+  {
+    name: 'create_work_note',
+    description: 'Write in Work, the reader\'s private work notebook. Without line it is a note (meeting notes, a write-up). With line it is a line on their list: a task or question to follow up, an appointment, or a jot, which Outstanding sorts onto Next, Waiting on or Someday. File it with ids from list_work. Needs a connection approved with --work.',
+    inputSchema: {
+      title: z.string().min(1).describe('The note\'s title, or the line itself.'),
+      text: z.string().optional().describe('The note\'s writing as plain text. Each line becomes a paragraph.'),
+      folderId: z.string().optional().describe('Work folder id.'),
+      projectId: z.string().optional().describe('Work project id.'),
+      occurredOn: z.string().optional().describe('The day it happened, YYYY-MM-DD. Defaults to today.'),
+      line: workLine.optional()
+    },
+    handler: (client, args) => client.createWorkNote(args)
+  },
+  {
+    name: 'update_work_note',
+    description: 'Change a Work note or line. Only the fields you pass are touched. Pass the revision you read; if the reader changed it since, nothing is saved and you get the current version to read again. done ticks a task or question off, or reopens it; plannedOn moves a line to another day.',
+    inputSchema: {
+      noteId: z.string().describe('Work note or line id.'),
+      revision: z.number().int().min(0).describe('The revision from list_work or get_work_note.'),
+      title: z.string().optional(),
+      text: z.string().optional().describe('Replaces the note\'s writing.'),
+      folderId: z.string().optional().describe('Work folder id. Empty string takes it out of its folder.'),
+      projectId: z.string().optional().describe('Work project id. Empty string takes it out of its project.'),
+      occurredOn: z.string().optional().describe('YYYY-MM-DD.'),
+      line: workLine.omit({ kind: true, plannedOn: true }).optional().describe('Changes to a line. Its kind stays; move its day with plannedOn.'),
+      done: z.boolean().optional(),
+      plannedOn: z.string().optional().describe('Move a line to this day, YYYY-MM-DD. Empty string takes it off the calendar.')
+    },
+    handler: (client, args) => client.updateWorkNote(args)
+  },
+  {
+    name: 'create_work_folder',
+    description: 'Make a Work folder, or a project when project is true. Projects hold a brief, a closing line and links to things in the Library, Wiki and Books.',
+    inputSchema: {
+      name: z.string().min(1),
+      project: z.boolean().optional()
+    },
+    handler: (client, args) => client.createWorkFolder(args)
+  },
+  {
+    name: 'update_work_folder',
+    description: 'Rename a Work folder or project, write a project\'s brief or closing line, pause it, or mark it done (archived). Pass the revision from list_work.',
+    inputSchema: {
+      folderId: z.string(),
+      revision: z.number().int().min(0),
+      name: z.string().optional(),
+      brief: z.string().optional(),
+      closingLine: z.string().optional(),
+      archived: z.boolean().optional().describe('true marks it done, false reopens it.'),
+      paused: z.boolean().optional(),
+      links: z.array(z.object({ kind: z.enum(['article', 'wiki', 'book']), id: z.string(), title: z.string().optional() })).optional().describe('Replaces the project\'s links.')
+    },
+    handler: (client, args) => client.updateWorkFolder(args)
   }
 ];

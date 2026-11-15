@@ -88,7 +88,7 @@ const buildDurableReceiptCard = (receipt, providerLabel = 'Connection') => {
       : `${providerLabel} receipt saved.`,
     summary: receipt.summary || '',
     detail: summarizeTouched(receipt.touched)
-      || 'This receipt is persisted and will feed the Morning Paper return loop.',
+      || 'Saved.',
     failureStage: failed ? receipt.error?.stage || 'sync' : undefined,
     failureMessage: failed ? receipt.error?.message || receipt.summary || 'The last sync failed.' : undefined,
     nextAction: receipt.nextAction?.label ? { label: receipt.nextAction.label } : { label: 'Review latest changes' },
@@ -244,7 +244,7 @@ export const buildNotionConnectionReceipt = ({
       tone: completedWithWarnings || withWarnings(result) ? 'warning' : 'success',
       headline: `Last synced ${formatLoopDate(connection.lastSyncAt)}${pageSuffix}.`,
       summary,
-      detail: 'Imported pages are available as notes and source material for Library search, Think retrieval, and Morning Paper maintenance.',
+      detail: 'Your Notion pages are now notes you can search.',
       nextAction: { label: 'Sync again' },
       isLive: false
     };
@@ -252,7 +252,7 @@ export const buildNotionConnectionReceipt = ({
 
   if (connection.lastPreviewAt || previewing) {
     return {
-      statusLabel: previewing ? 'Previewing scope' : 'Scope previewed',
+      statusLabel: previewing ? 'Checking what’s there…' : 'Here’s what will come in',
       tone: 'warning',
       headline: previewing
         ? 'Sampling shared Notion pages and databases…'
@@ -261,7 +261,7 @@ export const buildNotionConnectionReceipt = ({
       detail: 'Nothing has been imported yet. Import these pages to put them in the Library.',
       nextAction: { label: 'Import from Notion', kind: 'import' },
       isLive: previewing,
-      liveMessage: previewing ? 'Previewing Notion scope' : undefined
+      liveMessage: previewing ? 'Checking what’s in Notion' : undefined
     };
   }
 
@@ -329,7 +329,7 @@ export const buildReadwiseConnectionReceipt = ({
       tone: 'neutral',
       headline: 'Validating Readwise access…',
       summary: '',
-      detail: 'Confirming the saved token or OAuth connection is still healthy.',
+      detail: 'Checking the connection…',
       nextAction: { label: 'Check connection' },
       isLive: true,
       liveMessage: 'Checking Readwise connection'
@@ -355,9 +355,9 @@ export const buildReadwiseConnectionReceipt = ({
     return {
       statusLabel: 'Not connected',
       tone: 'neutral',
-      headline: 'Connect through browser approval first.',
+      headline: 'Nothing has come in from Readwise yet.',
       summary: '',
-      detail: 'Readwise opens in your browser for approval, then agents can retrieve highlights. Add an API token when you want direct Library sync.',
+      detail: 'Connect with Readwise, approve Noeis there, and your highlights come into your Library.',
       nextAction: { label: 'Connect with Readwise' },
       isLive: false
     };
@@ -393,7 +393,7 @@ export const buildReadwiseConnectionReceipt = ({
 
   if (syncConnection?.lastPreviewAt || previewing) {
     return {
-      statusLabel: previewing ? 'Previewing scope' : 'Scope previewed',
+      statusLabel: previewing ? 'Checking what’s there…' : 'Here’s what will come in',
       tone: 'warning',
       headline: previewing
         ? 'Sampling Readwise highlights and articles…'
@@ -402,7 +402,7 @@ export const buildReadwiseConnectionReceipt = ({
       detail: 'Review the preview snapshot, then run Sync from Readwise to import new highlights into Noeis.',
       nextAction: { label: 'Sync from Readwise' },
       isLive: previewing,
-      liveMessage: previewing ? 'Previewing Readwise scope' : undefined
+      liveMessage: previewing ? 'Checking what’s in Readwise' : undefined
     };
   }
 
@@ -470,7 +470,7 @@ export const buildEvernoteConnectionReceipt = ({
       tone: 'neutral',
       headline: `Import in progress — ${stage.replace(/_/g, ' ')}.`,
       summary: '',
-      detail: 'Parsed notes are being saved into Think with tags, dates, and semantic indexing queued behind the import.',
+      detail: 'Bringing in your notes, with their tags and dates…',
       nextAction: { label: 'Import ENEX' },
       isLive: true,
       liveMessage: `Importing Evernote — ${stage.replace(/_/g, ' ')}`
@@ -540,7 +540,7 @@ export const buildEvernoteConnectionReceipt = ({
     tone: 'neutral',
     headline: 'Export a notebook as ENEX, then drop it here.',
     summary: '',
-    detail: 'ENEX is the reliable self-serve path today. Browser OAuth sync waits on Evernote API approval.',
+    detail: 'In Evernote, export a notebook (File → Export), then drop the .enex file here.',
     nextAction: { label: 'Choose ENEX' },
     isLive: false
   };

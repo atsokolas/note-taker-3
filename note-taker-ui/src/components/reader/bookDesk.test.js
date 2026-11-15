@@ -1,4 +1,4 @@
-import { BOOK_SAYS, bookendsOf, readingsOf, completionFor, kindOf, lastTime, pageNow, pagesOf, readLine, sittingLabel, sittingOf, spineOf, tallyLine } from './bookDesk';
+import { BOOK_SAYS, bookendsOf, readingsOf, completionFor, kindOf, lastTime, midThought, pageNow, pagesOf, readLine, sittingLabel, sittingOf, spineOf, tallyLine } from './bookDesk';
 
 const at = minutes => new Date(Date.UTC(2026, 9, 19, 21, minutes)).toISOString();
 const NOW = Date.UTC(2026, 9, 19, 22, 0);
@@ -117,3 +117,14 @@ test('each finished reading of a book holds the marks made in it', () => {
   expect(readingsOf({ ...book, finishedOn: '' }, marks).map(reading => reading.finishedOn)).toEqual(['2025-03-02']);
 });
 
+
+test('the thought you fell asleep on is the last line of a sitting past midnight, in your words, with no end yet', () => {
+  const night = (hour, minute) => new Date(2026, 9, 20, hour, minute).toISOString();
+  const quote = { _id: 'q', text: 'All happy families are alike.', note: '', page: 1, createdAt: night(0, 40) };
+  const trailing = { _id: 'n', text: '', note: 'unless the happiness is what makes them', page: 2, createdAt: night(1, 10) };
+  expect(midThought([quote, trailing])).toEqual({ mark: trailing, words: 'unless the happiness is what makes them' });
+  expect(midThought([quote, { ...trailing, note: 'unless the happiness is the same.' }])).toBeNull();
+  expect(midThought([quote, { ...trailing, note: 'is it?' }])).toBeNull();
+  expect(midThought([quote, { ...trailing, createdAt: night(22, 10) }])).toBeNull();
+  expect(midThought([quote])).toBeNull();
+});

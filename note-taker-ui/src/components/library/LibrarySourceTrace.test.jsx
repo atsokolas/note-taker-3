@@ -26,7 +26,7 @@ const renderTrace = (props) => render(<MemoryRouter><LibrarySourceTrace {...prop
 describe('LibrarySourceTrace', () => {
   it('records who wrote it, when it was published and saved, and its concepts', () => {
     renderTrace({ source });
-    expect(screen.getByText('Source record')).toBeInTheDocument();
+    expect(screen.getByText('Details')).toBeInTheDocument();
     expect(screen.getByText('Ada Example · Published Jul 20, 2026 · Saved Jul 27, 2026 · Readwise Reader')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Inference economics' }))
       .toHaveAttribute('href', '/think?tab=concepts&concept=Inference%20economics');
@@ -53,8 +53,8 @@ describe('LibrarySourceTrace', () => {
     expect(screen.queryByText(/Not used/)).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     rerender(<MemoryRouter><LibrarySourceTrace source={null} loading /></MemoryRouter>);
-    expect(screen.getByText('Finding where this piece went…')).toBeInTheDocument();
+    expect(screen.getByText('Finding where you’ve used it…')).toBeInTheDocument();
     rerender(<MemoryRouter><LibrarySourceTrace source={null} error="network" /></MemoryRouter>);
-    expect(screen.getByText('The piece is here, but where it is used could not be loaded.')).toBeInTheDocument();
+    expect(screen.getByText('Couldn’t load where you’ve used it.')).toBeInTheDocument();
   });
 });

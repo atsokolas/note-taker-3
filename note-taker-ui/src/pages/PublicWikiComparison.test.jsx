@@ -625,7 +625,7 @@ describe('PublicWikiComparison', () => {
         },
         {
           code: 'documentation_source_weakened', severity: 'blocking', group: 'changed', index: 2,
-          title: 'The claim now points to metadata instead of the actual documentation',
+          title: 'The claim now points to package.json instead of the actual documentation',
           explanation: 'The rewrite replaces the package README with package.json as the file said to document runtime transport.',
           impact: 'Package metadata is a weaker source for transport documentation and must be corrected before acceptance.'
         }
@@ -636,7 +636,7 @@ describe('PublicWikiComparison', () => {
     expect(narratives.map(item => item.title)).toEqual([
       'Setup guidance became broader—and less executable',
       'Proof configuration was added, but AI settings disappeared from the claim',
-      'The claim now points to metadata instead of the actual documentation'
+      'The claim now points to package.json instead of the actual documentation'
     ]);
     expect(narratives.every(item => item.tone === 'concern')).toBe(true);
     expect(narratives[0].impact).toMatch(/concrete local startup sequence/i);

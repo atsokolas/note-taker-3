@@ -411,6 +411,15 @@ const notebookWorkbenchThoughtSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { _id: false });
 
+// A passage the writer has dimmed: still on the page, left out of the piece.
+const notebookWorkbenchDimmedSchema = new mongoose.Schema({
+  id: { type: String, required: true, maxlength: 160 },
+  blockId: { type: String, required: true, maxlength: 160 },
+  text: { type: String, required: true, maxlength: 20000 },
+  offset: { type: Number, default: 0, min: 0 },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
 const notebookWorkbenchNextLineSchema = new mongoose.Schema({
   text: { type: String, default: '', maxlength: 4000 },
   target: { type: notebookWorkbenchTargetSchema, default: () => ({}) },
@@ -428,18 +437,21 @@ const notebookWorkbenchSchema = new mongoose.Schema({
   materials: { type: [notebookWorkbenchMaterialSchema], default: [] },
   trials: { type: [notebookWorkbenchTrialSchema], default: [] },
   looseThoughts: { type: [notebookWorkbenchThoughtSchema], default: [] },
+  dimmed: { type: [notebookWorkbenchDimmedSchema], default: [] },
   nextTimeLine: { type: notebookWorkbenchNextLineSchema, default: () => ({}) },
   continuity: { type: notebookWorkbenchContinuitySchema, default: () => ({}) }
 }, { _id: false });
 
-// Where a piece of writing stands for its writer: an idea, being worked on, or
-// done; set aside in the archive when archivedAt is set. Moving it is not
-// writing in it, so the board never touches updatedAt.
+// Where a piece of writing stands for its writer: an idea, being worked on
+// (in_progress, "Working"), or done ("Closed"), with the one line of what it
+// became. archivedAt is the older "set aside", which reads as closed. Moving it
+// is not writing in it, so the stage never touches updatedAt.
 const NOTEBOOK_STAGES = ['idea', 'in_progress', 'done'];
 const notebookBoardSchema = new mongoose.Schema({
   stage: { type: String, enum: NOTEBOOK_STAGES, default: 'idea' },
   movedAt: { type: Date, default: null },
-  archivedAt: { type: Date, default: null }
+  archivedAt: { type: Date, default: null },
+  became: { type: String, default: '', maxlength: 200 }
 }, { _id: false });
 
 const notebookEntrySchema = new mongoose.Schema({
@@ -508,6 +520,7 @@ notebookEntrySchema.add({
   takenOn: { type: String, immutable: true },
   timeZone: { type: String, immutable: true },
   workItem: { type: mongoose.Schema.Types.Mixed, default: undefined },
+  project: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
   operationId: { type: String, immutable: true },
   operationSource: { type: String, immutable: true },
   continuesFromEntryId: { type: mongoose.Schema.Types.ObjectId, default: null, immutable: true },
@@ -524,6 +537,18 @@ const notebookFolderSchema = new mongoose.Schema({
   sortOrder: { type: Number, default: 0 },
   revision: { type: Number, default: 0, min: 0 },
   archivedAt: { type: Date, default: null },
+  /* In Work a folder is where a note is filed; a project is an effort with an end,
+     and a note in any folder can also be part of one. Paused keeps a project in
+     the list but out of the way; done is archivedAt, and the closing line is how
+     it ended. The brief is the project's one undated page; links are things
+     elsewhere in Noeis kept with it, stored only here so a personal article never
+     learns it is in Work. Check-ins are the dated answers to its Monday question. */
+  kind: { type: String, enum: ['folder', 'project'], default: 'folder' },
+  pausedAt: { type: Date, default: null },
+  brief: { type: String, default: '', maxlength: 8000 },
+  closingLine: { type: String, default: '', maxlength: 280 },
+  links: { type: [new mongoose.Schema({ kind: { type: String, enum: ['article', 'wiki', 'book'], required: true }, id: { type: String, required: true, maxlength: 64 }, title: { type: String, default: '', maxlength: 300 } }, { _id: false })], default: [] },
+  checkIns: { type: [new mongoose.Schema({ on: { type: String, required: true }, text: { type: String, required: true, maxlength: 500 } }, { _id: false })], default: [] },
   operationId: { type: String, immutable: true },
   lastMutationId: { type: String },
   importMeta: { type: importMetaSchema, default: () => ({}) }

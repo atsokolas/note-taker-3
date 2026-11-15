@@ -136,7 +136,7 @@ describe('TopBar help menu', () => {
         <TopBar
           secondaryNav={[
             {
-              label: 'How To Use',
+              label: 'Help',
               to: '/how-to-use',
               match: (location) => location.pathname.startsWith('/how-to-use')
             }
@@ -149,7 +149,7 @@ describe('TopBar help menu', () => {
 
     const menu = screen.getByTestId('topbar-more-menu');
     expect(menu).toHaveClass('topbar__menu-popover--portal');
-    expect(within(menu).getByRole('menuitem', { name: 'How To Use' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Help' })).toBeInTheDocument();
   });
 
   it('keeps every room available in the mobile More copy', () => {
@@ -162,7 +162,7 @@ describe('TopBar help menu', () => {
             { label: 'Wiki', to: '/wiki' },
             { label: 'Judgment', to: '/judgment' }
           ]}
-          secondaryNav={[{ label: 'How To Use', to: '/how-to-use' }]}
+          secondaryNav={[{ label: 'Help', to: '/how-to-use' }]}
         />
       </MemoryRouter>
     );
@@ -229,7 +229,7 @@ describe('TopBar help menu', () => {
       <MemoryRouter>
         <TopBar
           accountMenuItems={[
-            { label: 'Logout', onClick: onLogout }
+            { label: 'Log out', onClick: onLogout }
           ]}
         />
       </MemoryRouter>
@@ -238,7 +238,7 @@ describe('TopBar help menu', () => {
     fireEvent.click(screen.getByTestId('topbar-account-button'));
     const menu = screen.getByTestId('topbar-account-menu');
     expect(menu).toHaveClass('topbar__menu-popover--portal');
-    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Logout' }));
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Log out' }));
     expect(onLogout).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('topbar-account-menu')).toBeNull();
   });
@@ -282,7 +282,7 @@ describe('TopBar help menu', () => {
         <TopBar
           secondaryNav={[
             {
-              label: 'How To Use',
+              label: 'Help',
               to: '/how-to-use',
               match: (location) => location.pathname.startsWith('/how-to-use')
             }
@@ -299,7 +299,7 @@ describe('TopBar help menu', () => {
     );
 
     fireEvent.click(screen.getByTestId('topbar-more-button'));
-    expect(screen.getByRole('menuitem', { name: 'How To Use' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Help' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: /tour/i })).toBeNull();
   });
 

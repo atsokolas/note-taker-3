@@ -205,8 +205,8 @@ describe('DataIntegrations first insight workflow', () => {
     const available = screen.getByRole('region', { name: 'Add a source' });
     expect(within(available).getByText('Notion')).toBeInTheDocument();
     expect(within(available).getByText('Evernote')).toBeInTheDocument();
-    expect(within(available).getByText('Files and text')).toBeInTheDocument();
-    expect(within(available).getByText(/One-time imports do not stay connected/i)).toBeInTheDocument();
+    expect(within(available).getByText('Kindle and other files')).toBeInTheDocument();
+    expect(within(available).getAllByText(/Comes in once/i).length).toBeGreaterThan(0);
   });
 
   it('disconnects only future provider access and keeps imported material explicit', async () => {
@@ -232,7 +232,7 @@ describe('DataIntegrations first insight workflow', () => {
     );
 
     fireEvent.click(await screen.findByTestId('import-source-card-readwise'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect import access' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect Readwise' }));
 
     expect(screen.getByText(/Future imports using this credential will stop/i)).toBeInTheDocument();
     expect(screen.getByText(/Already imported sources, highlights, and notes stay/i)).toBeInTheDocument();
@@ -288,8 +288,8 @@ describe('DataIntegrations first insight workflow', () => {
     );
 
     const card = await screen.findByTestId('connections-return-loop');
-    expect(within(card).getByText('What is feeding Morning Paper?')).toBeInTheDocument();
-    expect(within(card).getByText(/scheduled wiki maintenance checks due pages about every six hours/i)).toBeInTheDocument();
+    expect(within(card).getByText('What keeps coming in')).toBeInTheDocument();
+    expect(within(card).getByText(/brought up to date about every six hours/i)).toBeInTheDocument();
     expect(await within(card).findByText('Import feed active')).toBeInTheDocument();
     expect(within(card).getByText('Synced into Noeis')).toBeInTheDocument();
     expect(within(card).getByText('Last manual import saved')).toBeInTheDocument();
@@ -351,7 +351,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*The pages and database rows you choose/s }));
 
     const receipt = await screen.findByTestId('notion-sync-receipt');
     expect(within(receipt).getByText('Not connected')).toBeInTheDocument();
@@ -560,7 +560,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*The pages and database rows you choose/s }));
 
     const receipt = await screen.findByTestId('notion-sync-receipt');
     expect(within(receipt).getByText('Connected, nothing imported yet')).toBeInTheDocument();
@@ -606,12 +606,12 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*The pages and database rows you choose/s }));
 
     const receipt = await screen.findByTestId('notion-sync-receipt');
     expect(within(receipt).getByText('Synced into Noeis')).toBeInTheDocument();
-    expect(within(receipt).getByText(/Imported pages are available as notes/i)).toBeInTheDocument();
-    expect(screen.getByText(/Where it lands: Library search, Think retrieval, and Morning Paper source maintenance/i)).toBeInTheDocument();
+    expect(within(receipt).getByText('Your Notion pages are now notes you can search.')).toBeInTheDocument();
+    expect(screen.getByText('They show up in Library search, in Think and in your Morning Paper.')).toBeInTheDocument();
     expect(within(receipt).getByText('Synced 3 pages · 2 skipped · 1 indexing.')).toBeInTheDocument();
   });
 
@@ -646,7 +646,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*The pages and database rows you choose/s }));
 
     const receipt = await screen.findByTestId('notion-sync-receipt');
     expect(within(receipt).getByText('Synced into Noeis')).toBeInTheDocument();
@@ -747,7 +747,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Evernote.*Keep notebook migrations clean/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Evernote.*Notebooks exported from Evernote/s }));
 
     expect(screen.getByText('Fastest self-serve path')).toBeInTheDocument();
     expect(screen.getByText(/Browser OAuth sync is technically possible/i)).toBeInTheDocument();
@@ -812,7 +812,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Files and text/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Kindle and other files/i }));
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'My working note' } });
     fireEvent.change(screen.getByLabelText('Note text'), { target: { value: 'A useful capture that should become an insight.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
@@ -917,7 +917,7 @@ describe('DataIntegrations first insight workflow', () => {
     );
 
     await screen.findByText('Label: Reader');
-    fireEvent.click(screen.getByRole('button', { name: 'Preview scope' }));
+    fireEvent.click(screen.getByRole('button', { name: 'See what would come in' }));
 
     await waitFor(() => expect(previewReadwiseConnection).toHaveBeenCalledWith({
       connectionId: 'rw-1',
@@ -973,6 +973,18 @@ describe('DataIntegrations first insight workflow', () => {
     expect(await screen.findByText('Readwise connection is healthy.')).toBeInTheDocument();
   });
 
+  it('opens nothing until a source is chosen', async () => {
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByTestId('import-source-card-readwise')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Connect with Readwise' })).not.toBeInTheDocument();
+    expect(screen.queryByText('What keeps coming in')).not.toBeInTheDocument();
+  });
+
   it('shows Readwise browser approval as the recommended connect flow with token fallback', async () => {
     render(
       <MemoryRouter>
@@ -980,11 +992,11 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/Recommended: browser approval/i)).toBeInTheDocument();
-    expect(screen.getByText(/You do not need to paste an API token/i)).toBeInTheDocument();
+    fireEvent.click(await screen.findByTestId('import-source-card-readwise'));
+    expect(await screen.findByText(/You do not need to paste an API token/i)).toBeInTheDocument();
     expect(screen.getByText(/https:\/\/mcp2\.readwise\.io\/mcp/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Readwise MCP setup' })).toHaveAttribute('href', 'https://docs.readwise.io/tools/mcp');
-    fireEvent.click(screen.getByText(/Advanced: direct sync with API token/i));
+    fireEvent.click(screen.getByText(/Or use an access token/i));
     const tokenLink = await screen.findByRole('link', { name: 'Get Readwise token' });
     expect(tokenLink).toHaveAttribute('href', 'https://readwise.io/access_token');
   });
@@ -999,6 +1011,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
+    fireEvent.click(await screen.findByTestId('import-source-card-readwise'));
     fireEvent.click(await screen.findByRole('button', { name: 'Connect with Readwise' }));
 
     await waitFor(() => expect(startReadwiseOAuth).toHaveBeenCalledTimes(1));
@@ -1037,7 +1050,7 @@ describe('DataIntegrations first insight workflow', () => {
     const receipt = await screen.findByTestId('readwise-sync-receipt');
     expect(receipt).not.toHaveTextContent(/still needs the advanced API-token connection/i);
 
-    fireEvent.click(screen.getByText(/Advanced: direct sync with API token/i));
+    fireEvent.click(screen.getByText(/Or use an access token/i));
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Sync from Readwise' })).toBeEnabled();
     });
@@ -1130,7 +1143,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*The pages and database rows you choose/s }));
     fireEvent.click(await screen.findByRole('button', { name: 'Export current note to Notion' }));
 
     await waitFor(() => expect(exportToNotionPage).toHaveBeenCalledWith({
@@ -1166,7 +1179,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Files and text/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Kindle and other files/i }));
     expect(screen.getByRole('heading', { name: 'Bring everything in' })).toBeInTheDocument();
     const clippings = new File(['Walden (Thoreau)\n- Your Highlight on Location 1-2\n\nSimplify.\n=========='], 'My Clippings.txt', { type: 'text/plain' });
     fireEvent.change(screen.getByLabelText('Export files'), { target: { files: [clippings] } });
@@ -1188,7 +1201,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Files and text/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Kindle and other files/i }));
     const inVault = (name, relativePath) => {
       const file = new File(['# A note'], name, { type: 'text/markdown' });
       Object.defineProperty(file, 'webkitRelativePath', { value: relativePath });
@@ -1217,7 +1230,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Files and text/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Kindle and other files/i }));
     fireEvent.change(screen.getByLabelText('Export files'), {
       target: { files: [new File(['png'], 'cover.png', { type: 'image/png' })] }
     });
@@ -1415,7 +1428,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*The pages and database rows you choose/s }));
 
     const status = await screen.findByTestId('notion-sync-receipt-status');
     expect(status).toHaveAttribute('role', 'status');
@@ -1484,7 +1497,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Evernote.*Keep notebook migrations clean/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Evernote.*Notebooks exported from Evernote/s }));
 
     const receipt = await screen.findByTestId('evernote-import-receipt');
     expect(within(receipt).getByText('Imported into Noeis')).toBeInTheDocument();

@@ -242,6 +242,27 @@ const run = async () => {
   );
   assert.strictEqual(fs.existsSync(path.join(mismatchDir, 'config.json')), false);
 
+  // --work asks for Work by name; a switch before the runtime still leaves the runtime named.
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-work-test-'));
+  const workSeen = [];
+  const workIo = makeIo();
+  await runCli(['connect', '--work', 'hermes', '--scope', 'read-write', '--no-browser', '--no-config', '--api-url', 'https://api.test'], {
+    env: { NOEIS_CONFIG_DIR: workDir },
+    fetchImpl: async (url, init = {}) => {
+      workSeen.push({ url: String(url), init });
+      const { pathname } = new URL(String(url));
+      if (pathname.endsWith('/api/agent-connect/sessions')) return jsonResponse({ session: { sessionId: 'nac_work', status: 'pending' }, pollSecret: 'p', authorizeUrl: 'https://noeis.example/a', pollIntervalSec: 1 });
+      if (pathname.endsWith('/poll')) return jsonResponse({ session: { status: 'approved' }, secret: 'ntk_at_work' });
+      return jsonResponse({ workspace: { label: 'NOEIS workspace' }, grant: { scopes: ['read', 'agent-write', 'work'] } });
+    },
+    io: workIo.io,
+    sleep: async () => {}
+  });
+  const workRequest = JSON.parse(workSeen.find(request => request.url.endsWith('/api/agent-connect/sessions')).init.body);
+  assert.deepStrictEqual(workRequest.scopes, ['read', 'agent-write', 'work']);
+  assert.strictEqual(workRequest.runtime, 'hermes');
+  assert(workIo.stdout.includes('Connected Hermes with read/write Noeis access, Work included.'));
+
   const openClawConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-openclaw-test-'));
   const openClawHome = path.join(openClawConfigDir, 'home');
   const openClawXdg = path.join(openClawConfigDir, 'xdg');

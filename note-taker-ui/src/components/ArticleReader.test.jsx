@@ -547,7 +547,7 @@ describe('ArticleReader', () => {
       />
     );
 
-    expect(screen.getByText('to /library/books/article-1?highlight=highlight-1')).toBeInTheDocument();
+    expect(screen.getByText('to /books/article-1?highlight=highlight-1')).toBeInTheDocument();
     expect(screen.queryByText('Invert, always invert.')).not.toBeInTheDocument();
   });
 
@@ -560,7 +560,7 @@ describe('ArticleReader', () => {
         focusedHighlightId="highlight-1"
       />
     );
-    expect(screen.getByText('to /library/books/book-1?highlight=highlight-1')).toBeInTheDocument();
+    expect(screen.getByText('to /books/book-1?highlight=highlight-1')).toBeInTheDocument();
   });
 
   it('puts a deep-linked saved passage in the reader when the imported body omits it', async () => {
@@ -1220,9 +1220,9 @@ describe('the masthead and the record under the piece', () => {
     );
     const record = await screen.findByRole('list', { name: 'Where this piece went' });
     expect(getPushesAgainst).toHaveBeenCalledWith('a1');
-    expect(record).toHaveTextContent('This pushes against your view that Costco’s membership model makes it recession-resistant. File it?');
-    fireEvent.click(within(record).getByRole('button', { name: 'File against' }));
+    expect(record).toHaveTextContent('This pushes against your view that Costco’s membership model makes it recession-resistant.');
+    fireEvent.click(within(record).getByRole('button', { name: 'Add as “against”' }));
     expect(fileReadingProposal).toHaveBeenCalledWith({ pageId: 'view-1', proposalId: 'judgment-change-proposal:view-1:r1', field: 'against' });
-    expect(await within(record).findByText(/Filed against/)).toBeInTheDocument();
+    expect(await within(record).findByText(/Added against/)).toBeInTheDocument();
   });
 });

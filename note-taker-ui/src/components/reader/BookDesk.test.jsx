@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import BookDesk from './BookDesk';
+import BookDesk from './BookDesk.jsx';
 import { sittingLabel } from './bookDesk';
 import { createHighlight, deleteHighlight, updateHighlight } from '../../api/highlights';
 import { readBookPage } from '../../api/imports';
@@ -54,7 +54,7 @@ test('a number turns the page, and the page stays for the lines after it', async
     .mockResolvedValueOnce({ _id: 'n1', text: '', note: 'he is conflating risk and uncertainty', page: 212, createdAt: new Date().toISOString() })
     .mockResolvedValueOnce({ _id: 'n2', text: '', note: 'or is he?', page: 212, createdAt: new Date().toISOString() });
   render(<Desk marks={[]} />);
-  expect(screen.getByText(/A number turns the page/)).toBeInTheDocument();
+  expect(screen.getByText(/A page number sets the page/)).toBeInTheDocument();
 
   type('212 he is conflating risk and uncertainty');
   await act(async () => keep());
@@ -83,7 +83,7 @@ test('the book finishes a quote you marked on the Kindle, and it stays one mark'
 
   await act(async () => keep());
   expect(createHighlight).toHaveBeenCalledWith({ articleId: 'book-1', text: KINDLE.text, note: '', page: 214 });
-  expect(await screen.findByText('You marked this on your Kindle too. It is one mark now, with your note.')).toBeInTheDocument();
+  expect(await screen.findByText('You marked this on your Kindle too. Now it’s one highlight, with your note.')).toBeInTheDocument();
   expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(1);
 });
 
@@ -125,13 +125,53 @@ test('a book untouched for a month asks why you stopped, and the answer is a mar
   expect(screen.queryByText('Why’d you stop?')).not.toBeInTheDocument();
 });
 
+test('a thought left past midnight opens the desk, and the first line finishes it', async () => {
+  const lastNight = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  lastNight.setHours(1, 15, 0, 0);
+  const trailing = { _id: 'n1', text: '', note: 'what he means by order is', page: 88, createdAt: lastNight.toISOString() };
+  updateHighlight.mockResolvedValue({ ...trailing, note: 'what he means by order is fear of the crowd.' });
+  render(<Desk marks={[trailing]} />);
+  expect(screen.getByText('You stopped mid-thought, p. 88')).toBeInTheDocument();
+  expect(line()).toHaveAttribute('placeholder', 'The rest of that thought');
+
+  type('fear of the crowd.');
+  await act(async () => keep());
+  expect(updateHighlight).toHaveBeenCalledWith({ articleId: 'book-1', highlightId: 'n1', payload: { note: 'what he means by order is fear of the crowd.' } });
+  expect(createHighlight).not.toHaveBeenCalled();
+  expect(await screen.findByText('what he means by order is fear of the crowd.', { selector: 'p' })).toBeInTheDocument();
+  expect(screen.queryByText(/You stopped mid-thought/)).not.toBeInTheDocument();
+});
+
+test('the rest of a thought typed offline waits on this device as a line of its own, and a second line is new', async () => {
+  const lastNight = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  lastNight.setHours(1, 15, 0, 0);
+  updateHighlight.mockRejectedValue(new Error('offline'));
+  createHighlight.mockRejectedValue(new Error('offline'));
+  render(<Desk marks={[{ _id: 'n1', text: '', note: 'what he means by order is', createdAt: lastNight.toISOString() }]} />);
+  type('fear of the crowd.');
+  await act(async () => keep());
+  expect(await screen.findByText('Kept on this device. It goes to Noeis when you are back online.')).toBeInTheDocument();
+  expect(JSON.stringify(window.localStorage)).toContain('fear of the crowd.');
+  expect(line()).toHaveAttribute('placeholder', 'A quote, or what you think');
+  expect(updateHighlight).toHaveBeenCalledTimes(1);
+});
+
+test('Escape leaves last night’s thought as it is and starts a new line', async () => {
+  const lastNight = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  lastNight.setHours(1, 15, 0, 0);
+  render(<Desk marks={[{ _id: 'n1', text: '', note: 'what he means by order is', createdAt: lastNight.toISOString() }]} />);
+  fireEvent.keyDown(line(), { key: 'Escape' });
+  expect(screen.queryByText(/You stopped mid-thought/)).not.toBeInTheDocument();
+  expect(line()).toHaveAttribute('placeholder', 'A quote, or what you think');
+});
+
 test('typing an old mark again picks a set-down book up, though the mark keeps its date', async () => {
   const old = { ...KINDLE, createdAt: '2026-01-05T20:00:00Z' };
   createHighlight.mockResolvedValue({ ...old, note: 'still true' });
   render(<Desk marks={[old]} createdAt="2026-01-01T00:00:00Z" />);
   type(`"${KINDLE.text}`);
   await act(async () => keep());
-  expect(await screen.findByText('You marked this on your Kindle too. It is one mark now, with your note.')).toBeInTheDocument();
+  expect(await screen.findByText('You marked this on your Kindle too. Now it’s one highlight, with your note.')).toBeInTheDocument();
   expect(screen.queryByText('Why’d you stop?')).not.toBeInTheDocument();
 });
 
@@ -166,7 +206,7 @@ test('a quote typed with only its ends says what became of it', async () => {
   render(<Desk marks={[]} />);
   type('9 "The decline … our history');
   await act(async () => keep());
-  expect(await screen.findByText(/Kept as you typed it/)).toBeInTheDocument();
+  expect(await screen.findByText(/The middle fills in from your Kindle/)).toBeInTheDocument();
   expect(screen.getByText('The decline … our history').closest('li')).toHaveAttribute('data-unfinished', 'true');
 });
 
@@ -208,7 +248,7 @@ test('a photograph of the page finishes the quotes typed by their ends, and the 
   pagePhoto.mockResolvedValueOnce('data:image/jpeg;base64,/9j/');
   readBookPage.mockResolvedValueOnce([{ _id: 'u1', text: KINDLE.text }]);
   render(<Desk marks={[typed]} />);
-  const camera = screen.getByLabelText('Photograph the page to finish the quote you typed by its ends');
+  const camera = screen.getByLabelText('Photograph the page to fill in your quote');
   expect(camera).toHaveAttribute('capture', 'environment');
 
   await act(async () => fireEvent.change(camera, { target: { files: [new File(['page'], 'page.jpg', { type: 'image/jpeg' })] } }));

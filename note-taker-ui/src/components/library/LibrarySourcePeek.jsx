@@ -82,15 +82,14 @@ export default function LibrarySourcePeek({ row, onRead, onPlace, onMove }) {
         <>
           <p className="library-row-label">
             {state.readable
-              ? 'Inside this source'
-              : 'Link saved · text unavailable'}
+              ? 'From this article'
+              : 'Link saved, but the page’s text couldn’t be read'}
           </p>
           {state.anchor ? (
             <blockquote>{state.anchor.text}</blockquote>
           ) : (
             <p>
-              Readable source text is unavailable. The saved source record is
-              still here.
+              Open the original to read it.
             </p>
           )}
           {state.highlight?.note ? (
@@ -114,7 +113,7 @@ export default function LibrarySourcePeek({ row, onRead, onPlace, onMove }) {
                 )
               }
             >
-              {state.anchor ? 'Read from here →' : 'Open source record →'}
+              {state.anchor ? 'Read from here →' : 'Details →'}
             </button>
             <button disabled={busy} onClick={() => place('later')}>
               Nightstand

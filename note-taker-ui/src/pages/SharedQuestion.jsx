@@ -8,6 +8,7 @@ import SharedQuestionCompanion from './SharedQuestionCompanion.jsx';
 import { hasShareToken } from './sharedQuestionCompanion';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import '../styles/shared-page-column.css';
+import NoeisMark from '../components/brand/NoeisMark';
 
 const useDocumentMeta = (name, content, attr = 'name') => {
   useEffect(() => {
@@ -34,7 +35,7 @@ const useDocumentMeta = (name, content, attr = 'name') => {
 const SharedQuestionTopBar = ({ minimal = false, onCopy, copyState, pageUrl }) => (
   <div className="shared-concept-topbar" data-testid="shared-question-topbar">
     <Link to="/" className="shared-concept-topbar__brand" aria-label="Noeis home">
-      <span className="shared-concept-topbar__brand-mark" aria-hidden="true" />
+      <NoeisMark size={22} />
       <span className="shared-concept-topbar__brand-name">Noeis</span>
     </Link>
     {!minimal && pageUrl ? (

@@ -552,3 +552,71 @@
     animation: none;
   }
 }
+
+/* Printed, a book is its quotes on index cards, 5 by 3 inches, one to a
+   card for a box of them; nothing of the screen comes with them. */
+.book-cards {
+  display: none;
+}
+
+@page card {
+  size: 5in 3in;
+  margin: 0.35in 0.4in;
+}
+
+@media print {
+  :root:has(.book-cards) :is(.topbar, .app-shell-new__nav, .app-shell-new__skip-link, .agent-rail-drawer__trigger, .agent-rail-drawer) {
+    display: none !important;
+  }
+
+  :root:has(.book-cards) { color-scheme: light; }
+
+  :root:has(.book-cards),
+  :root:has(.book-cards) :is(body, .app-shell-new, .app-shell-new__main, .app-shell-new__body, .app-shell-new__column, .page-area, .books--one) {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .books--one > :not(.book-cards) {
+    display: none !important;
+  }
+
+  .book-cards {
+    display: block;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: #111;
+  }
+
+  /* Just under the card's height less its margins, so the source sits on
+     the bottom rule and a short quote never spills onto a second card. */
+  .book-cards li {
+    page: card;
+    break-after: page;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 2.25in;
+    break-inside: avoid;
+  }
+
+  .book-cards li:last-child {
+    break-after: auto;
+  }
+
+  .book-cards blockquote {
+    margin: 0;
+    font: 12pt/1.45 var(--font-serif);
+  }
+
+  .book-cards p {
+    margin: 0;
+    padding-top: 6pt;
+    border-top: 0.5pt solid #999;
+    font: 8pt/1.4 var(--font-sans);
+    letter-spacing: 0.04em;
+    color: #555;
+  }
+}

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { DEFAULT_API_URL, resolveAuth } from './config.js';
 
 export { DEFAULT_API_URL };
@@ -31,6 +31,8 @@ const pickId = (value) => {
   if (typeof value === 'object') return String(value.id || value._id || '');
   return String(value);
 };
+
+export const SEARCH_KINDS = Object.freeze(['wiki', 'library', 'editions']);
 
 const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
@@ -156,6 +158,57 @@ const normalizeNotebookSummary = (entry = {}) => ({
   snippet: cleanText(entry.snippet || entry.content || ''),
   blockCount: Number(entry.blockCount ?? (Array.isArray(entry.blocks) ? entry.blocks.length : 0)),
   updatedAt: entry.updatedAt || null
+});
+
+/* Work keeps a note's writing as editor HTML and a jot's as plain text; an agent hands over plain lines. */
+const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ' };
+const escapeHtml = text => text.replace(/[&<>"]/g, char => Object.keys(ENTITIES).find(entity => ENTITIES[entity] === char));
+const workHtml = text => text.split('\n').map(line => `<p>${escapeHtml(line)}</p>`).join('');
+const workText = html => String(html || '')
+  .replace(/<br\s*\/?>|<\/(?:p|h\d|li|blockquote|pre)>/g, '\n')
+  .replace(/<[^>]+>/g, '')
+  .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, entity => ENTITIES[entity])
+  .trim();
+const isJot = entry => entry.workItem?.kind === 'jot';
+const writingOf = entry => (isJot(entry) ? entry.content || '' : workText(entry.content));
+const storedAs = (jot, text) => (jot ? text : workHtml(text));
+const here = () => ({ actionAt: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' });
+
+/* A line's day and tick are its last standing plan and complete or reopen;
+   an undo takes back the action it names. Read the way Work reads it. */
+const projectLine = ({ history = [], ...line }) => {
+  const undone = new Set();
+  for (const event of [...history].reverse()) if (event.type === 'undo' && !undone.has(event.operationId)) undone.add(event.undoOf);
+  const standing = history.filter(event => event.type !== 'undo' && !undone.has(event.operationId));
+  const plan = standing.filter(event => event.type === 'plan').at(-1);
+  const tick = standing.filter(event => ['complete', 'reopen'].includes(event.type)).at(-1);
+  return { ...line, plannedOn: plan ? plan.plannedOn : line.plannedOn || null, done: tick?.type === 'complete' };
+};
+
+const normalizeWorkNote = (entry = {}) => ({
+  id: pickId(entry),
+  title: entry.title || 'Untitled',
+  revision: Number(entry.revision || 0),
+  occurredOn: entry.occurredOn || null,
+  folder: entry.folder ? String(entry.folder) : null,
+  project: entry.project ? String(entry.project) : null,
+  updatedAt: entry.updatedAt || null
+});
+
+const normalizeWorkLine = (entry = {}) => ({ ...normalizeWorkNote(entry), ...projectLine(entry.workItem || {}) });
+
+const normalizeWork = entry => (entry.workItem ? normalizeWorkLine(entry) : normalizeWorkNote(entry));
+
+const normalizeWorkFolder = (folder = {}) => ({
+  id: pickId(folder),
+  name: folder.name || '',
+  kind: folder.kind === 'project' ? 'project' : 'folder',
+  revision: Number(folder.revision || 0),
+  brief: folder.brief || '',
+  closingLine: folder.closingLine || '',
+  archived: Boolean(folder.archivedAt),
+  paused: Boolean(folder.pausedAt),
+  links: Array.isArray(folder.links) ? folder.links : []
 });
 
 const normalizeNotebookEntry = (entry = {}) => ({
@@ -750,6 +803,64 @@ export class NoeisClient {
     return { id: target, deleted: true, notesKept: true };
   }
 
+  /* Work, the reader's private work notebook, answers only to a connection
+     approved with --work. Every change names the revision it read, so an
+     agent never writes over what the reader typed since. */
+  listWork() {
+    return this.request('/api/work-notes').then(({ entries = [], items = [], folders = [] }) => ({
+      notes: entries.map(entry => ({ ...normalizeWorkNote(entry), snippet: cleanText(workText(entry.content)).slice(0, 240) })),
+      lines: items.map(normalizeWorkLine),
+      folders: folders.map(normalizeWorkFolder)
+    }));
+  }
+
+  getWorkNote({ noteId }) {
+    return this.request(`/api/work-notes/${encodeURIComponent(noteId)}`)
+      .then(entry => ({ ...normalizeWork(entry), text: writingOf(entry) }));
+  }
+
+  createWorkNote({ title, text = '', folderId, projectId, occurredOn, line } = {}) {
+    const { timeZone } = here();
+    return this.request('/api/work-notes', {
+      method: 'POST',
+      body: { operationId: randomUUID(), timeZone, title, content: storedAs(line?.kind === 'jot', text), folder: folderId, project: projectId, occurredOn, workItem: line }
+    }).then(normalizeWork);
+  }
+
+  async updateWorkNote({ noteId, revision, title, text, folderId, projectId, occurredOn, line, done, plannedOn } = {}) {
+    const actions = [
+      ...(done === undefined ? [] : [{ type: done ? 'complete' : 'reopen' }]),
+      ...(plannedOn === undefined ? [] : [{ type: 'plan', plannedOn: plannedOn || null }])
+    ].map(action => ({ ...action, operationId: randomUUID(), ...here() }));
+    const jot = text !== undefined && isJot(await this.request(`/api/work-notes/${encodeURIComponent(noteId)}`));
+    const body = {
+      expectedRevision: revision,
+      title,
+      ...(text === undefined ? {} : { content: storedAs(jot, text), blocks: [] }),
+      folder: folderId,
+      project: projectId,
+      occurredOn,
+      workItem: line,
+      ...(actions.length ? { workActions: actions } : {})
+    };
+    return this.request(`/api/work-notes/${encodeURIComponent(noteId)}`, { method: 'PUT', body })
+      .then(normalizeWork);
+  }
+
+  createWorkFolder({ name, project = false } = {}) {
+    return this.request('/api/work-notes/folders', {
+      method: 'POST',
+      body: { name, kind: project ? 'project' : 'folder', operationId: randomUUID() }
+    }).then(normalizeWorkFolder);
+  }
+
+  updateWorkFolder({ folderId, revision, name, brief, closingLine, archived, paused, links } = {}) {
+    return this.request(`/api/work-notes/folders/${encodeURIComponent(folderId)}`, {
+      method: 'PUT',
+      body: { expectedRevision: revision, name, brief, closingLine, archived, paused, links, operationId: randomUUID() }
+    }).then(normalizeWorkFolder);
+  }
+
   listQuestions({ status, tag, conceptName, highlightId, notebookEntryId } = {}) {
     return this.request('/api/questions', {
       query: { status, tag, conceptName, highlightId, notebookEntryId }
@@ -967,6 +1078,84 @@ export class NoeisClient {
         editions: editions.map(edition => ({ ...edition, id: pickId(edition) }))
       };
     });
+  }
+
+  /* The stand, asked for a thought. Only editions holding every word come
+     back, each with the items that carry them. */
+  searchEditions({ query, profile, limit = 20 } = {}) {
+    return this.request('/api/editions', { query: { q: query, profile, limit } }).then(payload => (
+      normalizeArrayPayload(payload, 'editions').map(edition => ({
+        ...edition,
+        id: pickId(edition),
+        matches: Array.isArray(edition.matches) ? edition.matches : []
+      }))
+    ));
+  }
+
+  /* One question to the whole workspace. Each surface keeps its own search
+     and its own ownership check; this only asks them together and says
+     which one could not answer, so a missing surface is never read as an
+     empty one. A refused credential is not a partial answer: it fails. */
+  async searchNoeis({ query, kinds = SEARCH_KINDS, limit = 5 } = {}) {
+    const q = cleanText(query);
+    if (!q) throw new NoeisApiError('query is required.', { status: 400 });
+    const wanted = SEARCH_KINDS.filter(kind => kinds.includes(kind));
+    const app = this.appUrl;
+    const asks = {
+      wiki: () => this.searchPages({ query: q, limit }).then(pages => pages.map(page => ({
+        kind: 'wiki_page',
+        id: page.id,
+        title: page.title,
+        snippet: page.snippet,
+        link: `${app}/wiki/workspace?page=${encodeURIComponent(page.id)}`,
+        updatedAt: page.updatedAt,
+        open: 'get_page'
+      }))),
+      library: () => Promise.all([
+        this.searchHighlights({ query: q, limit }),
+        this.searchArticles({ query: q, limit })
+      ]).then(([highlights, articles]) => [
+        ...highlights.map(highlight => ({
+          kind: 'highlight',
+          id: highlight.id,
+          title: highlight.articleTitle || 'Untitled article',
+          snippet: [highlight.text, highlight.note && `Note: ${highlight.note}`].filter(Boolean).join(' '),
+          link: `${app}/library?articleId=${encodeURIComponent(highlight.articleId)}&highlightId=${encodeURIComponent(highlight.id)}`,
+          updatedAt: highlight.createdAt,
+          open: 'get_highlight'
+        })),
+        ...articles.map(article => ({
+          kind: 'article',
+          id: article.id,
+          title: article.title,
+          snippet: [article.siteName, article.author].filter(Boolean).join(' · '),
+          link: `${app}/articles/${encodeURIComponent(article.id)}`,
+          updatedAt: article.updatedAt || article.createdAt,
+          open: 'get_article'
+        }))
+      ]),
+      editions: () => this.searchEditions({ query: q, limit }).then(editions => editions.map(edition => ({
+        kind: 'edition',
+        id: edition.id,
+        title: edition.title,
+        snippet: edition.matches[0]?.finding || edition.headline || edition.standfirst || '',
+        link: `${app}/editions/${encodeURIComponent(edition.id)}`,
+        updatedAt: edition.windowEnd || edition.updatedAt || null,
+        matches: edition.matches,
+        open: 'get_edition'
+      })))
+    };
+    const settled = await Promise.allSettled(wanted.map(kind => asks[kind]()));
+    const refused = settled.find(entry => entry.status === 'rejected' && [401, 403].includes(entry.reason?.status));
+    if (refused) throw refused.reason;
+    if (settled.every(entry => entry.status === 'rejected')) throw settled[0].reason;
+    const results = [];
+    const unavailable = [];
+    settled.forEach((entry, index) => {
+      if (entry.status === 'fulfilled') results.push(...entry.value);
+      else unavailable.push({ kind: wanted[index], error: String(entry.reason?.message || entry.reason) });
+    });
+    return { query: q, results, ...(unavailable.length ? { unavailable } : {}) };
   }
 
   getEdition({ editionId } = {}) {

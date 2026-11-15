@@ -45,7 +45,7 @@ export const mountSaveCardSwitch = (mount) => {
   /* A group of toggles, not a radio group — the reader's app made the same
      correction. Neither pressed means the piece is home. */
   capsule.setAttribute('role', 'group');
-  capsule.setAttribute('aria-label', 'Where this sits');
+  capsule.setAttribute('aria-label', 'Save to');
 
   const wrapper = el('div', 'placement-switch is-compact');
   wrapper.appendChild(capsule);

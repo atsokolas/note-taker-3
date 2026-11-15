@@ -5,7 +5,6 @@ import { listWikiPages, settleIntoWiki } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
 import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookSummaries, readNoteAgainstViews, setOppositeAside } from '../../../api/notebook';
 import { MemoryRouter } from 'react-router-dom';
-import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 import useConcepts from '../../../hooks/useConcepts';
 import api from '../../../api';
 
@@ -251,9 +250,9 @@ describe('NotebookEditor', () => {
 
     it('keeps a quiet link to the page a note settled into', () => {
       renderNote({ settledIn: { _id: 'page-1', title: 'Why moats erode' } });
-      expect(screen.getByText(/Settled in Wiki →/)).toBeInTheDocument();
+      expect(screen.getByText(/In your Wiki →/)).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Why moats erode' })).toHaveAttribute('href', '/wiki/read/page-1');
-      expect(screen.getByRole('button', { name: 'Settle again' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Update the Wiki page' })).toBeInTheDocument();
       expect(screen.getByText(/Share it from there/)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /share/i })).not.toBeInTheDocument();
     });
@@ -262,7 +261,7 @@ describe('NotebookEditor', () => {
       settleIntoWiki.mockResolvedValueOnce({ page: { _id: 'page-1', title: 'Why moats erode', sourceRefs: [] }, resettled: false });
       renderNote();
       expect(screen.queryByText(/Settled in Wiki/)).not.toBeInTheDocument();
-      fireEvent.click(screen.getByRole('button', { name: 'Settle into Wiki' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Make a Wiki page' }));
       expect(await screen.findByRole('link', { name: 'Why moats erode' })).toHaveAttribute('href', '/wiki/read/page-1');
       expect(settleIntoWiki).toHaveBeenCalledWith('notebook', 'note-1');
     });
@@ -270,9 +269,9 @@ describe('NotebookEditor', () => {
     it('says in one line what to fix when Wiki refuses the note', async () => {
       settleIntoWiki.mockRejectedValueOnce({ response: { data: { error: 'Give this note a title before it settles.' } } });
       renderNote({ title: '' });
-      fireEvent.click(screen.getByRole('button', { name: 'Settle into Wiki' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Make a Wiki page' }));
       expect(await screen.findByText('Give this note a title before it settles.')).toBeInTheDocument();
-      expect(screen.queryByText(/Settled in Wiki →/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/In your Wiki →/)).not.toBeInTheDocument();
     });
   });
 
@@ -420,7 +419,7 @@ describe('NotebookEditor', () => {
       />
     );
 
-    expect(screen.getByText('Ariadne thread · Library')).toBeInTheDocument();
+    expect(screen.getByText('From your Library')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Return to A beautiful source' })).toHaveAttribute(
       'href',
       '/library?articleId=article-1&highlightId=highlight-1'
@@ -1361,22 +1360,15 @@ describe('NotebookEditor', () => {
       expect(document.body.classList.contains('think-rails-away')).toBe(false);
     });
 
-    it('restores rails after typing goes idle', () => {
-      jest.useFakeTimers();
-      try {
-        paint();
-        fireEvent.click(screen.getByTestId('editor-content'));
-        act(() => {
-          writingUpdates().forEach(([, handler]) => handler({ transaction: { docChanged: true } }));
-        });
-        expect(document.body.classList.contains('think-rails-away')).toBe(true);
-        act(() => {
-          jest.advanceTimersByTime(THINK_WRITING_IDLE_MS);
-        });
-        expect(document.body.classList.contains('think-rails-away')).toBe(false);
-      } finally {
-        jest.useRealTimers();
-      }
+    it('brings the rails back on Escape, not on a pause', () => {
+      paint();
+      fireEvent.click(screen.getByTestId('editor-content'));
+      act(() => {
+        writingUpdates().forEach(([, handler]) => handler({ transaction: { docChanged: true } }));
+      });
+      expect(document.body.classList.contains('think-rails-away')).toBe(true);
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(document.body.classList.contains('think-rails-away')).toBe(false);
     });
   });
 

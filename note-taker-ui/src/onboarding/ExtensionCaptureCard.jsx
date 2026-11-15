@@ -26,7 +26,7 @@ const ExtensionCaptureCard = ({ compact = false, heading = '' }) => {
       case EXTENSION_STATE.CONNECTED:
         return {
           title: 'Capture is set up.',
-          detail: 'Highlight anything on the web and it lands in your library.',
+          detail: 'Highlight anything on the web and it’s in your Library.',
           action: null
         };
       case EXTENSION_STATE.INSTALLED_SIGNED_OUT:
@@ -37,7 +37,7 @@ const ExtensionCaptureCard = ({ compact = false, heading = '' }) => {
         };
       case EXTENSION_STATE.NOT_INSTALLED:
         return {
-          title: 'I can only read what reaches me.',
+          title: 'Save from any page.',
           detail: 'Add the browser extension and save or highlight from any article in one click.',
           action: { label: 'Add the extension', href: TOUR_EXTENSION_URL }
         };

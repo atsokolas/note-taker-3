@@ -23,7 +23,6 @@ import {
   persistUiSettingsToStorage
 } from './settings/uiPreferences';
 import { formatAppearanceValue } from './settings/appearanceFieldModel';
-import { TemporaryAppearanceProvider, TemporaryAppearanceBar } from './settings/TemporaryAppearanceContext';
 import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
@@ -209,6 +208,13 @@ const LegacyConceptRedirect = () => {
   return <Navigate to={buildThinkPosturePath('concepts', conceptName)} replace />;
 };
 
+// Books had a page inside the Library; links to it (old Morning Papers) still open the book.
+const LegacyBookRedirect = () => {
+  const { id = '' } = useParams();
+  const { search } = useLocation();
+  return <Navigate to={`/books${id ? `/${id}` : ''}${search}`} replace />;
+};
+
 const LegacyNotebookRedirect = () => {
   const { entryId = '' } = useParams();
   return <Navigate to={buildThinkPosturePath('notebook', entryId)} replace />;
@@ -258,7 +264,7 @@ export const isPublicPage = (pathname = '') => (
   isPublicSharePath(pathname) || isDesignPreviewPath(pathname) || PUBLIC_PAGES.has(pathname)
 );
 
-const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
+const PublicRoutes = ({ handleLoginSuccess }) => {
   const location = useLocation();
   const isShareRoute = isPublicSharePath(location.pathname);
   const isLongformRoute = (
@@ -314,7 +320,6 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
             path="/register"
             element={(
               <Register
-                chromeStoreLink={chromeStoreLink}
                 onLoginSuccess={handleLoginSuccess}
               />
             )}
@@ -324,7 +329,6 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
             element={(
               <Login
                 onLoginSuccess={handleLoginSuccess}
-                chromeStoreLink={chromeStoreLink}
               />
             )}
           />
@@ -464,7 +468,6 @@ const AuthenticatedAppRuntime = ({ renderLayout, openPalette, setShortcutOverlay
 const AppRouterContent = ({
   isAuthenticated,
   publicRouteProps,
-  workAppearance,
   renderLayout,
   openPalette,
   setShortcutOverlayOpen
@@ -473,8 +476,10 @@ const AppRouterContent = ({
   const shouldUsePublicRoutes = !isAuthenticated || isPublicPage(location.pathname);
 
   if (shouldUsePublicRoutes) return <PublicRoutes {...publicRouteProps} />;
+  /* Work lived at /think?context=work before it had a place in the bar. */
   if (location.pathname === '/think' && new URLSearchParams(location.search).get('context') === 'work') {
-    return <Suspense fallback={<RouteLoadingFallback />}><WorkNotes appearance={workAppearance} /></Suspense>;
+    const params = new URLSearchParams(location.search); params.delete('context');
+    return <Navigate to={`/work?${params}`} replace />;
   }
   return (
     <AuthenticatedAppRuntime
@@ -611,24 +616,22 @@ function App() {
     if (!isAuthenticated) return;
     let cancelled = false;
     const ownerToken = localStorage.getItem('token');
-    const work = window.location.pathname === '/think' && new URLSearchParams(window.location.search).get('context') === 'work';
     const syncUiSettings = async () => {
       try {
-        const remote = await fetchUiSettings({}, work ? { skipAuthHandling: true, headers: { Authorization: `Bearer ${ownerToken}` } } : {});
+        const remote = await fetchUiSettings();
         if (cancelled || localStorage.getItem('token') !== ownerToken) return;
         const normalized = normalizeUiSettings(remote);
         setUiSettings(normalized);
         persistUiSettingsToStorage(normalized);
       } catch (error) {
-        if (work) { if (!cancelled && localStorage.getItem('token') === ownerToken && error?.response?.status !== 401) setSystemRecoverableFailure({ stage: 'Theme', message: 'Appearance could not sync. The theme on this device stays in place.' }); }
-        else console.error('Failed to fetch UI settings:', error);
+        console.error('Failed to fetch UI settings:', error);
       }
     };
     syncUiSettings();
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, setSystemRecoverableFailure]);
+  }, [isAuthenticated]);
 
   const handleLogout = () => {
     clearStoredTokens();
@@ -644,9 +647,8 @@ function App() {
   const handleAppearanceCommit = async (patch, nextDraft) => {
     const optimistic = normalizeUiSettings({ ...uiSettings, ...patch });
     const ownerToken = localStorage.getItem('token');
-    const work = window.location.pathname === '/think' && new URLSearchParams(window.location.search).get('context') === 'work';
     try {
-      const saved = await saveUiSettings(optimistic, {}, work ? { skipAuthHandling: true, headers: { Authorization: `Bearer ${ownerToken}` } } : {});
+      const saved = await saveUiSettings(optimistic);
       if (localStorage.getItem('token') !== ownerToken) return { ok: false, stale: true };
       const normalized = normalizeUiSettings(saved);
       setUiSettings(normalized);
@@ -654,7 +656,7 @@ function App() {
       return { ok: true, settings: normalized };
     } catch (error) {
       if (localStorage.getItem('token') !== ownerToken) return { ok: false, stale: true };
-      if (!work) console.error('Failed to save appearance settings:', error);
+      console.error('Failed to save appearance settings:', error);
       applyUiSettingsToRoot(document.documentElement, uiSettings);
       return { ok: false };
     }
@@ -762,16 +764,16 @@ function App() {
         onClick: () => setProductFeedbackOpen(true)
       },
       {
-        label: 'Chrome Extension',
+        label: 'Chrome extension',
         href: chromeStoreLink,
         external: true
       },
       {
-        label: 'Logout',
+        label: 'Log out',
         onClick: handleLogout
       }
     ];
-    const moreNavItems = secondaryNavItems.filter((item) => item.label !== 'Connections');
+    
     const utilityNavItems = getTopBarUtilityNavItems();
 
     const routes = (
@@ -799,8 +801,10 @@ function App() {
             <Route path="/library/save" element={<SaveLink />} />
             <Route path="/library/map" element={<ReadingMap />} />
             <Route path="/library/book" element={<CommonplaceBook />} />
-            <Route path="/library/books" element={<Books />} />
-            <Route path="/library/books/:id" element={<Books />} />
+            <Route path="/library/books" element={<LegacyBookRedirect />} />
+            <Route path="/library/books/:id" element={<LegacyBookRedirect />} />
+            <Route path="/books" element={<Books />} />
+            <Route path="/books/:id" element={<Books />} />
             {/* Papers an agent maintains. Not a fifth room in the nav — the
                 four rooms are what you did, and an edition is something that
                 arrived. The Paper carries the door to it. */}
@@ -810,6 +814,7 @@ function App() {
                 addressable: a URL that names a concept, question, thread or
                 entry still opens that object in the older workspace. */}
             <Route path="/think" element={<ThinkSurface />} />
+            <Route path="/work" element={<WorkNotes />} />
             {/* /wiki is the quiet collection; the maintenance workspace stays
                 one hairline away at /wiki/workspace. */}
             {/* Judgment: the index is a list of claim sentences; opening one
@@ -841,6 +846,7 @@ function App() {
                   onAppearanceCommit={handleAppearanceCommit}
                   onAppearanceUndo={handleAppearanceUndo}
                   onOpenThemePicker={openThemePicker}
+                  onLogout={handleLogout}
                 />
               )}
             />
@@ -884,15 +890,6 @@ function App() {
     );
 
     return (
-      <TemporaryAppearanceProvider
-        committedSettings={uiSettings}
-        onKeepTemporary={(draft) => handleAppearanceCommit(
-          Object.fromEntries(
-            Object.entries(draft).filter(([key, value]) => uiSettings[key] !== value)
-          ),
-          draft
-        )}
-      >
       <AppShell
         surface={surface}
         /* One Partner, the same in every room: ⌘J or its button opens it. */
@@ -903,7 +900,7 @@ function App() {
             routeLocation={shellLocation}
             primaryNav={primaryNavItems}
             utilityNav={utilityNavItems}
-            secondaryNav={moreNavItems}
+            secondaryNav={secondaryNavItems}
             searchMode="field"
             onSearchOpen={openPalette}
             accountMenuItems={topBarAccountMenuItems}
@@ -931,9 +928,7 @@ function App() {
         )}
       >
         {routes}
-        <TemporaryAppearanceBar />
       </AppShell>
-      </TemporaryAppearanceProvider>
     );
   };
 
@@ -944,8 +939,7 @@ function App() {
         <Analytics />
         <AppRouterContent
           isAuthenticated={isAuthenticated}
-          workAppearance={{ theme: uiSettings.theme, onOpen: openThemePicker, error: systemStatus.recoverableFailure?.stage === 'Theme' ? systemStatus.recoverableFailure.message : '', retry: systemStatus.recoverableFailure?.stage === 'Theme' ? systemStatus.recoverableFailure.retry : null }}
-          publicRouteProps={{ chromeStoreLink, handleLoginSuccess }}
+          publicRouteProps={{ handleLoginSuccess }}
           renderLayout={renderAppLayout}
           openPalette={openPalette}
           setShortcutOverlayOpen={setShortcutOverlayOpen}

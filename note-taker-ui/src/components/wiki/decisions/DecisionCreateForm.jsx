@@ -230,7 +230,7 @@ const DecisionCreateForm = ({
     <section className="wiki-decision-form" aria-labelledby={`${formId}-title`}>
       <header>
         <p className="wiki-decisions__eyebrow">Record a decision</p>
-        <h3 id={`${formId}-title`}>Accept a decision against a retained claim revision</h3>
+        <h3 id={`${formId}-title`}>Record a decision</h3>
         <p>
           Uses the dedicated decision endpoint — never a generic Wiki page edit.
           Outcomes are recorded later; this form only captures the decision and clocks.

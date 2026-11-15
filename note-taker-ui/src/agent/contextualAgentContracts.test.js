@@ -28,6 +28,7 @@ describe('contextual agent contracts', () => {
 
   it('resolves every primary room without treating operational routes as agent surfaces', () => {
     expect(resolveContextualAgentContract({ pathname: '/library' })?.id).toBe('agent-surface.library');
+    expect(resolveContextualAgentContract({ pathname: '/books/b1' })?.id).toBe('agent-surface.library');
     expect(resolveContextualAgentContract({ pathname: '/think' })?.id).toBe('agent-surface.think');
     expect(resolveContextualAgentContract({ pathname: '/wiki' })?.id).toBe('agent-surface.wiki');
     expect(resolveContextualAgentContract({ pathname: '/judgment/abc' })?.id).toBe('agent-surface.judgment');

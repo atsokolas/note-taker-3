@@ -6,7 +6,7 @@ import { AGENT_DISPLAY_NAME, SPECIALIST_AGENT_LABEL, USER_BRIDGE_LABEL } from '.
 const CAPABILITY_LABELS = {
   sharedSkills: 'Shared skills',
   sharedThreads: 'Shared threads',
-  sharedArtifactDrafts: 'Shared artifact drafts',
+  sharedArtifactDrafts: 'Shared drafts',
   protocolHandoffs: 'Protocol handoffs',
   projectSearch: 'Project search',
   projectRead: 'Project read',
@@ -272,7 +272,7 @@ const ExternalBridgeCard = ({
         : 'Create an OpenClaw or Hermes worker above so the bridge can route work to it.'
     },
     {
-      label: 'Bridge token minted',
+      label: 'Token created',
       done: Boolean(bridgeToken),
       detail: bridgeToken ? `${bridgeExpiry}s token for ${bridgeScopeValue}.` : 'Mint a short-lived token scoped to agent_ops.'
     },
@@ -301,7 +301,7 @@ const ExternalBridgeCard = ({
     <Card className="settings-card external-bridge-card" id="byo-agent-bridge">
       <div className="external-bridge-hero">
         <div>
-          <p className="muted-label">BYO agent bridge</p>
+          <p className="muted-label">Bring your own agent</p>
           <h2>Connect OpenClaw or Hermes</h2>
           <p className="muted">
             Plug an external runtime into Noeis as a specialist worker. It can search and read project context, claim routed handoffs, stage artifact drafts, promote drafts, and report back through the same approval path.

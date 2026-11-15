@@ -1,38 +1,71 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import WorkIcon from './WorkIcon';
-import { noteTitle } from './workSession';
+import WorkHill, { hillPhrase } from './WorkHill';
+import { matchesQuery, noteTitle } from './workSession';
 import { displayDay, writtenDay } from './workPlannerModel';
 
-export default function WorkShelf({ notes, folders, selected, day, view, folder, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, loading, error, onRetry, onClose }) {
-  const [expanded, setExpanded] = useState(new Set());
-  const selectedNote = notes.find(note => note.clientId === selected || note._id === selected);
-  const selectedFolder = selectedNote?.folder?._id || selectedNote?.folder;
-  useEffect(() => { const id = selectedFolder || folders.find(item => !item.archivedAt)?._id; if (id) setExpanded(current => new Set([...current, id])); }, [selectedFolder, folders]);
+// Two pages look across everything, then projects, then notes. A note is listed once, in its folder;
+// its project shows on the project page and on the note's place line.
+export default function WorkShelf({ needs, projects, dragging, drag, onDropNote, notes, folders, place, current, view, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose, onCollapse }) {
+  const [over, setOver] = React.useState(null);
+  const [expanded, setExpanded] = React.useState({});
+  const [sections, setSections] = React.useState({});
+  const railId = React.useId();
+  const arriving = dragging && notes.find(note => note.clientId === dragging);
   const folderId = note => note.folder?._id || note.folder || '';
-  const matches = note => !query || `${noteTitle(note)} ${note.content || ''}`.toLowerCase().includes(query.toLowerCase());
-  const leaf = note => <button className="work-shelf-note" key={note.clientId} aria-current={note.clientId === selected || note._id === selected ? 'page' : undefined} onClick={() => onOpen(note.clientId)}><WorkIcon name="file" /><span>{noteTitle(note)}<small>{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}{note.localVersion ? ' · Local version' : ''}</small></span></button>;
-  const activeFolders = folders.filter(item => !item.archivedAt), archived = folders.filter(item => item.archivedAt);
+  const written = note => `${writtenDay(note)} ${note.capturedAt || note.createdAt || ''}`;
+  const newest = list => list.sort((a, b) => written(b).localeCompare(written(a)));
+  const leaf = note => <button className="work-shelf-note" {...drag(note)} aria-current={current(note) ? 'page' : undefined} onClick={() => onOpen(note.clientId)}><span>{noteTitle(note)}</span><time className="work-sr-only">{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}</time></button>;
+  const inbox = newest(notes.filter(note => !folderId(note)));
+  const placeRow = (id, name, contents, onName, menu, kind = 'folder', nested = []) => {
+    const key = `${kind}:${id}`, childrenId = `${railId}-${key}`;
+    const active = kind === 'project' ? view === 'project' && place === id : place === id;
+    const open = Boolean(query || over === key || (expanded[key] ?? (active || contents.some(current) || nested.some(child => child.reveal))));
+    const folds = kind === 'folder' || nested.length > 0;
+    return <div className="work-place" key={key}>
+      <div className="work-place-row" aria-current={active && !notes.some(current) ? 'page' : undefined} data-drop={over === key ? true : undefined} onDragOver={event => { if (!dragging || kind === 'project') return; event.preventDefault(); setOver(key); }} onDragLeave={() => setOver(null)} onDrop={event => { if (kind === 'project') return; event.preventDefault(); setOver(null); onDropNote(event.dataTransfer.getData('text/plain') || dragging, id); }}>
+        {folds ? <button className="work-place-toggle" aria-label={`${open ? 'Collapse' : 'Expand'} ${name}`} aria-expanded={open} aria-controls={childrenId} onClick={() => setExpanded(previous => ({ ...previous, [key]: !open }))}><WorkIcon name="right" /></button> : <span className="work-place-toggle" aria-hidden="true" />}
+        <button className="work-place-name" onClick={() => { setExpanded(previous => ({ ...previous, [key]: true })); onName(); }}><span>{name}</span></button>
+        {!id && contents.length ? <small aria-label={`${contents.length} unfiled`}>{contents.length}</small> : null}{kind === 'project' && id in needs.hills ? <WorkHill width={28} height={10} label={hillPhrase(needs.hills[id])} dots={[{ id, at: needs.hills[id] }]} /> : null}{menu}
+      </div>
+      {folds ? <div id={childrenId} className="work-place-children" hidden={!open}>
+        <ul aria-label={`Notes in ${name}`} className="work-place-notes">
+          {arriving && over === key ? <li className="work-shelf-note is-arriving"><span>{noteTitle(arriving)}</span></li> : null}
+          {contents.filter(note => matchesQuery(note, query)).map(note => <li key={note.clientId}>{leaf(note)}</li>)}
+        </ul>
+        {nested.length ? <ul className="work-place-branches" aria-label={`Places in ${name}`}>{nested.map(child => <li key={child.id}>{child.element}</li>)}</ul> : null}
+      </div> : null}
+    </div>;
+  };
+  const places = (records, kind) => {
+    const seen = new Set(), parent = record => record.parentFolderId?._id || record.parentFolderId || '';
+    const branch = record => {
+      if (seen.has(record._id)) return null;
+      seen.add(record._id);
+      const nested = records.filter(child => parent(child) === record._id).map(branch).filter(Boolean);
+      const contents = kind === 'project' ? [] : newest(notes.filter(note => folderId(note) === record._id));
+      return { id: record._id, reveal: place === record._id || contents.some(current) || nested.some(child => child.reveal), element: placeRow(record._id, record.name, contents, () => onScope(kind, record._id), kind === 'folder' ? <button className="work-place-menu" aria-label={`Manage folder ${record.name}`} onClick={() => onFolderMenu(record)}><WorkIcon name="more" /></button> : null, kind, nested) };
+    };
+    const roots = records.filter(record => !records.some(candidate => candidate._id === parent(record))).map(branch).filter(Boolean);
+    // Orphaned and cyclic legacy records remain reachable instead of disappearing.
+    records.forEach(record => { const root = branch(record); if (root) roots.push(root); });
+    return roots.map(root => root.element);
+  };
+  const archived = folders.filter(item => item.archivedAt);
+  const visibleProjects = projects.filter(item => !item.archivedAt);
+  const activeProjects = visibleProjects.filter(item => !item.pausedAt).length;
+  const section = (key, title, onOpenSection, count, children, label) => {
+    const open = Boolean(query || (sections[key] ?? true)), id = `${railId}-section-${key}`;
+    return <nav aria-label={label} className="work-shelf-section"><div className="work-section-heading"><button onClick={() => { setSections(previous => ({ ...previous, [key]: true })); onOpenSection(); }} aria-current={view === key && !notes.some(current) ? 'page' : undefined}><span>{title}</span>{count ? <small>{count}</small> : null}</button><button className="work-place-toggle" aria-label={`${open ? 'Collapse' : 'Expand'} ${title.toLowerCase()}`} aria-expanded={open} aria-controls={id} onClick={() => setSections(previous => ({ ...previous, [key]: !open }))}><WorkIcon name="right" /></button></div><div id={id} hidden={!open}>{children}</div></nav>;
+  };
   return <aside className="work-shelf" aria-label="Work notes"><button className="work-mobile-close" onClick={onClose}>Back to writing</button>
-    <nav aria-label="Work places" className="work-places">
-      <button aria-current={view === 'today' ? 'page' : undefined} onClick={() => onScope('today')}><WorkIcon name="calendar" />Today</button>
-      <div className="work-place-row"><button aria-current={view === 'notes' ? 'page' : undefined} onClick={() => onScope('notes')}><WorkIcon name="file" />Notes</button><button aria-label="New note" onClick={onCapture}><WorkIcon name="plus" /></button></div>
-      <button aria-current={view === 'inbox' ? 'page' : undefined} onClick={() => onScope('inbox', '')}><WorkIcon name="inbox" />Inbox<span className="work-count">{notes.filter(note => !folderId(note)).length || ''}</span></button>
+    <div className="work-shelf-search-row"><label className="work-shelf-search"><WorkIcon name="search" /><input type="search" aria-label="Search Work notes" placeholder="Search" value={query} onChange={event => onQuery(event.target.value)} /></label><button aria-label="New note" onClick={onCapture}><WorkIcon name="plus" /></button></div>
+    <nav aria-label="Work navigation" className="work-primary-nav">
+      <button aria-current={view === 'today' && !notes.some(current) ? 'page' : undefined} onClick={() => onScope('today')}><span>Today</span>{needs.total ? <small aria-label={`${needs.total} need you`}>{needs.total}</small> : null}</button>
     </nav>
-    <input type="search" aria-label="Search Work notes" placeholder="Find a phrase…" value={query} onChange={event => onQuery(event.target.value)} />
-    <div className="work-folders-heading"><span>Folders</span><button aria-label="New folder" onClick={onNewFolder}><WorkIcon name="plus" /></button></div>
-    <nav aria-label="Work folders">{activeFolders.map(item => {
-      const contents = notes.filter(note => folderId(note) === item._id);
-      const isOpen = expanded.has(item._id) || Boolean(query);
-      const dated = contents.filter(note => writtenDay(note) === day || note._id === selectedNote?._id);
-      const visible = (query ? contents : dated.length ? dated : contents.slice(0, 1)).filter(matches);
-      return <div className="work-folder" key={item._id}>
-        <div className="work-folder-row"><button className="work-folder-toggle" aria-label={`${isOpen ? 'Hide' : 'Show'} notes in ${item.name}`} aria-expanded={isOpen} onClick={() => setExpanded(current => { const next = new Set(current); if (next.has(item._id)) next.delete(item._id); else next.add(item._id); return next; })}><WorkIcon name={isOpen ? 'down' : 'right'} /></button><button className="work-folder-name" aria-current={view === 'folder' && folder === item._id ? 'page' : undefined} onClick={() => onScope('folder', item._id)}><WorkIcon name="folder" /><span>{item.name}</span><small aria-label={`${contents.length} notes`}>{contents.length}</small></button><button aria-label={`Manage folder ${item.name}`} onClick={() => onFolderMenu(item)}><WorkIcon name="more" /></button></div>
-        {isOpen && !(view === 'folder' && !selected) ? <div className="work-folder-notes">{visible.map(leaf)}</div> : null}
-      </div>;
-    })}</nav>
-    {query ? <div className="work-search-inbox">{notes.filter(note => !folderId(note) && matches(note)).map(leaf)}</div> : null}
-    <button className="work-add-folder" onClick={onNewFolder}><WorkIcon name="plus" />Folder</button>
+    {section('projects', 'Projects', () => onScope('projects'), activeProjects, places(visibleProjects, 'project'), 'Projects')}
+    {section('notes', 'Notes', () => onScope('notes'), null, <>{placeRow('', 'Inbox', inbox, () => onScope('inbox', ''))}{places(folders.filter(item => !item.archivedAt), 'folder')}<button className="work-add-folder" onClick={onNewFolder}><WorkIcon name="plus" /><span>New folder</span></button></>, 'Work folders')}
     {loading ? <p role="status">Opening Work notes…</p> : error ? <div role="alert"><p>{error}</p><button onClick={onRetry}>Retry</button></div> : null}
-    <div className="work-shelf-foot"><button onClick={() => onScope('notes')}><WorkIcon name="right" />All Work</button>{archived.length ? <button onClick={() => onScope('archive')}>Archive <span className="work-count">{archived.length}</span></button> : null}</div>
+    <div className="work-shelf-foot">{archived.length ? <button onClick={() => onScope('archive')}>Archive</button> : null}<button onClick={onTimeZone} aria-label={`Day timezone: ${timeZone}`}>{timeZone.split('/').pop().replace(/_/g, ' ')} time</button><button aria-label="Collapse Work navigation" onClick={onCollapse}><WorkIcon name="previous" /></button></div>
   </aside>;
 }

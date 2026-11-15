@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const homeCopy = require('./homeCopy.json');
 const {
   SHARE_ROUTES,
   injectSnapshot,
@@ -53,7 +54,7 @@ describe('public share snapshots', () => {
     expect(html).toContain('<link rel="canonical" href="https://www.noeis.io/share/wiki/margin-of-safety"');
     expect(html).toContain('content="Buy below intrinsic value so errors in the estimate do not lose money."');
     expect(html).toContain('"@type":"Article"');
-    expect(html).not.toContain('Grow a knowledge base from what you read.');
+    expect(html).not.toContain(homeCopy.headline);
     expect(html).toMatch(/<div id="root">\s*<main class="seo-page">[\s\S]*<h1>Margin of safety<\/h1>[\s\S]*<\/main><\/div>/);
     expect(html.match(/<div id="root">/g)).toHaveLength(1);
   });

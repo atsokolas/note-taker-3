@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getFolders } from '../api/folders';
 import LibraryPasteLink, { linkFrom, linksFrom } from '../components/library/LibraryPasteLink';
 import useDocumentTitle from '../hooks/useDocumentTitle';
@@ -54,7 +54,6 @@ export default function SaveLink() {
   return (
     <main className="save-link" aria-labelledby="save-link-title">
       <PageHeader
-        eyebrow={<Link to="/library?scope=later">← Nightstand</Link>}
         titleId="save-link-title"
         title={link ? 'Saving a link' : 'Save from anywhere'}
         lede={link ? null : 'Set this up once, and anything you find goes on your nightstand in one tap.'}

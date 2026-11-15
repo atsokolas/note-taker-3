@@ -8,7 +8,7 @@ import {
 
 describe('noeisCapabilityModel', () => {
   it('uses one catalog for the four import source cards', () => {
-    expect(getImportSourceOptions().map(option => option.key)).toEqual(['readwise', 'notion', 'evernote', 'files']);
+    expect(getImportSourceOptions().map(option => option.key)).toEqual(['files', 'readwise', 'notion', 'evernote']);
   });
 
   it('fails closed when remote readiness cannot be checked', () => {

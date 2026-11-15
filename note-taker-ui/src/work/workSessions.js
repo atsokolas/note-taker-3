@@ -14,7 +14,7 @@ export const resumeWorkSession = (session, token) => {
 };
 export const releaseWorkSession = session => {
   session.dispose();
-  if (session.pending().length || session.continuation()) sessions.set(session.account, session);
+  if (session.pending().length || session.continuation() || !session.canLeave()) sessions.set(session.account, session);
   else if (sessions.get(session.account) === session) sessions.delete(session.account);
 };
 export const forgetWorkSession = account => {

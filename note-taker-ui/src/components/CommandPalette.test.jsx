@@ -219,7 +219,7 @@ describe('CommandPalette', () => {
     await renderPalette();
 
     expect(screen.queryByText(/Set up Readwise/)).not.toBeInTheDocument();
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'Readwise' }
     });
     await flushSearch();
@@ -231,7 +231,7 @@ describe('CommandPalette', () => {
   it('starts library filing review, leaves a receipt, and navigates to the Think thread', async () => {
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'review filing suggestions' }
     });
     await flushSearch();
@@ -241,7 +241,7 @@ describe('CommandPalette', () => {
     await waitFor(() => expect(startLibraryFilingSuggestions).toHaveBeenCalled());
     expect(systemStatusControls.setBackgroundWork).toHaveBeenCalledWith({
       label: 'Filing the library',
-      stage: 'Staging suggestions'
+      stage: 'Thinking about folders…'
     });
     expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Noeis update',
@@ -257,7 +257,7 @@ describe('CommandPalette', () => {
     startLibraryFilingSuggestions.mockRejectedValueOnce(new Error('network down'));
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'clean up my library filing' }
     });
     await flushSearch();
@@ -276,7 +276,7 @@ describe('CommandPalette', () => {
   it('turns a comparison command into a durable comparison wiki page and receipt', async () => {
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'compare my notes on opportunity cost and loss aversion' }
     });
     await flushSearch();
@@ -310,7 +310,7 @@ describe('CommandPalette', () => {
     createWikiPage.mockRejectedValueOnce(new Error('network down'));
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'compare compounding with discounting' }
     });
     await flushSearch();
@@ -329,7 +329,7 @@ describe('CommandPalette', () => {
   it('turns a temporal command into a durable change-ledger wiki draft and receipt', async () => {
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'what changed in my thinking about opportunity cost over the last month' }
     });
     await flushSearch();
@@ -356,7 +356,7 @@ describe('CommandPalette', () => {
     expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
       id: 'command-temporal-wiki-new',
       title: 'Started “How opportunity cost changed”',
-      summary: 'Started a wiki draft to inspect what changed about "opportunity cost" across month.',
+      summary: 'Writing up how your thinking on "opportunity cost" changed across month.',
       status: 'needs_review',
       href: '/wiki/workspace?page=wiki-new'
     }));
@@ -368,7 +368,7 @@ describe('CommandPalette', () => {
     createWikiPage.mockRejectedValueOnce(new Error('network down'));
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'show change ledger for compounding' }
     });
     await flushSearch();
@@ -410,7 +410,7 @@ describe('CommandPalette', () => {
     });
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'find the highlight I saved about compounding from Munger' }
     });
     await flushSearch();
@@ -444,7 +444,7 @@ describe('CommandPalette', () => {
     });
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'find my highlight about unknown topic' }
     });
     await flushSearch();
@@ -480,7 +480,7 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Think notebook')).toBeInTheDocument();
     expect(screen.getByText('New Think note')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Quick Work note'));
-    expect(mockNavigate).toHaveBeenCalledWith('/think?context=work&capture=1');
+    expect(mockNavigate).toHaveBeenCalledWith('/work?capture=1');
     // A blank page is writing; writing starts in Think, so Wiki offers no blank page.
     expect(screen.queryByText('New Wiki page')).not.toBeInTheDocument();
     expect(screen.queryByText('Concepts')).not.toBeInTheDocument();
@@ -490,7 +490,7 @@ describe('CommandPalette', () => {
   it('opens the first search result before wiki creation when pressing Enter', async () => {
     await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'portfolio' }
     });
     fireEvent.keyDown(document.querySelector('.palette-overlay'), { key: 'Enter' });
@@ -509,7 +509,7 @@ describe('CommandPalette', () => {
   it('lets exact local page matches outrank async search and open immediately on Enter', async () => {
     await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'settings' }
     });
     fireEvent.keyDown(document.querySelector('.palette-overlay'), { key: 'Enter' });
@@ -521,7 +521,7 @@ describe('CommandPalette', () => {
   it('still allows explicit wiki page creation from a search query', async () => {
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'portfolio' }
     });
     await flushSearch();
@@ -560,7 +560,7 @@ describe('CommandPalette', () => {
     });
     await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'compounding test page' }
     });
     await flushSearch();
@@ -584,7 +584,7 @@ describe('CommandPalette', () => {
   it('turns a plain-English highlights command into a durable wiki page and receipt', async () => {
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'turn my highlights on incentives into a wiki page' }
     });
     await flushSearch();
@@ -622,7 +622,7 @@ describe('CommandPalette', () => {
     });
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'turn these highlights into a question' }
     });
     await flushSearch();
@@ -660,7 +660,7 @@ describe('CommandPalette', () => {
     }));
     const { systemStatusControls } = await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'turn my highlights on compounding into a wiki section' }
     });
     await flushSearch();
@@ -690,7 +690,7 @@ describe('CommandPalette', () => {
   it('announces async search state to assistive tech', async () => {
     await renderPalette();
 
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), {
       target: { value: 'portfolio' }
     });
 
@@ -757,7 +757,7 @@ describe('CommandPalette', () => {
 
     await renderPalette();
 
-    fireEvent.click(screen.getByText('Pull reference into current surface'));
+    fireEvent.click(screen.getByText('Insert a link to…'));
 
     expect(mockNavigate).toHaveBeenCalledWith('/think?tab=questions&questionId=question-1&pull=1');
   });
@@ -767,7 +767,7 @@ describe('CommandPalette', () => {
 
     await renderPalette();
 
-    fireEvent.click(screen.getByText('Pull reference into current surface'));
+    fireEvent.click(screen.getByText('Insert a link to…'));
 
     expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1&view=graph&pull=1');
   });

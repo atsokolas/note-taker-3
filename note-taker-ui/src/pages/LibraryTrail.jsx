@@ -21,13 +21,13 @@ export const outsideSearchHref = ({ title = '', author = '' }) => (
 );
 
 const ORDER_LEDE = {
-  path: 'Foundations first, the frontier last.',
+  path: 'Basics first, newest last.',
   date: 'What you have saved on it, oldest first.'
 };
 
 const ledeFor = ({ subject, trail }) => {
   if (!subject) return 'Name a subject. The trail starts from what you have saved.';
-  if (!trail) return 'Laying the trail…';
+  if (!trail) return 'Making the trail…';
   if (trail.empty) {
     const quiet = `Nothing in your Library is on ${subject} yet.`;
     return trail.steps.length ? `${quiet} These would start it.` : quiet;
@@ -112,7 +112,7 @@ const LibraryTrail = () => {
     let cancelled = false;
     getLibraryTrail(subject)
       .then(found => { if (!cancelled) setTrail(found); })
-      .catch(failure => { if (!cancelled) setError(failure?.response?.data?.error || 'The trail could not be laid just now.'); });
+      .catch(failure => { if (!cancelled) setError(failure?.response?.data?.error || 'Couldn’t make the trail. Try again.'); });
     return () => { cancelled = true; };
   }, [subject]);
 
@@ -153,7 +153,7 @@ const LibraryTrail = () => {
           placeholder="A subject, like attention or the French Revolution"
           onChange={event => setDraft(event.target.value)}
         />
-        <button type="submit" disabled={!draft.trim() || draft.trim() === subject}>Lay the trail</button>
+        <button type="submit" disabled={!draft.trim() || draft.trim() === subject}>Make the trail</button>
       </form>
 
       {error ? <p className="library-trail__quiet" role="alert">{error}</p> : null}

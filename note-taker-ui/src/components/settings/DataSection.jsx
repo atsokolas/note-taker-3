@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import api from '../../api';
 import { Button } from '../ui';
 
@@ -49,10 +48,10 @@ const DataSection = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `note-taker-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `noeis-export-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      setStatus('Structured export download requested. Check your downloads folder to confirm the file landed.');
+      setStatus('Downloading. It’ll be in your Downloads folder.');
       setManifest(buildManifestFromPayload(res.data));
     } catch (err) {
       setError(err.response?.data?.error || 'Export failed.');
@@ -75,7 +74,7 @@ const DataSection = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'note-taker-export-pdfs.zip';
+      a.download = 'noeis-export-pdfs.zip';
       a.click();
       URL.revokeObjectURL(url);
       setStatus('PDF bundle download requested.');
@@ -93,13 +92,11 @@ const DataSection = () => {
           <h2>Your data</h2>
           <p className="settings-redesign__help" style={{ marginTop: '0.45rem' }}>Know what leaves with you.</p>
         </div>
-        <span className="settings-redesign__eyebrow">Private export</span>
       </div>
 
       <div className="settings-redesign__data-row" id="export-json">
-        <div className="settings-redesign__eyebrow" style={{ border: '1px solid var(--settings-rule)', padding: '0.5rem', textAlign: 'center' }}>JSON</div>
         <div>
-          <h3 style={{ margin: '0 0 0.35rem' }}>Structured export</h3>
+          <h3 style={{ margin: '0 0 0.35rem' }}>Everything, as JSON</h3>
           <p className="settings-redesign__help">Articles, highlights, notebook entries, collections, tags, and saved views. Not a restorable backup by itself.</p>
         </div>
         <button type="button" className="settings-redesign__link" onClick={loadManifest} disabled={loading}>
@@ -108,10 +105,9 @@ const DataSection = () => {
       </div>
 
       <div className="settings-redesign__data-row">
-        <div className="settings-redesign__eyebrow" style={{ border: '1px solid var(--settings-rule)', padding: '0.5rem', textAlign: 'center' }}>PDF</div>
         <div>
           <h3 style={{ margin: '0 0 0.35rem' }}>Reading copy</h3>
-          <p className="settings-redesign__help">A readable bundle for keeping outside NOEIS. A reading copy is not the same as a restorable workspace.</p>
+          <p className="settings-redesign__help">A readable bundle for keeping outside Noeis. A reading copy is not the same as a restorable workspace.</p>
         </div>
         <button type="button" className="settings-redesign__link" onClick={downloadPdfZip} disabled={loading}>Download →</button>
       </div>
@@ -127,7 +123,7 @@ const DataSection = () => {
             <li className="settings-redesign__fact"><span>Not included</span><span>{manifest.omissions.join(', ')}</span></li>
           </ul>
           <Button variant="primary" style={{ marginTop: '1rem' }} onClick={downloadJson} disabled={loading}>
-            Download structured JSON
+            Download
           </Button>
         </div>
       ) : null}
@@ -135,11 +131,6 @@ const DataSection = () => {
       {status ? <div className="settings-redesign__receipt" role="status">{status}</div> : null}
       {error ? <div className="settings-redesign__receipt is-error" role="alert">{error}</div> : null}
 
-      <div style={{ marginTop: '2rem', borderTop: '1px solid var(--settings-rule)', paddingTop: '1.5rem' }}>
-        <h3>Connections and access</h3>
-        <p className="settings-redesign__help">Sources, agent credentials, permissions and revocation have one home.</p>
-        <Link to="/connections" className="settings-redesign__link">Open Connections ↗</Link>
-      </div>
     </section>
   );
 };

@@ -36,22 +36,11 @@ const sourceTypeLabel = type => {
 
 const humanizeSourceLabel = value => humanizeLabel(value);
 
-const coverageMessage = ({ coverage, counts, sourceView, hasMore }) => {
+const coverageMessage = ({ coverage, hasMore }) => {
   if (coverage?.status !== 'partial') return '';
   const limitations = Array.isArray(coverage?.limitations) ? coverage.limitations : [];
   const scanLimited = limitations.some(value => /scan_limited|scan_may_be_limited/.test(String(value)));
-  if (hasMore || scanLimited) {
-    return 'Showing recent sources. Older matches may be missing.';
-  }
-  if (counts?.[sourceView]?.exact === true && limitations.every(value => (
-    String(value) === 'material_movements_limited_to_50'
-  ))) {
-    return '';
-  }
-  if (limitations.includes('material_movements_limited_to_50')) {
-    return 'Movement-based relevance uses the 50 most recent material changes.';
-  }
-  return 'Some relevance connections are outside this bounded view.';
+  return hasMore || scanLimited ? 'Showing recent matches. Search again for older ones.' : '';
 };
 
 const suppressedRecoveryHref = ({ sourceView, query }) => {
@@ -254,7 +243,6 @@ const LibrarySourceList = ({
   suppressedCount = 0,
   latestReceipt = null,
   coverage = null,
-  counts = {},
   sourceView = 'recent',
   hasMore = false,
   paginationError = '',
@@ -279,7 +267,7 @@ const LibrarySourceList = ({
     return list.filter(row => matchesSourceQuery(row, query));
   }, [query, sources]);
   const isEmpty = !loading && !hasError && visibleSources.length === 0;
-  const coverageCopy = coverageMessage({ coverage, counts, sourceView, hasMore });
+  const coverageCopy = coverageMessage({ coverage, hasMore });
   const virtualHeight = useMemo(() => {
     const viewport = typeof window !== 'undefined' ? window.innerHeight : 0;
     return Math.min(680, Math.max(320, viewport ? viewport - 290 : 560));

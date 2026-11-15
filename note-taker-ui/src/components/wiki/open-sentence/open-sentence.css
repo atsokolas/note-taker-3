@@ -42,6 +42,15 @@
   margin: 0 0 1em;
 }
 
+/* Openable Wiki paragraphs keep their wrapper inside list items. */
+.wiki-read__body li > .open-sentence > .open-sentence__line {
+  margin-block: 0;
+}
+
+.wiki-read__body li > * + .open-sentence > .open-sentence__line {
+  margin-block-start: 1em;
+}
+
 .open-sentence.is-without > .open-sentence__line {
   display: none;
 }

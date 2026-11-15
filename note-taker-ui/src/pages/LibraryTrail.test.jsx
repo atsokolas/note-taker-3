@@ -36,7 +36,7 @@ describe('LibraryTrail', () => {
   it('lays your pieces first, each opening at the passage you marked', async () => {
     getLibraryTrail.mockResolvedValue({ subject: 'attention', steps: [mine, outside], gap: 'Nothing here says where it led.', ordered: 'path', empty: false });
     open();
-    expect(await screen.findByText('Foundations first, the frontier last.')).toBeInTheDocument();
+    expect(await screen.findByText('Basics first, newest last.')).toBeInTheDocument();
     expect(getLibraryTrail).toHaveBeenCalledWith('attention');
     const title = screen.getByRole('link', { name: mine.title });
     expect(title).toHaveAttribute('href', `/library?articleId=${ARTICLE}&highlightId=${HIGHLIGHT}`);

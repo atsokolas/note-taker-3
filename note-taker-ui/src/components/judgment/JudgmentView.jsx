@@ -123,8 +123,8 @@ const ReadingLine = ({ proposal, busy, onFile, onDismiss }) => {
   const against = stance === 'challenge';
   const who = author || proposal.sourceLabel;
   const file = [
-    { field: 'against', label: 'File against' },
-    { field: 'why', label: 'File for' }
+    { field: 'against', label: 'Add as “against”' },
+    { field: 'why', label: 'Add as “for”' }
   ];
   return (
     <li className="judgment-reading__line">
@@ -160,8 +160,8 @@ const LibraryLine = ({ candidate, busy, onFile, onSetAside }) => {
       </p>
       <blockquote>{candidate.text}</blockquote>
       <span className="judgment-actions">
-        <button type="button" onClick={() => onFile(candidate, 'why')} disabled={busy}>File for</button>
-        <button type="button" onClick={() => onFile(candidate, 'against')} disabled={busy}>File against</button>
+        <button type="button" onClick={() => onFile(candidate, 'why')} disabled={busy}>Add as “for”</button>
+        <button type="button" onClick={() => onFile(candidate, 'against')} disabled={busy}>Add as “against”</button>
         <button type="button" className="is-quiet" onClick={() => onSetAside(candidate)} disabled={busy}>Not about this</button>
       </span>
     </li>

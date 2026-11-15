@@ -13,7 +13,7 @@ import ReadFresh, { useReadFresh } from './reader/ReadFresh';
 import { PASSAGES, walkPassages } from './reader/passageWalk';
 import useArticleReadingPlace from './reader/useArticleReadingPlace';
 import MagneticReadingRail from './reader/MagneticReadingRail';
-import ReturnGreeting from './reader/ReturnGreeting';
+import ReturnGreeting from './reader/ReturnGreeting.jsx';
 import FootnotePeek from './reader/FootnotePeek';
 import OpenSource from './reader/OpenSource';
 import usePassageOpens from './reader/usePassageOpens';
@@ -45,6 +45,7 @@ import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
 import { sourceLabel } from './library/libraryColumnModel';
 import { formatCalendarDate } from '../utils/dateDisplay';
 import { sourceTitle } from '../utils/sourceDisplayText';
+import AddToProject from '../work/AddToProject';
 
 const hasReadableContent = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
@@ -142,12 +143,12 @@ export const PushesAgainst = ({ reading, onSettled }) => {
     }
   };
   if (filed) {
-    return <li>Filed against <Link to={`/judgment/${encodeURIComponent(reading.pageId)}`}>your view</Link>.</li>;
+    return <li>Added against <Link to={`/judgment/${encodeURIComponent(reading.pageId)}`}>your view</Link>.</li>;
   }
   return (
     <li className="article-pushes-against">
-      This pushes against your view that <Link to={`/judgment/${encodeURIComponent(reading.pageId)}`}>{view}</Link>. File it?{' '}
-      <Button variant="quiet" onClick={file}>File against</Button>
+      This pushes against your view that <Link to={`/judgment/${encodeURIComponent(reading.pageId)}`}>{view}</Link>.{' '}
+      <Button variant="quiet" onClick={file}>Add as “against”</Button>
       <Button variant="quiet" onClick={onSettled}>Not now</Button>
     </li>
   );
@@ -548,7 +549,7 @@ const ArticleReader = ({
   };
 
   if (atDesk) {
-    return <Navigate replace to={`/library/books/${article.mergedInto || article._id}${focusedHighlightId ? `?highlight=${focusedHighlightId}` : ''}`} />;
+    return <Navigate replace to={`/books/${article.mergedInto || article._id}${focusedHighlightId ? `?highlight=${focusedHighlightId}` : ''}`} />;
   }
 
   return (
@@ -589,6 +590,7 @@ const ArticleReader = ({
             {/* When it was published. When you saved it lives in the source record. */}
             {published ? <span>{published}</span> : null}
             <OpenSource key={article._id} article={article} />
+            <AddToProject kind="article" id={article._id} title={article.title} />
           </div>
           {placement !== 'stream' && article.placementReason ? <p className="article-reader-why">{article.placementReason}</p> : null}
           {folioLine ? <ArticleFolioLine line={folioLine} articleId={article._id} /> : null}

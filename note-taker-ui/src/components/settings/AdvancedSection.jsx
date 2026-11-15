@@ -1,15 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { resetTourState } from '../../api/tourApi';
 import { TOUR_CACHE_KEY } from '../../tour/tourConfig';
 import SystemInventoryCard from './SystemInventoryCard';
 import { Button, Card } from '../ui';
 import { buildSettingsDiagnosticReport } from '../../settings/settingsDiagnostics';
+import { getAccount } from '../../api/account';
 
 const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
   const [diagnosticOpen, setDiagnosticOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState('');
   const [status, setStatus] = useState('');
+  /* Operator tools are for the admin list only; a reader never sees them. */
+  const [admin, setAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAccount().then(account => { if (!cancelled) setAdmin(Boolean(account?.admin)); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const diagnosticReport = buildSettingsDiagnosticReport({
     section,
@@ -32,7 +41,7 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
       <div className="settings-redesign__pagehead">
         <div>
           <h2>Advanced</h2>
-          <p className="settings-redesign__help" style={{ marginTop: '0.45rem' }}>Tools that deserve a deliberate visit.</p>
+          <p className="settings-redesign__help" style={{ marginTop: '0.45rem' }}>Rarely needed.</p>
         </div>
       </div>
 
@@ -43,11 +52,9 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
       </div>
 
       <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--settings-rule)', paddingTop: '1.5rem' }}>
-        <h3>Help & onboarding</h3>
-        <p className="settings-redesign__help">Open keyboard help from the top bar. A refresher does not erase drafts or imports.</p>
-        <Link to="/how-to-use" className="settings-redesign__link">Help & shortcuts</Link>
+        <h3>The guide</h3>
+        <p className="settings-redesign__help">Walk through Noeis again. Nothing you have written or brought in changes.</p>
         <Button
-          style={{ marginLeft: '1rem' }}
           onClick={async () => {
             try {
               await resetTourState();
@@ -62,17 +69,17 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
         </Button>
       </div>
 
-      <div style={{ marginTop: '1.5rem' }}>
+      {admin ? <div style={{ marginTop: '1.5rem' }}>
         <h3>Product administration</h3>
         <p className="settings-redesign__help">Operator analytics and growth tools stay on their own routes.</p>
         <Link to="/marketing-analytics" className="settings-redesign__link">Marketing analytics ↗</Link>
         {' · '}
         <Link to="/search-console-opportunities" className="settings-redesign__link">Search Console importer ↗</Link>
-      </div>
+      </div> : null}
 
-      <div style={{ marginTop: '1.5rem' }}>
+      {admin ? <div style={{ marginTop: '1.5rem' }}>
         <SystemInventoryCard Card={Card} theme={uiSettings.theme} />
-      </div>
+      </div> : null}
 
       {status ? <div className="settings-redesign__receipt" role="status">{status}</div> : null}
 

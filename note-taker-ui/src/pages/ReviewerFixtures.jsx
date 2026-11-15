@@ -111,7 +111,7 @@ const ReviewerFixtures = () => {
             : `${state.sources.filter(Boolean).length} of 2 sources saved; ${state.highlight ? 'highlight saved' : 'highlight not saved'}; ${state.wiki ? 'Wiki saved' : 'Wiki not saved'}.`}</p>}
           {identity.fixtureBindingComplete && <p>Fixture binding is complete. Setup is read-only.</p>}
           {state?.complete && <>
-            <label htmlFor="reviewer-fixture-receipt">Verified private setup receipt</label>
+            <label htmlFor="reviewer-fixture-receipt">Verified private setup record</label>
             <textarea id="reviewer-fixture-receipt" readOnly rows={18} value={JSON.stringify(fixtureReceipt(state), null, 2)} />
             <Link to={`/wiki/workspace?page=${state.wiki._id || state.wiki.id}`}>Open the private Wiki</Link>
           </>}
@@ -132,7 +132,7 @@ const ReviewerFixtures = () => {
             {state?.edition && <p role="status">{state.edition.complete ? 'Fictional Edition saved and read back exactly. Its quotation remains unchecked.'
               : state.edition.profile ? 'Fictional profile saved; first issue not saved.' : 'Fictional profile and first issue are not saved.'}</p>}
             {state?.edition?.complete && <>
-              <label htmlFor="reviewer-edition-receipt">Verified private Edition receipt</label>
+              <label htmlFor="reviewer-edition-receipt">Verified private Edition record</label>
               <textarea id="reviewer-edition-receipt" readOnly rows={18} value={JSON.stringify(editionFixtureReceipt(state), null, 2)} />
               <Link to={`/editions/${state.edition.issue._id || state.edition.issue.id}`}>Open the private fictional Edition</Link>
             </>}

@@ -4,7 +4,7 @@ import { getLentBook } from '../api/imports';
 /* Books first: its stylesheets come before the desk's everywhere else, and
    a lent copy that loaded them the other way round fails the build. */
 import { Colophon, Spine } from './Books';
-import { BookPages } from '../components/reader/BookDesk';
+import { BookPages } from '../components/reader/BookDesk.jsx';
 import { isEarlier, readingSince } from '../components/reader/bookDesk';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 
@@ -58,7 +58,7 @@ export default function LentBook() {
           line={book.closingLine ? <blockquote>{book.closingLine}</blockquote> : null}
         />
       ) : <p className="books__quiet">They are still reading it.</p>}
-      <p className="books__quiet">Kept in <Link to="/">Noeis</Link>, where a book is read with one line typed beside it.</p>
+      <p className="books__quiet">Kept in <Link to="/">Noeis</Link>, where you type a line as you read.</p>
     </main>
   );
 }

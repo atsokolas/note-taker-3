@@ -142,18 +142,26 @@ The CLI uses the same Connected agents token and API routes as this MCP server.
 
 ## Claude Code
 
-Add this to `~/.config/claude-code/mcp.json`:
+Register the server once with `claude mcp add`. `--scope user` makes it
+available in every project; leave it off to add it to the current project only.
 
-```json
-{
-  "noeis-wiki": {
-    "command": "noeis",
-    "args": ["mcp"]
-  }
-}
+Through the CLI, which reads the token `noeis login` or `noeis connect` saved:
+
+```bash
+claude mcp add --scope user noeis -- noeis mcp
 ```
 
-Then run `claude` and check `/mcp`.
+Or through the hosted endpoint, with no local install (use a `read` token):
+
+```bash
+claude mcp add --scope user --transport http noeis \
+  https://note-taker-3-unrg.onrender.com/mcp \
+  --header "Authorization: Bearer ntk_at_..."
+```
+
+Run `claude mcp list` to see it connected, then ask Claude something like
+"search my Noeis for sparse models". It will call `search_noeis` and can open
+any hit with the tool that hit names.
 
 ## Codex
 
@@ -216,9 +224,13 @@ by `test/server.test.js` — a tool added without a line here fails the suite.
 Read tools return normalized JSON. Start with `connection_info` after setup: it
 verifies the authenticated workspace and issued grant without reading user content.
 Then an agent can list pages, choose one, read it, inspect references, and catch up
-on recent activity with a read-scoped token:
+on recent activity with a read-scoped token. When an agent does not know where
+something lives, `search_noeis` asks the Wiki, the Library (highlights and saved
+articles) and the Editions at once, and returns each hit with its id, a snippet,
+a link and the tool that opens it:
 
 - `connection_info`
+- `search_noeis`
 - `get_profile`
 - `list_edition_profiles`
 - `list_editions`
@@ -304,6 +316,23 @@ Write tools require a token with the `agent-write` scope. Read-only tokens recei
 - `update_question`
 - `update_concept`
 - `pin_highlight_to_concept`
+
+### Work
+
+Work is the reader's private work notebook, and it stays shut to every
+connection that was not approved with `noeis connect … --work`. With it, the
+connection's own read or read-write access applies to Work too, so the last
+four need read-write:
+
+- `list_work`
+- `get_work_note`
+- `create_work_note`
+- `update_work_note`
+- `create_work_folder`
+- `update_work_folder`
+
+Every Work change names the revision it read, so an agent never saves over
+what the reader typed since. ChatGPT connections never see these tools.
 
 `delete_article`, `delete_highlight`, `delete_notebook_entry` and
 `delete_concept_note` are the tools with no undo. Each says so in its description and each expects the reader to have

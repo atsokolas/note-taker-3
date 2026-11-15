@@ -31,10 +31,10 @@ const open = async () => {
 const reauthenticate = async () => {
   const refresh = deferred(); api.get.mockReturnValueOnce(refresh.promise);
   localStorage.setItem('token', token('other')); fireEvent(window, new StorageEvent('storage', { key: 'token' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Sign in to the original account' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in to that account' }));
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-password' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
   await screen.findByRole('textbox', { name: 'Work note writing' });
   return refresh;
 };
@@ -64,7 +64,7 @@ test('typing before deferred refresh retains its old base and conflicts instead 
   server = { ...remote }; await act(async () => refresh.resolve({ data: { entries: [server], items: [], folders: [] } }));
   expect(writing).toHaveTextContent('Local Cached words'); expect(writing.editor.state.selection.from).toBe(selection);
   fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
-  await screen.findByText('Both versions are kept. Your version remains in the editor.');
+  await screen.findByText('This note was changed somewhere else. Both versions are kept.');
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveTextContent('Local Cached words');
   expect(server.content).toBe(remote.content); expect(api.put.mock.calls[0][1].expectedRevision).toBe(2);
 });
@@ -117,4 +117,48 @@ test.each(['none', 'insert', 'delete', 'mark', 'split'])('Undo/Redo after remote
   act(() => editor.commands.undo()); expect(writing).toHaveTextContent('Other device words task');
   expect(writing.querySelector('a')).toHaveAttribute('href', 'https://tasks.example.test/42');
   expect(writing.querySelector('strong')).toHaveTextContent('words');
+});
+
+test('inline Open creation leaves the editor document, block identities, caret and scroll unchanged', async () => {
+  const writing = await open(), editor = writing.editor;
+  act(() => editor.commands.setTextSelection(5));
+  const document = editor.getJSON(), selection = editor.state.selection.toJSON();
+  writing.scrollTop = 20;
+  api.post.mockImplementation(async (_, value) => ({ data: { ...value, _id: 'item', revision: 0 } }));
+  api.put.mockImplementation(async (_, value) => ({ data: { ...value, _id: 'item', revision: value.expectedRevision + 1 } }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Ask tomorrow' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  await screen.findByText('Ask tomorrow'); await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+  expect(screen.getByRole('textbox', { name: 'Work note writing' })).toBe(writing);
+  expect(writing.editor).toBe(editor); expect(editor.getJSON()).toEqual(document);
+  expect(editor.state.selection.toJSON()).toEqual(selection); expect(writing.scrollTop).toBe(20);
+  expect(api.put.mock.calls.every(([path]) => path !== '/api/work-notes/note')).toBe(true);
+});
+
+const makeOpenFromWriting = async text => {
+  const writing = await open(), editor = writing.editor;
+  let position; editor.state.doc.descendants((node, pos) => { if (node.isTextblock && node.textContent.includes(text)) position = pos + 1 + node.textContent.indexOf(text); });
+  act(() => editor.commands.setTextSelection({ from: position, to: position + text.length }));
+  const doc = editor.getJSON(), selection = editor.state.selection.toJSON();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
+  return { writing, editor, doc, selection };
+};
+test('Make Open prefills one linked draft, Add restores writing and never changes source HTML or blocks', async () => {
+  api.post.mockImplementation(async (_, value) => ({ data: { ...value, _id: 'item', revision: 0 } }));
+  api.put.mockImplementation(async (_, value) => ({ data: { ...value, _id: 'item', revision: value.expectedRevision + 1 } }));
+  const { writing, editor, doc, selection } = await makeOpenFromWriting('Cached words');
+  const title = await screen.findByLabelText('Open item title'); expect(title).toHaveValue('Cached words'); expect(title).toHaveFocus();
+  expect(api.post).not.toHaveBeenCalled(); expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.change(title, { target: { value: 'Ask tomorrow 2pm' } }); fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
+  await screen.findByText('Ask tomorrow 2pm');
+  expect(writing).toHaveFocus(); expect(editor.getJSON()).toEqual(doc); expect(editor.state.selection.toJSON()).toEqual(selection);
+  expect(api.post.mock.calls[0][1]).toMatchObject({ title: 'Ask tomorrow 2pm', workItem: { noteId: 'note', plannedOn: null, kind: 'task' } });
+  expect(api.put.mock.calls.every(([path]) => path !== '/api/work-notes/note')).toBe(true);
+});
+test('Cancel after Make Open creates nothing and restores the selected source words', async () => {
+  const { writing, editor, doc, selection } = await makeOpenFromWriting('Cached words');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel', exact: true }));
+  expect(writing).toHaveFocus(); expect(editor.getJSON()).toEqual(doc); expect(editor.state.selection.toJSON()).toEqual(selection);
+  expect(api.post).not.toHaveBeenCalled(); expect(api.put).not.toHaveBeenCalled();
 });

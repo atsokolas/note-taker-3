@@ -4,51 +4,20 @@ import path from 'path';
 describe('Think writing focus mode', () => {
   const css = fs.readFileSync(path.join(__dirname, 'think-writing.css'), 'utf8');
 
-  it('retreats both rails into named handles while writing', () => {
+  it('keeps the words where they are while the room steps away', () => {
     const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
     expect(notes).toContain('grid-template-columns: var(--notes-width) var(--alternatives-width) minmax(0, 1fr) var(--drawer-width)');
-    expect(notes).toContain('--notes-width: 30px; --drawer-width: 0px;');
-    expect(css).toContain("content: attr(data-writing-rail-label);");
-    expect(notes).toContain("[data-writing-rail='left']:is(:hover, :focus-within)");
-  });
-
-  it('uses one shared push for typing and held focus', () => {
-    expect(css).toContain('--think-rail-push: var(--noeis-motion-deliberate, 320ms) var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));');
-    expect(css).toMatch(/grid-template-columns var\(--think-rail-push\)/);
-    expect(css).toMatch(/\[data-writing-rail\] > \*[\s\S]*?transition: opacity var\(--think-rail-push\)/);
+    // Writing fades the rails; it never resizes a column, so the text cannot move.
+    expect(notes).not.toMatch(/think-rails-away[^{]*\{[^}]*--notes-width/);
+    expect(notes).not.toMatch(/think-rails-away[^{]*\{[^}]*--drawer-width/);
+    expect(css).not.toMatch(/think-rails-away[^{]*\{[^}]*(width|grid-template-columns)/);
     expect(css).toContain('body:is(.think-rails-away, .think-focus-held) [data-writing-rail] > *');
-    expect(css).toContain('min-width: var(--think-rail-rest);');
-    expect(css).toContain('overflow-x: hidden;');
-    expect(css).not.toMatch(/transition-delay:\s*48ms/);
-    expect(css).not.toContain('--think-rail-retreat');
-    expect(css).not.toMatch(/opacity 680ms/);
-    expect(css).not.toMatch(/opacity 540ms/);
-    expect(css).not.toMatch(/grid-template-columns 720ms/);
+    expect(css).toMatch(/body\.think-rails-away :is\(\.topbar, \.think-notes__toggles, \.agent-rail-drawer__trigger, \.notebook-arrangement, \.think-focus-mode--rail\) \{[^}]*opacity: 0;/);
   });
 
-  it('keeps leave-focus on the same interpolable properties as enter', () => {
-    expect(css).toContain('@media (hover: hover) and (pointer: fine)');
-    expect(css).toMatch(/\[data-writing-rail\]::after[\s\S]*?content: attr\(data-writing-rail-label\);/);
-    expect(css).not.toContain('body:is(.think-rails-away, .think-focus-held) .think-notes__note');
-    const collapsedRail = css.match(/body:is\(\.think-rails-away, \.think-focus-held\) \[data-writing-rail\] \{[^}]+\}/);
-    expect(collapsedRail?.[0]).toContain('cursor: pointer');
-    expect(collapsedRail?.[0]).not.toMatch(/position:\s*relative/);
-    expect(collapsedRail?.[0]).not.toMatch(/overflow-y:\s*hidden/);
-    expect(css).toContain('.think-notes__shelf [data-writing-rail]');
-    expect(css).not.toMatch(/\.think-notes \[data-writing-rail\] \{\s*position:\s*relative;/);
-    const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
-    expect(notes).toMatch(/\.think-notes__partner \{[\s\S]*?position:\s*sticky;/);
-  });
-
-  it('keeps the Think notes partner a containing block between 1121px and 1180px', () => {
-    expect(css).toMatch(
-      /@media \(min-width: 1121px\)[\s\S]*@media \(max-width: 1180px\)[\s\S]*\.think-notes__partner\[data-writing-rail\] \{[\s\S]*?position:\s*relative;/
-    );
-    expect(css).toContain('.think-notes__shelf [data-writing-rail]');
-    expect(css).not.toMatch(/\.think-notes \[data-writing-rail\] \{\s*position:\s*relative;/);
-    const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
-    expect(notes).toMatch(/@container noeis-column \(max-width: 760px\)[\s\S]*?position:\s*fixed;/);
-    expect(notes).toMatch(/\.think-notes__partner \{[\s\S]*?position:\s*sticky;/);
+  it('fades only when motion is welcome', () => {
+    expect(css).toContain('@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)');
+    expect(css).not.toContain('content: attr(data-writing-rail-label)');
   });
 
   it('lets the Think More menu grow the header instead of overlaying the title', () => {

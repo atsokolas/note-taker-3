@@ -11,14 +11,14 @@ const { booksThisMorning } = require('./bookShelf');
 const answerTo = (...args) => require('../ai/semanticSearch').answerTo(...args);
 
 const MOVEMENT_EMAIL_LABELS = {
-  claim_changed: 'A claim changed',
-  new_evidence: 'New evidence',
+  claim_changed: 'A page changed',
+  new_evidence: 'New reading on a page',
   contradiction: 'Contradicted',
   question_answerable: 'A question you can answer',
-  connection_formed: 'A connection formed',
-  decision_due: 'Decision due',
-  outcome_due: 'Outcome due',
-  outcome_reviewed: 'An outcome landed'
+  connection_formed: 'New connection',
+  decision_due: 'Time to decide',
+  outcome_due: 'Time to check',
+  outcome_reviewed: 'How it turned out'
 };
 
 const movementLabel = (kind) => MOVEMENT_EMAIL_LABELS[kind]
@@ -183,7 +183,7 @@ const renderClosedBookLine = ({ closedBook = null, appBaseUrl }) => {
   const line = clean(closedBook?.line, 400);
   if (!line || !closedBook.title || !closedBook.articleId) return { html: '', text: '' };
   const ago = closedBook.years > 1 ? `${closedBook.years} years ago` : 'A year ago';
-  const href = absoluteHref(`/library/books/${encodeURIComponent(closedBook.articleId)}`, appBaseUrl);
+  const href = absoluteHref(`/books/${encodeURIComponent(closedBook.articleId)}`, appBaseUrl);
   return {
     html: `<p style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8;font-size:18px;line-height:1.5">${ago} today you finished <a href="${escapeHtml(href)}" style="color:#171714">${escapeHtml(closedBook.title)}</a> and said you’d remember: “${escapeHtml(line)}” Do you?</p>`,
     text: `${ago} today you finished ${closedBook.title} and said you’d remember: “${line}” Do you? — ${href}`
@@ -195,7 +195,7 @@ const renderClosedBookLine = ({ closedBook = null, appBaseUrl }) => {
    stopped writing in a week ago, at the page you stopped. */
 const renderBookLines = ({ books = {}, appBaseUrl }) => {
   const rule = 'margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8;font-size:17px;line-height:1.5';
-  const bookHref = (bookId, highlightId) => absoluteHref(`/library/books/${encodeURIComponent(bookId)}${highlightId ? `?highlight=${encodeURIComponent(highlightId)}` : ''}`, appBaseUrl);
+  const bookHref = (bookId, highlightId) => absoluteHref(`/books/${encodeURIComponent(bookId)}${highlightId ? `?highlight=${encodeURIComponent(highlightId)}` : ''}`, appBaseUrl);
   const lines = [];
   const { answered, stopped } = books || {};
   if (answered?.question?.note && answered.answer?.text) {
@@ -230,14 +230,13 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], worthSaying = 
   const reading = renderBookLines({ books, appBaseUrl });
   const returnPath = briefing.nextAction || null;
   const headline = lead?.title || 'Your Morning Paper';
-  /* The subject is the lead's first six words, or "Quiet night." on a morning
-     with no lead. A subject line that always reads the same is a subject line
-     nobody reads, and one that says "Your Morning Paper" says nothing about
-     this morning in particular. */
-  const subjectLine = emailSubject(lead?.title, { weekend: isWeekendDay() });
+  /* The subject is this morning's lead, said whole. A subject line that always
+     reads the same is a subject line nobody reads, and one cut mid-phrase reads
+     as a mistake. */
+  const subjectLine = emailSubject(lead, { weekend: isWeekendDay() });
   const leadCopy = lead
-    ? `${lead.page?.title || 'A watched page'} · ${lead.impactSummary || 'not yet analyzed — queued'}`
-    : clean(briefing.summary || 'Your wiki is quiet today.');
+    ? [lead.page?.title || 'A watched page', lead.impactSummary].filter(Boolean).join(' · ')
+    : clean(briefing.summary || 'Nothing new in your reading today.');
   const leadHref = absoluteHref(lead?.href || '/wiki', appBaseUrl);
   const returnHref = absoluteHref(returnPath?.href || '/wiki', appBaseUrl);
   const checkInHref = absoluteHref(checkIn?.href || '/wiki', appBaseUrl);
@@ -246,15 +245,15 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], worthSaying = 
     const href = absoluteHref(movement.nextAction?.href || movement.subject?.href || '/wiki', appBaseUrl);
     return `${movementLabel(movement.kind).toUpperCase()}: ${movement.title} — ${href}`;
   });
-  const html = `<!doctype html><html><body style="margin:0;background:#f5f1e8;color:#171714;font-family:Georgia,serif"><div style="max-width:640px;margin:0 auto;padding:36px 24px"><div style="font:12px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#6d685e">Noeis · Morning Paper</div><h1 style="font-size:34px;line-height:1.08;margin:18px 0 12px">${escapeHtml(headline)}</h1><p style="font-size:18px;line-height:1.55;margin:0 0 24px">${escapeHtml(leadCopy)}</p><a href="${escapeHtml(leadHref)}" style="display:inline-block;background:#171714;color:#fff;padding:12px 18px;text-decoration:none;border-radius:999px">Open the affected page</a>${movementsHtml}${returnPath ? `<div style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">RETURN PATH</div><p style="margin:8px 0 12px">${escapeHtml(returnPath.label || 'Continue in Noeis')}</p><a href="${escapeHtml(returnHref)}" style="color:#171714">Continue →</a></div>` : ''}${checkIn ? `<div style="margin-top:28px;padding:20px;border:1px solid #cdc6b8;border-radius:14px"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">CLAIM CHECK-IN</div><p style="font-size:18px;line-height:1.45;margin:10px 0 6px">${escapeHtml(checkIn.text)}</p><p style="font:12px ui-monospace,monospace;color:#6d685e">${escapeHtml(checkIn.pageTitle)}</p><a href="${escapeHtml(checkInHref)}" style="color:#171714">Still hold · Revise · Retire →</a></div>` : ''}${askedBack.html}${anniversary.html}${finished.html}${reading.html}${saying.html}${tonight.html}<p style="margin-top:36px;font:11px/1.5 ui-monospace,monospace;color:#777168">No-news days send nothing. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#777168">Unsubscribe instantly</a>.</p></div></body></html>`;
+  const html = `<!doctype html><html><body style="margin:0;background:#f5f1e8;color:#171714;font-family:Georgia,serif"><div style="max-width:640px;margin:0 auto;padding:36px 24px"><div style="font:12px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#6d685e">Noeis · Morning Paper</div><h1 style="font-size:34px;line-height:1.08;margin:18px 0 12px">${escapeHtml(headline)}</h1><p style="font-size:18px;line-height:1.55;margin:0 0 24px">${escapeHtml(leadCopy)}</p><a href="${escapeHtml(leadHref)}" style="display:inline-block;background:#171714;color:#fff;padding:12px 18px;text-decoration:none;border-radius:999px">Read what changed</a>${movementsHtml}${returnPath ? `<div style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">PICK UP WHERE YOU LEFT OFF</div><p style="margin:8px 0 12px">${escapeHtml(returnPath.label || 'Continue in Noeis')}</p><a href="${escapeHtml(returnHref)}" style="color:#171714">Continue →</a></div>` : ''}${checkIn ? `<div style="margin-top:28px;padding:20px;border:1px solid #cdc6b8;border-radius:14px"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">DO YOU STILL THINK THIS?</div><p style="font-size:18px;line-height:1.45;margin:10px 0 6px">${escapeHtml(checkIn.text)}</p><p style="font:12px ui-monospace,monospace;color:#6d685e">${escapeHtml(checkIn.pageTitle)}</p><a href="${escapeHtml(checkInHref)}" style="color:#171714">Still do · Changed my mind →</a></div>` : ''}${askedBack.html}${anniversary.html}${finished.html}${reading.html}${saying.html}${tonight.html}<p style="margin-top:36px;font:11px/1.5 ui-monospace,monospace;color:#777168">No-news days send nothing. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#777168">Unsubscribe</a>.</p></div></body></html>`;
   const text = [
     'NOEIS · MORNING PAPER',
     headline,
     leadCopy,
     `Open: ${leadHref}`,
     movementLines.length ? ['WHAT CHANGED:', ...movementLines].join('\n') : '',
-    returnPath ? `RETURN PATH: ${returnPath.label || 'Continue'} — ${returnHref}` : '',
-    checkIn ? `CLAIM CHECK-IN: ${checkIn.text} (${checkIn.pageTitle}) — ${checkInHref}` : '',
+    returnPath ? `PICK UP WHERE YOU LEFT OFF: ${returnPath.label || 'Continue'} — ${returnHref}` : '',
+    checkIn ? `DO YOU STILL THINK THIS? ${checkIn.text} (${checkIn.pageTitle}) — ${checkInHref}` : '',
     askedBack.text,
     anniversary.text,
     finished.text,
@@ -267,17 +266,20 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], worthSaying = 
 };
 
 /**
- * The lead's first six words, or the quiet-night sign-off.
+ * The lead's title when it fits a subject line, else its page's title, or the
+ * quiet-night sign-off. Never a fragment.
  *
  * A weekend edition says so, because the subject line is the only part of the
  * paper most people read on a Saturday and "the weekend paper" tells them
  * what kind of morning is waiting.
  */
-const emailSubject = (leadTitle = '', { weekend = false } = {}) => {
-  const words = String(leadTitle || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
-  if (!words.length) return weekend ? 'The weekend paper.' : 'Quiet night.';
-  const lead = words.slice(0, 6).join(' ');
-  return weekend ? `${lead} · the weekend paper` : lead;
+const SUBJECT_FITS = 60;
+
+const emailSubject = (lead = null, { weekend = false } = {}) => {
+  const title = clean(lead?.title);
+  const said = title.length <= SUBJECT_FITS ? title : clean(lead?.page?.title) || clean(title, SUBJECT_FITS);
+  if (!said) return weekend ? 'The weekend paper.' : 'Quiet night.';
+  return weekend ? `${said} · the weekend paper` : said;
 };
 
 const briefingIsEmpty = (briefing = {}) => {

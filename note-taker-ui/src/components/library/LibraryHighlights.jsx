@@ -559,10 +559,10 @@ const LibraryHighlights = ({
               Add to concept…
             </Button>
             <Button variant="quiet" onClick={handleBulkTurnIntoQuestion} disabled={bulkBusy}>
-              Question draft
+              Make a question
             </Button>
             <Button variant="quiet" onClick={handleBulkTurnIntoWikiSection} disabled={bulkBusy}>
-              Wiki section draft
+              Make a page section
             </Button>
             <Button variant="quiet"
               className="library-highlights-bulk-bar__danger"

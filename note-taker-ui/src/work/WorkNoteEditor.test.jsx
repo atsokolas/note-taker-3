@@ -50,3 +50,64 @@ test('controlled local updates preserve repeated spaces, paragraph breaks and th
   expect(editor.state.selection.from).toBe(26);
   expect(writing.querySelector('p:last-child strong')).toHaveTextContent('Recorded words');
 });
+test.each(['[] Request 2024 cohort churn fri', '? Do the top two renew'])('ordinary Enter continues writing without converting %s', text => {
+  const changed = jest.fn(), makeOpen = jest.fn(); render(<WorkNoteEditor note={{ content: `<p>${text}</p>` }} onChange={changed} onMakeOpen={makeOpen} />);
+  const writing = screen.getByRole('textbox', { name: 'Work note writing' }); act(() => writing.editor.commands.focus('end'));
+  fireEvent.keyDown(writing, { key: 'Enter' });
+  expect(makeOpen).not.toHaveBeenCalled(); expect(writing).toHaveTextContent(text);
+  expect(writing.editor.state.doc.childCount).toBe(2);
+});
+const startOpen = (content, select) => {
+  const makeOpen = jest.fn(), changed = jest.fn(); render(<WorkNoteEditor note={{ content }} onChange={changed} onMakeOpen={makeOpen} />);
+  const writing = screen.getByRole('textbox', { name: 'Work note writing' }), editor = writing.editor;
+  act(() => select(editor)); const before = editor.getJSON();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
+  expect(editor.getJSON()).toEqual(before); expect(changed).not.toHaveBeenCalled();
+  return { editor, makeOpen };
+};
+test('Make Open uses selected words literally and returns the mapped writing selection', () => {
+  const { editor, makeOpen } = startOpen('<p>Ask tomorrow 2pm about scope.</p>', editor => editor.commands.setTextSelection({ from: 1, to: 17 }));
+  expect(makeOpen).toHaveBeenCalledWith(expect.objectContaining({ text: 'Ask tomorrow 2pm', returnToWriting: expect.any(Function) }));
+  act(() => editor.view.dispatch(editor.state.tr.insertText('New ', 1)));
+  act(() => makeOpen.mock.calls[0][0].returnToWriting());
+  expect(editor.state.selection.from).toBe(5); expect(editor.state.selection.to).toBe(21); expect(editor.view.dom).toHaveFocus();
+});
+test('Make Open at a nested bullet captures only its own paragraph', () => {
+  const { makeOpen } = startOpen('<ul><li><p>Parent</p><ul><li><p>Nested words</p><ul><li><p>Descendant</p></li></ul></li></ul></li></ul>', editor => {
+    let at; editor.state.doc.descendants((node, pos) => { if (node.isText && node.text === 'Nested words') at = pos; });
+    editor.commands.setTextSelection(at + 3);
+  });
+  expect(makeOpen.mock.calls[0][0].text).toBe('Nested words');
+});
+test('one multi-block selection becomes one complete editable title', () => {
+  const { makeOpen } = startOpen('<p>First  line</p><p>Second line</p>', editor => editor.commands.selectAll());
+  expect(makeOpen).toHaveBeenCalledTimes(1); expect(makeOpen.mock.calls[0][0].text).toBe('First  line\nSecond line');
+});
+test('Make Open does nothing during IME composition or on an empty paragraph', () => {
+  const makeOpen = jest.fn(); render(<WorkNoteEditor note={{ content: '<p>Composing</p>' }} onChange={() => {}} onMakeOpen={makeOpen} />);
+  const writing = screen.getByRole('textbox', { name: 'Work note writing' });
+  fireEvent.compositionStart(writing); fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
+  expect(makeOpen).not.toHaveBeenCalled(); fireEvent.compositionEnd(writing);
+  act(() => writing.editor.commands.clearContent()); fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
+  expect(makeOpen).not.toHaveBeenCalled();
+});
+
+test.each([
+  ['<ul><li data-block-id="bullet"><p data-block-id="inner">Six<br>weeks</p></li></ul>', 'bullet'],
+  ['<blockquote data-block-id="quote"><p data-block-id="inner">Six<br>weeks</p></blockquote>', 'quote']
+])('Make Open keeps the serialized identity for rich-text source %s', (content, blockId) => {
+  const makeOpen = jest.fn(); render(<WorkNoteEditor note={{ content }} onChange={() => {}} onMakeOpen={makeOpen} />);
+  const editor = screen.getByRole('textbox', { name: 'Work note writing' }).editor;
+  act(() => { let from; editor.state.doc.descendants((node, position) => { if (node.isTextblock) from = position + 1; }); editor.commands.setTextSelection({ from, to: from + 9 }); });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
+  expect(makeOpen.mock.calls[0][0].origin).toMatchObject({ blockId, quote: 'Six\nweeks' });
+});
+
+test('a selection beginning at the preceding heading boundary links to its first selected words', () => {
+  const makeOpen = jest.fn(); render(<WorkNoteEditor note={{ content: '<h2 data-block-id="date">3 November 2026</h2><p data-block-id="passage">Customer words.</p>' }} onChange={() => {}} onMakeOpen={makeOpen} />);
+  const editor = screen.getByRole('textbox', { name: 'Work note writing' }).editor;
+  const heading = editor.state.doc.firstChild;
+  act(() => editor.commands.setTextSelection({ from: heading.nodeSize - 1, to: editor.state.doc.content.size - 1 }));
+  fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
+  expect(makeOpen.mock.calls[0][0].origin).toMatchObject({ blockId: 'passage', day: '2026-11-03' });
+});

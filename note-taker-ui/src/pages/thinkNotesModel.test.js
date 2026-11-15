@@ -8,11 +8,10 @@ import {
   buildAuthoredShelf,
   namesAThinkObject,
   questionBlocksFromDoc,
-  readThinkFilter,
   readThinkTarget,
+  readThinkView,
   targetParams,
-  readRecentNoteIds,
-  resolveOpenNoteId
+  thinkView
 } from './thinkNotesModel';
 
 const notes = [
@@ -21,45 +20,33 @@ const notes = [
   { _id: 'n3', title: 'Reading map', updatedAt: '2026-06-01T08:10:00.000Z' }
 ];
 
-const storage = (value) => ({ getItem: () => (value === undefined ? null : JSON.stringify(value)) });
+describe('which way Think is looking', () => {
+  const read = search => readThinkView(new URLSearchParams(search));
 
-describe('which note Think opens', () => {
-  it('opens the note the URL names', () => {
-    expect(resolveOpenNoteId({ requestedId: 'n3', notes, recentIds: ['n2'] })).toBe('n3');
+  it('is the desk with nothing named, and nothing while a piece is open', () => {
+    expect(read('')).toBe('home');
+    expect(read('tab=notebook')).toBe('home');
+    expect(read('view=working&entryId=n1')).toBe('');
   });
 
-  it('otherwise opens the last note the human was actually in', () => {
-    expect(resolveOpenNoteId({ notes, recentIds: ['n3', 'n2'] })).toBe('n3');
+  it('reads a named view, and old ?tab= links still land on theirs', () => {
+    expect(read('view=closed')).toBe('closed');
+    expect(read('view=cuttings')).toBe('cuttings');
+    expect(read('tab=questions')).toBe('questions');
+    expect(read('tab=concepts')).toBe('concepts');
+    expect(read('view=board')).toBe('home');
   });
 
-  it('falls back to the most recently edited note, never to nothing', () => {
-    expect(resolveOpenNoteId({ notes })).toBe('n1');
-    expect(resolveOpenNoteId({ notes, recentIds: ['gone'] })).toBe('n1');
-  });
-
-  it('ignores a recent or requested note that no longer exists', () => {
-    expect(resolveOpenNoteId({ requestedId: 'deleted', notes, recentIds: ['also-deleted'] })).toBe('n1');
-  });
-
-  it('has nothing to open only when there are no notes', () => {
-    expect(resolveOpenNoteId({ notes: [] })).toBe('');
-  });
-});
-
-describe('readRecentNoteIds', () => {
-  it('reads notebook targets newest first and ignores the other postures', () => {
-    const recents = [
-      { id: 'c1', type: 'concept', openedAt: '2026-08-14T10:00:00.000Z' },
-      { id: 'n2', type: 'notebook', openedAt: '2026-08-13T10:00:00.000Z' },
-      { id: 'n1', type: 'notebook', openedAt: '2026-08-14T09:00:00.000Z' }
-    ];
-
-    expect(readRecentNoteIds(storage(recents))).toEqual(['n1', 'n2']);
-  });
-
-  it('survives an unreadable store', () => {
-    expect(readRecentNoteIds({ getItem: () => 'not json' })).toEqual([]);
-    expect(readRecentNoteIds(storage())).toEqual([]);
+  it('cuts each stage from the one list', () => {
+    const entries = buildThinkEntries({
+      notes: [{ _id: 'a', title: 'A', board: { stage: 'in_progress' } }, { _id: 'b', title: 'B' }, { _id: 'c', title: 'C', board: { stage: 'done' } }],
+      questions: [{ _id: 'q', text: 'Why?' }]
+    });
+    const ids = key => entries.filter(thinkView(key).holds).map(item => item.id);
+    expect(ids('working')).toEqual(['a']);
+    expect(ids('ideas')).toEqual(['b']);
+    expect(ids('closed')).toEqual(['c']);
+    expect(ids('questions')).toEqual(['q']);
   });
 });
 
@@ -99,9 +86,6 @@ describe('one list', () => {
     expect(read('tab=questions&questionId=q1')).toEqual({ kind: 'question', id: 'q1' });
     expect(read('tab=notebook&entryId=n1')).toEqual({ kind: 'note', id: 'n1' });
     expect(read('tab=concepts')).toBeNull();
-    expect(readThinkFilter(new URLSearchParams('tab=questions'))).toBe('question');
-    expect(readThinkFilter(new URLSearchParams('tab=questions&questionId=q1'))).toBe('all');
-    expect(readThinkFilter(new URLSearchParams('tab=notebook'))).toBe('all');
   });
 
   it('writes an entry back to the address other rooms already link to', () => {

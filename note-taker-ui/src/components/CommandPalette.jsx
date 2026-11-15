@@ -553,7 +553,7 @@ const CommandPalette = ({ open, onClose }) => {
       systemStatus.setLatestReceipt({
         id: `command-temporal-${page._id || Date.now()}`,
         title: `Started “${title}”`,
-        summary: `Started a wiki draft to inspect what changed about "${topic}" across ${timeWindow}.`,
+        summary: `Writing up how your thinking on "${topic}" changed across ${timeWindow}.`,
         status: 'needs_review',
         href
       });
@@ -633,7 +633,7 @@ const CommandPalette = ({ open, onClose }) => {
       systemStatus.setLatestReceipt({
         id: `command-question-${created?._id || Date.now()}`,
         title: 'Question draft ready',
-        summary: `Staged a question from ${highlights.length} highlight${highlights.length === 1 ? '' : 's'}: "${payload.text.slice(0, 96)}".`,
+        summary: `Drafted a question from ${highlights.length} highlight${highlights.length === 1 ? '' : 's'}: "${payload.text.slice(0, 96)}".`,
         status: 'needs_review',
         href
       });
@@ -730,7 +730,7 @@ const CommandPalette = ({ open, onClose }) => {
   const reviewLibraryFiling = useCallback(async (options = {}) => {
     const sourceText = String(options.sourceText || '').trim();
     systemStatus.clearRecoverableFailure();
-    systemStatus.setBackgroundWork({ label: 'Filing the library', stage: 'Staging suggestions' });
+    systemStatus.setBackgroundWork({ label: 'Filing the library', stage: 'Thinking about folders…' });
     const runFiling = async () => startLibraryFilingSuggestions();
     try {
       const result = await runFiling();
@@ -742,7 +742,7 @@ const CommandPalette = ({ open, onClose }) => {
       systemStatus.setLatestReceipt(normalizeSystemReceipt(receipt, { href }) || {
         id: `command-filing-${nextThreadId || Date.now()}`,
         title: 'Filing suggestions ready',
-        summary: receipt?.summary || 'Review the staged plan in Think.',
+        summary: receipt?.summary || 'Suggestions are ready in Think.',
         status: 'needs_review',
         href
       });
@@ -826,8 +826,8 @@ const CommandPalette = ({ open, onClose }) => {
           action: () => createWiki(wikiBuildCommand)
         } : null,
         { id: 'action-new-note', type: 'Action', label: 'New Think note', action: createNote },
-        { id: 'action-quick-work-note', type: 'Action', label: 'Quick Work note', path: '/think?context=work&capture=1' },
-        { id: 'action-pull-reference', type: 'Action', label: 'Pull reference into current surface', path: pullReferencePath },
+        { id: 'action-quick-work-note', type: 'Action', label: 'Quick Work note', path: '/work?capture=1' },
+        { id: 'action-pull-reference', type: 'Action', label: 'Insert a link to…', path: pullReferencePath },
         q ? { id: 'action-new-wiki', type: 'Action', label: `New Wiki page from "${q.slice(0, 48)}"`, action: createWiki } : null
       ]
     };
@@ -850,7 +850,7 @@ const CommandPalette = ({ open, onClose }) => {
         { type: 'Wiki', label: 'Wiki workspace', path: '/wiki/workspace' },
         { type: 'Wiki', label: 'Wiki pages', path: '/wiki/workspace?view=list' },
         { type: 'Wiki', label: 'Knowledge map', path: '/wiki/workspace?view=graph' },
-        { type: 'Wiki', label: 'Wiki activity and check', path: '/wiki/workspace?view=activity' },
+        { type: 'Wiki', label: 'Wiki history', path: '/wiki/workspace?view=activity' },
         { type: 'Wiki', label: 'Wiki schema', path: '/wiki/workspace?view=schema' }
       ]
     };
@@ -1068,14 +1068,14 @@ const CommandPalette = ({ open, onClose }) => {
               setQuery(nextQuery);
               setLoading(Boolean(nextQuery.trim()));
             }}
-            placeholder={isWikiSurface ? 'Quick open wiki pages, notes, sources...' : 'Quick open notes, highlights, claims, evidence...'}
+            placeholder={isWikiSurface ? 'Quick open wiki pages, notes, sources...' : 'Find a note, highlight or page…'}
             className="palette-input"
           />
           <Button onClick={onClose}>Close</Button>
         </div>
         <div className="palette-shortcuts">
           <span className="muted small">Cmd/Ctrl+K: Open</span>
-          <span className="muted small">Cmd/Ctrl+J: Ask the Partner</span>
+          <span className="muted small">Cmd/Ctrl+J: Ask Partner</span>
           <span className="muted small">Arrows + Enter: Navigate</span>
           {/* The one place the rooms' chord can be found by someone who does
               not already know it exists. The palette is where this product

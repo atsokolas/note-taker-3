@@ -129,7 +129,7 @@ const OfferReading = ({ onOffer, held = false }) => {
             onChange={(event) => setBy(event.target.value)}
           />
           <label className="think-share-view__offer-label" htmlFor="question-share-offer-text">
-            What you bring
+            Your reading
           </label>
           <textarea
             id="question-share-offer-text"
@@ -140,7 +140,7 @@ const OfferReading = ({ onOffer, held = false }) => {
             onChange={(event) => setText(event.target.value)}
           />
           <label className="think-share-view__offer-label" htmlFor="question-share-offer-remainder">
-            What you still hold
+            {QUESTION_SHARE_OWNER_REMAINDER}
           </label>
           <textarea
             id="question-share-offer-remainder"
@@ -406,7 +406,7 @@ export default function QuestionShareView({
           {brief.remainder ? (
             <>
               <p className="think-share-view__brief-label">
-                {brief.by ? `${brief.by} still holds` : QUESTION_SHARE_OWNER_REMAINDER}
+                {brief.by ? `${brief.by} still thinks` : QUESTION_SHARE_OWNER_REMAINDER}
               </p>
               <p className="think-share-view__remainder">{brief.remainder}</p>
             </>

@@ -48,7 +48,7 @@ const MoveToFolderModal = ({
     <div className="modal-overlay">
       <div className="modal-content" style={{ maxWidth: 480 }}>
         <div className="modal-header">
-          <h3>Move to Folder</h3>
+          <h3>Move to folder</h3>
           <button className="icon-button" onClick={onClose}>×</button>
         </div>
         <label className="feedback-field">

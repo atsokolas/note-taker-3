@@ -547,8 +547,8 @@ export const explainMaterialChanges = (comparison = {}, limit = 5) => {
         && /README\.md/i.test(before)
         && /package\.json/i.test(after)) {
         narrative = {
-          title: 'The claim now points to metadata instead of the actual documentation',
-          explanation: 'The maintained wording replaced packages/wiki-mcp/README.md with packages/wiki-mcp/package.json as the file said to document connected-agent tools and runtime transport. Package metadata proves the binary entrypoint and scripts; the README still contains the transport instructions.',
+          title: 'The claim now points to package.json instead of the actual documentation',
+          explanation: 'The maintained wording replaced packages/wiki-mcp/README.md with packages/wiki-mcp/package.json as the file said to document connected-agent tools and runtime transport. package.json proves the binary entrypoint and scripts; the README still contains the transport instructions.',
           impact: 'The new wording overstates what package.json documents. This looks like a weaker rewrite and should be corrected before public-proof acceptance.',
           tone: 'concern'
         };

@@ -103,6 +103,9 @@ describe('Connections production model', () => {
       ready: true
     }));
 
+    expect(projectAgentGrant({ id: 'token-w', scopes: ['read', 'agent-write', 'work'], status: 'active' }).scopeLabel)
+      .toBe('Read and write, Work included');
+
     expect(projectAgentGrant({
       id: 'token-3',
       label: 'Old worker',

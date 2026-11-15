@@ -25,7 +25,8 @@ const EditorDraftShell = ({
   slashCommands = null,
   contextualToolbar = false,
   onAskSelection = null,
-  onTryWording = null
+  onTryWording = null,
+  onMakeOpen = null
 }) => {
   const reducedMotion = usePrefersReducedMotion();
   const finePointer = useFinePointer();
@@ -109,6 +110,7 @@ const EditorDraftShell = ({
             <RichTextToolbar
               editor={editor}
               variant="selection"
+              onMakeOpen={onMakeOpen}
               className={toolbarClassName}
               onTryWording={onTryWording}
               onAskSelection={onAskSelection ? () => onAskSelection(readSelection()) : null}

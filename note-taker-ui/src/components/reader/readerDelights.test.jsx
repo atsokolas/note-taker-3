@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { returnGreetingHighlight } from './returnGreeting';
-import ReturnGreeting from './ReturnGreeting';
+import ReturnGreeting from './ReturnGreeting.jsx';
 import FootnotePeek, { footnoteFor } from './FootnotePeek';
 import OpenSource from './OpenSource';
 import usePassageOpens from './usePassageOpens';

@@ -134,7 +134,7 @@ describe('the index', () => {
     expect(screen.getByRole('link', { name: /^Views/ })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Set aside' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Record' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'The Mirror' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Your track record' })).toBeInTheDocument();
   });
 
   /* J and K walk the views from the keyboard, and Enter opens the one you
@@ -324,7 +324,7 @@ describe('the view', () => {
       const who = within(region).getByRole('link', { name: 'Costco and the Membership Moat' });
       expect(who).toHaveAttribute('href', '/library?articleId=article-4&highlightId=highlight-7');
       expect(who.closest('p')).toHaveTextContent('Costco and the Membership Moat, saved Oct 9:');
-      fireEvent.click(within(region).getByRole('button', { name: 'File for' }));
+      fireEvent.click(within(region).getByRole('button', { name: 'Add as “for”' }));
       await waitFor(() => expect(fileJudgmentEvidence).toHaveBeenCalledWith({
         pageId: 'view-1',
         expectedClaim: CLAIM,
@@ -371,7 +371,7 @@ describe('the view', () => {
       expect(decodeURIComponent(who.getAttribute('href'))).toContain(QUOTE);
       expect(who.closest('p')).toHaveTextContent('Ben Carlson, Oct 1, argues against this:');
       expect(screen.getByText(QUOTE)).toBeInTheDocument();
-      fireEvent.click(screen.getByRole('button', { name: 'File against' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Add as “against”' }));
       await waitFor(() => expect(fileReadingProposal).toHaveBeenCalledWith({ pageId: 'view-1', proposalId: proposal.id, field: 'against' }));
       await waitFor(() => expect(screen.queryByText(QUOTE)).not.toBeInTheDocument());
       expect(getWikiPage).toHaveBeenCalledTimes(2);

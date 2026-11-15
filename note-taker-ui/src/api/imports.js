@@ -37,6 +37,18 @@ export const importPastedUrl = async ({ url, title = '', placement, folderId } =
   return response.data || {};
 };
 
+/* An export file (Kindle's My Clippings.txt, Apple Books, Markdown, CSV); the
+   server reads which app it came from. */
+export const importExportFiles = async (files = []) => {
+  const form = new FormData();
+  files.forEach((file) => {
+    form.append('files', file);
+    form.append('paths', file.webkitRelativePath || file.name);
+  });
+  const response = await api.post('/api/import/files', form, getAuthHeaders());
+  return response.data || {};
+};
+
 /* A book you are starting: found if an import already brought it, made if not. */
 export const startBook = async ({ title, author = '' } = {}) => {
   const response = await api.post('/api/import/book', { title, author }, getAuthHeaders());
