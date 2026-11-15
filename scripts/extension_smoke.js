@@ -225,7 +225,7 @@ const shot = async (page, name) => {
     /* Reopening the page draws what was marked. */
     await reader.reload();
     card = await popup();
-    await card.waitForSelector('#receipt:has-text("with 1 mark")');
+    await card.waitForSelector('#receipt:has-text(", 1 highlight.")');
     await shot(card, 'popup-already-saved');
     await card.close();
     await reader.waitForFunction(() => document.querySelectorAll('noeis-mark').length === 2);
