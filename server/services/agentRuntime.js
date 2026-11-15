@@ -3,11 +3,16 @@
 const RUNTIME_LABELS = {
   agent: 'Noeis agent',
   'claude-code': 'Claude Code',
+  'claude-desktop': 'Claude Desktop',
   codex: 'Codex',
+  cursor: 'Cursor',
+  grok: 'Grok Build',
   hermes: 'Hermes',
+  muse: 'Muse Code',
   omarchy: 'Omarchy',
   openclaw: 'OpenClaw',
-  opencode: 'OpenCode'
+  opencode: 'OpenCode',
+  vscode: 'VS Code'
 };
 
 const SUPPORTED_RUNTIMES = new Set(Object.keys(RUNTIME_LABELS));

@@ -60,6 +60,22 @@ const run = async () => {
     if (requestUrl.pathname.endsWith('/api/wiki/schema') && init.method === 'GET') {
       return jsonResponse({ content: '# Wiki Schema' });
     }
+    if (requestUrl.pathname === '/api/recall') {
+      return jsonResponse({ query: requestUrl.searchParams.get('q'), results: [{ kind: 'note', id: 'n1', title: 'Hiring notes', passage: 'Hire for slope,\n not intercept.' }] });
+    }
+    if (requestUrl.pathname === '/api/recall/read/n1') {
+      return jsonResponse({ kind: 'note', id: 'n1', title: 'Hiring notes', text: 'Hire for slope, not intercept.' });
+    }
+    if (requestUrl.pathname === '/api/import/url') {
+      const { placement } = JSON.parse(init.body);
+      return jsonResponse({ article: { _id: 'a1', title: 'An essay', placement: placement || 'stream' }, existing: false });
+    }
+    if (requestUrl.pathname === '/api/import/text') {
+      return jsonResponse({ article: { _id: 'a2', title: JSON.parse(init.body).title } });
+    }
+    if (requestUrl.pathname === '/api/notebook') {
+      return jsonResponse({ _id: 'n2', ...JSON.parse(init.body) });
+    }
     if (requestUrl.pathname.endsWith('/api/wiki/activity')) {
       return jsonResponse({ events: [{ id: 'event-1', title: 'Ingested source', at: '2026-05-16T12:00:00.000Z' }] });
     }
@@ -94,6 +110,39 @@ const run = async () => {
 
   await runCli(['log', '--since', '1d'], { env, fetchImpl, io: makeIo().io });
   assert(seen.some(request => request.url.includes('/api/wiki/activity?limit=50&since=')));
+
+  const bodyOf = pathname => JSON.parse(seen.filter(request => new URL(request.url).pathname === pathname).pop().init.body);
+
+  /* search asks recall in the reader's own words and prints one hit a line. */
+  const searchIo = makeIo();
+  await runCli(['search', 'what', 'have', 'I', 'written', 'about', 'hiring', '--limit', '5'], { env, fetchImpl, io: searchIo.io });
+  const recalled = new URL(seen.find(request => request.url.includes('/api/recall?')).url);
+  assert.strictEqual(recalled.searchParams.get('q'), 'what have I written about hiring');
+  assert.strictEqual(recalled.searchParams.get('limit'), '5');
+  assert.strictEqual(searchIo.stdout, 'note\tn1\tHiring notes\n    Hire for slope, not intercept.\n');
+
+  const readIo = makeIo();
+  await runCli(['read', 'n1'], { env, fetchImpl, io: readIo.io });
+  assert.strictEqual(readIo.stdout, 'Hiring notes\n\nHire for slope, not intercept.\n');
+
+  /* save takes a link to the Library, or to the nightstand with --later,
+     and a file or standard input as text. */
+  const saveIo = makeIo();
+  await runCli(['save', '--later', 'https://example.com/essay'], { env, fetchImpl, io: saveIo.io });
+  assert.deepStrictEqual(bodyOf('/api/import/url'), { url: 'https://example.com/essay', placement: 'later' });
+  assert.strictEqual(saveIo.stdout, 'Saved to your nightstand: An essay (a1)\n');
+  await runCli(['save', 'https://example.com/essay'], { env, fetchImpl, io: makeIo().io });
+  assert.deepStrictEqual(bodyOf('/api/import/url'), { url: 'https://example.com/essay' });
+  await runCli(['save', '-', '--title', 'Transcript'], { env, fetchImpl, io: makeIo().io, readStdin: () => 'What the agent read.' });
+  assert.deepStrictEqual(bodyOf('/api/import/text'), { text: 'What the agent read.', title: 'Transcript' });
+
+  /* note writes to Think, titled by its first line unless told. */
+  const noteIo = makeIo();
+  await runCli(['note', 'Hiring is a bet on slope.'], { env, fetchImpl, io: noteIo.io });
+  assert.deepStrictEqual(bodyOf('/api/notebook'), { title: 'Hiring is a bet on slope.', content: 'Hiring is a bet on slope.' });
+  assert.strictEqual(noteIo.stdout, 'Noted in Think: Hiring is a bet on slope. (n2)\n');
+  await runCli(['note', '-', '--title', 'Session'], { env, fetchImpl, io: makeIo().io, readStdin: () => 'Line one\nLine two' });
+  assert.deepStrictEqual(bodyOf('/api/notebook'), { title: 'Session', content: 'Line one\nLine two' });
 
   assert.strictEqual(DEFAULT_API_URL, 'https://note-taker-3-unrg.onrender.com');
 
@@ -347,6 +396,26 @@ const run = async () => {
   const grokToml = fs.readFileSync(path.join(agentHome, '.grok', 'config.toml'), 'utf8');
   assert(grokToml.includes('[mcp_servers.noeis-wiki]') && grokToml.includes('args = ["mcp"]'));
   assert(!grokToml.includes('ntk_at_connected'));
+
+  /* Desktop apps never see the shell's PATH, so they get absolute paths,
+     each in the file and shape that app reads. */
+  const appServer = { command: process.execPath, args: [new URL('../bin/noeis', import.meta.url).pathname, 'mcp'] };
+  const connectApp = (runtime, platform) => runCli(['connect', runtime, '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
+    env: { HOME: agentHome, XDG_CONFIG_HOME: path.join(agentHome, '.config'), NOEIS_CONFIG_DIR: agentHome, APPDATA: path.join(agentHome, 'Roaming') },
+    platform,
+    fetchImpl: connectFetch,
+    io: makeIo().io,
+    sleep: async () => {}
+  });
+  const readServer = (file, key) => JSON.parse(fs.readFileSync(path.join(agentHome, file), 'utf8'))[key]['noeis-wiki'];
+  await connectApp('claude-desktop', 'darwin');
+  assert.deepStrictEqual(readServer('Library/Application Support/Claude/claude_desktop_config.json', 'mcpServers'), { ...appServer, env: { NOEIS_CONFIG_DIR: agentHome, NOEIS_API_URL: 'https://api.test' } });
+  await connectApp('cursor', 'darwin');
+  assert.strictEqual(readServer('.cursor/mcp.json', 'mcpServers').command, process.execPath);
+  await connectApp('vscode', 'win32');
+  const vscode = readServer('Roaming/Code/User/mcp.json', 'servers');
+  assert.deepStrictEqual([vscode.type, vscode.command, vscode.args], ['stdio', process.execPath, appServer.args]);
+  assert(!fs.readFileSync(path.join(agentHome, 'Roaming/Code/User/mcp.json'), 'utf8').includes('ntk_at_connected'));
 
   /* Without the claude CLI, the printed command carries the same server,
      config directory included. */

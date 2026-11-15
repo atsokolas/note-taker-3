@@ -4,15 +4,58 @@ import path from 'node:path';
 import readline from 'node:readline/promises';
 import { spawn, spawnSync } from 'node:child_process';
 import { stdin as input, stdout as output } from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import { NoeisCliClient, NoeisCliError } from './client.js';
 import { DEFAULT_API_URL, DEFAULT_APP_URL, readConfig, resolveAuth, writeConfig } from './config.js';
 
+const xdgConfig = ({ env, home }) => env.XDG_CONFIG_HOME || path.join(home, '.config');
+
+/* Where a desktop app keeps its settings on each platform. */
+const appSupport = (at, name) => {
+  if (at.platform === 'darwin') return path.join(at.home, 'Library', 'Application Support', name);
+  if (at.platform === 'win32') return path.join(at.env.APPDATA || path.join(at.home, 'AppData', 'Roaming'), name);
+  return path.join(xdgConfig(at), name);
+};
+
+/* Every runtime `noeis connect` knows: its name, and where it reads MCP
+   servers (a JSON file under `key`, a TOML table, or its own CLI). `app`
+   marks one started from the Dock or Start menu, which never sees the
+   shell's PATH and so is given absolute paths. */
+const RUNTIMES = {
+  'claude-code': { label: 'Claude Code' },
+  'claude-desktop': { label: 'Claude Desktop', app: true, key: 'mcpServers', file: at => path.join(appSupport(at, 'Claude'), 'claude_desktop_config.json') },
+  codex: { label: 'Codex', toml: at => path.join(at.home, '.codex', 'config.toml') },
+  cursor: { label: 'Cursor', app: true, key: 'mcpServers', file: at => path.join(at.home, '.cursor', 'mcp.json') },
+  grok: { label: 'Grok Build', toml: at => path.join(at.home, '.grok', 'config.toml') },
+  hermes: { label: 'Hermes', key: 'servers', entry: { transport: 'stdio' }, file: at => path.join(xdgConfig(at), 'hermes', 'mcp.json') },
+  muse: { label: 'Muse Code', key: 'mcpServers', entry: { type: 'stdio' }, file: at => path.join(xdgConfig(at), 'muse', 'settings.json') },
+  openclaw: { label: 'OpenClaw', key: 'servers', entry: { transport: 'stdio' }, file: at => path.join(xdgConfig(at), 'openclaw', 'mcp.json') },
+  opencode: { label: 'OpenCode', key: 'mcp', file: at => path.join(xdgConfig(at), 'opencode', 'opencode.json') },
+  vscode: { label: 'VS Code', app: true, key: 'servers', entry: { type: 'stdio' }, file: at => path.join(appSupport(at, 'Code'), 'User', 'mcp.json') }
+};
+const ANY_AGENT = { label: 'Noeis agent', key: 'servers', entry: { transport: 'stdio' }, file: at => path.join(xdgConfig(at), 'noeis', 'mcp.json') };
+const RUNTIME_NAMES = Object.keys(RUNTIMES).join('|');
+
+const normalizeRuntime = (value = '') => {
+  const runtime = String(value || '').trim().toLowerCase();
+  if (runtime === 'claude') return 'claude-code';
+  return RUNTIMES[runtime] ? runtime : 'agent';
+};
+
+const runtimeLabel = (runtime = 'agent') => (RUNTIMES[runtime] || ANY_AGENT).label;
+
+const CLI_BIN = fileURLToPath(new URL('../bin/noeis', import.meta.url));
+
 const HELP = `Noeis CLI
 
 Usage:
-  noeis connect [claude-code|codex|grok|hermes|muse|openclaw|opencode] [--scope read|read-write] [--work] [--label name] [--no-browser]
+  noeis connect [${RUNTIME_NAMES}] [--scope read|read-write] [--work] [--label name] [--no-browser]
   noeis mcp [--help]
+  noeis search "what you want to find" [--limit n] [--json]
+  noeis read <id> [--json]
+  noeis save <url|file|-> [--later] [--title title] [--json]
+  noeis note "text"|- [--title title] [--json]
   noeis login [--token ntk_at_...] [--api-url https://note-taker-3-unrg.onrender.com]
   noeis pages list [--query text] [--status draft|published|archived] [--page-type type] [--limit n] [--json]
   noeis pages get <id> [--json]
@@ -30,7 +73,7 @@ Environment:
 const CONNECT_HELP = `Noeis agent connect
 
 Usage:
-  noeis connect [claude-code|codex|grok|hermes|muse|openclaw|opencode] [--scope read|read-write] [--work] [options]
+  noeis connect [${RUNTIME_NAMES}] [--scope read|read-write] [--work] [options]
 
 Options:
   --label <name>       Label shown on the Noeis browser approval screen
@@ -59,12 +102,15 @@ const optionValue = (args, name, fallback = '') => {
 
 const hasFlag = (args, name) => args.includes(name);
 // Flags that take no value, so the word after one is still a positional.
-const SWITCHES = new Set(['--json', '--work', '--no-browser', '--no-config', '--print-token']);
+const SWITCHES = new Set(['--json', '--work', '--no-browser', '--no-config', '--print-token', '--later']);
+
+// A lone `-` is standard input, a positional like any other.
+const isFlag = arg => arg?.startsWith('-') && arg !== '-';
 
 const compactArgs = (args) => args.filter((arg, index) => {
-  if (arg.startsWith('-')) return false;
+  if (isFlag(arg)) return false;
   const previous = args[index - 1];
-  if (previous?.startsWith('-') && !SWITCHES.has(previous)) return false;
+  if (isFlag(previous) && !SWITCHES.has(previous)) return false;
   return true;
 });
 
@@ -95,27 +141,6 @@ const openBrowser = (url, { platform = process.platform } = {}) => {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const RUNTIME_LABELS = {
-  'claude-code': 'Claude Code',
-  codex: 'Codex',
-  grok: 'Grok Build',
-  hermes: 'Hermes',
-  muse: 'Muse Code',
-  openclaw: 'OpenClaw',
-  opencode: 'OpenCode'
-};
-
-const RUNTIME_ALIASES = {
-  ...Object.fromEntries(Object.keys(RUNTIME_LABELS).map(runtime => [runtime, runtime])),
-  claude: 'claude-code'
-};
-
-const normalizeRuntime = (value = '') => {
-  const runtime = String(value || '').trim().toLowerCase();
-  return RUNTIME_ALIASES[runtime] || 'agent';
-};
-
-const runtimeLabel = (runtime = 'agent') => RUNTIME_LABELS[runtime] || 'Noeis agent';
 
 const resolveConnectScopes = (value = 'read', work = false) => {
   const scope = String(value || 'read').trim().toLowerCase();
@@ -166,9 +191,9 @@ const writeJsonFile = (filePath, value) => {
   writePrivateFileAtomic(filePath, `${JSON.stringify(value, null, 2)}\n`);
 };
 
-const mcpServerConfig = ({ configDir, apiUrl }) => ({
-  command: 'noeis',
-  args: ['mcp'],
+const mcpServerConfig = ({ configDir, apiUrl, app = false }) => ({
+  command: app ? process.execPath : 'noeis',
+  args: app ? [CLI_BIN, 'mcp'] : ['mcp'],
   env: {
     ...(configDir ? { NOEIS_CONFIG_DIR: configDir } : {}),
     ...(apiUrl && apiUrl !== DEFAULT_API_URL ? { NOEIS_API_URL: apiUrl } : {})
@@ -222,40 +247,22 @@ const addClaudeCodeServer = ({ server, env, io }) => {
   return [];
 };
 
-const writeRuntimeMcpConfig = ({ runtime, apiUrl, configDir, env = process.env, io } = {}) => {
-  const home = env.HOME || os.homedir();
-  const server = mcpServerConfig({ configDir, apiUrl });
+const writeRuntimeMcpConfig = ({ runtime, apiUrl, configDir, env = process.env, platform = process.platform, io } = {}) => {
+  const at = { env, home: env.HOME || os.homedir(), platform };
+  const target = RUNTIMES[runtime] || ANY_AGENT;
+  const server = mcpServerConfig({ configDir, apiUrl, app: target.app });
   if (runtime === 'claude-code') return addClaudeCodeServer({ server, env, io });
-  const toml = { codex: path.join(home, '.codex', 'config.toml'), grok: path.join(home, '.grok', 'config.toml') }[runtime];
-  if (toml) {
-    writeTomlMcpConfig(toml, { configDir, apiUrl });
-    return toml;
+  if (target.toml) {
+    writeTomlMcpConfig(target.toml(at), { configDir, apiUrl });
+    return target.toml(at);
   }
-
-  const targets = {
-    muse: path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'muse', 'settings.json'),
-    hermes: path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'hermes', 'mcp.json'),
-    openclaw: path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'openclaw', 'mcp.json'),
-    opencode: path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'opencode', 'opencode.json'),
-    agent: path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'noeis', 'mcp.json')
-  };
-  const filePath = targets[runtime] || targets.agent;
+  const filePath = target.file(at);
   const config = safeReadJson(filePath);
-  if (runtime === 'opencode') {
-    config.mcp = { ...(config.mcp || {}), 'noeis-wiki': server };
-  } else if (runtime === 'muse') {
-    config.mcpServers = { ...(config.mcpServers || {}), 'noeis-wiki': { type: 'stdio', ...server } };
-  } else {
-    config.servers = { ...(config.servers || {}), 'noeis-wiki': { transport: 'stdio', ...server } };
-    delete config['noeis-wiki'];
-  }
+  config[target.key] = { ...(config[target.key] || {}), 'noeis-wiki': { ...target.entry, ...server } };
+  delete config['noeis-wiki'];
   writeJsonFile(filePath, config);
-  if (runtime === 'openclaw') {
-    const rootConfigPath = path.join(home, '.openclaw', 'openclaw.json');
-    writeOpenClawRootConfig({ filePath: rootConfigPath, server });
-    return [filePath, rootConfigPath];
-  }
-  return filePath;
+  if (runtime !== 'openclaw') return filePath;
+  return [filePath, writeOpenClawRootConfig({ filePath: path.join(at.home, '.openclaw', 'openclaw.json'), server })];
 };
 
 const requestJson = async (url, { method = 'GET', body, fetchImpl = global.fetch } = {}) => {
@@ -315,11 +322,24 @@ const printResult = (value, { json = false, io }) => {
   else printJson(value, io);
 };
 
-const sourceFromInput = (value, title = '') => {
-  if (/^https?:\/\//i.test(value)) return { type: 'url', url: value, title: title || undefined };
-  const absolute = path.resolve(value);
-  const text = fs.readFileSync(absolute, 'utf8');
-  return { type: 'text', text, title: title || path.basename(absolute) };
+const isUrl = value => /^https?:\/\//i.test(value);
+
+/* A file's text, or standard input for `-`, titled by the file. */
+const readText = (value, context) => (value === '-'
+  ? { text: (context.readStdin || (() => fs.readFileSync(0, 'utf8')))(), title: '' }
+  : { text: fs.readFileSync(path.resolve(value), 'utf8'), title: path.basename(value) });
+
+const sourceFromInput = (value, title = '', context = {}) => {
+  if (isUrl(value)) return { type: 'url', url: value, title: title || undefined };
+  const read = readText(value, context);
+  return { type: 'text', text: read.text, title: title || read.title };
+};
+
+const firstLine = text => String(text).trim().split('\n')[0].slice(0, 80);
+
+const printRecall = ({ results = [] }, io) => {
+  if (!results.length) io.stdout.write('Nothing of yours bears on that.\n');
+  results.forEach(hit => io.stdout.write(`${hit.kind}\t${hit.id}\t${hit.title || 'Untitled'}\n    ${String(hit.passage || '').replace(/\s+/g, ' ').slice(0, 200)}\n`));
 };
 
 const runLogin = async (args, context) => {
@@ -424,6 +444,7 @@ const runConnect = async (args, context) => {
       apiUrl,
       configDir: path.dirname(configPath),
       env: context.env || process.env,
+      platform: context.platform,
       io
     });
   }
@@ -525,7 +546,35 @@ export const runCli = async (argv = [], context = {}) => {
     result = await client.getPage(positional[2]);
   } else if (command === 'ingest') {
     if (!positional[1]) throw new NoeisCliError('Usage: noeis ingest <url|file>');
-    result = await client.ingestSource(sourceFromInput(positional[1], optionValue(args, '--title')));
+    result = await client.ingestSource(sourceFromInput(positional[1], optionValue(args, '--title'), context));
+  } else if (command === 'search') {
+    if (!positional[1]) throw new NoeisCliError('Usage: noeis search "what you want to find"');
+    const found = await client.recall({ query: positional.slice(1).join(' '), limit: optionValue(args, '--limit') });
+    if (json) printJson(found, io);
+    else printRecall(found, io);
+    return;
+  } else if (command === 'read') {
+    if (!positional[1]) throw new NoeisCliError('Usage: noeis read <id>');
+    const source = await client.read(positional[1]);
+    if (json) printJson(source, io);
+    else io.stdout.write(`${source.title}\n\n${source.text}\n`);
+    return;
+  } else if (command === 'save') {
+    if (!positional[1]) throw new NoeisCliError('Usage: noeis save <url|file|->');
+    const title = optionValue(args, '--title') || undefined;
+    const saved = isUrl(positional[1])
+      ? await client.saveLink({ url: positional[1], placement: hasFlag(args, '--later') ? 'later' : undefined, title })
+      : await client.saveText({ ...readText(positional[1], context), ...(title ? { title } : {}) });
+    if (json) printJson(saved, io);
+    else io.stdout.write(`${saved.existing ? 'Already in' : 'Saved to'} your ${saved.article?.placement === 'later' ? 'nightstand' : 'Library'}: ${saved.article?.title || 'Untitled'} (${saved.article?._id})\n`);
+    return;
+  } else if (command === 'note') {
+    const content = positional[1] === '-' ? readText('-', context).text : positional.slice(1).join(' ');
+    if (!content.trim()) throw new NoeisCliError('Usage: noeis note "text" (or - to read standard input)');
+    const note = await client.createNote({ title: optionValue(args, '--title') || firstLine(content), content });
+    if (json) printJson(note, io);
+    else io.stdout.write(`Noted in Think: ${note.title || 'Untitled'} (${note._id})\n`);
+    return;
   } else if (command === 'draft') {
     if (!positional[1]) throw new NoeisCliError('Usage: noeis draft <pageId>');
     result = await client.draftPage(positional[1]);

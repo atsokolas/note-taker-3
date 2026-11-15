@@ -111,6 +111,26 @@ export class NoeisCliClient {
     return this.request('/api/wiki/activity', { query: { limit, since } });
   }
 
+  recall({ query, limit } = {}) {
+    return this.request('/api/recall', { query: { q: query, limit } });
+  }
+
+  read(id) {
+    return this.request(`/api/recall/read/${encodeURIComponent(id)}`);
+  }
+
+  saveLink({ url, placement, title } = {}) {
+    return this.request('/api/import/url', { method: 'POST', body: { url, placement, title } });
+  }
+
+  saveText({ text, title } = {}) {
+    return this.request('/api/import/text', { method: 'POST', body: { text, title } });
+  }
+
+  createNote({ title, content } = {}) {
+    return this.request('/api/notebook', { method: 'POST', body: { title, content } });
+  }
+
   createPage({ title, pageType, body, sourceScope } = {}) {
     return this.request('/api/wiki/pages', {
       method: 'POST',

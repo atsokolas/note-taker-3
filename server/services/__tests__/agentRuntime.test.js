@@ -4,7 +4,8 @@ describe('agent runtimes', () => {
   it('keeps a known runtime and folds anything else into agent', () => {
     expect(normalizeRuntime(' Codex ')).toBe('codex');
     expect(normalizeRuntime('openclaw')).toBe('openclaw');
-    expect(normalizeRuntime('cursor')).toBe('agent');
+    expect(normalizeRuntime('cursor')).toBe('cursor');
+    expect(normalizeRuntime('windsurf')).toBe('agent');
     expect(normalizeRuntime('')).toBe('agent');
   });
 

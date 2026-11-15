@@ -1,6 +1,6 @@
 # @noeis/noeis-cli
 
-Command-line client for scripting a Noeis wiki without an MCP-speaking agent.
+Command-line client for Noeis: connect an agent, or work in your library from a shell.
 
 ## Install
 
@@ -9,6 +9,18 @@ npm i -g @noeis/noeis-cli
 ```
 
 This installs the `noeis` command.
+
+## Work from a shell
+
+```bash
+noeis search "what have I written about hiring"   # your notes, highlights, views and pages
+noeis read <id>                                    # the whole of any hit
+noeis save https://example.com/essay               # into your Library (--later: the nightstand)
+some-command | noeis save - --title "Transcript"   # text from standard input
+noeis note "Hiring is a bet on slope."              # a note in Think
+```
+
+`save` and `note` need a read-write connection.
 
 ## Connect an agent
 
@@ -24,10 +36,14 @@ noeis connect openclaw --scope read
 noeis connect codex --scope read
 ```
 
-Supported runtime names: `claude-code`, `codex`, `grok` (Grok Build), `hermes`,
-`muse` (Muse Code), `openclaw`, and `opencode`. Claude Code is registered through
-`claude mcp add-json --scope user`, Muse Code in `~/.config/muse/settings.json`,
-Grok Build in `~/.grok/config.toml`.
+Supported runtime names: `claude-code`, `claude-desktop`, `codex`, `cursor`,
+`grok` (Grok Build), `hermes`, `muse` (Muse Code), `openclaw`, `opencode` and
+`vscode`. Claude Code is registered through `claude mcp add-json --scope user`;
+the others are written where each reads its servers (Claude Desktop's
+`claude_desktop_config.json`, `~/.cursor/mcp.json`, VS Code's user `mcp.json`,
+`~/.config/muse/settings.json`, `~/.grok/config.toml`, ...). Desktop apps don't
+see your shell's PATH, so their config names node and this CLI by absolute path;
+run `noeis connect` again after moving either.
 
 Grok Bot and the Muse app run in the cloud and take a remote server, not a local
 one: add the hosted endpoint `https://note-taker-3-unrg.onrender.com/mcp` as a
