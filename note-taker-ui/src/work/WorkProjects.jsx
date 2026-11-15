@@ -52,7 +52,7 @@ export default function WorkProjects({ records, notes, items, today, onOpen, onA
     document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key);
   });
   const waiting = groups.active.find(item => item.waiting.length), dusty = groups.active.filter(quiet);
-  const sense = !rows.length ? 'No projects yet. A project is an effort with an end; its notes can sit in any folder.'
+  const sense = !rows.length ? 'No projects yet. A project is anything with an end.'
     : [`${groups.active.length === 1 ? 'One' : groups.active.length} active.`, waiting && `${waiting.name} is waiting on ${waiting.waiting[0].waitingOn}.`, dusty.length && `${dusty.map(item => item.name).join(' and ')} ${dusty.length === 1 ? 'has' : 'have'} gone quiet.`].filter(Boolean).join(' ');
   const row = item => { const index = rows.indexOf(item), unfoldedRow = open(item); return <React.Fragment key={item.id}>
     <div className="work-project-row" data-state={item.state} data-fade={fade(item) || undefined} aria-selected={index === selected} onMouseEnter={() => setSelected(index)}>
@@ -72,8 +72,8 @@ export default function WorkProjects({ records, notes, items, today, onOpen, onA
   </React.Fragment>; };
   const group = (label, list) => list.length ? <section aria-label={label}><h2>{label}</h2>{list.map(row)}</section> : null;
   return <section className="work-outstanding work-projects" aria-label="Projects"><h1 className="work-page-title">Projects</h1><p className="work-page-sense">{sense} <button className="work-project-add" onClick={onNew}>New project</button></p>
-    {groups.active.length ? <section className="work-hilltop" aria-label="Where each one stands"><h2>Where each one stands</h2><WorkHill halves width={640} height={120} label={groups.active.map(item => `${item.name}: ${hillPhrase(item.hill).toLowerCase()}`).join(' ')} dots={groups.active.map(item => ({ id: item.id, name: item.name, at: item.hill, was: item.was, faint: quiet(item) }))} />
-      <p className="work-outstanding-line">Each dot is read from the project’s own lines: up the hill as its questions are answered, down it as its follow-ups are done. Faint rings are the last three Fridays.</p></section> : null}
+    {groups.active.length ? <section className="work-hilltop" aria-label="How far along"><h2>How far along</h2><WorkHill halves width={640} height={120} label={groups.active.map(item => `${item.name}: ${hillPhrase(item.hill).toLowerCase()}`).join(' ')} dots={groups.active.map(item => ({ id: item.id, name: item.name, at: item.hill, was: item.was, faint: quiet(item) }))} />
+      <p className="work-outstanding-line">Dots climb as questions get answered and come down as follow-ups get done. Faint rings show the last three Fridays.</p></section> : null}
     {groups.active.length + groups.paused.length ? <Lineup rows={[...groups.active, ...groups.paused]} today={today} onDay={onDay} /> : null}
     {rows.length ? <div className="work-project-tools"><span role="group" aria-label="Show"><button aria-pressed={!everything} onClick={() => { setEverything(false); setUnfolded(new Set()); }}>Projects</button><button aria-pressed={everything} onClick={() => setEverything(true)}>Everything open</button></span><small>Open</small><small>Waiting</small><small>Touched</small></div> : null}
     {group('Active', groups.active)}{group('Paused', groups.paused)}{group('Done', groups.done)}
@@ -106,7 +106,7 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
       {answered ? <p>{answered.text}<small>Answered {displayDay(answered.on, { weekday: 'short', day: 'numeric' })}</small></p> : <input aria-label={`What would move ${record.name} this week?`} placeholder="One line, filed in the log" value={answer} onChange={event => setAnswer(event.target.value)} />}</form> : null}
     <div className="work-project-page">
       <section aria-label="Log"><h2>Log</h2>{item.log.map((entry, index) => <button className="work-log-entry" key={`${entry.note?.clientId || 'check-in'}:${entry.day}:${index}`} disabled={!entry.note} onClick={() => onOpenNote(entry.note.clientId)}><small>{displayDay(entry.day, { weekday: 'short', day: 'numeric', month: 'short' })} · {entry.checkIn ? 'Monday check-in' : noteTitle(entry.note)}</small><span>{entry.text}</span></button>)}
-        {item.log.length ? null : <p className="work-outstanding-line">Nothing written yet. Notes in any folder can be part of {record.name}; their dated entries read here.</p>}
+        {item.log.length ? null : <p className="work-outstanding-line">Nothing written yet. Add a note to {record.name} and it shows up here.</p>}
         {item.state === 'done' ? null : <button className="work-project-add" onClick={onNewNote}>New note in {record.name}</button>}</section>
       <div>
         <section aria-label="Next"><h2>Next</h2>{item.next.map(line => <Line key={line.id} item={line} onAction={onAction} aside={<>{line.plannedOn ? <time>{short(line.plannedOn)}</time> : null}{noteOf(line) ? <button onClick={() => onOpenNote(noteOf(line).clientId)}>{noteTitle(noteOf(line))}</button> : null}</>} />)}
@@ -115,7 +115,7 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
         {item.schedule.length ? <section aria-label="Schedule"><h2>Schedule</h2>{item.schedule.map(line => <p className="work-project-decision" key={line.id}>{displayDay(line.on, { weekday: 'short', day: 'numeric', month: 'short' })} · {line.startTime ? `${line.startTime} ` : ''}{line.title}<small>{line.kind === 'appointment' ? 'meeting' : line.on === line.plannedOn ? 'planned' : 'due'}</small></p>)}</section> : null}
         {item.decisions.length ? <section aria-label="Decided"><h2>Decided</h2>{item.decisions.map(({ text, note }, index) => <p className="work-project-decision" key={`${note.clientId}:${index}`}>{text}<button onClick={() => onOpenNote(note.clientId)}>{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}</button></p>)}</section> : null}
         <section aria-label="Kept"><h2>Kept</h2><Links links={item.links} onRemove={link => onSave(record, { links: item.links.filter(other => other !== link) })} />
-          <p className="work-outstanding-line">{item.links.length ? 'Add more' : 'Keep an article, wiki page or book here'} with Add to project on its page.</p></section>
+          <p className="work-outstanding-line">To keep {item.links.length ? 'another' : 'an'} article, book or page here, open it and choose Add to project.</p></section>
         <section className="work-project-margin" aria-label="About this project"><small>State</small><p className="work-project-state">{state('Active', 'active', { paused: false, archived: false })}{state('Paused', 'paused', { paused: true, archived: false })}{state('Done', 'done')}</p>
           {closing !== null ? <form className="work-project-closing" onSubmit={event => { event.preventDefault(); onSave(record, { archived: true, paused: false, closingLine: closing.trim() }).then(saved => { if (saved) setClosing(null); }); }}><label>One line on how it ended<textarea autoFocus rows={2} value={closing} onChange={event => setClosing(event.target.value)} placeholder="We passed, and the churn question answered itself." /></label><button>Mark done</button><button type="button" onClick={() => setClosing(null)}>Not yet</button></form> : null}
           {item.state === 'done' && record.closingLine ? <blockquote>{record.closingLine}</blockquote> : null}</section>

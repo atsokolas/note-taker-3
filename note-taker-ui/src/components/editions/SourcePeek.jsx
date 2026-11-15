@@ -110,7 +110,7 @@ export default function SourcePeek({ item, view, origin, quote, onClose, thought
                 {source.unavailable
                   ? 'Your saved source could not be opened.'
                   : 'Readable article text is not available here.'}{' '}
-                The finding above is the filed research, not an article excerpt.
+                The text above is the agent’s summary, not a quote.
               </p>
             )}
             {href ? (
@@ -121,7 +121,7 @@ export default function SourcePeek({ item, view, origin, quote, onClose, thought
                 <small className="reading-url">{href}</small>
               </p>
             ) : (
-              <p>No safe original link is available.</p>
+              <p>No link to the original.</p>
             )}
             {item.savedArticleId ? (
               <Link to={buildCanonicalArticlePath(item.savedArticleId)}>

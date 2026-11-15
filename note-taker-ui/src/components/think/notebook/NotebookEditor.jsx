@@ -937,7 +937,7 @@ const NotebookEditor = ({
       attrs: {
         wikiId: page._id,
         wikiTitle: page.title || 'Untitled wiki',
-        wikiMeta: page.pageType === 'repo' ? 'Repository wiki' : page.pageType === 'company_dossier' ? 'Investment dossier' : 'Living wiki',
+        wikiMeta: page.pageType === 'repo' ? 'Repo' : page.pageType === 'company_dossier' ? 'Company' : 'Page',
         blockId: createId()
       }
     });
@@ -1156,7 +1156,7 @@ const NotebookEditor = ({
       return;
     } else if (workbenchReceipt?.type === 'stash') {
       if (!undoStash(editor, workbench, workbenchReceipt)) {
-        setWorkbenchReceipt({ type: 'error', text: 'The page has changed since, so the passage stays in the scratchpad.' });
+        setWorkbenchReceipt({ type: 'error', text: 'The note changed, so it’s still in your scratchpad.' });
         return;
       }
       scheduleSave();
@@ -1267,7 +1267,7 @@ const NotebookEditor = ({
         });
       });
       if (!created.length) {
-        setPartnerOptionsNotice('Partner returned options that were already here or matched the original.');
+        setPartnerOptionsNotice('Partner had nothing new to suggest.');
         setPartnerOptionsStatus('idle');
         return;
       }
@@ -1619,9 +1619,9 @@ const NotebookEditor = ({
             onClick={() => (selectionNotebookTarget(editor) || (!editor?.isFocused && highlightedRef.current) ? startTrialFromSelection() : startTrial())}
           >Try wording</Button>
           <Button variant="quiet" data-context-trigger="scratchpad" onClick={() => { holdCurrentPlace(); onOpenContext?.('scratchpad'); }}>Scratchpad</Button>
-          <Button variant="quiet" data-context-trigger="material" onClick={() => openMaterial()}>Material</Button>
+          <Button variant="quiet" data-context-trigger="material" onClick={() => openMaterial()}>Highlights</Button>
           <Button variant="quiet" onClick={handleExport}>Export draft</Button>
-          <Button variant="quiet" onClick={handleRecoveryExport}>Private recovery file</Button>
+          <Button variant="quiet" onClick={handleRecoveryExport}>Download a copy</Button>
           <Button variant="quiet" onClick={handleSettle} disabled={settlement.settling}>{settlement.action}</Button>
           <Button variant="quiet" onClick={() => setOrganizeOpen(previous => !previous)}>Structure</Button>
           <Button variant="quiet" onClick={openHistory}>History</Button>
@@ -1678,13 +1678,12 @@ const NotebookEditor = ({
                 </a>
                 <p>
                   {notebookSourceMeta.kind === 'library' ? (
-                    'This page keeps the exact passage that started the thought. Follow the thread back without losing your place.'
+                    'This started from a highlight. Open it any time; you won’t lose your place.'
                   ) : (
                     <>
                       {notebookSourceMeta.draftTemplateLabel
                         ? `${notebookSourceMeta.draftTemplateLabel} spun out from the concept. `
                         : ''}
-                      Keep drafting here. Return to the concept when the underlying idea shifts, new support appears, or the tension changes.
                       {notebookSourceMeta.importedAt ? ` Started here on ${notebookSourceMeta.importedAt}.` : ''}
                     </>
                   )}
@@ -2028,7 +2027,7 @@ const NotebookEditor = ({
       <InsertReferenceModal
         open={insertMode === 'concept'}
         title="Link Concept or Wiki"
-        subtitle={wikiPagesLoading ? 'Opening your living wikis…' : 'Search your accepted concepts and living wiki pages.'}
+        subtitle={wikiPagesLoading ? 'Opening your living wikis…' : 'Search your concepts and pages.'}
         items={conceptAndWikiTargets}
         getLabel={(item) => item.referenceKind === 'wiki' ? item.title || 'Untitled wiki' : item.name || 'Concept'}
         getMeta={(item) => item.referenceKind === 'wiki' ? `Wiki · ${item.pageType || 'general'}` : `Concept · ${item.description || 'working idea'}`}

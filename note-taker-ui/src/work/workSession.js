@@ -22,7 +22,7 @@ export const noteTitle = note => {
 export const noteDate = note => displayDay(note?.occurredOn);
 export const noteWords = note => note?.blocks?.length ? note.blocks.map(block => block.text || '').join('\n') : plainTextFrom(note?.content);
 const body = (note, creating = false) => ({ ...(creating ? { capturedAt: note.capturedAt, timeZone: note.timeZone } : {}), ...(note.workItem ? { workItem: itemMetadata(note.workItem) } : {}), ...(note.workActions?.length ? { workActions: note.workActions } : {}), title: note.title || '', content: note.content || '', blocks: note.blocks || [], folder: note.folder?._id || note.folder || null, project: note.project?._id || note.project || null, occurredOn: note.occurredOn, withText: note.withText || '' });
-const MATCHING_SERVER = 'Work needs its matching server before it can save. Retry shortly.';
+const MATCHING_SERVER = 'Noeis is updating. Try again in a minute. Your writing stays here.';
 const message = error => error?.response?.data?.error || 'Sync paused. Retry when you are connected.';
 
 // The server owns notes. This session holds only unacknowledged edits beside them.
@@ -49,7 +49,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
         const id = drafts[preferred] ? record.draftId : preferred;
         drafts[id] = { ...record, saving: false, durable: true };
       }
-    } catch (_) { loadError = 'Device drafts could not be read. Keep this page open until your writing is saved.'; }
+    } catch (_) { loadError = 'Couldn’t read your unsaved drafts. Keep this page open while it saves.'; }
     Object.values(drafts).forEach(draft => { draft.durable = device.durable(draft); });
     emit();
   };
@@ -274,12 +274,12 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       await requireServer();
       if (!isCurrent()) throw new Error('The account changed.');
       const held = continuation();
-      if (held && (held.operationId !== intent || held.source._id !== source._id)) throw new Error('Recover the earlier continuation receipt before starting another.');
+      if (held && (held.operationId !== intent || held.source._id !== source._id)) throw new Error('Finish the last “Continue” first.');
       const request = { ...options };
       const capturedAt = new Date().toISOString();
       const pending = held || { source, operationId: intent, capturedAt, timeZone, occurredOn: dayInZone(capturedAt, timeZone) };
       try { receipts.write(pending); }
-      catch (_) { throw new Error('This device could not keep the continuation request. Free storage and retry.'); }
+      catch (_) { throw new Error('This device is out of space. Free some up and try again.'); }
       continuations.set(pending.operationId, pending);
       const confirmed = pending.source;
       try {

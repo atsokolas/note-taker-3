@@ -23,7 +23,7 @@ export const settleIntoWiki = async (kind, id, systemStatus) => {
       id: `settle-${settledIn._id}-${Date.now()}`,
       title: `“${page.title}” ${resettled ? 'revised' : 'settled'} in Wiki`,
       summary: resettled
-        ? `A new revision; the earlier words stay in the page history. ${passages(page.sourceRefs?.length || 0)}`
+        ? `Updated. The old version is in the page’s history. ${passages(page.sourceRefs?.length || 0)}`
         : passages(page.sourceRefs?.length || 0),
       status: 'completed',
       href: wikiReadPath(settledIn._id)
@@ -65,14 +65,14 @@ export const useSettleIntoWiki = (kind, id, settledFrom) => {
     settle,
     settling,
     settled: Boolean(settledIn),
-    action: settledIn ? 'Settle again' : 'Settle into Wiki',
+    action: settledIn ? 'Update the Wiki page' : 'Make a Wiki page',
     lines: (
       <>
         {settledIn ? (
-          <p className="think-notebook-settled">Settled in Wiki → <Link to={wikiReadPath(settledIn._id)}>{settledIn.title}</Link>. Share it from there.</p>
+          <p className="think-notebook-settled">In your Wiki → <Link to={wikiReadPath(settledIn._id)}>{settledIn.title}</Link>. Share it from there.</p>
         ) : null}
         {settling || line ? (
-          <p className="think-notebook-settle-line" role="status">{settling ? 'Settling into Wiki…' : line}</p>
+          <p className="think-notebook-settle-line" role="status">{settling ? 'Writing the Wiki page…' : line}</p>
         ) : null}
       </>
     )

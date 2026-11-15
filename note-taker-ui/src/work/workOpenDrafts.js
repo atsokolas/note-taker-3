@@ -45,7 +45,7 @@ export function createWorkOpenComposer({ account, storage, isCurrent, identity, 
     try {
       stored().filter(record => record.note.intent === current.note.intent).forEach(record => device.remove(record));
       selected.delete(identity(id)); emit(); return true;
-    } catch (_) { current.error = 'Could not finish adding or clearing this draft. Retry keeps the same item.'; emit(); return false; }
+    } catch (_) { current.error = 'That didn’t finish. Try again.'; emit(); return false; }
   };
   return {
     draft: id => read(id).note,

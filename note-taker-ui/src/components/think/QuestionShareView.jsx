@@ -129,7 +129,7 @@ const OfferReading = ({ onOffer, held = false }) => {
             onChange={(event) => setBy(event.target.value)}
           />
           <label className="think-share-view__offer-label" htmlFor="question-share-offer-text">
-            What you bring
+            Your reading
           </label>
           <textarea
             id="question-share-offer-text"
@@ -140,7 +140,7 @@ const OfferReading = ({ onOffer, held = false }) => {
             onChange={(event) => setText(event.target.value)}
           />
           <label className="think-share-view__offer-label" htmlFor="question-share-offer-remainder">
-            What you still hold
+            What you still think
           </label>
           <textarea
             id="question-share-offer-remainder"

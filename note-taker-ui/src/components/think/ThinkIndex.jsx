@@ -4,7 +4,7 @@ import { STAGES, dayLabel, stageLine } from './notebook/notebookStages';
 
 const SENSE = {
   ...Object.fromEntries(STAGES.map(({ key, sense }) => [key, sense])),
-  concept: 'Names you keep, each with what you know about it.',
+  concept: 'The ideas you’ve named, and what you know about each.',
   question: 'What you are still asking, and what you settled.'
 };
 const EMPTY = {
