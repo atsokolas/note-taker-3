@@ -11,7 +11,7 @@ import { DEFAULT_API_URL, DEFAULT_APP_URL, readConfig, resolveAuth, writeConfig 
 const HELP = `Noeis CLI
 
 Usage:
-  noeis connect [claude-code|codex|hermes|openclaw|opencode] [--scope read|read-write] [--work] [--label name] [--no-browser]
+  noeis connect [claude-code|codex|grok|hermes|muse|openclaw|opencode] [--scope read|read-write] [--work] [--label name] [--no-browser]
   noeis mcp [--help]
   noeis login [--token ntk_at_...] [--api-url https://note-taker-3-unrg.onrender.com]
   noeis pages list [--query text] [--status draft|published|archived] [--page-type type] [--limit n] [--json]
@@ -30,7 +30,7 @@ Environment:
 const CONNECT_HELP = `Noeis agent connect
 
 Usage:
-  noeis connect [claude-code|codex|hermes|openclaw|opencode] [--scope read|read-write] [--work] [options]
+  noeis connect [claude-code|codex|grok|hermes|muse|openclaw|opencode] [--scope read|read-write] [--work] [options]
 
 Options:
   --label <name>       Label shown on the Noeis browser approval screen
@@ -95,21 +95,19 @@ const openBrowser = (url, { platform = process.platform } = {}) => {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const RUNTIME_ALIASES = {
-  claude: 'claude-code',
-  'claude-code': 'claude-code',
-  codex: 'codex',
-  hermes: 'hermes',
-  openclaw: 'openclaw',
-  opencode: 'opencode'
-};
-
 const RUNTIME_LABELS = {
   'claude-code': 'Claude Code',
   codex: 'Codex',
+  grok: 'Grok Build',
   hermes: 'Hermes',
+  muse: 'Muse Code',
   openclaw: 'OpenClaw',
   opencode: 'OpenCode'
+};
+
+const RUNTIME_ALIASES = {
+  ...Object.fromEntries(Object.keys(RUNTIME_LABELS).map(runtime => [runtime, runtime])),
+  claude: 'claude-code'
 };
 
 const normalizeRuntime = (value = '') => {
@@ -173,8 +171,7 @@ const mcpServerConfig = ({ configDir, apiUrl }) => ({
   args: ['mcp'],
   env: {
     ...(configDir ? { NOEIS_CONFIG_DIR: configDir } : {}),
-    ...(apiUrl && apiUrl !== DEFAULT_API_URL ? { NOEIS_API_URL: apiUrl } : {}),
-    NOEIS_MCP_TOOLSET: 'library-think-v1'
+    ...(apiUrl && apiUrl !== DEFAULT_API_URL ? { NOEIS_API_URL: apiUrl } : {})
   }
 });
 
@@ -189,7 +186,6 @@ const writeTomlMcpConfig = (filePath, { configDir, apiUrl }) => {
   const envParts = [];
   if (configDir) envParts.push(`NOEIS_CONFIG_DIR = ${JSON.stringify(configDir)}`);
   if (apiUrl && apiUrl !== DEFAULT_API_URL) envParts.push(`NOEIS_API_URL = ${JSON.stringify(apiUrl)}`);
-  envParts.push('NOEIS_MCP_TOOLSET = "library-think-v1"');
   const envLine = envParts.length ? `\nenv = { ${envParts.join(', ')} }` : '';
   const block = `[mcp_servers.noeis-wiki]
 command = "noeis"
@@ -214,17 +210,30 @@ const writeOpenClawRootConfig = ({ filePath, server }) => {
   return filePath;
 };
 
-const writeRuntimeMcpConfig = ({ runtime, apiUrl, configDir, env = process.env } = {}) => {
+/* Claude Code keeps its servers in its own state file, so it is told
+   through its CLI rather than by editing that file. Without the CLI the
+   command is printed for the person to run. */
+const addClaudeCodeServer = ({ server, env, io }) => {
+  const run = command => spawnSync('claude', ['mcp', ...command], { env, encoding: 'utf8' });
+  const json = JSON.stringify({ type: 'stdio', ...server });
+  run(['remove', '--scope', 'user', 'noeis-wiki']);
+  if (run(['add-json', '--scope', 'user', 'noeis-wiki', json]).status === 0) return 'Claude Code user settings (claude mcp add-json)';
+  io.stdout.write(`Could not reach the claude CLI. Run this once:\n  claude mcp add-json --scope user noeis-wiki '${json}'\n`);
+  return [];
+};
+
+const writeRuntimeMcpConfig = ({ runtime, apiUrl, configDir, env = process.env, io } = {}) => {
   const home = env.HOME || os.homedir();
   const server = mcpServerConfig({ configDir, apiUrl });
-  if (runtime === 'codex') {
-    const filePath = path.join(home, '.codex', 'config.toml');
-    writeTomlMcpConfig(filePath, { configDir, apiUrl });
-    return filePath;
+  if (runtime === 'claude-code') return addClaudeCodeServer({ server, env, io });
+  const toml = { codex: path.join(home, '.codex', 'config.toml'), grok: path.join(home, '.grok', 'config.toml') }[runtime];
+  if (toml) {
+    writeTomlMcpConfig(toml, { configDir, apiUrl });
+    return toml;
   }
 
   const targets = {
-    'claude-code': path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'claude-code', 'mcp.json'),
+    muse: path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'muse', 'settings.json'),
     hermes: path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'hermes', 'mcp.json'),
     openclaw: path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'openclaw', 'mcp.json'),
     opencode: path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'opencode', 'opencode.json'),
@@ -234,6 +243,8 @@ const writeRuntimeMcpConfig = ({ runtime, apiUrl, configDir, env = process.env }
   const config = safeReadJson(filePath);
   if (runtime === 'opencode') {
     config.mcp = { ...(config.mcp || {}), 'noeis-wiki': server };
+  } else if (runtime === 'muse') {
+    config.mcpServers = { ...(config.mcpServers || {}), 'noeis-wiki': { type: 'stdio', ...server } };
   } else {
     config.servers = { ...(config.servers || {}), 'noeis-wiki': { transport: 'stdio', ...server } };
     delete config['noeis-wiki'];
@@ -412,7 +423,8 @@ const runConnect = async (args, context) => {
       runtime,
       apiUrl,
       configDir: path.dirname(configPath),
-      env: context.env || process.env
+      env: context.env || process.env,
+      io
     });
   }
 

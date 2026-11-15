@@ -24,7 +24,14 @@ noeis connect openclaw --scope read
 noeis connect codex --scope read
 ```
 
-Supported runtime names: `claude-code`, `codex`, `hermes`, `openclaw`, and `opencode`.
+Supported runtime names: `claude-code`, `codex`, `grok` (Grok Build), `hermes`,
+`muse` (Muse Code), `openclaw`, and `opencode`. Claude Code is registered through
+`claude mcp add-json --scope user`, Muse Code in `~/.config/muse/settings.json`,
+Grok Build in `~/.grok/config.toml`.
+
+Grok Bot and the Muse app run in the cloud and take a remote server, not a local
+one: add the hosted endpoint `https://note-taker-3-unrg.onrender.com/mcp` as a
+custom connector with the header `Authorization: Bearer <a Noeis agent token>`.
 
 Use `--scope read-write` only when the human explicitly chose the broader
 `read` + `agent-write` grant. Unknown scopes are rejected instead of widened or
