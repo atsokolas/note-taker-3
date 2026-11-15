@@ -17,6 +17,7 @@ const model = (rows = []) => ({
 const USER = '0123456789abcdef01234567';
 const NOTE = 'aaaaaaaaaaaaaaaaaaaaaaaa';
 const ARTICLE = 'bbbbbbbbbbbbbbbbbbbbbbbb';
+const CONCEPT = 'dddddddddddddddddddddddd';
 
 const start = async () => {
   const app = express();
@@ -24,7 +25,7 @@ const start = async () => {
     authenticateToken: (req, _res, next) => { req.user = { id: USER }; next(); },
     Article: model([{ _id: ARTICLE, title: 'Base rates', content: 'Start from the base rate before the story.', highlights: [{ _id: 'h1', text: 'Interviews predict little about hiring.', note: 'Remember for the hiring loop.' }], updatedAt: new Date() }]),
     NotebookEntry: model([{ _id: NOTE, title: 'Hiring', content: 'Hire for slope, not intercept, when hiring engineers.', updatedAt: new Date() }]),
-    TagMeta: model([]),
+    TagMeta: model([{ _id: CONCEPT, name: 'Base rates', description: 'Start from how often things like this usually go.', updatedAt: new Date() }]),
     WikiPage: model([])
   }));
   const server = app.listen(0);
@@ -52,6 +53,8 @@ describe('recall routes', () => {
   it('reads one of the reader\'s own things in full, and nothing else', async () => {
     const note = await fetch(`${url}/api/recall/read/${NOTE}`).then(res => res.json());
     expect(note).toMatchObject({ kind: 'note', id: NOTE, title: 'Hiring' });
+    const concept = await fetch(`${url}/api/recall/read/${CONCEPT}`).then(res => res.json());
+    expect(concept).toMatchObject({ kind: 'concept', title: 'Base rates' });
     expect((await fetch(`${url}/api/recall/read/cccccccccccccccccccccccc`)).status).toBe(404);
   });
 });

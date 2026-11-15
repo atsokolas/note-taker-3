@@ -357,7 +357,7 @@ const bestPassage = (input = {}) => topPassages({ ...input, limit: 1 })[0]?.text
 
 // One source in full, as the reader saved it: an article with its highlights
 // and margin notes, or a notebook page. Only the reader's own.
-const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPage = null } }) => {
+const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPage = null, TagMeta = null } }) => {
   if (!/^[a-f0-9]{24}$/i.test(String(id || ''))) return null;
   const article = await Article.findOne({ _id: id, userId }).select('_id title content highlights updatedAt').lean();
   if (article) {
@@ -378,6 +378,10 @@ const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPa
       fullText: noteUnits(note).map(unit => unit.text).join('\n\n'),
       updatedAt: note.updatedAt
     };
+  }
+  const concept = TagMeta && await TagMeta.findOne({ _id: id, userId }).select('_id name description updatedAt').lean();
+  if (concept) {
+    return { type: 'concept', id: String(concept._id), title: concept.name, fullText: conceptUnits(concept)[0].text, updatedAt: concept.updatedAt };
   }
   // A view the reader holds is found by search; reading it opens the page it
   // lives on.
