@@ -101,8 +101,9 @@ const articleUnits = article => [
     .filter(highlight => highlight?.text || highlight?.note)
     .map(highlight => ({
       key: `h${highlight._id}`,
-      // A note keeps its line breaks but no blank line: a blank line ends the passage.
-      text: [highlight.text, highlight.note ? `${NOTE_LABEL} ${String(highlight.note).replace(/\s*\n\s*\n\s*/g, '\n')}` : ''].filter(Boolean).join(' '),
+      // A note keeps its line breaks but no blank line: a blank line ends the
+      // passage. An agent's note is labelled as its own, never the reader's.
+      text: [highlight.text, highlight.note ? `${penOf(highlight) ? `${penOf(highlight)}'s note:` : NOTE_LABEL} ${String(highlight.note).replace(/\s*\n\s*\n\s*/g, '\n')}` : ''].filter(Boolean).join(' '),
       pencil: penOf(highlight)
     }))
 ].map(unit => ({ ...unit, type: 'article', id: String(article._id), title: article.title || 'Article', updatedAt: article.updatedAt }));
@@ -370,7 +371,10 @@ const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPa
       type: 'article',
       id: String(article._id),
       title: article.title || 'Article',
-      fullText: articleUnits(article).map(unit => unit.text).join('\n\n'),
+      // A mark an agent made on an article the reader saved says so.
+      fullText: articleUnits(article)
+        .map(unit => unit.pencil && unit.pencil !== penOf(article) ? `(In pencil, by ${unit.pencil}) ${unit.text}` : unit.text)
+        .join('\n\n'),
       pencil: penOf(article),
       updatedAt: article.updatedAt
     };

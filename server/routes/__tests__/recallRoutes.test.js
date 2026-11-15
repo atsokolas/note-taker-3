@@ -23,7 +23,7 @@ const start = async () => {
   const app = express();
   app.use(buildRecallRouter({
     authenticateToken: (req, _res, next) => { req.user = { id: USER }; next(); },
-    Article: model([{ _id: ARTICLE, title: 'Base rates', content: 'Start from the base rate before the story.', highlights: [{ _id: 'h1', text: 'Interviews predict little about hiring.', note: 'Remember for the hiring loop.' }], updatedAt: new Date() }]),
+    Article: model([{ _id: ARTICLE, title: 'Base rates', content: 'Start from the base rate before the story.', highlights: [{ _id: 'h1', text: 'Interviews predict little about hiring.', note: 'Remember for the hiring loop.' }, { _id: 'h2', text: 'The story comes after the rate.', note: 'A guess of mine.', pencil: { agent: 'Codex' } }], updatedAt: new Date() }]),
     NotebookEntry: model([{ _id: NOTE, title: 'Hiring', content: 'Hire for slope, not intercept, when hiring engineers.', pencil: { agent: 'Claude Code' }, updatedAt: new Date() }]),
     TagMeta: model([{ _id: CONCEPT, name: 'Base rates', description: 'Start from how often things like this usually go.', updatedAt: new Date() }]),
     WikiPage: model([])
@@ -52,6 +52,13 @@ describe('recall routes', () => {
     expect(byId[NOTE].pencil).toBe('Claude Code');
     expect(byId[ARTICLE].pencil).toBeUndefined();
     expect((await fetch(`${url}/api/recall/read/${NOTE}`).then(res => res.json())).pencil).toBe('Claude Code');
+  });
+
+  it('keeps an agent\'s mark on the reader\'s article in pencil when read in full', async () => {
+    const { text: fullText, pencil } = await fetch(`${url}/api/recall/read/${ARTICLE}`).then(res => res.json());
+    expect(pencil).toBeUndefined();
+    expect(fullText).toContain("(In pencil, by Codex) The story comes after the rate. Codex's note: A guess of mine.");
+    expect(fullText).toContain('Your note: Remember for the hiring loop.');
   });
 
   it('asks for a question', async () => {

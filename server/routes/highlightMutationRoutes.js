@@ -113,6 +113,8 @@ const buildHighlightMutationRouter = ({
       if (held) {
         held.page = held.page || page;
         held.tags = normalizeTags([...(held.tags || []), ...normalizeTags(tags)]);
+        // An agent's note joining a mark puts the mark in pencil.
+        if (thought) held.pencil = pencilOf(req) || held.pencil;
         await article.save();
         return res.status(200).json({
           article,

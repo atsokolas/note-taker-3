@@ -17,7 +17,7 @@ const { buildHighlightMutationRouter } = require('../highlightMutationRoutes');
    caller reading articleId off it saw nothing — one agent read its own five
    successful writes as five unattached highlights and reported them as lost. */
 describe('created highlight carries its article', () => {
-  const createHighlight = async (body, held = []) => {
+  const createHighlight = async (body, held = [], agentToken = undefined) => {
     const article = {
       _id: 'article-1',
       title: 'Going Founder Mode on Cancer',
@@ -34,6 +34,7 @@ describe('created highlight carries its article', () => {
       mongoose: { Types: { ObjectId: String } },
       authenticateToken: (req, _res, next) => {
         req.user = { id: 'user-1' };
+        req.agentToken = agentToken;
         next();
       },
       Article: { findOne: async () => article },
@@ -91,6 +92,13 @@ describe('created highlight carries its article', () => {
       page: 9,
       location: 'Location 1702–1705'
     });
+  });
+
+  test('an agent\'s note joining a mark puts the mark in pencil', async () => {
+    const kindle = { _id: 'kindle-2', text: 'Proximity is expensive, and founders pay it.', note: '' };
+    const agent = { id: 'token-1', label: 'Claude Code', scopes: ['agent-write'] };
+    await createHighlight({ text: 'Proximity is expensive, and founders pay it.', note: 'He means attention.' }, [kindle], agent);
+    expect(kindle.pencil).toMatchObject({ agent: 'Claude Code', tokenId: 'token-1' });
   });
 
   test('a selection in an article stays its own mark when the sentence repeats', async () => {
