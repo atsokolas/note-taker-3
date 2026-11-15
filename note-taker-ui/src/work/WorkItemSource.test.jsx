@@ -20,7 +20,7 @@ test('destination notebook selection uses the existing draft and never changes t
 
 test('incomplete and offline source receipts never manufacture an undefined note link or notebook', () => {
   const view = render(<WorkItemSource origin={{ quote: 'Offline words', blockId: 'b' }} />);
-  expect(screen.queryByRole('link')).toBeNull(); expect(screen.getByText(/Source pending sync/)).toBeInTheDocument();
+  expect(screen.queryByRole('link')).toBeNull(); expect(screen.getByText(/Link appears once saved/)).toBeInTheDocument();
   view.rerender(<WorkItemSource origin={{ ...origin, noteId: 'local-source' }} />);
   expect(screen.queryByRole('link')).toBeNull(); expect(screen.getByText(/From Customers · 3 Nov 2026/)).toBeInTheDocument();
 });

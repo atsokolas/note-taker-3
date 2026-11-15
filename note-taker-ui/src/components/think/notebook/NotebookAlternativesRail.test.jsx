@@ -47,7 +47,7 @@ test('read tighter shows rescuable cuts and never keeps on textarea Enter', () =
   expect(onRescue).toHaveBeenCalledWith(expect.objectContaining({ phrase: 'really quite' }));
   fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
   expect(onKeep).not.toHaveBeenCalled();
-  expect(screen.getByRole('button', { name: 'Keep tighter read' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Keep shorter' })).toBeEnabled();
 });
 
 test('the first wording previews in place and does not keep itself', () => {

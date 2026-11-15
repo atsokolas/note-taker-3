@@ -71,8 +71,7 @@ const ForkableWikis = () => {
         <p className="muted-label">Start from someone else&apos;s</p>
         <h2 id="forkable-wikis-heading">Wikis you can make your own.</h2>
         <p className="muted">
-          Copy the pages into your workspace and they start being maintained against
-          your reading. The original keeps its version; your copy diverges as you feed it.
+          Make a copy. It keeps growing as you read; the original stays as it is.
         </p>
       </div>
       <div className="forkable-wikis__grid" role="list">

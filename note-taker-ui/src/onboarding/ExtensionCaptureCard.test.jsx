@@ -27,7 +27,7 @@ describe('ExtensionCaptureCard', () => {
     // Absence of a reply is not proof of absence until detection times out.
     expect(screen.getByText(/Checking for the browser extension/)).toBeInTheDocument();
 
-    expect(await screen.findByText('I can only read what reaches me.', {}, { timeout: 3000 }))
+    expect(await screen.findByText('Save from any page.', {}, { timeout: 3000 }))
       .toBeInTheDocument();
     const cta = screen.getByRole('link', { name: 'Add the extension' });
     expect(cta).toHaveAttribute('href', expect.stringContaining('chromewebstore.google.com'));

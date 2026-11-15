@@ -54,17 +54,17 @@ describe('holding a belief from a sentence you marked', () => {
 
   /* Said where the reader typed, not behind them. */
   it('reports a failure without closing', async () => {
-    const onCreate = jest.fn().mockRejectedValue({ response: { data: { error: 'That claim did not save.' } } });
+    const onCreate = jest.fn().mockRejectedValue({ response: { data: { error: 'That view didn’t save. Try again.' } } });
     open({ onCreate });
     fireEvent.change(screen.getByTestId('claim-modal-text'), { target: { value: 'Capex is defensive.' } });
     fireEvent.click(screen.getByTestId('claim-modal-hold'));
-    await waitFor(() => expect(screen.getByText('That claim did not save.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('That view didn’t save. Try again.')).toBeInTheDocument());
     expect(screen.getByTestId('claim-modal-hold')).toBeEnabled();
   });
 
   /* The reason the field is worth filling, said once. */
   it('says what naming a signal buys', () => {
     open();
-    expect(screen.getByText(/your watchers look for it/)).toBeInTheDocument();
+    expect(screen.getByText('Name it and Noeis watches your reading for it.')).toBeInTheDocument();
   });
 });

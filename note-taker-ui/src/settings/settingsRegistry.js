@@ -83,7 +83,7 @@ export const SETTINGS_REGISTRY = Object.freeze([
     id: 'connections',
     section: 'connections',
     title: 'Agent access is in Connections',
-    description: 'Credentials, grants, imports and revocation.',
+    description: 'Agents and imports you’ve connected.',
     keywords: 'agent token mcp permission access integration connect',
     externalPath: '/connections'
   },

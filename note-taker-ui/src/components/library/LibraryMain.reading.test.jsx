@@ -42,7 +42,7 @@ describe('LibraryMain reading recovery', () => {
       articleErrorKind: 'missing'
     });
 
-    expect(screen.getByRole('heading', { name: 'This source left the shelf.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'This article isn’t in your Library any more.' })).toBeInTheDocument();
     expect(screen.getByText('It may have been deleted since this link was made.')).toBeInTheDocument();
     expect(screen.queryByTestId('article-reader')).not.toBeInTheDocument();
 
@@ -56,8 +56,8 @@ describe('LibraryMain reading recovery', () => {
       articleErrorKind: 'failed'
     });
 
-    expect(screen.getByRole('heading', { name: 'The shelf did not answer.' })).toBeInTheDocument();
-    expect(screen.getByText('Your place is held. Try again when the connection settles.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Couldn’t load.' })).toBeInTheDocument();
+    expect(screen.getByText('Couldn’t connect. Your place is kept. Try again.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(onRetryArticle).toHaveBeenCalledTimes(1);
   });
@@ -71,6 +71,6 @@ describe('LibraryMain reading recovery', () => {
 
     expect(screen.getByTestId('article-reader')).toHaveTextContent('A source worth keeping');
     expect(screen.getByRole('status')).toHaveTextContent('Your reading copy is still here.');
-    expect(screen.queryByRole('heading', { name: 'The shelf did not answer.' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Couldn’t load.' })).not.toBeInTheDocument();
   });
 });

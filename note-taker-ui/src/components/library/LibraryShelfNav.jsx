@@ -455,7 +455,7 @@ const LibraryShelfNav = ({
               aria-expanded="true"
               onClick={() => setCabinetOpen(false)}
             >
-              Close the cabinet
+              Close
             </button>
           ) : null}
         </RoomShelfSection>

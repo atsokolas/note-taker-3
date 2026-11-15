@@ -1717,7 +1717,7 @@ describe('OpenSentence', () => {
     expect(screen.getByLabelText('What remains unknown')).toHaveValue('');
     expect(screen.getByLabelText('For this experiment')).toHaveAttribute(
       'placeholder',
-      'Name the change. Do not invent a chain.'
+      'What changes?'
     );
     expect(screen.getByLabelText('What still holds')).not.toHaveAttribute('placeholder');
     expect(screen.getByLabelText('What remains unknown')).not.toHaveAttribute('placeholder');
@@ -2893,7 +2893,7 @@ describe('OpenSentence', () => {
         <OpenSentence exploration={rehearsed} onChange={onChange} mocked />
       </MemoryRouter>
     );
-    expect(screen.getByText('A rehearsal, not a grade.')).toBeInTheDocument();
+    expect(screen.getByText('Practice. Nothing is scored.')).toBeInTheDocument();
     expect(screen.getByLabelText('Try saying it')).toHaveValue(STORYBOARD_REHEARSAL);
     expect(screen.getByText('Still beside this explanation.')).toBeInTheDocument();
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
@@ -2919,7 +2919,7 @@ describe('OpenSentence', () => {
         <OpenSentence exploration={drafted} onChange={onChange} mocked />
       </MemoryRouter>
     );
-    expect(screen.getByText('Unwritten work, not the article.')).toBeInTheDocument();
+    expect(screen.getByText('Notes for later, not the article.')).toBeInTheDocument();
     expect(screen.getByLabelText('What this collection could become')).toHaveValue(STORYBOARD_UNWRITTEN);
     expect(screen.getByLabelText('What still stops it')).toHaveValue(STORYBOARD_UNWRITTEN_GAP);
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
@@ -2938,7 +2938,7 @@ describe('OpenSentence', () => {
         <OpenSentence exploration={pending} onChange={onChange} mocked />
       </MemoryRouter>
     );
-    expect(screen.queryByText('A snapshot. It is not a publication.')).not.toBeInTheDocument();
+    expect(screen.queryByText('A copy. Not published.')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Include Nomad' }));
     expect(onChange).toHaveBeenCalledWith(includeCarryPassage(pending, 'source'));
     const withSource = includeCarryPassage(pending, 'source');
@@ -2977,7 +2977,7 @@ describe('OpenSentence', () => {
         <OpenSentence exploration={snapshot} onChange={onChange} mocked />
       </MemoryRouter>
     );
-    expect(screen.getByText('A snapshot. It is not a publication.')).toBeInTheDocument();
+    expect(screen.getByText('A copy. Not published.')).toBeInTheDocument();
     expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(STORYBOARD_CARRY_QUESTION);
     expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(STORYBOARD_SOURCE.passage);
     expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(STORYBOARD_MEET_SOURCE.passage);
@@ -3004,7 +3004,7 @@ describe('OpenSentence', () => {
         <OpenSentence exploration={pending} onChange={onChange} mocked />
       </MemoryRouter>
     );
-    expect(screen.queryByText('Two contributions. Not a consensus.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Two views, side by side.')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Shared question'), {
       target: { value: STORYBOARD_CONTRIBUTIONS_QUESTION }
     });
@@ -3017,7 +3017,7 @@ describe('OpenSentence', () => {
         <OpenSentence exploration={asked} onChange={onChange} mocked />
       </MemoryRouter>
     );
-    expect(screen.getByText('Two contributions. Not a consensus.')).toBeInTheDocument();
+    expect(screen.getByText('Two views, side by side.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Different values' }));
     expect(onChange).toHaveBeenCalledWith(setContributionKind(asked, 'values'));
     const named = setContributionFields(asked, {
@@ -3054,7 +3054,7 @@ describe('OpenSentence', () => {
         />
       </MemoryRouter>
     );
-    expect(screen.queryByText('Two contributions. Not a consensus.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Two views, side by side.')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Shared question')).toHaveValue(STORYBOARD_CONTRIBUTIONS_QUESTION);
   });
 

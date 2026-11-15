@@ -34,7 +34,7 @@ const NotebookCuttings = ({ onOpen }) => {
         titleId="notebook-cuttings-title"
         title="Cuttings"
         lede={cuttings === null ? 'Gathering what you cut…'
-          : 'Everything you dimmed or set aside, from every piece. Nothing here is lost.'}
+          : 'Everything you cut, from all your writing. Nothing is lost.'}
       />
       <p className="notebook-cuttings__said" role="status">{said}</p>
       {cuttings?.length ? (

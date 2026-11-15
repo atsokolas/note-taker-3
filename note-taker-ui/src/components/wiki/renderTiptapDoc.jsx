@@ -100,7 +100,7 @@ const renderWikiLinkTarget = ({ label = '', page = null, key = '', options = {} 
         className="wiki-internal-link wiki-internal-link--static"
         data-wiki-page-id={targetId}
         data-wiki-title={targetTitle}
-        title="Private wiki backlink hidden on the public share."
+        title="Private link, hidden here."
       >
         {cleanLabel}
       </span>

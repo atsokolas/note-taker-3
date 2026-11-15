@@ -262,9 +262,9 @@ const WikiLivingThesis = ({ page, pageId, onPageUpdate, onCanonicalPage }) => {
       >
         <div className="wiki-thesis__heading">
           <div className="wiki-thesis__question">
-            <p>Governing question</p>
+            <p>The question</p>
             {activeSection === 'core' ? (
-              <textarea aria-label="Governing question" value={draft.governingQuestion || ''} onChange={event => setValue('governingQuestion', event.target.value)} />
+              <textarea aria-label="The question" value={draft.governingQuestion || ''} onChange={event => setValue('governingQuestion', event.target.value)} />
             ) : <h2>{judgment.governingQuestion || 'No governing question recorded'}</h2>}
           </div>
           <button

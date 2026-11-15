@@ -64,7 +64,7 @@ test('confirm creates one fresh page with immutable line outside editable prose 
 test('changed source asks for re-review and a new explicit confirmation', async () => {
   api.post.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...source, revision: 3, workingState: { revision: 3, nextTimeLine: { text: 'Changed line' } } } } } });
   await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note/ })); fireEvent.click(await screen.findByRole('button', { name: 'Continue →' }));
-  expect(await screen.findByText(/source changed/i)).toBeInTheDocument(); expect(within(screen.getByRole('dialog')).getByText('Changed line')).toBeInTheDocument(); expect(api.post).toHaveBeenCalledTimes(1);
+  expect(await screen.findByText(/original changed/i)).toBeInTheDocument(); expect(within(screen.getByRole('dialog')).getByText('Changed line')).toBeInTheDocument(); expect(api.post).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole('button', { name: 'Continue →' })); await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
   expect(api.post.mock.calls[1][1].expectedRevision).toBe(3); expect(api.post.mock.calls[1][1].operationId).not.toBe(api.post.mock.calls[0][1].operationId);
 });
@@ -83,7 +83,7 @@ test('storage failure keeps page open with copy and recovery choices', async () 
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Unsaved' } });
   fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /^Today/ }));
   expect(screen.getByRole('dialog', { name: 'Keep your writing' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Download recovery' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Download a copy' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Stay' })); set.mockRestore();
 });
 
@@ -95,7 +95,7 @@ test('development StrictMode remount still loads and edits Work notes', async ()
 test('cancelling changed-source review does not rebase an unseen body onto a newer revision', async () => {
   api.post.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...source, revision: 3, content: 'Other device body', workingState: { revision: 3, nextTimeLine: { text: 'New return line' } } } } } });
   await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note/ })); fireEvent.click(await screen.findByRole('button', { name: 'Continue →' }));
-  await screen.findByText(/source changed/i); fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  await screen.findByText(/original changed/i); fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('Original account');
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Still my version' } }); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
   await waitFor(() => expect(api.put).toHaveBeenCalled()); expect(api.put.mock.calls[0][1].expectedRevision).toBe(2);
@@ -103,9 +103,9 @@ test('cancelling changed-source review does not rebase an unseen body onto a new
 test('conflict review presents server prose without exposing stored HTML markup', async () => {
   await open(); api.put.mockRejectedValue({ response: { status: 409, data: { current: { ...source, revision: 3, content: '<p>Other device <strong>words</strong>.</p>' } } } });
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Local version' } }); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
-  await screen.findByText('Both versions are kept. Your version remains in the editor.');
-  fireEvent.click(screen.getByText('Review the server version'));
-  const details = screen.getByText('Review the server version').closest('details');
+  await screen.findByText('This note was changed somewhere else. Both versions are kept.');
+  fireEvent.click(screen.getByText('See the other version'));
+  const details = screen.getByText('See the other version').closest('details');
   expect(details.textContent).toContain('Other device words'); expect(details.textContent).not.toContain('<p>'); expect(details.textContent).not.toContain('<strong>');
 });
 
@@ -143,7 +143,7 @@ test('account lock truthfully retains memory-only writing and unlocks when its o
   fireEvent(window, new StorageEvent('storage', { key: 'token' }));
   expect(screen.getByText(/not saved on this device/i)).toBeInTheDocument();
   expect(screen.queryByDisplayValue('Only in this page')).toBeNull();
-  expect(screen.getByRole('button', { name: 'Log in to the original account' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Log in to that account' })).toBeInTheDocument();
   set.mockRestore(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.renewed`);
   fireEvent(window, new StorageEvent('storage', { key: 'token' }));
   expect(await screen.findByDisplayValue('Only in this page')).toBeInTheDocument();
@@ -157,7 +157,7 @@ test('existing inline login restores original-owner memory with refreshed captur
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Recover these words' } });
   localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'other' }))}.x`);
   fireEvent(window, new StorageEvent('storage', { key: 'token' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Log in to the original account' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in to that account' }));
   expect(screen.queryByDisplayValue('Recover these words')).toBeNull(); expect(screen.queryByText('Register here')).toBeNull();
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-test-password' } });
@@ -207,7 +207,7 @@ test('failed and wrong-owner expiry logins hide retained writing until the origi
   fireEvent.click(screen.getByRole('button', { name: 'Log in' })); await screen.findByText('Incorrect password');
   expect(screen.queryByDisplayValue('Private retained words')).toBeNull();
   await login({ data: { token: `x.${btoa(JSON.stringify({ id: 'other' }))}.other` } });
-  await screen.findByText(/That is a different account/); expect(screen.queryByDisplayValue('Private retained words')).toBeNull();
+  await screen.findByText(/That’s a different account/); expect(screen.queryByDisplayValue('Private retained words')).toBeNull();
   expect(api.put).toHaveBeenCalledTimes(1);
   await login(); expect(await screen.findByDisplayValue('Private retained words')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Sync now' })); await waitFor(() => expect(api.put).toHaveBeenCalledTimes(2));

@@ -36,9 +36,9 @@ export const QUESTION_SHARE_ARCHIVE = 'What happened sits beside what was consid
 
 export const QUESTION_SHARE_MANDATE = 'An agent assignment names an owner, scope, tools, budget, stop, and review. The agent pauses when that authority lapses.';
 
-export const QUESTION_SHARE_AGREEMENT = 'What holds';
+export const QUESTION_SHARE_AGREEMENT = 'Where you agree';
 
-export const QUESTION_SHARE_OWNER_REMAINDER = 'What you still hold';
+export const QUESTION_SHARE_OWNER_REMAINDER = 'What you still think';
 
 export const QUESTION_SHARE_OBSERVATION = 'What could move this';
 

@@ -202,9 +202,9 @@ test('failed confirmation storage after a POST leaves the intent and blocks furt
   r.client.importSource = async source => {
     const result = await save(source); r.storage.setItem = () => { throw new Error('confirmation storage failed'); }; return result;
   };
-  await expect(r.session().run()).rejects.toThrow(/Durable/);
+  await expect(r.session().run()).rejects.toThrow(/Saved setup state/);
   expect(JSON.parse([...r.saved.values()][0]).intent).toBe('source-1');
-  await expect(r.session().run()).rejects.toThrow(/Durable/); expect(r.writes).toHaveLength(1);
+  await expect(r.session().run()).rejects.toThrow(/Saved setup state/); expect(r.writes).toHaveLength(1);
   r.storage.setItem = store; r.client.importSource = save;
   await r.session().inspect(); await r.session().run(); expect(r.writes).toHaveLength(4);
 });
@@ -229,7 +229,7 @@ test('storage, ownership, disabled holds, late account switch and complete bindi
     await expect(r.session().run()).rejects.toThrow(/ownership and active holds/); expect(r.writes).toHaveLength(0);
   }
   const unavailable = rig(); unavailable.storage.setItem = () => { throw new Error('blocked storage'); };
-  await expect(unavailable.session().run()).rejects.toThrow(/Durable/); expect(unavailable.writes).toHaveLength(0);
+  await expect(unavailable.session().run()).rejects.toThrow(/Saved setup state/); expect(unavailable.writes).toHaveLength(0);
   const changed = rig(); changed.client.identity.mockResolvedValueOnce(identity()).mockResolvedValueOnce(identity())
     .mockResolvedValue({ ...identity(), userId: id(90) });
   await expect(changed.session().run()).rejects.toThrow(/session changed/); expect(changed.writes).toHaveLength(0);
@@ -470,7 +470,7 @@ test('an issue listed without full detail never establishes absence or permits f
 test('Edition intent storage and shared browser lock fail closed before POST', async () => {
   const r = await editionRig(); const save = r.storage.setItem;
   r.storage.setItem = (key, value) => { if (key === editionKey && JSON.parse(value).intent) throw new Error('storage blocked'); return save(key, value); };
-  await expect(r.session().runEdition()).rejects.toThrow(/Durable/); expect(r.writes).toEqual([]);
+  await expect(r.session().runEdition()).rejects.toThrow(/Saved setup state/); expect(r.writes).toEqual([]);
   const locked = await editionRig(); let release; let started;
   const barrier = new Promise(resolve => { release = resolve; }); const start = new Promise(resolve => { started = resolve; });
   const configure = locked.client.configureEdition;

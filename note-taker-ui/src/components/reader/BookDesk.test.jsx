@@ -54,7 +54,7 @@ test('a number turns the page, and the page stays for the lines after it', async
     .mockResolvedValueOnce({ _id: 'n1', text: '', note: 'he is conflating risk and uncertainty', page: 212, createdAt: new Date().toISOString() })
     .mockResolvedValueOnce({ _id: 'n2', text: '', note: 'or is he?', page: 212, createdAt: new Date().toISOString() });
   render(<Desk marks={[]} />);
-  expect(screen.getByText(/A number turns the page/)).toBeInTheDocument();
+  expect(screen.getByText(/A page number sets the page/)).toBeInTheDocument();
 
   type('212 he is conflating risk and uncertainty');
   await act(async () => keep());
@@ -83,7 +83,7 @@ test('the book finishes a quote you marked on the Kindle, and it stays one mark'
 
   await act(async () => keep());
   expect(createHighlight).toHaveBeenCalledWith({ articleId: 'book-1', text: KINDLE.text, note: '', page: 214 });
-  expect(await screen.findByText('You marked this on your Kindle too. It is one mark now, with your note.')).toBeInTheDocument();
+  expect(await screen.findByText('You marked this on your Kindle too. Now it’s one highlight, with your note.')).toBeInTheDocument();
   expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(1);
 });
 
@@ -171,7 +171,7 @@ test('typing an old mark again picks a set-down book up, though the mark keeps i
   render(<Desk marks={[old]} createdAt="2026-01-01T00:00:00Z" />);
   type(`"${KINDLE.text}`);
   await act(async () => keep());
-  expect(await screen.findByText('You marked this on your Kindle too. It is one mark now, with your note.')).toBeInTheDocument();
+  expect(await screen.findByText('You marked this on your Kindle too. Now it’s one highlight, with your note.')).toBeInTheDocument();
   expect(screen.queryByText('Why’d you stop?')).not.toBeInTheDocument();
 });
 
@@ -206,7 +206,7 @@ test('a quote typed with only its ends says what became of it', async () => {
   render(<Desk marks={[]} />);
   type('9 "The decline … our history');
   await act(async () => keep());
-  expect(await screen.findByText(/Kept as you typed it/)).toBeInTheDocument();
+  expect(await screen.findByText(/The middle fills in from your Kindle/)).toBeInTheDocument();
   expect(screen.getByText('The decline … our history').closest('li')).toHaveAttribute('data-unfinished', 'true');
 });
 
@@ -248,7 +248,7 @@ test('a photograph of the page finishes the quotes typed by their ends, and the 
   pagePhoto.mockResolvedValueOnce('data:image/jpeg;base64,/9j/');
   readBookPage.mockResolvedValueOnce([{ _id: 'u1', text: KINDLE.text }]);
   render(<Desk marks={[typed]} />);
-  const camera = screen.getByLabelText('Photograph the page to finish the quote you typed by its ends');
+  const camera = screen.getByLabelText('Photograph the page to fill in your quote');
   expect(camera).toHaveAttribute('capture', 'environment');
 
   await act(async () => fireEvent.change(camera, { target: { files: [new File(['page'], 'page.jpg', { type: 'image/jpeg' })] } }));

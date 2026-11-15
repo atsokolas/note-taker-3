@@ -175,7 +175,7 @@ export const ArguesWithYou = ({ reading, onSettled }) => {
   return (
     <section className="wiki-collection__argues" aria-label="Your reading argues with you">
       {filed ? (
-        <p role="status">Filed against your view that {viewLink}.</p>
+        <p role="status">Added against your view that {viewLink}.</p>
       ) : (
         <>
           <p>
@@ -184,7 +184,7 @@ export const ArguesWithYou = ({ reading, onSettled }) => {
           </p>
           {after ? <blockquote>{after}</blockquote> : null}
           <p className="wiki-collection__argues-actions">
-            <Button variant="quiet" onClick={file}>File against</Button>
+            <Button variant="quiet" onClick={file}>Add as “against”</Button>
             <Button variant="quiet" onClick={onSettled}>Not now</Button>
           </p>
         </>

@@ -93,10 +93,10 @@ describe('SharedQuestion', () => {
     render(<SharedQuestion />);
     fireEvent.click(await screen.findByRole('button', { name: 'Offer a reading' }));
     fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Mara' } });
-    fireEvent.change(screen.getByLabelText('What you bring'), {
+    fireEvent.change(screen.getByLabelText('Your reading'), {
       target: { value: 'Same fact, different time horizon.' }
     });
-    fireEvent.change(screen.getByLabelText('What you still hold'), {
+    fireEvent.change(screen.getByLabelText('What you still think'), {
       target: { value: 'Who pays when the window closes?' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Offer this reading' }));
@@ -164,7 +164,7 @@ describe('SharedQuestion', () => {
     render(<SharedQuestion />);
     fireEvent.click(await screen.findByRole('button', { name: 'Offer a reading' }));
     fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Mara' } });
-    fireEvent.change(screen.getByLabelText('What you bring'), {
+    fireEvent.change(screen.getByLabelText('Your reading'), {
       target: { value: 'Same fact, different time horizon.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Offer this reading' }));
@@ -230,9 +230,9 @@ describe('SharedQuestion', () => {
     });
 
     render(<SharedQuestion />);
-    expect(await screen.findByTestId('question-share-brief')).toHaveTextContent('What holds');
+    expect(await screen.findByTestId('question-share-brief')).toHaveTextContent('Where you agree');
     expect(screen.getByTestId('question-share-brief')).toHaveTextContent('The fact is shared. The horizon is not.');
-    expect(screen.getByTestId('question-share-brief')).toHaveTextContent('Athan still holds');
+    expect(screen.getByTestId('question-share-brief')).toHaveTextContent('Athan still thinks');
     expect(screen.getByTestId('question-share-readings')).toHaveTextContent('Same fact, different time horizon.');
     expect(screen.queryByRole('button', { name: 'Save this brief' })).not.toBeInTheDocument();
   });

@@ -36,7 +36,7 @@ describe('SystemStatus', () => {
 
     fireEvent.click(screen.getByTestId('system-status-trigger'));
     const popover = screen.getByTestId('system-status-popover');
-    expect(within(popover).getByText('Recoverable failure')).toBeInTheDocument();
+    expect(within(popover).getByText('Something didn’t finish')).toBeInTheDocument();
     expect(within(popover).getByText('Working on')).toBeInTheDocument();
     expect(within(popover).getByText('Just now')).toBeInTheDocument();
     expect(within(popover).getAllByRole('status')).toHaveLength(3);

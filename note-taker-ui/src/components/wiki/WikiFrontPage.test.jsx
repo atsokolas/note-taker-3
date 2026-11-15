@@ -169,9 +169,9 @@ describe('WikiFrontPage collection', () => {
     expect(line).toHaveTextContent('Ben Carlson pushes against your view that Costco can ride out a recession:');
     expect(within(line).getByText(QUOTE)).toBeInTheDocument();
     expect(within(line).getByRole('link', { name: 'Costco can ride out a recession' })).toHaveAttribute('href', '/judgment/view-1');
-    fireEvent.click(within(line).getByRole('button', { name: 'File against' }));
+    fireEvent.click(within(line).getByRole('button', { name: 'Add as “against”' }));
     await waitFor(() => expect(fileReadingProposal).toHaveBeenCalledWith({ pageId: 'view-1', proposalId: 'p1', field: 'against' }));
-    expect(await within(line).findByRole('status')).toHaveTextContent('Filed against your view that Costco can ride out a recession.');
+    expect(await within(line).findByRole('status')).toHaveTextContent('Added against your view that Costco can ride out a recession.');
   });
 
   it('brings back a view on the day it comes due, one step from its verdict', async () => {

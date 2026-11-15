@@ -10,7 +10,7 @@ const SourceRow = ({ item, used, targets, onInsert, onRemove, onGoTo }) => (
       {item.text ? <p>{item.text}</p> : null}
     </div>
     <div className="notebook-workbench__row-actions">
-      {used && targets.length <= 1 ? <Button variant="quiet" onClick={() => onGoTo(targets[0])}>In your draft · Go to passage</Button> : null}
+      {used && targets.length <= 1 ? <Button variant="quiet" onClick={() => onGoTo(targets[0])}>Go to it</Button> : null}
       {used && targets.length > 1 ? (
         <span className="notebook-workbench__citation-choices" aria-label="Citations in this draft">
           <span>In your draft</span>
@@ -58,17 +58,16 @@ const NotebookWorkbenchPanel = ({
     return (
       <section className="notebook-workbench" aria-label="Try another wording">
         <header>
-          <span className="notebook-workbench__eyebrow">PRIVATE EXPERIMENT</span>
           <h2>Try another wording</h2>
           <p>The draft stays unchanged until you use this version.</p>
         </header>
         {trialStatus === 'stale' ? (
           <div className="notebook-workbench__notice" role="status">
-            This paragraph changed. Your trial is safe beside it.
+            The paragraph changed. Your version is still here.
             <Button variant="quiet" onClick={onReviewTrial}>Review against the current paragraph</Button>
           </div>
         ) : trialStatus === 'missing' ? (
-          <p className="notebook-workbench__notice" role="status">The original paragraph is gone. Keep the trial or choose another passage.</p>
+          <p className="notebook-workbench__notice" role="status">The original paragraph is gone. Keep your version, or pick another.</p>
         ) : null}
         <label className="notebook-workbench__field">
           <span>Alternative</span>
@@ -79,7 +78,7 @@ const NotebookWorkbenchPanel = ({
           <Button variant="quiet" onClick={() => onPreviewTrial('trial')}>Read it in place</Button>
           <Button variant="quiet" disabled={!activeTrial.alternative?.trim() || trialStatus !== 'ready'} onClick={onUseTrial}>Use this version</Button>
           <Button variant="quiet" onClick={onKeepOriginal}>Keep my original</Button>
-          <Button variant="quiet" onClick={onDiscardTrial}>Discard trial</Button>
+          <Button variant="quiet" onClick={onDiscardTrial}>Discard</Button>
         </div>
       </section>
     );
@@ -89,9 +88,8 @@ const NotebookWorkbenchPanel = ({
     <section className={`notebook-workbench${simpleScratchpad ? ' notebook-scratchpad' : ''}`} aria-label={mode === 'scratchpad' ? 'Scratchpad' : 'Material beside this note'}>
       {!splitDrawer || mode !== 'scratchpad' ? <>
       <header>
-        <span className="notebook-workbench__eyebrow">MATERIAL</span>
         <h2>Beside this note</h2>
-        <p>Sources and unfinished possibilities stay here until you place them.</p>
+        <p>Highlights and half-thoughts wait here until you use them.</p>
       </header>
 
       <div className={`notebook-workbench__target is-${targetStatus || 'missing'}`} role="status">
@@ -160,7 +158,7 @@ const NotebookWorkbenchPanel = ({
 
       {asidePieces.length ? (
         <div className="notebook-workbench__section">
-          <h3>Trying without</h3>
+          <h3>Without this passage</h3>
           {asidePieces.map(piece => (
             <article className="notebook-workbench__row" key={piece.id}>
               <p>{piece.label || 'Set-aside passage'}</p>

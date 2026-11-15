@@ -391,7 +391,7 @@ describe('OpenSentenceStoryboard', () => {
     renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Rehearse' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
-    expect(screen.getByText('A rehearsal, not a grade.')).toBeInTheDocument();
+    expect(screen.getByText('Practice. Nothing is scored.')).toBeInTheDocument();
     expect(screen.getByLabelText('Try saying it')).toHaveValue(STORYBOARD_REHEARSAL);
     expect(screen.getByText('Still beside this explanation.')).toBeInTheDocument();
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
@@ -403,7 +403,7 @@ describe('OpenSentenceStoryboard', () => {
     renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Unwritten' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
-    expect(screen.getByText('Unwritten work, not the article.')).toBeInTheDocument();
+    expect(screen.getByText('Notes for later, not the article.')).toBeInTheDocument();
     expect(screen.getByLabelText('What this collection could become')).toHaveValue(STORYBOARD_UNWRITTEN);
     expect(screen.getByLabelText('What still stops it')).toHaveValue(STORYBOARD_UNWRITTEN_GAP);
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
@@ -428,7 +428,7 @@ describe('OpenSentenceStoryboard', () => {
     renderBoard();
     fireEvent.click(within(screen.getByRole('tablist', { name: 'Scene' })).getByRole('button', { name: 'Carry' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
-    expect(screen.getByText('A snapshot. It is not a publication.')).toBeInTheDocument();
+    expect(screen.getByText('A copy. Not published.')).toBeInTheDocument();
     expect(screen.getByLabelText('The question')).toHaveValue(STORYBOARD_CARRY_QUESTION);
     expect(screen.getByLabelText('A provisional conclusion')).toHaveValue(STORYBOARD_CARRY_CONCLUSION);
     expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(STORYBOARD_SOURCE.passage);
@@ -448,7 +448,7 @@ describe('OpenSentenceStoryboard', () => {
       })
     );
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
-    expect(screen.getByText('Two contributions. Not a consensus.', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('Two views, side by side.', { exact: true })).toBeInTheDocument();
     expect(screen.getByText('Different values', { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByLabelText('Shared question')).toHaveValue(STORYBOARD_CONTRIBUTIONS_QUESTION);
     expect(screen.getByLabelText('What both accept')).toHaveValue(STORYBOARD_BOTH_ACCEPT);

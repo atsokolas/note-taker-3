@@ -62,7 +62,7 @@ const WikiInbox = () => {
       <div className="wiki-inbox__head">
         <div>
           <p className="wiki-inbox__eyebrow">Source inbox</p>
-          <h2>New material affecting the wiki</h2>
+          <h2>New reading that changes your pages</h2>
         </div>
         <Button type="button" onClick={processPending} disabled={!pendingCount || processingAll}>
           {processingAll ? 'Processing...' : `Process ${pendingCount || ''}`.trim()}

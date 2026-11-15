@@ -125,7 +125,7 @@ const PlaceReading = ({ reading, disabled, onPlace }) => {
     try {
       await onPlace(reading.id);
     } catch (_err) {
-      setError('That reading did not sit beside the question.');
+      setError('Couldn’t add that. Try again.');
     } finally {
       setBusy(false);
     }
@@ -141,7 +141,7 @@ const PlaceReading = ({ reading, disabled, onPlace }) => {
       <p className="muted small">{QUESTION_SHARE_PLACE}</p>
       {error ? <p className="status-message error-message">{error}</p> : null}
       <Button type="button" onClick={place} disabled={disabled || busy}>
-        {busy ? 'Placing…' : 'Let this sit beside the question'}
+        {busy ? 'Placing…' : 'Add to the question'}
       </Button>
     </article>
   );
@@ -446,9 +446,9 @@ const ShareRecords = ({
     try {
       const markdown = await file.text();
       const data = await onBring(markdown);
-      setReceipt(shareRecordReceipt(data?.records) || 'Those records returned.');
+      setReceipt(shareRecordReceipt(data?.records) || 'Restored.');
     } catch (err) {
-      setError(err?.response?.data?.error || 'Those records did not return.');
+      setError(err?.response?.data?.error || 'Couldn’t restore. Try again.');
     } finally {
       setBusy(false);
     }
@@ -493,7 +493,7 @@ const ShareIncludesList = () => (
     </li>
     <li>
       <span className="concept-share-modal__includes-icon" aria-hidden="true">✓</span>
-      A later reading sits beside this question once you place it, not inside it
+      Replies show next to your question, not inside it
     </li>
     <li>
       <span className="concept-share-modal__includes-icon concept-share-modal__includes-icon--neg" aria-hidden="true">—</span>
@@ -501,7 +501,7 @@ const ShareIncludesList = () => (
     </li>
     <li>
       <span className="concept-share-modal__includes-icon concept-share-modal__includes-icon--neg" aria-hidden="true">—</span>
-      Later private edits stay in the workshop until you replace this version
+      Edits stay private until you update the link
     </li>
   </ul>
 );
@@ -646,7 +646,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
   };
 
   const handleRevoke = async () => {
-    if (!window.confirm('Revoke this share link? Anyone with the existing link will lose access immediately.')) return;
+    if (!window.confirm('Turn off this link? It stops working right away.')) return;
     setBusy(true);
     setError('');
     try {

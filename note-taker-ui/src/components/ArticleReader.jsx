@@ -143,12 +143,12 @@ export const PushesAgainst = ({ reading, onSettled }) => {
     }
   };
   if (filed) {
-    return <li>Filed against <Link to={`/judgment/${encodeURIComponent(reading.pageId)}`}>your view</Link>.</li>;
+    return <li>Added against <Link to={`/judgment/${encodeURIComponent(reading.pageId)}`}>your view</Link>.</li>;
   }
   return (
     <li className="article-pushes-against">
-      This pushes against your view that <Link to={`/judgment/${encodeURIComponent(reading.pageId)}`}>{view}</Link>. File it?{' '}
-      <Button variant="quiet" onClick={file}>File against</Button>
+      This pushes against your view that <Link to={`/judgment/${encodeURIComponent(reading.pageId)}`}>{view}</Link>.{' '}
+      <Button variant="quiet" onClick={file}>Add as “against”</Button>
       <Button variant="quiet" onClick={onSettled}>Not now</Button>
     </li>
   );

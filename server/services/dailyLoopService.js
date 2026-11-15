@@ -99,7 +99,7 @@ const buildWatcherLeads = async ({ userId, models = {}, since = null, limit = 12
       maintenanceStatus: String(run?.status || (event.status === 'processed' ? 'completed' : event.status || 'queued')),
       analyzed,
       claimImpacts,
-      impactSummary: analyzed ? claimImpactSummary(claimImpacts) : 'not yet analyzed — queued',
+      impactSummary: analyzed ? claimImpactSummary(claimImpacts) : '',
       href: pageId ? `/wiki/workspace?page=${encodeURIComponent(pageId)}` : '/wiki'
     };
   });

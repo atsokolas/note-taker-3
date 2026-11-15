@@ -162,9 +162,9 @@ const WikiBuildPageComposer = ({ className = '', compact = false, inputRef, onBu
       </div>
       {!compact && creationMode === 'living_thesis' ? (
         <div className="wiki-build-page__thesis-question">
-          <label htmlFor="wiki-living-thesis-question">Governing question</label>
-          <textarea id="wiki-living-thesis-question" value={governingQuestion} onChange={event => setGoverningQuestion(event.target.value)} placeholder="What consequential question will this thesis maintain?" />
-          <p>No conclusion or claims will be drafted for you.</p>
+          <label htmlFor="wiki-living-thesis-question">The question</label>
+          <textarea id="wiki-living-thesis-question" value={governingQuestion} onChange={event => setGoverningQuestion(event.target.value)} placeholder="What do you want to figure out?" />
+          <p>Noeis won’t write the answer for you.</p>
         </div>
       ) : null}
       {(busy || tickerLines.length > 0) ? (

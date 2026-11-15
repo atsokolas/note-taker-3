@@ -2,7 +2,7 @@
   "title": "Noeis: reading that compounds",
   "description": "Bring in your Kindle highlights, Readwise, books and saved links. Noeis connects each new thing you read to what you already know, and grows a wiki of your own that cites every source.",
   "headline": "Everything you read should add up.",
-  "lede": "Noeis keeps what you read, connects each new book and highlight to what came before, and writes it into a wiki of your own that cites every source.",
+  "lede": "Noeis keeps what you read, connects each new book and highlight to what came before, and writes it into a wiki of your own that cites every line.",
   "primaryCta": {
     "label": "Get started",
     "href": "/register"
@@ -34,12 +34,12 @@
       "copy": "Kindle highlights, Readwise, the books on your desk, links you saved. Years of reading arrive on the first day."
     },
     {
-      "title": "Each new thing lands on the old.",
-      "copy": "Save an article or type a line from a book, and Noeis quotes what it echoes or argues with in everything you have read."
+      "title": "What you read today finds what you read last year.",
+      "copy": "Save an article or type a line from a book, and Noeis shows you what it agrees or argues with, quoting your own highlights."
     },
     {
       "title": "A wiki that grows as you read.",
-      "copy": "Pages are written from your highlights and notes, cite them, and say where two sources disagree. Ask it anything and get your own reading back, or connect Claude Code, Codex and other agents."
+      "copy": "Pages are written from your highlights and notes, cite every line, and say where two books disagree. Ask it anything and get your own reading back. Claude Code, Codex and other agents can read it too."
     }
   ],
   "guideLinks": [

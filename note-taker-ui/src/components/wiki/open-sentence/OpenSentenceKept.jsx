@@ -161,7 +161,7 @@ const ExhibitWork = ({ pocketId, exploration, onCommit }) => {
         label="Name this exhibit"
         value={pending.name}
         onChange={(value) => onCommit(setExhibitField(exploration, 'name', value))}
-        placeholder="Name the illustration. Do not claim evidence."
+        placeholder="What does this illustrate?"
         rows={1}
       />
       <PocketField
@@ -169,14 +169,14 @@ const ExhibitWork = ({ pocketId, exploration, onCommit }) => {
         label="This way"
         value={pending.thisWay}
         onChange={(value) => onCommit(setExhibitField(exploration, 'thisWay', value))}
-        placeholder="One reading. Visible assumptions stay yours."
+        placeholder="One way to read it"
       />
       <PocketField
         id={`${pocketId}-exhibit-other`}
         label="The other way"
         value={pending.otherWay}
         onChange={(value) => onCommit(setExhibitField(exploration, 'otherWay', value))}
-        placeholder="A different reading of the same material."
+        placeholder="Another way to read it"
       />
       <button
         type="button"
@@ -213,14 +213,14 @@ const RehearsalWork = ({ pocketId, exploration, onCommit }) => {
   return (
     <div className="open-sentence-pocket__pressure">
       {liveRehearsal(exploration) ? (
-        <p className="open-sentence-pocket__proposal">A rehearsal, not a grade.</p>
+        <p className="open-sentence-pocket__proposal">Practice. Nothing is scored.</p>
       ) : null}
       <PocketField
         id={`${pocketId}-rehearsal`}
         label="Try saying it"
         value={pending.attempt}
         onChange={(value) => onCommit(setRehearsalAttempt(exploration, value))}
-        placeholder="Your explanation stays yours."
+        placeholder="Say it in your own words"
       />
       {beside ? (
         <>
@@ -251,21 +251,21 @@ const UnwrittenWork = ({ pocketId, exploration, onCommit }) => {
   return (
     <div className="open-sentence-pocket__pressure">
       {liveUnwritten(exploration) ? (
-        <p className="open-sentence-pocket__proposal">Unwritten work, not the article.</p>
+        <p className="open-sentence-pocket__proposal">Notes for later, not the article.</p>
       ) : null}
       <PocketField
         id={`${pocketId}-unwritten`}
         label="What this collection could become"
         value={pending.question}
         onChange={(value) => onCommit(setUnwrittenField(exploration, 'question', value))}
-        placeholder="An organizing question. Do not ghostwrite the thesis."
+        placeholder="The question this piece would answer"
       />
       <PocketField
         id={`${pocketId}-unwritten-gap`}
         label="What still stops it"
         value={pending.gap}
         onChange={(value) => onCommit(setUnwrittenField(exploration, 'gap', value))}
-        placeholder="The gap stays a gap."
+        placeholder="What you don’t know yet"
       />
       <button type="button" onClick={() => onCommit(leaveUnwritten(exploration))}>
         Leave the unwritten work
@@ -317,7 +317,7 @@ const CarryWork = ({ pocketId, exploration, onCommit }) => {
   return (
     <div className="open-sentence-pocket__pressure">
       {carry ? (
-        <p className="open-sentence-pocket__proposal">A snapshot. It is not a publication.</p>
+        <p className="open-sentence-pocket__proposal">A copy. Not published.</p>
       ) : null}
       {carry ? (
         <div className="open-sentence-pocket__preview" aria-label="What a recipient would see">
@@ -332,7 +332,7 @@ const CarryWork = ({ pocketId, exploration, onCommit }) => {
         label="The question"
         value={pending.question}
         onChange={(value) => onCommit(setCarryField(exploration, 'question', value))}
-        placeholder="One question. Do not share the whole Library."
+        placeholder="One question to share"
       />
       {canFillCarryQuestion(exploration) ? (
         <button type="button" onClick={() => onCommit(fillCarryQuestion(exploration))}>
@@ -346,7 +346,7 @@ const CarryWork = ({ pocketId, exploration, onCommit }) => {
         label="A provisional conclusion"
         value={pending.conclusion}
         onChange={(value) => onCommit(setCarryField(exploration, 'conclusion', value))}
-        placeholder="Provisional. Not a published finding."
+        placeholder="What you think so far"
       />
       {canFillCarryBetween(exploration) ? (
         <button type="button" onClick={() => onCommit(fillCarryBetween(exploration))}>
@@ -377,7 +377,7 @@ const ContributionWork = ({ pocketId, exploration, onCommit }) => {
   return (
     <div className="open-sentence-pocket__pressure">
       {live ? (
-        <p className="open-sentence-pocket__proposal">Two contributions. Not a consensus.</p>
+        <p className="open-sentence-pocket__proposal">Two views, side by side.</p>
       ) : null}
       {namedKind ? (
         <p className="open-sentence-pocket__qualification">{namedKind}</p>
@@ -387,7 +387,7 @@ const ContributionWork = ({ pocketId, exploration, onCommit }) => {
         label="Shared question"
         value={pending.question}
         onChange={(value) => onCommit(setContributionField(exploration, 'question', value))}
-        placeholder="One question both are answering. Not a merged belief."
+        placeholder="The question you both answer"
       />
       {canFillContributionQuestion(exploration) ? (
         <button type="button" onClick={() => onCommit(fillContributionQuestion(exploration))}>
@@ -412,28 +412,28 @@ const ContributionWork = ({ pocketId, exploration, onCommit }) => {
         label="What both accept"
         value={pending.bothAccept}
         onChange={(value) => onCommit(setContributionField(exploration, 'bothAccept', value))}
-        placeholder="What both still hold. Silence is allowed."
+        placeholder="Where you agree (optional)"
       />
       <PocketField
         id={`${pocketId}-contribution-this`}
         label={`What ${contributionName(exploration, 'source')} still disputes`}
         value={pending.thisDisputes}
         onChange={(value) => onCommit(setContributionField(exploration, 'thisDisputes', value))}
-        placeholder="This contribution's remaining dispute. Not a motive."
+        placeholder="Where the first one disagrees"
       />
       <PocketField
         id={`${pocketId}-contribution-other`}
         label={`What ${contributionName(exploration, 'other')} still disputes`}
         value={pending.otherDisputes}
         onChange={(value) => onCommit(setContributionField(exploration, 'otherDisputes', value))}
-        placeholder="The other contribution's remaining dispute. Not a motive."
+        placeholder="Where the second one disagrees"
       />
       <PocketField
         id={`${pocketId}-contribution-observation`}
         label="What observation might help"
         value={pending.observation}
         onChange={(value) => onCommit(setContributionField(exploration, 'observation', value))}
-        placeholder="What would help. Not a verdict."
+        placeholder="What would settle it"
       />
       <button type="button" onClick={() => onCommit(leaveContributions(exploration))}>
         Leave this meeting

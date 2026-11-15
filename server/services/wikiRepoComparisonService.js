@@ -201,9 +201,9 @@ const buildRepoEditorialReview = (comparison = {}) => {
       && /package\.json/i.test(after)) {
       addRisk(
         'documentation_source_weakened',
-        'The claim now points to metadata instead of the actual documentation',
+        'The claim now points to package.json instead of the actual documentation',
         'The rewrite replaces the package README with package.json as the file said to document runtime transport.',
-        'Package metadata can prove entrypoints and scripts, but it should not replace the repository documentation that explains behavior.'
+        'package.json can prove entrypoints and scripts, but it should not replace the repository documentation that explains behavior.'
       );
     }
   });

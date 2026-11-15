@@ -23,7 +23,7 @@ it('does not discard a draft on a conflicting or failed save', async () => {
   render(<ThoughtComposer editionId="e" itemId="i" label="Your thought" thoughts={[]} />);
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Keep this draft' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save thought' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('changed elsewhere');
+  expect(await screen.findByRole('alert')).toHaveTextContent('changed this somewhere else');
   expect(screen.getByRole('textbox')).toHaveValue('Keep this draft');
   expect(readEditionLocal('e', 'draft:i').content).toBe('Keep this draft');
 });

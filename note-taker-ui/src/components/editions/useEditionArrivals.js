@@ -77,7 +77,7 @@ export default function useEditionArrivals({ limit = 40, paper = '', by = '' } =
     try {
       await setEditionItemState(row.editionId, row.itemId, 'opened');
     } catch (_error) {
-      throw new Error('Saved to Library, but New could not clear. Choose Seen to finish.');
+      throw new Error('Saved. Mark it seen to clear it.');
     }
     setUndo(null);
     setReceipt({ action: 'kept', row });

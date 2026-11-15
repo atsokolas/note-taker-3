@@ -17,7 +17,7 @@ const NoteStage = ({ board, onMove }) => {
 
   return (
     <div className="note-stage">
-      <div role="group" aria-label="Where this piece stands" className="note-stage__words">
+      <div role="group" aria-label="Stage" className="note-stage__words">
         {STAGES.map(({ key, label }) => (
           <button
             key={key}

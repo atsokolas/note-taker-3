@@ -153,7 +153,7 @@ describe('ThinkNotes first paint', () => {
   it('starts an idea from a line typed on the desk', async () => {
     api.post.mockResolvedValue({ data: { _id: 'typed-note', title: 'Why rereading wins', blocks: [] } });
     render(<ThinkNotes />);
-    const line = await screen.findByRole('textbox', { name: 'A new thought becomes an idea' });
+    const line = await screen.findByRole('textbox', { name: 'New idea' });
     fireEvent.change(line, { target: { value: '  Why rereading wins ' } });
     fireEvent.submit(line);
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/api/notebook', expect.objectContaining({ title: 'Why rereading wins' }), expect.anything()));
@@ -163,7 +163,7 @@ describe('ThinkNotes first paint', () => {
   it('keeps the typed thought when the idea cannot be confirmed', async () => {
     api.post.mockRejectedValue(new Error('offline'));
     render(<ThinkNotes />);
-    const line = await screen.findByRole('textbox', { name: 'A new thought becomes an idea' });
+    const line = await screen.findByRole('textbox', { name: 'New idea' });
     fireEvent.change(line, { target: { value: 'Why rereading wins' } });
     fireEvent.submit(line);
     expect(await screen.findByText(/Could not confirm the new note/)).toBeInTheDocument();

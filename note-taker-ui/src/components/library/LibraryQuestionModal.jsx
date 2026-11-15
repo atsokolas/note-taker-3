@@ -31,7 +31,7 @@ const LibraryQuestionModal = ({ open, highlight, onClose, onCreate, onAttach }) 
     <div className="modal-overlay">
       <div className="modal-content" style={{ maxWidth: 520 }}>
         <div className="modal-header">
-          <h3>Add to Question</h3>
+          <h3>Add to question</h3>
           <button className="icon-button" onClick={onClose}>×</button>
         </div>
         {loading && <p className="muted small">Loading questions…</p>}

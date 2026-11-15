@@ -66,7 +66,7 @@ const NotebookAlternativesRail = ({
     ));
   };
   return (
-    <section ref={root} tabIndex={-1} className={`notebook-alternatives${tighter ? ' is-tighter' : ''}`} aria-label={tighter ? 'Read tighter' : 'Alternatives'} onKeyDown={event => {
+    <section ref={root} tabIndex={-1} className={`notebook-alternatives${tighter ? ' is-tighter' : ''}`} aria-label={tighter ? 'Shorter' : 'Alternatives'} onKeyDown={event => {
       if (event.isComposing || event.defaultPrevented) return;
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); leave(); return; }
       if (event.target.tagName === 'TEXTAREA') return;
@@ -76,7 +76,7 @@ const NotebookAlternativesRail = ({
       } else if (event.key === 'Enter' && (event.target === root.current || event.target.hasAttribute('data-compare')) && preview !== 'original' && ready) { event.preventDefault(); onKeep(); }
     }}>
       <header>
-        <span>{tighter ? 'Read tighter' : 'Alternatives'}</span>
+        <span>{tighter ? 'Shorter' : 'Alternatives'}</span>
         <button type="button" onClick={leave} aria-label="Close alternatives">×</button>
       </header>
       {unsupportedReason ? <p role="status" className="notebook-workbench__notice">{unsupportedReason}</p> : null}
@@ -97,11 +97,11 @@ const NotebookAlternativesRail = ({
             <button type="button" data-compare="" className="notebook-alternatives__choice" aria-pressed={preview === 'trial' && item.id === trial.id} onClick={() => onChoose(item)}>
               <span>{item.alternative}</span>
               {item.partnerExplanation ? <small>{item.partnerExplanation}</small> : null}
-              {item.origin === 'partner' && !item.partnerExplanation ? <small>partner proposal</small> : null}
+              {item.origin === 'partner' && !item.partnerExplanation ? <small>Partner’s</small> : null}
             </button>
             {preview === 'trial' && item.id === trial.id ? (
               <div className="notebook-alternatives__choice-actions">
-                <button type="button" disabled={!ready} onClick={onKeep}>{tighter ? 'Keep tighter read' : 'Keep wording'}</button>
+                <button type="button" disabled={!ready} onClick={onKeep}>{tighter ? 'Keep shorter' : 'Keep wording'}</button>
                 <button type="button" onClick={onDiscard}>Discard</button>
               </div>
             ) : null}
@@ -136,7 +136,7 @@ const NotebookAlternativesRail = ({
                 {partnerOptionsStatus === 'loading' ? 'Partner options…' : 'Partner options'}
               </button>
             ) : null}
-            <button type="button" onClick={onAsk}>{tighter ? 'Ask for a tighter read' : 'Ask Partner'}</button>
+            <button type="button" onClick={onAsk}>{tighter ? 'Ask Partner for shorter' : 'Ask Partner'}</button>
             <p>Suggestions stay in this list until you keep one.</p>
           </div>
         ) : null}

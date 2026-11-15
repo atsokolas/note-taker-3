@@ -115,7 +115,7 @@ describe('LibraryShelfNav', () => {
       expect(screen.getByRole('button', { name: 'Investing' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Close the cabinet' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
       expect(screen.queryByRole('button', { name: 'Investing' })).not.toBeInTheDocument();
     });
 

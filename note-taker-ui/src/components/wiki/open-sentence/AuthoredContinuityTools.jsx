@@ -47,7 +47,7 @@ export default function AuthoredContinuityTools({ authorship, recovery = false }
       <button type="button" disabled={!ready} onClick={() => run(async () => {
         downloadAuthoredFile(fieldKitDocument({ owner, record }), 'noeis-field-kit.html', 'text/html');
         setMessage('Field kit download requested. Keep the file where you can find it.');
-      })}>Download field kit</button>
+      })}>Download to work offline</button>
       {!recovery ? <label className="open-sentence-pocket__label">
         Bring back offline changes
         <input type="file" accept=".json,application/json" disabled={!ready} onChange={event => {

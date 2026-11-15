@@ -183,7 +183,7 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
       ) : items && !more ? (
         <div className="power-through__done">
           <h2>{decided ? 'All caught up.' : 'Nothing waiting.'}</h2>
-          <p>New findings join the stack as your agents file them.</p>
+          <p>New findings show up here as your agents write them.</p>
           <button type="button" onClick={onClose}>Back to your papers</button>
         </div>
       ) : null}

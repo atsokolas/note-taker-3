@@ -58,7 +58,7 @@ const ThinkDesk = ({ working, ideas, closed, onOpen, onView, onStart, creating, 
       ) : null}
 
       <form className="think-desk__start" onSubmit={start}>
-        <label htmlFor="think-desk-thought">A new thought becomes an idea</label>
+        <label htmlFor="think-desk-thought">New idea</label>
         <input
           id="think-desk-thought"
           value={thought}

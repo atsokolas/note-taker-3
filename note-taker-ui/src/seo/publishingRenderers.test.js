@@ -26,7 +26,7 @@ describe('publishing renderers', () => {
 
     expect(html).toContain(homeCopy.headline);
     homeCopy.statements.forEach(({ title }) => expect(html).toContain(title));
-    expect(html).toContain('connect Claude Code, Codex and other agents');
+    expect(html).toContain('Claude Code, Codex and other agents can read it too');
     expect(html).toContain('id="how-it-works"');
     expect(html).toContain('href="/guides"');
     expect(html).toContain('href="/examples"');
@@ -63,8 +63,8 @@ describe('publishing renderers', () => {
   it('renders a curated examples page for source-grounded public wikis', () => {
     const html = renderExamplesPage(publishingContent);
 
-    expect(html).toContain('Source-Grounded Wiki Examples | Noeis');
-    expect(html).toContain('Curated public Noeis wikis');
+    expect(html).toContain('Wiki examples | Noeis');
+    expect(html).toContain(publishingContent.hubs.examples.lede);
     expect(html).toContain('href="/share/wiki/collection/mental-models"');
     expect(html).toContain('href="/from-saved-article-to-draft-in-noeis"');
     expect(html).toContain('"@type":"CollectionPage"');

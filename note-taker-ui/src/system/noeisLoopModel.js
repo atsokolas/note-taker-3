@@ -59,17 +59,17 @@ export const validateLoopStatusEnvelope = (candidate) => {
 export const createCheckingLoopSnapshot = () => Object.freeze(Object.fromEntries(NOEIS_LOOP_IDS.map(id => [id, Object.freeze({
   id,
   status: 'checking',
-  reason: 'Durable loop status is being checked.',
+  reason: 'Checking background work…',
   updatedAt: null,
   href: '',
   receipt: null,
   metrics: {}
 })])));
 
-export const createErrorLoopSnapshot = (reason = 'Durable loop status could not be checked.') => Object.freeze(Object.fromEntries(NOEIS_LOOP_IDS.map(id => [id, Object.freeze({
+export const createErrorLoopSnapshot = (reason = 'Couldn’t check background work.') => Object.freeze(Object.fromEntries(NOEIS_LOOP_IDS.map(id => [id, Object.freeze({
   id,
   status: 'error',
-  reason: String(reason || 'Durable loop status could not be checked.').trim(),
+  reason: String(reason || 'Couldn’t check background work.').trim(),
   updatedAt: null,
   href: '',
   receipt: null,

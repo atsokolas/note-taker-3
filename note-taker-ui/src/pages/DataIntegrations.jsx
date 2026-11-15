@@ -2699,7 +2699,7 @@ const DataIntegrations = () => {
         <Card className="settings-card">
           <div className="import-session-header">
             <div>
-              <h2>Current import state</h2>
+              <h2>Importing now</h2>
               <p className="muted">
                 {sessionLoading ? 'Loading current session…' : (currentSession?.sourceLabel || 'No active session')}
               </p>
@@ -3015,7 +3015,7 @@ const DataIntegrations = () => {
             />
           )}
           {notionConnection?.lastSyncAt ? (
-            <p className="muted small">Where it lands: Library search, Think retrieval, and Morning Paper source maintenance.</p>
+            <p className="muted small">They show up in Library search, in Think and in your Morning Paper.</p>
           ) : null}
           <div className="import-callout">
             <p className="muted-label">Live flow</p>
@@ -3237,7 +3237,7 @@ const DataIntegrations = () => {
           </Card>
 
           <Card className="settings-card">
-            <h2>Manual note entry</h2>
+            <h2>Type a note</h2>
             <p className="muted">Create notebook entries directly in the web UI while still recording import/session metadata for activation.</p>
             <form className="capture-form" onSubmit={handleManualCreate}>
               <label className="capture-label" htmlFor="manual-note-title">Title</label>
@@ -3279,7 +3279,7 @@ const DataIntegrations = () => {
           </Card>
 
           <Card className="settings-card">
-            <h2>Direct paste import</h2>
+            <h2>Paste text</h2>
             <p className="muted">Paste plain text, markdown, or Readwise CSV and run it through the same session + activation pipeline.</p>
             <form className="capture-form" onSubmit={handlePasteImport}>
               <label className="capture-label" htmlFor="paste-note-title">Title (optional)</label>

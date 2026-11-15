@@ -83,7 +83,6 @@
 
 /* Eyebrows and section labels are quiet sans, said once, at reading size. */
 .wiki-index .wiki-index__eyebrow,
-.wiki-index .wiki-corpus-shape__summary span,
 .wiki-index .wiki-index-source-drop > div > span,
 .wiki-workspace .wiki-index__eyebrow {
   color: var(--text-muted, var(--vellum-subtle));
@@ -215,25 +214,6 @@
 }
 
 /* ---- What the corpus is shaped like ------------------------------------- */
-
-.wiki-index .wiki-corpus-shape {
-  padding: 14px 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
-}
-
-.wiki-index .wiki-corpus-shape__summary strong {
-  font-family: var(--font-serif);
-  font-size: 1rem;
-  font-weight: 400;
-}
-
-.wiki-index .wiki-corpus-shape__metrics span {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-sans);
-  font-size: 0.84rem;
-  font-weight: 400;
-}
 
 /* ---- When the map has nothing to show yet -------------------------------- */
 

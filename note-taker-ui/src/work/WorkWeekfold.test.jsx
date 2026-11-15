@@ -122,7 +122,7 @@ test('filing linked items reports a partial failure honestly and Undo restores e
   fireEvent.click(within(place).getByRole('button', { name: 'Customer discovery' })); fireEvent.click(within(place).getByRole('button', { name: 'Launch planning' }));
   const dialog = await screen.findByRole('dialog', { name: 'Move note' }); fireEvent.click(within(dialog).getByRole('checkbox'));
   fireEvent.click(within(dialog).getByRole('button', { name: 'Move note', exact: true }));
-  await waitFor(() => expect(screen.getByText(/Some filing changes need sync or review/)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/A few moves didn’t save/)).toBeInTheDocument());
   expect(screen.queryByText('Filed in Launch planning.')).toBeNull(); expect(records.find(x => x._id === 'note').content).toBe(original);
   fireEvent.click(screen.getByRole('button', { name: 'Undo', exact: true }));
   await waitFor(() => expect(records.find(x => x._id === 'note').folder).toBe('f'));
@@ -140,8 +140,8 @@ test.each(['task', 'appointment'])('standalone %s conflicts open both versions r
   const form = await screen.findByRole('dialog', { name: kind === 'appointment' ? 'Edit appointment' : 'Edit follow-up' });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'standalone'), revision: 1, title: 'Other device version' } } } });
   fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My version' } }); fireEvent.click(within(form).getByRole('button', { name: 'Save item' }));
-  const review = await screen.findByRole('dialog', { name: 'Review both item versions' }); expect(review).toHaveTextContent('Other device version'); expect(review).toHaveTextContent('My version');
-  fireEvent.click(within(review).getByRole('button', { name: 'Use saved version' }));
+  const review = await screen.findByRole('dialog', { name: 'Two versions' }); expect(review).toHaveTextContent('Other device version'); expect(review).toHaveTextContent('My version');
+  fireEvent.click(within(review).getByRole('button', { name: 'Use the other one' }));
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 test('concurrent day margins remain discoverable, and a conflicting margin offers both versions', async () => {
@@ -153,7 +153,7 @@ test('concurrent day margins remain discoverable, and a conflicting margin offer
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'margin-1'), revision: 1, content: 'Remote margin version' } } } });
   fireEvent.change(within(margin).getByLabelText('Notes for this day'), { target: { value: 'Local margin version' } }); fireEvent.click(within(margin).getByRole('button', { name: 'Sync margin', exact: true }));
   fireEvent.click(await within(margin).findByRole('button', { name: 'Review both versions' }));
-  const review = await screen.findByRole('dialog', { name: 'Review both item versions' }); expect(review).toHaveTextContent('Remote margin version'); expect(review).toHaveTextContent('Local margin version');
+  const review = await screen.findByRole('dialog', { name: 'Two versions' }); expect(review).toHaveTextContent('Remote margin version'); expect(review).toHaveTextContent('Local margin version');
 });
 test('a semantically rejected action stays in review and can use the saved version', async () => {
   await open(); const section = screen.getByRole('region', { name: 'Open' });
@@ -164,10 +164,10 @@ test('a semantically rejected action stays in review and can use the saved versi
   api.put.mockRejectedValue({ response: { status: 409, data: { error: 'This item changed. Review its latest history before undoing.', current: remote } } });
   fireEvent.click(within(complete).getByRole('button', { name: 'Undo', exact: true }));
   fireEvent.click(await within(section).findByRole('button', { name: 'Review both versions' }));
-  const review = await screen.findByRole('dialog', { name: 'Review both item versions' });
-  fireEvent.click(within(review).getByRole('button', { name: 'Apply my changes after review' }));
+  const review = await screen.findByRole('dialog', { name: 'Two versions' });
+  fireEvent.click(within(review).getByRole('button', { name: 'Use mine' }));
   await waitFor(() => expect(within(review).getByRole('alert')).toHaveTextContent('Review its latest history'));
-  fireEvent.click(within(review).getByRole('button', { name: 'Use saved version' })); expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.click(within(review).getByRole('button', { name: 'Use the other one' })); expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByRole('region', { name: 'Completed follow-ups' })).toHaveTextContent('Confirm service-training dates');
 });
 test('review resolution stays locked while its accepted change is being acknowledged', async () => {
@@ -177,11 +177,11 @@ test('review resolution stays locked while its accepted change is being acknowle
   fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My reviewed wording' } });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: remote } } });
   fireEvent.click(within(form).getByRole('button', { name: 'Save item', exact: true }));
-  const review = await screen.findByRole('dialog', { name: 'Review both item versions' });
+  const review = await screen.findByRole('dialog', { name: 'Two versions' });
   let acknowledge; api.put.mockImplementationOnce((_, body) => new Promise(resolve => { acknowledge = () => { const data = { ...current, revision: 2, workItem: { ...current.workItem, history: (body.workActions || []).map(action => ({ ...action, recordedAt: new Date().toISOString() })) } }; records[records.findIndex(x => x._id === 'task')] = data; resolve({ data }); }; }));
-  fireEvent.click(within(review).getByRole('button', { name: 'Apply my changes after review' }));
-  expect(within(review).getByRole('button', { name: 'Use saved version' })).toBeDisabled();
-  expect(within(review).getByRole('button', { name: 'Keep both for now' })).toBeDisabled();
+  fireEvent.click(within(review).getByRole('button', { name: 'Use mine' }));
+  expect(within(review).getByRole('button', { name: 'Use the other one' })).toBeDisabled();
+  expect(within(review).getByRole('button', { name: 'Decide later' })).toBeDisabled();
   fireEvent.keyDown(document, { key: 'Escape' }); expect(review).toBeInTheDocument();
   await waitFor(() => expect(acknowledge).toEqual(expect.any(Function)));
   await act(async () => acknowledge());

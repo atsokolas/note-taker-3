@@ -610,8 +610,8 @@ describe('DataIntegrations first insight workflow', () => {
 
     const receipt = await screen.findByTestId('notion-sync-receipt');
     expect(within(receipt).getByText('Synced into Noeis')).toBeInTheDocument();
-    expect(within(receipt).getByText(/Imported pages are available as notes/i)).toBeInTheDocument();
-    expect(screen.getByText(/Where it lands: Library search, Think retrieval, and Morning Paper source maintenance/i)).toBeInTheDocument();
+    expect(within(receipt).getByText('Your Notion pages are now notes you can search.')).toBeInTheDocument();
+    expect(screen.getByText('They show up in Library search, in Think and in your Morning Paper.')).toBeInTheDocument();
     expect(within(receipt).getByText('Synced 3 pages · 2 skipped · 1 indexing.')).toBeInTheDocument();
   });
 
