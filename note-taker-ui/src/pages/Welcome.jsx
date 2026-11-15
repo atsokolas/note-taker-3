@@ -192,8 +192,8 @@ const StartStep = ({ onReading, onPack }) => (
   <section className="welcome__step">
     <PageHeader
       titleId="welcome-title"
-      title="Noeis writes a wiki from what you read."
-      lede="Bring the articles and books you have read. Noeis writes them up into pages, and every line says which source it came from."
+      title="Start with what you’ve already read."
+      lede="Noeis connects each new book and article to the ones before, and writes pages that cite every line."
     />
     <article className="welcome__example" aria-label="An example page">
       <span className="welcome__example-label">An example page</span>
@@ -273,7 +273,7 @@ const ReadingStep = ({ arrivals, setArrivals, brought, setBrought, onNext, onLat
 
   return (
     <section className="welcome__step">
-      <PageHeader titleId="welcome-title" title="Bring what you have read." lede="A few links are enough to start. Your library is private: nothing leaves it unless you share it." />
+      <PageHeader titleId="welcome-title" title="Links, Kindle or Readwise." lede="A few links are enough to start. Your library is private: nothing leaves it unless you share it." />
 
       <form className="welcome__source" onSubmit={addPasted}>
         <h2>Links</h2>
@@ -282,7 +282,7 @@ const ReadingStep = ({ arrivals, setArrivals, brought, setBrought, onNext, onLat
           id="welcome-links"
           rows={3}
           value={pasted}
-          placeholder="A few things you have read, one link per line. Or paste a few paragraphs of one."
+          placeholder="A few links, one per line. Or paste a few paragraphs."
           onChange={(event) => { setPasted(event.target.value); setPasteProblem(''); }}
         />
         <div className="welcome__actions">
@@ -313,10 +313,10 @@ const ReadingStep = ({ arrivals, setArrivals, brought, setBrought, onNext, onLat
           Write my first page
         </Button>
         <Button variant="quiet" onClick={onLater}>
-          I will bring reading later
+          Later
         </Button>
       </div>
-      {!hasReading && !reading ? <p className="welcome__hint">Bring at least one source first.</p> : null}
+      {!hasReading && !reading ? <p className="welcome__hint">Add one link first.</p> : null}
     </section>
   );
 };
@@ -581,7 +581,7 @@ const TopicChooser = ({ titles, onStarted }) => {
             id="welcome-topic"
             type="text"
             value={topic}
-            placeholder="Something your sources share, in a few words"
+            placeholder="Like “hiring” or “the Roman Republic”"
             onChange={(event) => { setTopic(event.target.value); setError(''); }}
           />
           <Button type="submit" variant="primary" disabled={Boolean(busy) || !topic.trim()}>

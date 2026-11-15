@@ -26,8 +26,10 @@ const briefing = {
 };
 const rendered = renderMorningPaperEmail({ briefing, unsubscribeUrl: 'https://www.noeis.io/api/morning-paper/unsubscribe?token=x' });
 assert.match(rendered.html, /NVDA filed a 10-Q/);
-assert.match(rendered.html, /Unsubscribe instantly/i);
-assert.match(rendered.text, /CLAIM CHECK-IN/);
+assert.match(rendered.html, />Unsubscribe</);
+assert.match(rendered.text, /DO YOU STILL THINK THIS\? Integration retains pricing power\./);
+assert.match(rendered.subject, /^NVDA filed a 10-Q( · the weekend paper)?$/, 'the lead, whole');
+assert.match(renderMorningPaperEmail({ briefing: { ...briefing, watcherLeads: [{ ...briefing.watcherLeads[0], title: 'Nvidia raised datacenter guidance for the third quarter running, and margins held' }] }, unsubscribeUrl: 'u' }).subject, /^Nvidia dossier( · the weekend paper)?$/, 'a long lead gives way to its page, never a fragment');
 assert.doesNotMatch(rendered.html, /WORTH SAYING/);
 
 /* Friday's three lines: quoted passages with their sources, all three or none. */

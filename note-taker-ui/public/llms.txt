@@ -3,8 +3,8 @@
 > Bring in your Kindle highlights, Readwise, books and saved links. Noeis connects each new thing you read to what you already know, and grows a wiki of your own that cites every source.
 
 - **Bring in what you have already read.** Kindle highlights, Readwise, the books on your desk, links you saved. Years of reading arrive on the first day.
-- **Each new thing lands on the old.** Save an article or type a line from a book, and Noeis quotes what it echoes or argues with in everything you have read.
-- **A wiki that grows as you read.** Pages are written from your highlights and notes, cite them, and say where two sources disagree. Ask it anything and get your own reading back, or connect Claude Code, Codex and other agents.
+- **What you read today finds what you read last year.** Save an article or type a line from a book, and Noeis shows you what it agrees or argues with, quoting your own highlights.
+- **A wiki that grows as you read.** Pages are written from your highlights and notes, cite every line, and say where two books disagree. Ask it anything and get your own reading back. Claude Code, Codex and other agents can read it too.
 
 ## For agents
 

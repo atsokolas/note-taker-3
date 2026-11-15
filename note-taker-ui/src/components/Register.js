@@ -94,7 +94,7 @@ const Register = ({ onLoginSuccess }) => {
   return (
     <AuthPage
       title="Create your account."
-      lede="Bring what you read, and Noeis writes it into a wiki where every line cites its source. Your library is private."
+      lede="Bring in what you’ve read. Noeis connects each new book and article to the ones before. Your library is private."
       footer={<>Have an account? <Link to="/login">Log in</Link></>}
     >
       <form onSubmit={register} noValidate>

@@ -5,18 +5,20 @@ import publishingContent from '../seo/publishingContent.json';
 import { trackGuideCta } from '../utils/marketingAnalytics';
 import '../styles/seo-article.css';
 
+const COPY = publishingContent.hubs.guides;
+
 const guidesHubSchema = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: 'Noeis Guides for Thinking, Reading, and Knowledge Work',
+  name: COPY.title,
   url: `${CANONICAL_HOST}/guides`,
-  description: 'Opinionated guides on source-grounded research workflows, reliable recall, reading-to-draft systems, and evidence-backed synthesis for serious readers.'
+  description: COPY.description
 };
 
 const GuidesHub = () => {
   useSeoMetadata({
-    title: 'Noeis Guides for Thinking, Reading, and Knowledge Work',
-    description: 'Opinionated guides on source-grounded research workflows, reliable recall, reading-to-draft systems, and evidence-backed synthesis for serious readers.',
+    title: COPY.title,
+    description: COPY.description,
     canonicalPath: '/guides',
     ogType: 'website',
     schema: guidesHubSchema
@@ -31,11 +33,8 @@ const GuidesHub = () => {
             <span>By {DEFAULT_AUTHOR_NAME}</span>
             <span>Updated {DEFAULT_LAST_UPDATED_LABEL}</span>
           </div>
-          <h1>Practical guides for thinking, writing and knowledge work</h1>
-          <p className="seo-lede">
-            These guides are built for founders, writers, researchers, analysts, and serious readers
-            evaluating better workflows for source-grounded research, recall, synthesis, and drafts.
-          </p>
+          <h1>{COPY.headline}</h1>
+          <p className="seo-lede">{COPY.lede}</p>
           <div className="seo-guide-grid">
             {publishingContent.guides.map((guide) => (
               <a

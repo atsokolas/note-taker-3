@@ -6,12 +6,14 @@ import publishingContent from '../seo/publishingContent.json';
 import { trackMarketingCta } from '../utils/marketingAnalytics';
 import '../styles/seo-article.css';
 
+const COPY = publishingContent.hubs.examples;
+
 const examplesSchema = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: 'Source-Grounded Wiki Examples',
+  name: COPY.headline,
   url: `${CANONICAL_HOST}/examples`,
-  description: 'Curated source-grounded Noeis wiki examples for serious readers evaluating evidence-backed research workflows.',
+  description: COPY.description,
   hasPart: (Array.isArray(publishingContent.examples) ? publishingContent.examples : []).map((example) => ({
     '@type': 'CreativeWork',
     name: example.title,
@@ -22,8 +24,8 @@ const examplesSchema = {
 
 const Examples = () => {
   useSeoMetadata({
-    title: 'Source-Grounded Wiki Examples | Noeis',
-    description: 'Curated source-grounded Noeis wiki examples for serious readers evaluating evidence-backed research workflows.',
+    title: COPY.title,
+    description: COPY.description,
     canonicalPath: '/examples',
     ogType: 'website',
     schema: examplesSchema
@@ -34,11 +36,8 @@ const Examples = () => {
       <article className="seo-article">
         <header className="seo-hero">
           <p className="seo-eyebrow">Examples</p>
-          <h1>Source-grounded wiki examples</h1>
-          <p className="seo-lede">
-            Curated public Noeis wikis show how serious readers can turn source material into durable pages,
-            claims, and reusable research structure.
-          </p>
+          <h1>{COPY.headline}</h1>
+          <p className="seo-lede">{COPY.lede}</p>
           <div className="seo-guide-grid">
             {publishingContent.examples.map((example) => (
               <a

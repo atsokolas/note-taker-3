@@ -61,7 +61,7 @@ const fillFolders = (folders, selected = '') => {
   const options = [...folders]
     .sort((a, b) => String(a.name).localeCompare(String(b.name)))
     .map(folder => new Option(folder.name, folder._id));
-  select.replaceChildren(new Option('Uncategorized', ''), ...options, new Option('New folder…', 'new'));
+  select.replaceChildren(new Option('No folder', ''), ...options, new Option('New folder…', 'new'));
   select.value = selected;
 };
 
@@ -120,7 +120,7 @@ const open = async () => {
     $('pageTitle').textContent = saved.title || $('pageTitle').textContent;
     $('libraryLink').href = `${APP}/library?articleId=${encodeURIComponent(saved._id)}`;
     $('libraryLink').textContent = 'Open in Noeis';
-    say(`In your Library since ${onDay(saved.createdAt)}${marks.length ? `, with ${count(marks.length, 'mark')}` : ''}. Select a passage on the page to mark it.`);
+    say(`Saved on ${onDay(saved.createdAt)}${marks.length ? `, ${count(marks.length, 'highlight')}` : ''}. Select text to mark it.`);
     tell(tab, { type: 'open', article: { id: saved._id, title: saved.title }, marks, palette: colors });
     return;
   }
@@ -174,7 +174,7 @@ const open = async () => {
       $('libraryLink').href = `${APP}/library?articleId=${encodeURIComponent(article._id)}`;
       $('libraryLink').textContent = 'Open in Noeis';
       const folder = folderId ? $('folder').selectedOptions[0].text : '';
-      say(`Saved${folder ? ` to ${folder}` : ' to your Library'}. Select a passage on the page to mark it.`);
+      say(`Saved${folder ? ` to ${folder}` : ' to your Library'}. Select text to mark it.`);
       tell(tab, { type: 'open', article: { id: article._id, title: article.title }, marks: [], palette: colors, fresh: true });
     } catch (error) {
       $('save').disabled = false;

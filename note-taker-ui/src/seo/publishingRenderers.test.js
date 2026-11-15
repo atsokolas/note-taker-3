@@ -63,7 +63,7 @@ describe('publishing renderers', () => {
   it('renders a curated examples page for source-grounded public wikis', () => {
     const html = renderExamplesPage(publishingContent);
 
-    expect(html).toContain('Source-Grounded Wiki Examples | Noeis');
+    expect(html).toContain('Wiki examples | Noeis');
     expect(html).toContain('Curated public Noeis wikis');
     expect(html).toContain('href="/share/wiki/collection/mental-models"');
     expect(html).toContain('href="/from-saved-article-to-draft-in-noeis"');

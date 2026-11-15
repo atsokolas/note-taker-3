@@ -202,11 +202,11 @@ const shot = async (page, name) => {
     await shot(reader, 'margin-card-1440');
     assert.ok(calls.includes('POST /api/judgment/margin'), 'the margin reads the passage against what you hold');
     const margin = await inMargin(reader);
-    ['Add to “On memory”', 'Ask the Partner about this', 'I think this is right',
-      'This bears on your view that Most reading is wasted.', 'Did it hold up?',
+    ['Add to “On memory”', 'Ask Partner about this', 'I think this is right',
+      'This is about your view that Most reading is wasted.', 'Did it hold up?',
       'You marked something like this in On notes'].forEach(words => assert.ok(margin.text.includes(words), `the margin says “${words}”`));
     assert.ok(!margin.text.includes('Old'), 'an archived notebook entry is not offered');
-    await margin.press('File for');
+    await margin.press('For');
     await reader.waitForTimeout(200);
     assert.ok((await inMargin(reader)).text.includes('Filed for your view.'));
     await (await inMargin(reader)).press('Add to “On memory”');
