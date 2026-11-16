@@ -6,7 +6,7 @@ test('Today leads with a dated editorial heading, appointments and priorities; d
   render(<WorkCalendar {...props} items={[{ id: 'old', clientId: 'old', kind: 'task', title: 'Earlier promise', plannedOn: '2026-11-03', completed: false }, { id: 'new', clientId: 'new', kind: 'task', title: 'Today’s proposal', plannedOn: '2026-11-04', completed: false }]} />);
   expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
   expect(screen.getByText('Wednesday 4 November 2026')).toHaveAttribute('datetime', '2026-11-04');
-  expect(within(screen.getByRole('region', { name: 'Priorities' })).getByRole('checkbox', { name: 'Today’s proposal' })).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'Today’s to-dos' })).getByRole('checkbox', { name: 'Today’s proposal' })).toBeInTheDocument();
   const summary = screen.getByText('From earlier');
   expect(summary.closest('details').open).toBe(true);
   expect(screen.getByText('Day margin').closest('details').open).toBe(true);
