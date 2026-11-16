@@ -28,3 +28,14 @@ test('a new draft error reveals retained writing after the reader collapsed an e
   expect(screen.getByRole('textbox', { name: 'Open item title' })).toHaveValue('Keep these words');
   expect(screen.getByRole('alert')).toHaveTextContent('could not save');
 });
+
+ test('Open follow-ups start expanded without pending work and can still be collapsed', () => {
+  const session = fixture();
+  const view = render(renderNote(session));
+  const disclosure = screen.getByRole('region', { name: 'Open' }).querySelector('details');
+  expect(disclosure.open).toBe(true);
+  fireEvent.click(disclosure.querySelector('summary'));
+  expect(disclosure.open).toBe(false);
+  view.rerender(renderNote(session));
+  expect(disclosure.open).toBe(false);
+});

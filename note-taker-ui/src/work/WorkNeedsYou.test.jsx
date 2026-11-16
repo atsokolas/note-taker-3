@@ -180,3 +180,23 @@ test('a line set aside for someday is not carried on the day page until its day 
   rerender(calendar('2026-11-03'));
   expect(within(screen.getByRole('region', { name: 'Carried from earlier' })).getByText('Plan the offsite')).toBeInTheDocument();
 });
+
+test('the dashboard opens Next, Someday and Done without extra clicks, including on return', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  records.push(
+    { _id: 'next-visible', revision: 0, title: 'Next visible task', takenOn: today, workItem: { kind: 'task', list: 'next', sortedOn: today, history: [] } },
+    { _id: 'someday-visible', revision: 0, title: 'Someday visible task', takenOn: today, workItem: { kind: 'task', list: 'someday', sortedOn: today, history: [] } },
+    { _id: 'done-visible', revision: 0, title: 'Done visible task', takenOn: today, workItem: { kind: 'task', list: 'next', history: [{ type: 'complete', operationId: 'done', actionAt: new Date().toISOString(), timeZone: 'UTC' }] } }
+  );
+  const view = work('today');
+  await screen.findByText('Next visible task');
+  const sections = () => [...document.querySelectorAll('.work-needs-rest')];
+  expect(sections()).toHaveLength(3);
+  sections().forEach(section => expect(section.open).toBe(true));
+  sections().forEach(section => fireEvent.click(section.querySelector('summary')));
+  sections().forEach(section => expect(section.open).toBe(false));
+  view.unmount();
+  work('today');
+  await screen.findByText('Next visible task');
+  sections().forEach(section => expect(section.open).toBe(true));
+});
