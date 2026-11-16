@@ -13,6 +13,20 @@ for (const slug of collections) {
     const publicPages = (await (await publicResponse).json()).collection.pages;
     const cards = page.locator('.shared-wiki-collection__page');
     await expect(cards.first()).toBeVisible();
+    const sharing = page.locator('.shared-wiki-collection__sharing');
+    await expect(sharing).not.toHaveAttribute('open', '');
+    await sharing.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(sharing).toHaveAttribute('open', '');
+    await expect(sharing).toContainText('Backlinks, highlights, source notes, and agent work stay private.');
+    await page.keyboard.press('Enter');
+    await expect(sharing).not.toHaveAttribute('open', '');
+    const adopt = page.getByRole('button', { name: 'Add to my library', exact: true });
+    const buttonBox = await adopt.boundingBox();
+    const headerBox = await page.locator('.shared-wiki-page__hero').boundingBox();
+    expect(buttonBox.height).toBeGreaterThanOrEqual(44);
+    expect(buttonBox.width).toBeLessThan(headerBox.width);
+
     const title = await page.locator('.shared-wiki-page__hero > h1').innerText();
     const entries = await cards.locator('.shared-wiki-collection__page-header h2 a').evaluateAll(links =>
       links.map(link => ({ title: link.textContent, href: link.getAttribute('href') }))
@@ -68,6 +82,9 @@ for (const slug of collections) {
       await expect(page.locator('.shared-wiki-page__hero > h1')).toHaveText(title);
     }
     expect(await page.evaluate(() => localStorage.getItem('token') || localStorage.getItem('authToken'))).toBeNull();
+    await page.getByRole('button', { name: 'Add to my library', exact: true }).click();
+    await expect(page).toHaveURL(/\/register$/);
+    expect(await page.evaluate(() => sessionStorage.getItem('auth_return_to'))).toBe(`${collectionPath}?adopt=1`);
     expect(errors).toEqual([]);
   });
 }
