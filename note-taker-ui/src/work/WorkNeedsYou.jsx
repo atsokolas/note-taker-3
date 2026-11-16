@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { WorkTaskRow } from './WorkPlanItem';
+import { dayTasks } from './WorkDayTasks';
 import WorkItemSource from './WorkItemSource';
 import { taskDragProps, WorkTaskGrip } from './workTaskDrag';
 import { noteTitle } from './workSession';
@@ -11,14 +13,13 @@ const ago = days => days === 0 ? 'today' : days === 1 ? 'a day' : `${days} days`
 
 // Needs you: the margin of Today, holding every line and project waiting on a decision from you.
 // Every row is a line a note or a day already holds; sorting one changes it everywhere it appears.
-export default function WorkNeedsYou({ needs, notes, folders, today, onSort, onAction, onOpen, onProject, onSaveProject, onWeekEdition, children }) {
+export default function WorkNeedsYou({ needs, notes, folders, items, today, onSort, onAction, onEdit, onOpen, onProject, onSaveProject, onWeekEdition, children }) {
   const [asking, setAsking] = useState(null);
   const [drafting, setDrafting] = useState(null);
   const [copied, setCopied] = useState('');
   const [struck, setStruck] = useState({});
   const [reading, setReading] = useState({ busy: false, message: '' });
   const noteOf = item => item.noteId && notes.find(note => [note._id, note.clientId].includes(item.noteId));
-  const folderOf = item => item.folder?._id || item.folder || '';
   // Ticking draws a pen stroke through the words and leaves the line in place a moment, with Undo.
   const tick = item => { const operation = onAction(item.clientId, { type: 'complete' }); if (!operation) return; setStruck(current => ({ ...current, [item.id]: { item, operation } })); window.setTimeout(() => setStruck(({ [item.id]: _, ...rest }) => rest), 5000); };
   const sort = (item, patch) => { setAsking(null); onSort(item.clientId, { sortedOn: today, ...patch }); };
@@ -45,11 +46,13 @@ export default function WorkNeedsYou({ needs, notes, folders, today, onSort, onA
     try { const result = await onWeekEdition(); setReading({ busy: false, message: result?.silence || '' }); }
     catch (error) { setReading({ busy: false, message: error.message }); }
   };
+  const { planned, carried } = dayTasks(items || needs.next, notes, today, today);
+  const dated = new Set([...planned, ...carried].map(item => item.id));
   const quietLines = new Set(needs.quiet.map(item => item.id));
-  const groups = [...folders.filter(folder => !folder.archivedAt).map(folder => ({ id: folder._id, name: folder.name })), { id: '', name: 'Not in a folder' }].map(group => ({ ...group, lines: needs.next.filter(item => !quietLines.has(item.id) && ((folderOf(item) || '') === group.id || (!group.id && !folders.some(folder => !folder.archivedAt && folder._id === folderOf(item))))) })).filter(group => group.lines.length);
+  const next = needs.next.filter(item => !dated.has(item.id) && !quietLines.has(item.id));
   return <section className="work-outstanding work-home-margin" aria-label="Needs you">
     {children}
-    <details className="work-needs-rest" open><summary>Next <span>({groups.reduce((sum, group) => sum + group.lines.length, 0)})</span></summary>{groups.map(group => <React.Fragment key={group.id || 'loose'}><h3>{group.name}</h3>{group.lines.map(item => row(item, <>{item.plannedOn ? <time>{short(item.plannedOn)}</time> : null}{source(item)}{star(item)}</>))}</React.Fragment>)}{!groups.length ? <p className="work-weekly-empty">Nothing in Next.</p> : null}</details>
+    <details className="work-needs-rest work-rail-next" open><summary>Next <span>({next.length})</span></summary>{next.map(item => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} notes={notes} onOpen={onOpen} onAction={onAction} onEdit={onEdit} aside={item.plannedOn ? <time>{short(item.plannedOn)}</time> : null} actions={<>{star(item)}{sorting(item)}</>} />)}{!next.length ? <p className="work-weekly-empty">Nothing in Next.</p> : null}</details>
     {struckRows}
     {section('New from your notes', needs.fresh, freshRow, 'sort each once')}
     {section('Owed to you', needs.waiting, item => { const days = daysBetween(sortedSince(item), today); return row({ ...item, title: `${item.waitingOn} owes you ${item.title.charAt(0).toLowerCase()}${item.title.slice(1)}` }, <><time className={days >= CHASE_DAYS ? 'is-long' : ''}>{ago(days)}</time>{source(item)}<button onClick={() => setDrafting(drafting === item.id ? null : item.id)}>Nudge</button></>, draft(item)); })}

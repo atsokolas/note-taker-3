@@ -7,11 +7,11 @@ test('Today leads with a dated editorial heading, appointments and priorities; d
   expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
   expect(screen.getByText('Wednesday 4 November 2026')).toHaveAttribute('datetime', '2026-11-04');
   expect(within(screen.getByRole('region', { name: 'Today’s to-dos' })).getByRole('checkbox', { name: 'Today’s proposal' })).toBeInTheDocument();
-  const summary = screen.getByText('From earlier');
-  expect(summary.closest('details').open).toBe(true);
+  const summary = screen.getByText('Earlier');
+  expect(summary.closest('details').open).toBe(false);
   expect(screen.getByText('Day margin').closest('details').open).toBe(true);
-  fireEvent.click(summary); expect(summary.closest('details').open).toBe(false);
   fireEvent.click(summary); expect(summary.closest('details').open).toBe(true);
+  fireEvent.click(screen.getByLabelText('Actions for Earlier promise'));
   fireEvent.click(screen.getByRole('button', { name: 'Move to today' }));
   expect(props.onAction).toHaveBeenCalledWith('old', { type: 'plan', plannedOn: '2026-11-04' });
 });

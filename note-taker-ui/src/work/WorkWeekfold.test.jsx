@@ -136,7 +136,8 @@ test('arrow keys move between days in the week', async () => {
 test.each(['task', 'appointment'])('standalone %s conflicts open both versions rather than a save dead end', async kind => {
   records.push({ _id: 'standalone', revision: 0, title: 'Standalone work', content: '', workItem: { kind, plannedOn: '2026-10-26', startTime: '15:00', endTime: '15:30', history: [] } });
   today(); fireEvent.click(await screen.findByRole('button', { name: 'Week', exact: true }));
-  fireEvent.click(screen.getByRole('button', { name: kind === 'appointment' ? 'Edit appointment Standalone work' : 'Edit Standalone work', exact: true }));
+  if (kind !== 'appointment') fireEvent.click(screen.getByLabelText('Actions for Standalone work'));
+  fireEvent.click(kind === 'appointment' ? screen.getByRole('button', { name: 'Edit appointment Standalone work', exact: true }) : within(screen.getByLabelText('Actions for Standalone work').closest('details')).getByRole('button', { name: 'Edit to-do' }));
   const form = await screen.findByRole('dialog', { name: kind === 'appointment' ? 'Edit appointment' : 'Edit follow-up' });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'standalone'), revision: 1, title: 'Other device version' } } } });
   fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My version' } }); fireEvent.click(within(form).getByRole('button', { name: 'Save item' }));
@@ -216,15 +217,18 @@ test('a day reads as one page: its follow-ups, what it was written, and earlier 
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
   expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true }));
+  fireEvent.click(await screen.findByText('Earlier'));
   const carried = await screen.findByRole('region', { name: 'Carried from earlier' });
   expect(within(carried).getByRole('button', { name: 'Fieldwell · pilot follow-up' })).toBeInTheDocument();
+  fireEvent.click(within(carried).getByLabelText('Actions for Confirm service-training dates'));
   fireEvent.click(within(carried).getByRole('button', { name: 'Move to Tuesday' }));
   await waitFor(() => expect(records.find(x => x._id === 'task').workItem.history.at(-1)).toMatchObject({ type: 'plan', plannedOn: '2026-10-27' }));
   expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
-  expect(await within(page()).findByRole('checkbox', { name: 'Confirm service-training dates From Mon 26' })).toBeInTheDocument();
+  expect(await within(page()).findByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
 });
 test('day planning reads time, while note words become Open only after explicit selection and Add', async () => {
   today();
+  fireEvent.click(await screen.findByRole('button', { name: 'Add to-do' }));
   fireEvent.change(await screen.findByLabelText('Add a line'), { target: { value: 'IC meeting 2pm' } });
   fireEvent.submit(screen.getByLabelText('Add a line').form);
   await waitFor(() => expect(records.find(x => x.title === 'IC meeting')?.workItem).toMatchObject({ kind: 'appointment', plannedOn: '2026-10-26', startTime: '14:00', endTime: '14:30' }));

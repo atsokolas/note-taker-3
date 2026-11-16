@@ -7,7 +7,7 @@
 .work-weekly-dateline p { flex: 1 0 auto; margin: 0; font: 18px/1.4 var(--font-serif); }
 .work-weekly-dateline nav { display: flex; align-items: center; }
 .work-weekly-dateline button { padding-inline: 6px; }
-.work-weekly-priorities, .work-weekly-priority > div > ul, .work-weekly-tray-content > ul { list-style: none; padding: 0; margin: 0; }
+.work-weekly-priorities, .work-weekly-priority > div > ul { list-style: none; padding: 0; margin: 0; }
 .work-weekly-priority { position: relative; padding: 28px 0; border-bottom: 1px solid var(--noeis-rule); }
 .work-weekly-priority header { display: flex; gap: 12px; align-items: baseline; }
 .work-weekly h2 { font: 400 25px/1.3 var(--font-serif); letter-spacing: -.015em; margin: 0 0 12px; overflow-wrap: anywhere; }
@@ -16,7 +16,7 @@
 .work-weekly-task { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 0 8px; min-height: 48px; padding: 8px 0 8px 32px; border-bottom: 2px solid transparent; }
 .work-weekly-task > label { display: flex; align-items: start; flex: 1; gap: 14px; min-width: 0; font: 16px/1.5 var(--font-sans); }
 .work-weekly-task > label > span { min-width: 0; overflow-wrap: anywhere; }
-.work-weekly-task input[type=checkbox] { appearance: auto; flex: 0 0 18px; width: 18px; height: 18px; margin: 3px 0; accent-color: var(--noeis-thread-strong); }
+.work-weekly-task input[type=checkbox] { appearance: auto; flex: 0 0 18px; width: 18px; height: 18px; margin: 3px 0; accent-color: var(--noeis-action); }
 .work-weekly-task.is-done > label > span { color: var(--noeis-ink-muted); text-decoration: line-through; }
 .work-weekly-task.is-done .work-weekly-source, .work-weekly-task.is-done .work-item-source { text-decoration: none; }
 .work-weekly-source, .work-weekly .work-item-source { display: block; margin: 3px 0 0; font: 13px/1.5 var(--font-sans); color: var(--noeis-ink-muted); }
@@ -24,22 +24,16 @@
 .work-weekly-task-actions { grid-column: 2; grid-row: 1 / span 2; display: flex; align-items: center; font-size: 12px; color: var(--noeis-ink-muted); }
 .work-weekly-task-actions button { padding: 4px; }
 .work-weekly-task-actions .work-icon { width: 16px; height: 16px; }
-.work-weekly-carried, .work-weekly-history, .work-weekly-empty, .work-weekly-hint { color: var(--noeis-ink-muted); font: 14px/1.6 var(--font-sans); }
+.work-weekly-carried, .work-weekly-history, .work-weekly-empty { color: var(--noeis-ink-muted); font: 14px/1.6 var(--font-sans); }
 .work-weekly-carried { margin: -4px 0 12px 32px; font-style: italic; }
 .work-weekly-priority > div > .work-weekly-empty { margin: 0 0 0 32px; }
 .work-weekly-empty { margin: 16px 0; }
 .work-weekly-tray { padding-left: 28px; border-left: 1px solid var(--noeis-rule); }
-.work-weekly-tray-content > h2 { margin-top: 3px; }
-.work-weekly-hint { margin: 0 0 20px; font-size: 12px; }
-.work-weekly-tray-content > ul > li { padding: 14px 0; border-bottom: 1px solid var(--noeis-rule); cursor: grab; }
-.work-weekly-tray-line { display: flex; gap: 12px; align-items: start; font: 15px/1.5 var(--font-sans); }
-.work-weekly-tray-line > span:last-child { min-width: 0; overflow-wrap: anywhere; }
-.work-weekly-tray-line > .work-icon { width: 16px; height: 16px; flex-basis: 16px; opacity: .5; margin-top: 4px; }
 .work-weekly-assignment { display: block; margin-left: 28px; }
 .work-weekly-assignment select { color: var(--noeis-ink-muted); background: var(--noeis-paper); border: 0; border-bottom: 1px solid var(--noeis-rule); max-width: 100%; min-height: 36px; font: 12px var(--font-sans); cursor: pointer; }
 .work-weekly-assignment select option { background: var(--noeis-paper); color: var(--noeis-ink); }
 .work-weekly .is-dragging { opacity: .4; }
-.work-weekly .is-drop-target { outline: 1px dashed var(--noeis-thread-strong); outline-offset: 4px; }
+.work-weekly .is-drop-target { outline: 1px dashed var(--noeis-action); outline-offset: 4px; }
 .work-weekly-add { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--noeis-rule); padding: 12px 0; }
 .work-weekly-add input, .work-weekly-edit input { min-height: 44px; min-width: 0; flex: 1; border: 0; padding: 8px 0; background: transparent; color: var(--noeis-ink); font: 16px/1.5 var(--font-serif); }
 .work-weekly-add input::placeholder { color: var(--noeis-ink-muted); }
@@ -60,7 +54,7 @@
 .work-weekly-more { margin-top: 0; }
 .work-weekly-more .work-home-margin { border: 0; padding: 0; }
 .work-weekly-receipt { color: var(--noeis-ink-muted); font: 13px/1.5 var(--font-sans); margin-bottom: 16px; }
-.work-weekly-receipt[role=alert] { border-left: 2px solid var(--noeis-thread-strong); padding-left: 12px; }
+.work-weekly-receipt[role=alert] { border-left: 2px solid var(--noeis-action); padding-left: 12px; }
 .work-weekly-receipt pre { white-space: pre-wrap; font: inherit; }
 .work-weekly-missing { color: var(--noeis-ink-muted); font: 14px/1.5 var(--font-sans); padding: 12px 32px; }
 @media (max-width: 1200px) { .work-weekly { gap: 24px; grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); } .work-weekly-tray { padding-left: 20px; } }
@@ -98,7 +92,6 @@
 .work-weekly .work-priority-toggle { display: flex; align-items: baseline; gap: 8px; padding: 0; text-align: left; font: inherit; letter-spacing: inherit; color: inherit; width: 100%; }
 .work-priority-toggle > .work-icon { align-self: center; width: 16px; height: 16px; flex-basis: 16px; color: var(--noeis-ink-muted); }
 .work-priority-toggle .work-weekly-number { margin-right: 8px; white-space: nowrap; flex-shrink: 0; color: var(--noeis-action); font: 500 16px var(--font-sans); font-variant-numeric: tabular-nums; }
-.work-weekly-tray-content { margin-top: 28px; border-top: 1px solid var(--noeis-rule); padding-top: 24px; }
 .work-day-tasks > summary { padding: 8px 0 16px; cursor: pointer; font: 400 25px/1.3 var(--font-serif); }
 .work-day-tasks > summary > span { color: var(--noeis-ink-muted); font: 12px var(--font-sans); }
 .work-weekly-more .work-needs-rest > summary { padding: 16px 0; font: 400 25px/1.3 var(--font-serif); color: var(--noeis-ink); }
@@ -109,7 +102,7 @@
 .work-priority-foot .work-weekly-task-new { margin-top: 0; }
 .work-priority-foot .work-weekly-task-add { flex: 1 1 100%; }
 .work-priority-progress { display: flex; align-items: center; gap: 6px; margin: 0 0 0 auto; color: var(--noeis-ink-muted); font: 13px/1.5 var(--font-sans); font-variant-numeric: tabular-nums; }
-.work-priority-progress.is-settled { color: var(--noeis-thread-strong); }
+.work-priority-progress.is-settled { color: var(--noeis-action); }
 .work-priority-progress .work-icon { width: 16px; height: 16px; flex-basis: 16px; }
 @media (hover: hover) and (pointer: fine) {
   .work-weekly-task-actions { opacity: 0; }
@@ -127,3 +120,30 @@
   .work-weekly-task-actions { grid-column: 1; grid-row: 3; margin-left: 64px; }
   .work-priority-progress { margin-left: 0; }
 }
+
+/* One canonical rail row: tools stay beside the line, not on a second task list. */
+.work-notes .work-planner-task.work-rail-task { display: grid; grid-template-columns: 18px minmax(0, 1fr) 32px; gap: 0 12px; padding: 14px 0; border-bottom: 1px solid var(--noeis-rule); font: 15px/1.5 var(--font-sans); }
+.work-notes .work-planner-task.work-rail-task > .work-task-grip { grid-column: 1; grid-row: 1; align-self: start; padding-top: 2px; }
+.work-notes .work-planner-task.work-rail-task > label { grid-column: 2; grid-row: 1; display: flex; gap: 12px; min-width: 0; align-items: start; padding: 0; }
+.work-notes .work-planner-task.work-rail-task > label input { margin-top: 2px; }
+.work-notes .work-planner-task.work-rail-task > label > span { min-width: 0; overflow-wrap: anywhere; }
+.work-rail-source { grid-column: 2; grid-row: 2; margin-left: 32px; display: flex; flex-wrap: wrap; gap: 2px 8px; color: var(--noeis-ink-muted); font: 13px/1.5 var(--font-sans); }
+.work-rail-source:empty { display: none; }
+.work-rail-source > button { font: inherit; padding: 0; min-height: 24px; text-decoration: underline; text-underline-offset: 3px; }
+.work-rail-source small, .work-rail-source .work-item-source { font: inherit; }
+.work-rail-source .work-carried { margin: 0; display: contents; }
+.work-notes .work-planner-task.work-rail-task > .work-task-menu { grid-column: 3; grid-row: 1 / span 2; align-self: start; }
+.work-task-menu > summary { display: grid; place-items: center; min-height: 32px; padding: 4px; }
+.work-task-menu .work-menu-body { min-width: 220px; max-width: min(280px, calc(100vw - 40px)); }
+.work-task-menu .work-weekly-assignment { display: grid; margin: 0; gap: 4px; padding: 8px; font: 13px var(--font-sans); }
+.work-task-menu .work-weekly-assignment select { width: 100%; font: inherit; min-height: 40px; }
+.work-task-menu .work-outstanding-sort { display: flex; flex-direction: column; align-items: stretch; }
+.work-task-menu button { width: 100%; }
+.work-notes .work-weekly .work-add-day-task { display: inline-flex; gap: 8px; align-items: center; padding: 6px 12px; margin: 0 0 10px; border: 1px solid var(--noeis-action); color: var(--noeis-action); border-radius: 6px; font: 500 14px var(--font-sans); }
+.work-rail-composer { margin-bottom: 12px; }
+.work-notes .work-rail-composer input { width: 100%; text-align: left; border: 1px solid var(--noeis-rule); padding: 10px; font: 15px var(--font-sans); }
+.work-rail-composer > div { display: flex; gap: 4px; flex-wrap: wrap; }
+.work-weekly .work-earlier, .work-rail-next, .work-done-today { border-top: 1px solid var(--noeis-rule); margin-top: 20px; }
+.work-weekly .work-earlier > summary, .work-done-today > summary, .work-rail-next > summary { background: transparent; border-radius: 0; color: var(--noeis-ink); cursor: pointer; padding: 16px 0; font: 400 23px/1.3 var(--font-serif); }
+.work-rail-hint { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--noeis-ink-muted); font: 12px/1.5 var(--font-sans); margin: 28px 0 0; }
+@media (pointer: coarse) { .work-task-menu > summary { min-height: 44px; } }

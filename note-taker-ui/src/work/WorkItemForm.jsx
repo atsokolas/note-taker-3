@@ -4,7 +4,7 @@ import { noteTitle } from './workSession';
 import { KIND_LABEL } from './workPlannerModel';
 
 export default function WorkItemForm({ item, defaults = {}, notes, folders, projects = [], occupiedPriorities, busy, onSave, onClose }) {
-  const [value, setValue] = useState(() => ({ kind: item?.kind || defaults.kind || 'task', title: item?.title || '', noteId: defaults.noteId ?? item?.noteId ?? '', folder: item?.folder?._id || item?.folder || defaults.folder || '', project: item?.project?._id || item?.project || defaults.project || '', plannedOn: defaults.plannedOn ?? item?.plannedOn ?? '', dueOn: item?.dueOn || '', priority: item?.priority || 0, startTime: item?.startTime || '09:00', endTime: item?.endTime || '09:30', withText: item?.withText || '' }));
+  const [value, setValue] = useState(() => ({ kind: item?.kind || defaults.kind || 'task', title: item?.title ?? defaults.title ?? '', noteId: defaults.noteId ?? item?.noteId ?? '', folder: item?.folder?._id || item?.folder || defaults.folder || '', project: item?.project?._id || item?.project || defaults.project || '', plannedOn: defaults.plannedOn ?? item?.plannedOn ?? '', dueOn: item?.dueOn || '', priority: item?.priority || 0, startTime: item?.startTime || '09:00', endTime: item?.endTime || '09:30', withText: item?.withText || '' }));
   const [createNote, setCreateNote] = useState(!item);
   const change = (key, next) => setValue(current => ({ ...current, [key]: next }));
   return <form className="work-item-form" onSubmit={event => { event.preventDefault(); if (!busy && value.title.trim()) onSave({ ...value, priority: Number(value.priority), createNote: value.kind === 'appointment' && !value.noteId && createNote }); }}>

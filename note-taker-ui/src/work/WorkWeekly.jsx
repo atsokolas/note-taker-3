@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { WorkTaskAssignment, WorkTaskRow } from './WorkPlanItem';
 import WorkIcon from './WorkIcon';
 import WorkItemSource from './WorkItemSource';
 import { operationId, noteTitle } from './workSession';
@@ -40,8 +41,6 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
   const past = week < currentWeek, disabled = busy || Boolean(pending) || session.loading() || Boolean(session.error());
   const tasks = items.filter(item => ['task', 'question'].includes(item.kind));
   const active = priorities.filter(priority => past || priority.status === 'active');
-  const assigned = new Set(priorities.filter(priority => ['active', 'complete'].includes(priority.status)).flatMap(priority => priority.taskIds));
-  const available = tasks.filter(item => !item.completed && !assigned.has(item._id));
   const retain = value => { if (value) setSaved(current => ({ ...current, [value.workItem.plannedOn]: value })); };
   const cache = value => session.setWeeklyDraft?.(taskDraftRef.current ? { ...value, week, taskDraft: taskDraftRef.current } : value);
   const save = async (values, targetWeek = week, revision = record?.revision ?? null, clearNewTitle = false, automatic = false) => {
@@ -160,6 +159,6 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
       {!past && priorities.some(priority => priority.status !== 'active') ? <details className="work-weekly-set-aside"><summary>Finished & postponed</summary>{priorities.filter(priority => priority.status !== 'active').map(reviewRow)}</details> : null}
       {week === currentWeek ? <div className="work-weekly-today">{children}</div> : null}
     </div>
-    {!past ? <aside className="work-weekly-tray" aria-label="Open to-dos">{margin ? <div className="work-weekly-more">{margin}</div> : null}<div className="work-weekly-tray-content"><h2>Open to-dos</h2><p className="work-weekly-hint">Drag a to-do into a priority. Or use “Move to…”.</p><ul>{available.map(item => <li key={item.id} {...dragProps(item)} className={dragging === item._id ? 'is-dragging' : ''}><div className="work-weekly-tray-line"><WorkTaskGrip item={item} {...dragProps(item)} /><span>{item.title}{source(item)}</span></div><label className="work-weekly-assignment"><span className="work-sr-only">Priority for {item.title}</span><select aria-label={`Priority for ${item.title}`} value="" disabled={disabled || !item._id || !active.length} onChange={event => link(item._id, event.target.value)}><option value="">{item._id ? 'Move to…' : 'Save task to link it'}</option>{active.map(priority => <option key={priority.id} value={priority.id}>{priority.title}</option>)}</select></label></li>)}</ul>{!available.length ? <p className="work-weekly-empty">All clear. Open tasks not yet linked to a priority will appear here.</p> : null}<button disabled={disabled} onClick={() => onNew({ kind: 'task' })}>New to-do</button></div></aside> : null}
+    {!past ? <WorkTaskAssignment.Provider value={{ priorities: active, disabled, link }}><aside className="work-weekly-tray" aria-label="Open to-dos">{margin ? <div className="work-weekly-more">{margin}</div> : <details className="work-rail-next" open><summary>Next</summary>{tasks.filter(item => !item.completed && !priorities.some(priority => ['active', 'complete'].includes(priority.status) && priority.taskIds.includes(item._id))).map(item => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} notes={notes} onOpen={onOpen} onEdit={onEdit} onAction={onAction} />)}<button disabled={disabled} onClick={() => onNew({ kind: 'task' })}>Add to-do</button></details>}<p className="work-rail-hint">Drag to a priority · More on <WorkIcon name="more" /></p></aside></WorkTaskAssignment.Provider> : null}
   </section>;
 }

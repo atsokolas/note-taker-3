@@ -527,6 +527,7 @@ notebookEntrySchema.add({
   revision: { type: Number, default: 0, min: 0 },
   occurredOn: { type: String, default: '' },
   trashedAt: { type: Date, default: null },
+  deletionBatchId: { type: String, default: null },
   withText: { type: String, default: '' },
   capturedAt: { type: Date, immutable: true },
   takenOn: { type: String, immutable: true },
@@ -557,6 +558,8 @@ const notebookFolderSchema = new mongoose.Schema({
      learns it is in Work. Check-ins are the dated answers to its Monday question. */
   kind: { type: String, enum: ['folder', 'project'], default: 'folder' },
   pausedAt: { type: Date, default: null },
+  mutationFence: { type: Number, default: 0, select: false },
+  deleted: { type: new mongoose.Schema({ batchId: String, deletedAt: Date, expiresAt: Date, restoredAt: { type: Date, default: null }, entryIds: [{ type: mongoose.Schema.Types.ObjectId }], counts: { notes: Number, tasks: Number, alreadyDeleted: Number, excludedTasks: Number } }, { _id: false }), default: null },
   brief: { type: String, default: '', maxlength: 8000 },
   closingLine: { type: String, default: '', maxlength: 280 },
   links: { type: [new mongoose.Schema({ kind: { type: String, enum: ['article', 'wiki', 'book'], required: true }, id: { type: String, required: true, maxlength: 64 }, title: { type: String, default: '', maxlength: 300 } }, { _id: false })], default: [] },

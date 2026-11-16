@@ -188,6 +188,23 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       return persist(id);
     }
   });
+  const mutateProjectDeletion = async (projectId, action, body) => {
+    if (!isCurrent()) return null;
+    await requireServer();
+    if (!isCurrent()) return null;
+    if (action === 'delete' && Object.values(drafts).some(draft => draft.dirty)) throw new Error('Your writing changed. Save it, then review this deletion again.');
+    const request = { ...options };
+    try {
+      const { data } = await api.post(`/api/work-notes/projects/${projectId}/${action}`, body, request);
+      if (!isCurrent() || request.signal.aborted) return null;
+      mergeFolders([data.project]);
+      data.entries.forEach(note => keepSaved(note));
+      emit(); return data;
+    } catch (error) {
+      if (isCurrent() && !request.signal.aborted) throw Object.assign(new Error(requestError(error)), { cause: error });
+      return null;
+    }
+  };
   return {
     account, entry, edit, capture, flush, isCurrent, refreshDrafts, open,
     resume(nextToken = storage.getItem('token') || '') {
@@ -211,13 +228,30 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       const note = entry(id); if (!isCurrent() || !note || note.workItem) return Promise.resolve(false);
       edit(id, { trashedAt: null }); return flush(id);
     },
-    items: () => records().filter(note => note.workItem && note.workItem.kind !== 'week'),
+    items: () => records().filter(note => note.workItem && note.workItem.kind !== 'week' && !note.trashedAt),
     weeks: () => records().filter(note => note.workItem?.kind === 'week'),
     // Memory-only UI recovery belongs to this account, not the note draft queue.
     weeklyDraft: () => workAccount(storage.getItem('token') || '') === account ? weeklyDraft : null,
     hasWeeklyDraft: () => Boolean(weeklyDraft),
     setWeeklyDraft(value) { if (isCurrent()) weeklyDraft = value; },
-    folders: () => folders,
+    folders: () => folders.filter(folder => !folder.deleted || folder.deleted.restoredAt),
+    deletedProjects: () => folders.filter(folder => folder.deleted && !folder.deleted.restoredAt),
+    async previewProjectDeletion(projectId) {
+      if (!isCurrent()) return null;
+      await requireServer();
+      if (!isCurrent()) return null;
+      if (Object.values(drafts).some(draft => draft.dirty)) throw new Error('Save or resolve your pending changes before deleting a project.');
+      const request = { ...options };
+      const { data } = await api.get(`/api/work-notes/projects/${projectId}/delete-preview`, request);
+      return isCurrent() && !request.signal.aborted ? data : null;
+    },
+    async deleteProject(projectId, preview, intent) {
+      if (Object.values(drafts).some(draft => draft.dirty)) throw new Error('Your writing changed. Save it, then review this deletion again.');
+      return mutateProjectDeletion(projectId, 'delete', { expectedRevision: preview.revision, reviewToken: preview.reviewToken, operationId: intent });
+    },
+    restoreProject(project) {
+      return mutateProjectDeletion(project._id, 'restore', { operationId: project.deleted.batchId });
+    },
     loading: () => loading,
     error: () => loadError,
     authNeeded: () => authNeeded,
