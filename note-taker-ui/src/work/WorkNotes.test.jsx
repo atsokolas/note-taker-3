@@ -510,7 +510,7 @@ test('project deletion requires reviewed confirmation and restores the whole bat
   const task = { _id: 't', title: 'Ship', revision: 1, project: 'p', workItem: { kind: 'task', list: 'next' } };
   const preview = { projectId: 'p', revision: 4, reviewToken: 'review-1', entryIds: ['a', 't'], counts: { notes: 1, tasks: 1, excludedTasks: 2, alreadyDeleted: 1 }, retentionDays: 14 };
   api.get.mockImplementation(async path => ({ data: path.endsWith('/delete-preview') ? preview : { entries: [entry], items: [task], folders: [project] } }));
-  const deleted = { ...project, revision: 5, deleted: { batchId: 'batch', deletedAt: '2026-11-16T12:00:00Z', expiresAt: '2026-11-30T12:00:00Z', restoredAt: null } };
+  const deleted = { ...project, revision: 5, deleted: { batchId: 'batch', deletedAt: '2026-11-16T12:00:00Z', expiresAt: '2026-11-30T12:00:00Z', autoErase: true, consentVersion: 1, restoredAt: null } };
   api.post.mockImplementation(async path => ({ data: path.endsWith('/restore') ? { project: { ...deleted, revision: 6, deleted: { ...deleted.deleted, restoredAt: '2026-11-17T12:00:00Z' } }, entries: [entry, task].map(record => ({ ...record, revision: 7, trashedAt: null, deletionBatchId: null })) } : { project: deleted, entries: [entry, task].map(record => ({ ...record, revision: 6, trashedAt: deleted.deleted.deletedAt, deletionBatchId: 'batch' })) } }));
   render(<WorkNotes />);
   const openDelete = async () => {
@@ -522,15 +522,18 @@ test('project deletion requires reviewed confirmation and restores the whole bat
   let dialog = await openDelete();
   expect(dialog).toHaveTextContent('2 linked tasks belong to other projects');
   expect(dialog).toHaveTextContent('1 already-deleted items');
-  expect(dialog).toHaveTextContent('Nothing is permanently erased automatically');
+  expect(dialog).toHaveTextContent('permanently erased on or after 14 days after deletion');
+  expect(dialog).toHaveTextContent('This cannot be undone');
+  expect(within(dialog).getAllByRole('button')[0]).toHaveTextContent('Cancel');
   expect(api.post).not.toHaveBeenCalled();
   fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
   expect(api.post).not.toHaveBeenCalled();
   dialog = await openDelete();
   fireEvent.click(within(dialog).getByRole('button', { name: 'Delete project', exact: true }));
   const deletedPage = await screen.findByRole('region', { name: 'Deleted' });
-  expect(deletedPage).toHaveTextContent('Recovery protected through');
-  expect(api.post).toHaveBeenCalledWith('/api/work-notes/projects/p/delete', expect.objectContaining({ expectedRevision: 4, reviewToken: 'review-1', operationId: expect.any(String) }), expect.anything());
+  expect(deletedPage).toHaveTextContent('Permanently erased on or after');
+  expect(deletedPage.querySelector('time')).toHaveAttribute('dateTime', '2026-11-30T12:00:00Z');
+  expect(api.post).toHaveBeenCalledWith('/api/work-notes/projects/p/delete', expect.objectContaining({ expectedRevision: 4, reviewToken: 'review-1', operationId: expect.any(String), autoErase: true }), expect.anything());
   expect(screen.queryByLabelText('Actions for project Launch')).not.toBeInTheDocument();
   fireEvent.click(within(deletedPage).getByRole('button', { name: 'Restore Launch' }));
   await screen.findByText('“Launch” and its deleted notes and tasks restored.');

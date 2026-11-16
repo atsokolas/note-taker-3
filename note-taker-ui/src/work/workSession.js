@@ -84,10 +84,18 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
         if (!persist(id)) linkedDurable = false;
       });
     }
-    if (!saved[note._id] || saved[note._id].revision <= note.revision) saved[note._id] = note;
+    if (!saved[note._id] || saved[note._id].revision <= note.revision) {
+      saved[note._id] = note;
+      if (note.erasedAt) Object.entries(drafts).forEach(([id, draft]) => {
+        if (draft.note._id !== note._id) return;
+        // Erasure invalidates server copies, never silently discards unsaved device writing.
+        if (draft.dirty) { draft.conflict = note; draft.error = 'The server copy was permanently erased. Your unsaved device draft remains here.'; persist(id); }
+        else forget(id);
+      });
+    }
     return linkedDurable;
   };
-  const entry = id => drafts[id]?.note || saved[aliases.get(id) || id];
+  const entry = id => drafts[id]?.note || (saved[aliases.get(id) || id]?.erasedAt ? undefined : saved[aliases.get(id) || id]);
   const edit = (id, patch) => {
     if (!isCurrent()) return;
     const current = entry(id); if (!current) return;
@@ -111,8 +119,8 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       const { data } = await api.get('/api/work-notes', request); if (!isCurrent() || request.signal.aborted) return;
       compatible = Array.isArray(data.items);
       if (!compatible) { loadError = MATCHING_SERVER; return; }
-      [...data.entries, ...data.items].forEach(note => keepSaved(note));
-      mergeFolders(data.folders);
+      [...data.entries, ...data.items, ...(data.erasedEntries || [])].forEach(note => keepSaved(note));
+      mergeFolders([...data.folders, ...(data.erasedProjects || []).map(project => ({ _id: project._id, revision: project.revision, deleted: { erasedAt: project.erasedAt } }))]);
     } catch (error) { if (isCurrent() && !request.signal.aborted) loadError = requestError(error); }
     finally { if (isCurrent() && !request.signal.aborted) { open.restoreParents(); loading = false; emit(); } }
   };
@@ -132,6 +140,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
         try {
           await requireServer();
           if (!isCurrent() || request.signal.aborted) return false;
+          if (drafts[id]?.conflict?.erasedAt || saved[sent._id]?.erasedAt) { draft.saving = false; emit(); return false; }
           const creating = !sent._id;
           if (creating && !draft.createBody) { draft.createBody = body(sent, true); persist(id); }
           const { data } = creating
@@ -169,11 +178,11 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
   const records = () => [
     ...Object.entries(saved).filter(([id]) => !drafts[id] && !Object.values(drafts).some(draft => draft.note._id === id)).map(([id, note]) => ({ ...note, clientId: id })),
     ...Object.entries(drafts).map(([id, draft]) => ({ ...draft.note, clientId: id, localVersion: Object.values(drafts).some(other => other !== draft && draft.note._id && other.note._id === draft.note._id) }))
-  ];
+  ].filter(note => !note.erasedAt);
   const mergeFolders = incoming => {
     const all = new Map(folders.map(folder => [folder._id, folder]));
     incoming.forEach(folder => { if (!all.has(folder._id) || (all.get(folder._id).revision || 0) <= (folder.revision || 0)) all.set(folder._id, folder); });
-    folders = [...all.values()].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.name.localeCompare(b.name));
+    folders = [...all.values()].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || (a.name || '').localeCompare(b.name || ''));
   };
   const open = createWorkOpenComposer({
     account, storage, isCurrent, entry, capture, edit, emit,
@@ -234,8 +243,8 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     weeklyDraft: () => workAccount(storage.getItem('token') || '') === account ? weeklyDraft : null,
     hasWeeklyDraft: () => Boolean(weeklyDraft),
     setWeeklyDraft(value) { if (isCurrent()) weeklyDraft = value; },
-    folders: () => folders.filter(folder => !folder.deleted || folder.deleted.restoredAt),
-    deletedProjects: () => folders.filter(folder => folder.deleted && !folder.deleted.restoredAt),
+    folders: () => folders.filter(folder => !folder.deleted?.erasedAt && (!folder.deleted || folder.deleted.restoredAt)),
+    deletedProjects: () => folders.filter(folder => folder.deleted && !folder.deleted.restoredAt && !folder.deleted.erasedAt),
     async previewProjectDeletion(projectId) {
       if (!isCurrent()) return null;
       await requireServer();
@@ -245,9 +254,9 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       const { data } = await api.get(`/api/work-notes/projects/${projectId}/delete-preview`, request);
       return isCurrent() && !request.signal.aborted ? data : null;
     },
-    async deleteProject(projectId, preview, intent) {
+    async deleteProject(projectId, preview, intent, { autoErase = false } = {}) {
       if (Object.values(drafts).some(draft => draft.dirty)) throw new Error('Your writing changed. Save it, then review this deletion again.');
-      return mutateProjectDeletion(projectId, 'delete', { expectedRevision: preview.revision, reviewToken: preview.reviewToken, operationId: intent });
+      return mutateProjectDeletion(projectId, 'delete', { expectedRevision: preview.revision, reviewToken: preview.reviewToken, operationId: intent, ...(autoErase ? { autoErase: true } : {}) });
     },
     restoreProject(project) {
       return mutateProjectDeletion(project._id, 'restore', { operationId: project.deleted.batchId });
@@ -369,6 +378,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
       if (!draft?.dirty) return entry(id)?._id ? 'Saved' : 'Start writing';
       draft.durable = device.durable(draft);
       if (!draft.durable) return 'Not saved on this device. Keep this page open.';
+      if (draft.conflict?.erasedAt) return 'The server copy was permanently erased. Your unsaved device draft remains here.';
       if (draft.conflict) return draft.note.workItem && draft.error ? `${draft.error} Both versions are kept.` : 'This note changed elsewhere. Both versions are kept.';
       if (draft.error) return `${draft.error} On this device.`;
       return draft.saving ? 'Saving…' : 'On this device';

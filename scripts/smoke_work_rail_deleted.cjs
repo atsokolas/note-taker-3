@@ -24,10 +24,10 @@ let browser;
     if (!p.startsWith('/api/') && u.hostname === '127.0.0.1') return route.continue();
     if (p === '/api/ui-settings') return route.fulfill({ json: { theme: 'tokyo-night' } });
     const record = [...data.entries, ...data.items].find(x => x._id === p.split('/').at(-1));
-    if (p.endsWith('/delete-preview')) return route.fulfill({ json: { revision: data.folders[0].revision, reviewToken: 'review-exact-fixture', retentionDays: 14, counts: { notes: 1, tasks: 1, excludedTasks: 0, alreadyDeleted: 0 } } });
+    if (p.endsWith('/delete-preview')) return route.fulfill({ json: { revision: data.folders[0].revision, reviewToken: 'review-exact-fixture', retentionDays: 14, consentVersion: 1, counts: { notes: 1, tasks: 1, excludedTasks: 0, alreadyDeleted: 0 } } });
     if (p.match(/\/projects\/[^/]+\/(delete|restore)$/) && method === 'POST') {
       const body = req.postDataJSON(), project = data.folders[0], entries = [data.entries[0], data.items.find(x => x._id === id(13))];
-      if (p.endsWith('/delete')) { assert.equal(body.expectedRevision, project.revision); assert.equal(body.reviewToken, 'review-exact-fixture'); assert.ok(body.operationId); deletes++; project.deleted = { batchId: body.operationId, deletedAt: today + 'T14:00:00Z', expiresAt: '2026-11-30T14:00:00Z' }; entries.forEach(x => { x.trashedAt = project.deleted.deletedAt; x.deletionBatchId = body.operationId; x.revision++; }); }
+      if (p.endsWith('/delete')) { assert.equal(body.expectedRevision, project.revision); assert.equal(body.reviewToken, 'review-exact-fixture'); assert.ok(body.operationId); assert.equal(body.autoErase, true); deletes++; project.deleted = { batchId: body.operationId, deletedAt: today + 'T14:00:00Z', expiresAt: '2026-11-30T14:00:00Z', autoErase: true, consentVersion: 1 }; entries.forEach(x => { x.trashedAt = project.deleted.deletedAt; x.deletionBatchId = body.operationId; x.revision++; }); }
       else { assert.equal(body.operationId, project.deleted.batchId); restores++; project.deleted.restoredAt = today + 'T14:01:00Z'; entries.forEach(x => { x.trashedAt = null; x.deletionBatchId = null; x.revision++; }); }
       project.revision++; return route.fulfill({ json: { project, entries, receipt: { operationId: body.operationId } } });
     }
@@ -175,10 +175,13 @@ let browser;
   await page.locator('.work-project-head').getByRole('button', { name: 'Delete project', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Delete BMS studio 430?' });
   await dialog.getByText('This moves the project, 1 notes and 1 tasks to Deleted.', { exact: true }).waitFor();
+  assert.match(await dialog.innerText(), /permanently erased on or after 14 days after deletion/);
+  assert.match(await dialog.innerText(), /This cannot be undone/);
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click(); assert.equal(deletes, 0);
   await page.locator('.work-project-head summary').click(); await page.locator('.work-project-head').getByRole('button', { name: 'Delete project', exact: true }).click();
   await dialog.getByRole('button', { name: 'Delete project', exact: true }).click();
   await page.getByRole('heading', { name: 'Deleted', exact: true }).waitFor(); assert.equal(deletes, 1); assert.ok(data.entries[0].trashedAt); assert.ok(data.items.find(x => x._id === id(13)).trashedAt);
+  assert.equal(await page.locator('.work-trash time').getAttribute('datetime'), '2026-11-30T14:00:00Z');
   await shot('deleted-project');
   await page.getByRole('button', { name: 'Restore BMS studio 430', exact: true }).click();
   await page.getByText(/and its deleted notes and tasks restored/).waitFor(); assert.equal(restores, 1); assert.equal(data.entries[0].trashedAt, null); assert.equal(data.items.find(x => x._id === id(13)).trashedAt, null);

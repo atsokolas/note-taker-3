@@ -356,3 +356,130 @@ test('project review fingerprints revisions and linked-task membership, not just
   assert.ok(restored.body.entries.find(entry => entry._id === note._id).trashedAt);
   assert.equal(restored.body.entries.find(entry => entry._id === created.body._id).trashedAt, null);
 });
+
+const { workProjectDeletion } = require('./workProjectDeletion');
+const { inWork } = require('../models/knowledgeContext');
+const eraser = workProjectDeletion({ NotebookEntry, NotebookFolder });
+async function erasureFixture(key, autoErase = true) {
+  const project = (await call('/folders', 'POST', { name: 'Erase ' + key, brief: 'private brief', kind: 'project', operationId: 'erase-project-' + key })).body;
+  const note = (await call('', 'POST', { title: 'private title', content: 'private prose', project: project._id, operationId: 'erase-note-' + key })).body;
+  const preview = (await call(`/projects/${project._id}/delete-preview`)).body;
+  const input = { expectedRevision: preview.revision, reviewToken: preview.reviewToken, operationId: 'erase-batch-' + key, ...(autoErase === undefined ? {} : { autoErase }) };
+  const removed = await call(`/projects/${project._id}/delete`, 'POST', input);
+  assert.equal(removed.status, 200, JSON.stringify(removed));
+  return { project, note, input, removed: removed.body, deadline: new Date(removed.body.receipt.expiresAt) };
+}
+test('only explicit new consent erases at the exact deadline; identity receipts prevent resurrection', async () => {
+  const legacy = await erasureFixture('legacy', false), current = await erasureFixture('exact');
+  assert.equal(current.removed.receipt.autoErase, true); assert.equal(current.removed.receipt.consentVersion, 1);
+  assert.equal(new Date(current.removed.receipt.consentedAt).getTime() + 14 * 86400000, current.deadline.getTime());
+  await eraser.eraseDue({ now: new Date(current.deadline.getTime() - 1) });
+  assert.equal((await call('/' + current.note._id)).status, 200);
+  const results = await Promise.all([eraser.eraseDue({ now: current.deadline }), eraser.eraseDue({ now: current.deadline })]);
+  assert.equal(results.reduce((sum, result) => sum + result.erased, 0), 1);
+  assert.equal((await call('/' + current.note._id)).status, 404);
+  assert.equal((await call('/' + legacy.note._id)).body.content, 'private prose');
+  const raw = await NotebookEntry.collection.findOne({ _id: new mongoose.Types.ObjectId(current.note._id) });
+  assert.ok(raw.erasedAt); assert.equal(raw.content, undefined); assert.equal(raw.title, undefined); assert.equal(raw.workingState, undefined);
+  const folder = await NotebookFolder.collection.findOne({ _id: new mongoose.Types.ObjectId(current.project._id) });
+  assert.equal(folder.brief, undefined); assert.ok(folder.deleted.erasedAt);
+  assert.equal((await call(`/projects/${current.project._id}/restore`, 'POST', { operationId: current.input.operationId })).status, 410);
+  assert.equal((await call('', 'POST', { operationId: 'erase-note-exact', content: 'stale replay' })).status, 410);
+  const list = (await call()).body;
+  assert.ok(!list.entries.some(entry => entry._id === current.note._id));
+  assert.ok(list.erasedEntries.some(entry => entry._id === current.note._id));
+  assert.ok(list.erasedProjects.some(entry => entry._id === current.project._id));
+});
+test('erasure preserves excluded tasks, prior Trash and independently copied continuations', async () => {
+  const project = (await call('/folders', 'POST', { name: 'Preserved refs', kind: 'project', operationId: 'erase-refs-project' })).body;
+  const other = (await call('/folders', 'POST', { name: 'Other refs', kind: 'project', operationId: 'erase-other-project' })).body;
+  const note = (await call('', 'POST', { title: 'source', project: project._id, operationId: 'erase-refs-note' })).body;
+  await call('/' + note._id, 'PUT', { expectedRevision: 0, workingState: { nextTimeLine: { text: 'Independent copied return line' } } });
+  const continued = (await call('/' + note._id + '/continue', 'POST', { operationId: 'erase-refs-continuation', expectedRevision: 1, occurredOn: '2026-11-17' })).body;
+  assert.equal((await call('/' + continued._id, 'PUT', { expectedRevision: 0, project: other._id })).status, 200);
+  const prior = (await call('', 'POST', { title: 'prior trash', project: project._id, trashedAt: '2026-10-01', operationId: 'erase-refs-prior' })).body;
+  const priorLinked = (await call('', 'POST', { title: 'linked prior-trash source', operationId: 'erase-refs-prior-linked', workItem: { kind: 'task', noteId: prior._id } })).body;
+  const task = (await call('', 'POST', { title: 'independent task', project: other._id, operationId: 'erase-refs-task', workItem: { kind: 'task', noteId: note._id } })).body;
+  const preview = (await call(`/projects/${project._id}/delete-preview`)).body;
+  const removed = await call(`/projects/${project._id}/delete`, 'POST', { expectedRevision: preview.revision, reviewToken: preview.reviewToken, operationId: 'erase-refs-batch', autoErase: true });
+  assert.equal(removed.status, 200);
+  await eraser.eraseDue({ now: new Date(removed.body.receipt.expiresAt) });
+  assert.equal((await call('/' + continued._id)).body.continuationBridge.text, 'Independent copied return line');
+  assert.equal((await call('/' + priorLinked._id)).status, 404, 'active linked task to prior-Trash source is included');
+  const preserved = (await call('/' + prior._id)).body;
+  assert.equal(preserved.project, null); assert.ok(preserved.trashedAt);
+  assert.equal((await call('/' + prior._id, 'PUT', { expectedRevision: preserved.revision, trashedAt: null })).status, 200);
+  assert.equal((await call('/' + task._id, 'PUT', { expectedRevision: task.revision, title: 'still editable' })).status, 200);
+  const unrelated = (await call('', 'POST', { operationId: 'erase-unrelated-task', project: other._id, workItem: { kind: 'task' } })).body;
+  assert.equal((await call('/' + unrelated._id, 'PUT', { expectedRevision: 0, workItem: { ...unrelated.workItem, noteId: note._id } })).status, 400, 'task origin is immutable');
+  assert.equal((await call('', 'POST', { operationId: 'erase-new-link', workItem: { kind: 'task', noteId: note._id }, project: other._id })).status, 409);
+});
+test('restoration cancels erasure, re-deletion needs new consent, and a mismatched member blocks atomically', async () => {
+  const restored = await erasureFixture('restored');
+  assert.equal((await call(`/projects/${restored.project._id}/restore`, 'POST', { operationId: restored.input.operationId })).status, 200);
+  await eraser.eraseDue({ now: restored.deadline });
+  assert.equal((await call('/' + restored.note._id)).body.content, 'private prose');
+  const preview = (await call(`/projects/${restored.project._id}/delete-preview`)).body;
+  await call(`/projects/${restored.project._id}/delete`, 'POST', { expectedRevision: preview.revision, reviewToken: preview.reviewToken, operationId: 'redelete-no-consent' });
+  await eraser.eraseDue({ now: new Date(restored.deadline.getTime() + 100000) });
+  assert.equal((await call('/' + restored.note._id)).body.content, 'private prose');
+  const mismatch = await erasureFixture('mismatch');
+  await NotebookEntry.collection.updateOne({ _id: new mongoose.Types.ObjectId(mismatch.note._id) }, { $set: { deletionBatchId: 'different-owner' } });
+  const result = await eraser.eraseDue({ now: mismatch.deadline }); assert.ok(result.blocked >= 1);
+  assert.equal((await call('/' + mismatch.note._id)).body.content, 'private prose');
+  assert.equal((await inWork(NotebookFolder.findById(mismatch.project._id))).deleted.erasureBlocked, 'membership_changed');
+});
+test('corrupt early expiry cannot erase before fourteen days and restore races never yield partial erasure', async () => {
+  const early = await erasureFixture('early');
+  await NotebookFolder.collection.updateOne({ _id: new mongoose.Types.ObjectId(early.project._id) }, { $set: { 'deleted.expiresAt': new Date(0) } });
+  await eraser.eraseDue({ now: new Date() });
+  assert.equal((await call('/' + early.note._id)).status, 200);
+  const race = await erasureFixture('race');
+  const [restored] = await Promise.all([call(`/projects/${race.project._id}/restore`, 'POST', { operationId: race.input.operationId }), eraser.eraseDue({ now: race.deadline })]);
+  assert.ok([200, 410].includes(restored.status));
+  const row = await NotebookEntry.collection.findOne({ _id: new mongoose.Types.ObjectId(race.note._id) });
+  if (restored.status === 200) { assert.equal(row.trashedAt, null); assert.equal(row.content, 'private prose'); }
+  else { assert.ok(row.erasedAt); assert.equal(row.content, undefined); }
+});
+test('erasure rollback retains all content and history; weekly plans remain editable after successful erasure', async () => {
+  const fixture = await erasureFixture('rollback');
+  const { EntryRevision } = require('../models');
+  await EntryRevision.create({ userId: user, kind: 'note', entryId: fixture.note._id, snapshot: { content: 'historical private prose' } });
+  const foreign = await EntryRevision.create({ userId: new mongoose.Types.ObjectId(), kind: 'note', entryId: fixture.note._id, snapshot: { content: 'foreign copy' } });
+  const replace = NotebookFolder.collection.replaceOne;
+  NotebookFolder.collection.replaceOne = async function(filter, ...args) {
+    if (String(filter._id) === fixture.project._id) throw new Error('synthetic final write failure');
+    return replace.call(this, filter, ...args);
+  };
+  try { assert.ok((await eraser.eraseDue({ now: fixture.deadline })).failed >= 1); }
+  finally { NotebookFolder.collection.replaceOne = replace; }
+  assert.equal((await call('/' + fixture.note._id)).body.content, 'private prose');
+  assert.equal(await EntryRevision.countDocuments({ userId: user, entryId: fixture.note._id }), 1);
+  await eraser.eraseDue({ now: fixture.deadline });
+  assert.equal(await EntryRevision.countDocuments({ userId: user, entryId: fixture.note._id }), 0);
+  assert.ok(await EntryRevision.findById(foreign._id));
+  const project = (await call('/folders', 'POST', { name: 'Week test', kind: 'project', operationId: 'erase-week-project' })).body;
+  const task = (await call('', 'POST', { title: 'week task', project: project._id, operationId: 'erase-week-task', workItem: { kind: 'task' } })).body;
+  const priorities = [{ id: 'kept', title: 'Independent priority', taskIds: [task._id], carriedFrom: null, status: 'active', reviewed: true }];
+  const week = await call('/weeks/2026-11-16', 'PUT', { expectedRevision: null, priorities }); assert.equal(week.status, 201);
+  const preview = (await call(`/projects/${project._id}/delete-preview`)).body;
+  const removed = await call(`/projects/${project._id}/delete`, 'POST', { expectedRevision: preview.revision, reviewToken: preview.reviewToken, operationId: 'erase-week-batch', autoErase: true });
+  await eraser.eraseDue({ now: new Date(removed.body.receipt.expiresAt) });
+  const saved = await call('/weeks/2026-11-16', 'PUT', { expectedRevision: week.body.revision, priorities: [{ ...priorities[0], title: 'Still editable' }] });
+  assert.equal(saved.status, 200, JSON.stringify(saved));
+  assert.equal((await call('/' + task._id)).status, 404);
+});
+test('empty project erases and foreign member IDs fail closed without touching either account', async () => {
+  const empty = (await call('/folders', 'POST', { name: 'Empty', brief: 'private', kind: 'project', operationId: 'erase-empty' })).body;
+  const preview = (await call(`/projects/${empty._id}/delete-preview`)).body;
+  const removed = await call(`/projects/${empty._id}/delete`, 'POST', { expectedRevision: preview.revision, reviewToken: preview.reviewToken, operationId: 'erase-empty-batch', autoErase: true });
+  await eraser.eraseDue({ now: new Date(removed.body.receipt.expiresAt) });
+  assert.ok((await NotebookFolder.collection.findOne({ _id: new mongoose.Types.ObjectId(empty._id) })).deleted.erasedAt);
+  const own = await erasureFixture('foreign-member');
+  const foreign = await NotebookEntry.create({ userId: new mongoose.Types.ObjectId(), knowledgeContext: 'work', content: 'Foreign private text', trashedAt: new Date(), deletionBatchId: own.input.operationId });
+  await NotebookFolder.collection.updateOne({ _id: new mongoose.Types.ObjectId(own.project._id) }, { $push: { 'deleted.entryIds': foreign._id } });
+  await eraser.eraseDue({ now: own.deadline });
+  assert.equal((await call('/' + own.note._id)).body.content, 'private prose');
+  assert.equal((await inWork(NotebookEntry.findById(foreign._id))).content, 'Foreign private text');
+  assert.equal((await inWork(NotebookFolder.findById(own.project._id))).deleted.erasureBlocked, 'membership_changed');
+});

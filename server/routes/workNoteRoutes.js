@@ -45,7 +45,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       res.status(error.status || (error.name === 'ValidationError' || error.name === 'CastError' ? 400 : 500)).json({ error: error.status ? error.message : 'Unable to save or load this Work note.', ...(error.current ? { current: error.current } : {}) });
     }
   };
-  const find = (req, extra = {}) => inWork(NotebookEntry.findOne({ _id: req.params.id, userId: req.user.id, ...extra }));
+  const find = (req, extra = {}) => inWork(NotebookEntry.findOne({ _id: req.params.id, userId: req.user.id, erasedAt: null, ...extra }));
   async function fields(req, current) {
     const body = req.body || {}; validateReferences(body);
     const result = {};
@@ -87,6 +87,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
   }
   async function duplicate(req, operationId, source) {
     const existing = await inWork(NotebookEntry.findOne({ userId: req.user.id, operationId }));
+    if (existing?.erasedAt) throw fail(410, 'This writing was permanently erased.');
     if (existing && existing.operationSource !== source) throw fail(409, 'This operationId was used for another action.');
     return existing;
   }
@@ -94,7 +95,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     const [entries, folders] = await Promise.all([
       inWork(NotebookEntry.find({ userId: req.user.id })).sort({ updatedAt: -1 }),
       inWork(NotebookFolder.find({ userId: req.user.id })).sort({ sortOrder: 1, name: 1 })
-    ]); res.json({ entries: entries.filter(entry => !entry.workItem), items: entries.filter(entry => entry.workItem), folders });
+    ]); res.json({ entries: entries.filter(entry => !entry.erasedAt && !entry.workItem), items: entries.filter(entry => !entry.erasedAt && entry.workItem), folders: folders.filter(folder => !folder.deleted?.erasedAt), erasedEntries: entries.filter(entry => entry.erasedAt).map(entry => ({ _id: entry._id, erasedAt: entry.erasedAt, revision: entry.revision })), erasedProjects: folders.filter(folder => folder.deleted?.erasedAt).map(folder => ({ _id: folder._id, erasedAt: folder.deleted.erasedAt, revision: folder.revision })) });
   }));
   router.get('/api/work-notes/projects/:id/delete-preview', handle(async (req, res) => {
     const project = await deletion.projectFor(req.user.id, req.params.id);
