@@ -56,6 +56,7 @@ describe('SharedWikiCollectionPage', () => {
 
   beforeEach(() => {
     jest.restoreAllMocks();
+    window.scrollTo = jest.fn();
     localStorage.clear();
     sessionStorage.clear();
     navigate = jest.fn();
@@ -109,6 +110,34 @@ describe('SharedWikiCollectionPage', () => {
     unmount();
     expect(document.body).not.toHaveClass('noeis-public-share');
     expect(document.documentElement).not.toHaveClass('noeis-public-share');
+  });
+
+  it('links each entry to a direct public collection URL', async () => {
+    render(<SharedWikiCollectionPage />);
+    expect(await screen.findByRole('link', { name: 'Opportunity Cost' })).toHaveAttribute(
+      'href', '/share/wiki/collection/thinking-foundations/wiki-1'
+    );
+    expect(screen.getByRole('link', { name: 'Margin of Safety' })).toHaveAttribute(
+      'href', '/share/wiki/collection/thinking-foundations/wiki-2'
+    );
+  });
+
+  it('opens a collection entry directly without auth and links back to its collection', async () => {
+    jest.spyOn(router, 'useParams').mockReturnValue({ idOrSlug: 'thinking-foundations', entryId: 'wiki-2' });
+    render(<SharedWikiCollectionPage />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Margin of Safety' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Back to Thinking Foundations/ })).toHaveAttribute(
+      'href', '/share/wiki/collection/thinking-foundations'
+    );
+    expect(screen.queryByRole('heading', { name: 'Opportunity Cost' })).not.toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('does not substitute another entry when a direct entry URL is unknown', async () => {
+    jest.spyOn(router, 'useParams').mockReturnValue({ idOrSlug: 'thinking-foundations', entryId: 'missing' });
+    render(<SharedWikiCollectionPage />);
+    expect(await screen.findByRole('heading', { name: 'Shared page unavailable' })).toBeInTheDocument();
+    expect(screen.queryByText('Opportunity cost frames tradeoffs.')).not.toBeInTheDocument();
   });
 
   it('sends logged-out readers through auth with a collection adoption return URL', async () => {

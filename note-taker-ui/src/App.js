@@ -311,6 +311,7 @@ const PublicRoutes = ({ handleLoginSuccess }) => {
           <Route path="/share/notebooks/:slug" element={<RetiredShare kind="notebooks" />} />
           <Route path="/share/volumes/:slug" element={<RetiredShare kind="volumes" />} />
           <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
+          <Route path="/share/wiki/collection/:idOrSlug/:entryId" element={<SharedWikiCollectionPage />} />
           <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
           <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
           <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />

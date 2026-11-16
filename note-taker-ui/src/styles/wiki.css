@@ -4044,10 +4044,8 @@ a.wiki-read__reference-title:focus-visible {
 }
 
 .shared-wiki-collection__page-preview {
-  max-height: 14rem;
-  overflow: hidden;
   padding-top: 4px;
-  mask-image: linear-gradient(#000 72%, transparent);
+  overflow-wrap: anywhere;
 }
 
 .shared-wiki-collection__page-preview .wiki-internal-link--static {
