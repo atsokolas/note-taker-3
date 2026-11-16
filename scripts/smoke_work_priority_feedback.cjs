@@ -1,0 +1,51 @@
+const http = require('http'), fs = require('fs'), path = require('path'), assert = require('assert/strict');
+const { chromium } = require('../note-taker-ui/node_modules/playwright');
+const root = path.resolve('note-taker-ui/build');
+fs.mkdirSync('tmp', { recursive: true });
+const server = http.createServer((req, res) => { let file = path.join(root, req.url.split('?')[0]); if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(root, 'index.html'); res.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.svg') ? 'image/svg+xml' : file.endsWith('.woff2') ? 'font/woff2' : 'text/html'); fs.createReadStream(file).pipe(res); });
+const id = n => String(n).padStart(24,'0');
+const today = '2026-11-16', prior = '2026-11-09';
+const task = (n,title,extra={}) => ({_id:id(n),revision:0,title,takenOn:'2026-11-12',capturedAt:'2026-11-12T12:00:00Z',timeZone:'UTC',folder:id(10),workItem:{kind:'task',list:'next',history:[],...extra}});
+const priority = (id,title,taskIds=[]) => ({id,title,taskIds,status:'active',reviewed:true,carriedFrom:null});
+const week = (n,day,priorities) => ({_id:id(n),revision:0,title:`Week of ${day}`,workItem:{kind:'week',plannedOn:day,priorities}});
+const data = {entries:[],folders:[{_id:id(10),name:'NOEIS',kind:'folder'}],items:[task(1,'Draft the application story'),task(2,'Compare program deadlines'),task(3,'Ask two founders for feedback',{plannedOn:'2026-11-13'}),task(4,'Refine the product walkthrough'),week(20,today,[priority('accelerators','Apply to accelerators',[id(1)]),priority('product','Make the product easier to understand',[id(4)])]),week(21,prior,[priority('previous','Clarify the accelerator shortlist',[id(2)])])]};
+(async()=>{
+ await new Promise(r=>server.listen(0,'127.0.0.1',r)); const browser=await chromium.launch({headless:true}); const page=await browser.newPage(); const errors=[]; page.on('pageerror',e=>{errors.push(e.message);console.log('PAGEERROR',e.stack);});
+ page.on('console',msg=>{if(msg.type()==='error'||msg.text().startsWith('DRAG'))console.log('CONSOLE',msg.text(),msg.location());}); await page.addInitScript(()=>window.addEventListener('error',e=>console.error('ERROR_FILE',e.filename,e.lineno,e.message)));
+ await page.clock.install({time:new Date('2026-11-16T14:00:00Z')});
+ await page.addInitScript(()=>localStorage.setItem('token','x.'+btoa(JSON.stringify({id:'synthetic-weekly-qa',exp:Math.floor(Date.now()/1000)+3600}))+'.x'));
+ await page.route('**/*',async route=>{const req=route.request(),u=new URL(req.url()); if(u.pathname.startsWith('/_vercel/'))return route.fulfill({contentType:'application/javascript',body:''}); if(u.pathname.startsWith('/api/')||u.hostname!=='127.0.0.1') { if(u.pathname==='/api/ui-settings')return route.fulfill({json:{theme:page.url().includes('?dark')?'tokyo-night':'light'}}); if(u.pathname==='/api/work-notes'&&req.method()==='POST'){const body=req.postDataJSON();const record={...body,_id:id(100+data.items.length),revision:0};data.items.push(record);return route.fulfill({json:record});}if(u.pathname.startsWith('/api/work-notes/weeks/')&&req.method()==='PUT'){const day=u.pathname.split('/').at(-1),body=req.postDataJSON();let record=data.items.find(x=>x.workItem?.kind==='week'&&x.workItem.plannedOn===day);if(record&&body.expectedRevision!==record.revision)return route.fulfill({status:409,json:{error:'Plan changed',current:record}});if(!record){record=week(30,day,[]);record.revision=-1;data.items.push(record);}record.workItem.priorities=body.priorities;record.revision++;return route.fulfill({json:record});}if(u.pathname.startsWith('/api/work-notes/')&&req.method()==='PUT'){const record=data.items.find(x=>x._id===u.pathname.split('/').at(-1));Object.assign(record,req.postDataJSON(),{revision:record.revision+1});return route.fulfill({json:record});}return route.fulfill({json:u.pathname==='/api/work-notes'?data:{}});}return route.continue();});
+ await page.addInitScript(()=>{if(window.location.search.includes('dark')) localStorage.setItem('ui-settings.v1',JSON.stringify({theme:'tokyo-night'}));});
+ const url=`http://127.0.0.1:${server.address().port}/work`;
+ for(const width of [1440,1280,430]){
+  await page.setViewportSize({width,height:1000});await page.goto(url);await page.getByRole('heading',{name:'This week',exact:true}).waitFor();await page.getByRole('heading',{name:'Apply to accelerators',exact:true}).waitFor();
+  const overflow=await page.evaluate(()=>({body:document.body.scrollWidth,window:innerWidth}));assert.ok(overflow.body<=overflow.window,JSON.stringify(overflow));
+  await page.screenshot({path:`tmp/weekly-${width}.png`,fullPage:true});console.log(`Viewport ${width}: rendered, no horizontal overflow`);
+ }
+ await page.setViewportSize({width:1440,height:1000});
+ const tray=page.getByRole('complementary',{name:'Open to-dos'}), target=page.getByRole('region',{name:'Apply to accelerators'});
+ await tray.locator('li').filter({hasText:'Compare program deadlines'}).dragTo(target);
+ await target.getByRole('checkbox',{name:'Compare program deadlines',exact:true}).waitFor();assert.deepEqual(data.items.find(x=>x._id===id(20)).workItem.priorities[0].taskIds.slice().sort(),[id(1),id(2)]);console.log('Real drag linked canonical task');
+ await page.setViewportSize({width:1440,height:1600});
+ await page.locator('.work-earlier').getByTitle('Drag Ask two founders for feedback to a priority').dragTo(target);
+ await target.getByRole('checkbox',{name:'Ask two founders for feedback',exact:true}).waitFor();console.log('Daily carried task drag linked canonical task');
+ await target.getByRole('button',{name:'Add to-do to Apply to accelerators'}).click();
+ await target.getByLabel('New to-do for Apply to accelerators').fill('Send the application');
+ await target.getByRole('button',{name:'Add to-do',exact:true}).click();
+ await target.getByRole('checkbox',{name:'Send the application',exact:true}).waitFor();
+ assert.equal(data.items.filter(x=>x.title==='Send the application').length,1);console.log('Inline creation saved one canonical task and linked it');
+ await page.reload();await page.getByRole('region',{name:'Apply to accelerators'}).getByRole('checkbox',{name:'Ask two founders for feedback',exact:true}).waitFor();await page.getByRole('region',{name:'Apply to accelerators'}).getByRole('checkbox',{name:'Send the application',exact:true}).waitFor();console.log('Reload retained fixture-persisted assignments and created task');
+ for(const width of [1440,1280,430]){await page.setViewportSize({width,height:1000});await page.screenshot({path:`tmp/feedback-${width}.png`,fullPage:true});const size=await page.evaluate(()=>({body:document.body.scrollWidth,window:innerWidth}));assert.ok(size.body<=size.window);}
+ await page.getByRole('button',{name:'Previous priority week',exact:true}).click();await page.getByRole('heading',{name:'Clarify the accelerator shortlist',exact:true}).waitFor();assert.equal(await page.getByRole('checkbox',{name:'Compare program deadlines',exact:true}).isDisabled(),true);await page.getByRole('button',{name:'Next priority week',exact:true}).click();await page.getByRole('heading',{name:'Apply to accelerators',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Next priority week',exact:true}).isDisabled(),true);console.log('Prior week read-only and navigation back clean');
+ await page.setViewportSize({width:430,height:1000});await page.goto(url+'?dark');
+ await page.getByRole('button',{name:'Add to-do to Apply to accelerators'}).click();
+ await page.getByLabel('New to-do for Apply to accelerators').fill('Mobile task');
+ await page.getByRole('button',{name:'Add to-do',exact:true}).click();
+ await page.getByRole('region',{name:'Apply to accelerators'}).getByRole('checkbox',{name:'Mobile task',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Remove Compare program deadlines from priority'}).click();
+ await page.getByLabel('Priority for Compare program deadlines',{exact:true}).selectOption('product');
+ await page.getByRole('region',{name:'Make the product easier to understand'}).getByRole('checkbox',{name:'Compare program deadlines',exact:true}).waitFor();
+ assert.equal(await page.locator('html').getAttribute('data-ui-theme'),'tokyo-night');
+ await page.screenshot({path:'tmp/feedback-dark-430.png',fullPage:true});console.log('Mobile dark-theme inline creation and native assignment passed');
+ assert.deepEqual(errors,[]);console.log('No browser page errors. All QA assertions passed.');await browser.close();server.close();
+})().catch(e=>{console.error(e);server.close();process.exit(1)});

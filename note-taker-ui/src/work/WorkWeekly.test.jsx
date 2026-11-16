@@ -45,7 +45,7 @@ test('rollover happens once, preserves last week and review can defer without co
   await waitFor(() => expect(session.saveWeek).toHaveBeenCalledTimes(1));
   rerender(<WorkWeekly {...props} />);
   expect(JSON.stringify(records[0])).toBe(old);
-  fireEvent.click(screen.getByRole('button', { name: 'Review rollover' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Review last week' }));
   fireEvent.click(screen.getByRole('button', { name: 'Defer Apply to accelerators' }));
   await waitFor(() => expect(records[1].workItem.priorities[0].status).toBe('deferred'));
   expect(props.onAction).not.toHaveBeenCalled();
@@ -121,4 +121,67 @@ test('an open dashboard advances to the new week without rewriting the prior pla
   await waitFor(() => expect(session.saveWeek).toHaveBeenCalledWith('2026-11-23', expect.any(Array), null, 'UTC'));
   expect(screen.getByRole('heading', { name: 'This week' })).toBeInTheDocument();
   expect(JSON.stringify(records[0])).toBe(before);
+});
+
+test('creates a to-do inside a priority using one canonical task and then links it', async () => {
+  session.capture = jest.fn(() => 'draft-task');
+  session.edit = jest.fn();
+  session.flush = jest.fn(async () => true);
+  session.entry = jest.fn(() => ({ _id: 'new-task' }));
+  render(<WorkWeekly {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Add to-do to Apply to accelerators' }));
+  fireEvent.change(screen.getByLabelText('New to-do for Apply to accelerators'), { target: { value: 'Send the application' } });
+  fireEvent.submit(screen.getByLabelText('New to-do for Apply to accelerators').closest('form'));
+  await waitFor(() => expect(session.saveWeek).toHaveBeenCalledWith('2026-11-16', [{ ...priority, taskIds: ['a', 'new-task'] }], 0, 'UTC'));
+  expect(session.capture).toHaveBeenCalledTimes(1);
+  expect(session.capture).toHaveBeenCalledWith(expect.objectContaining({ title: 'Send the application', workItem: { kind: 'task' } }));
+});
+
+test('accepts a task drag from the daily page, not only the weekly tray', async () => {
+  render(<WorkWeekly {...props} />);
+  const target = screen.getByRole('region', { name: 'Apply to accelerators' });
+  fireEvent.dragOver(target, { dataTransfer: { types: ['application/x-noeis-week-task'] } });
+  expect(target).toHaveClass('is-drop-target');
+  fireEvent.drop(target, { dataTransfer: { getData: () => 'b' } });
+  await waitFor(() => expect(session.saveWeek).toHaveBeenCalled());
+});
+
+test('retrying a failed inline to-do save reuses its captured task', async () => {
+  session.capture = jest.fn(() => 'draft-task'); session.edit = jest.fn();
+  session.flush = jest.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+  session.entry = jest.fn(() => ({ _id: 'new-task' }));
+  render(<WorkWeekly {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Add to-do to Apply to accelerators' }));
+  const field = screen.getByLabelText('New to-do for Apply to accelerators');
+  fireEvent.change(field, { target: { value: 'Send once' } }); fireEvent.submit(field.closest('form'));
+  await screen.findByText('That did not save.');
+  expect(field).toHaveValue('Send once'); expect(session.saveWeek).not.toHaveBeenCalled();
+  fireEvent.submit(field.closest('form'));
+  await waitFor(() => expect(session.saveWeek).toHaveBeenCalledTimes(1));
+  expect(session.capture).toHaveBeenCalledTimes(1);
+});
+
+test('an inline to-do draft survives opening a note and returning', () => {
+  let draft = null; session.weeklyDraft = () => draft; session.setWeeklyDraft = value => { draft = value; };
+  const first = render(<WorkWeekly {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Add to-do to Apply to accelerators' }));
+  fireEvent.change(screen.getByLabelText('New to-do for Apply to accelerators'), { target: { value: 'Keep this draft' } });
+  first.unmount(); render(<WorkWeekly {...props} />);
+  expect(screen.getByLabelText('New to-do for Apply to accelerators')).toHaveValue('Keep this draft');
+});
+
+test('review cannot hide an inline to-do draft and a removed target leaves recovery visible', async () => {
+  records[0].workItem.priorities[0] = { ...priority, carriedFrom: '2026-11-09', reviewed: false };
+  const { rerender } = render(<WorkWeekly {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Review last week' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add to-do to Apply to accelerators' }));
+  fireEvent.change(screen.getByLabelText('New to-do for Apply to accelerators'), { target: { value: 'Keep me' } });
+  expect(screen.getByRole('button', { name: 'Drop Apply to accelerators' })).toBeDisabled();
+  records[0].workItem.priorities = [];
+  rerender(<WorkWeekly {...props} />);
+  expect(screen.getByLabelText('Unassigned to-do')).toHaveValue('Keep me');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel', exact: true }));
+  expect(screen.queryByLabelText('Unassigned to-do')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Previous priority week' }));
+  expect(screen.getByText(/Past weeks keep their plan/)).toBeInTheDocument();
 });

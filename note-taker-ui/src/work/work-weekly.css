@@ -92,3 +92,13 @@
  .work-weekly-tray-content { order: 1; border-top: 1px solid var(--noeis-rule); padding-top: 24px; }
  .work-weekly-more { order: 3; margin-top: 0; }
 }
+
+.work-weekly-task-new { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 0 32px; font: 14px var(--font-sans); }
+.work-weekly-task-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 0 32px; }
+.work-weekly-task-add input { flex: 1 1 180px; min-width: 0; min-height: 44px; padding: 8px; border: 1px solid var(--noeis-rule); background: var(--noeis-paper); color: var(--noeis-ink); font: 15px var(--font-sans); }
+.work-weekly-task-add button { font-size: 13px; }
+.work-task-grip { color: var(--noeis-ink-muted); cursor: grab; font: 22px/1.2 var(--font-sans); }
+.work-weekly [draggable=true] { cursor: grab; }
+.work-weekly [draggable=true]:active { cursor: grabbing; }
+.work-weekly .is-drop-target { outline: 1px dashed var(--noeis-thread-strong); outline-offset: 4px; }
+@media (max-width: 900px) { .work-weekly-task-new, .work-weekly-task-add { margin-left: 0; } }
