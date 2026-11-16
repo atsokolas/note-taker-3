@@ -16,3 +16,25 @@ test('route/auth remounts retain memory-only writing for its owner without expos
   expect(returned).toBe(original); expect(returned.entry(id).content).toBe('Only in the original page');
   expect(localStorage.getItem(draftKey('owner'))).toBeNull();
 });
+
+test('weekly drafts survive route release only in their owner session and never reach device storage', () => {
+  const original = workSessionFor(token('owner'));
+  const draft = { week: '2026-11-16', newTitle: 'Apply to accelerators', pending: null };
+  const set = jest.spyOn(Storage.prototype, 'setItem');
+  original.setWeeklyDraft(draft);
+  expect(original.weeklyDraft()).toEqual(draft);
+  expect(original.canLeave()).toBe(true);
+  expect(set).not.toHaveBeenCalled(); set.mockRestore();
+  localStorage.setItem('token', token('other'));
+  expect(original.weeklyDraft()).toBeNull();
+  original.setWeeklyDraft({ newTitle: 'Wrong account' });
+  releaseWorkSession(original);
+  const other = workSessionFor(token('other'));
+  expect(other.weeklyDraft()).toBeNull();
+  localStorage.setItem('token', token('owner'));
+  const returned = workSessionFor(token('owner')); resumeWorkSession(returned, token('owner'));
+  expect(returned).toBe(original); expect(returned.weeklyDraft()).toEqual(draft);
+  returned.setWeeklyDraft(null); releaseWorkSession(returned);
+  const fresh = workSessionFor(token('owner'));
+  expect(fresh).not.toBe(original); expect(fresh.weeklyDraft()).toBeNull();
+});

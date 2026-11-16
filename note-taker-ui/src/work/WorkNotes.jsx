@@ -4,6 +4,7 @@ import WorkNoteEditor from './WorkNoteEditor';
 import WorkNoteDate from './WorkNoteDate';
 import WorkMenu from './WorkMenu';
 import WorkCalendar from './WorkCalendar';
+import WorkWeekly from './WorkWeekly.jsx';
 import WorkFollowups from './WorkFollowups';
 import WorkShelf from './WorkShelf';
 import WorkIndex from './WorkIndex';
@@ -152,7 +153,7 @@ export default function WorkNotes() {
       const returned = resumeWorkSession(session, localStorage.getItem('token') || '');
       setLocked(!returned); if (returned && !session.authNeeded()) setReauthenticate(false);
     };
-    const unload = event => { if (!session.canLeave()) { event.preventDefault(); event.returnValue = ''; } };
+    const unload = event => { if (!session.canLeave() || session.weeklyDraft?.()) { event.preventDefault(); event.returnValue = ''; } };
     window.addEventListener('online', online); window.addEventListener('storage', account); window.addEventListener('focus', account); window.addEventListener('beforeunload', unload);
     return () => { window.clearTimeout(timer.current); timers.forEach(value => window.clearTimeout(value)); releaseWorkSession(session); window.removeEventListener('online', online); window.removeEventListener('storage', account); window.removeEventListener('focus', account); window.removeEventListener('beforeunload', unload); };
   }, [session]);
@@ -376,7 +377,7 @@ export default function WorkNotes() {
           {!sheet && !quick ? signIn : null}
           <div className="work-mobile-nav"><button ref={shelfTrigger} onClick={() => { setMobileShelf(true); setShelfCollapsed(false); }}>Notes &amp; folders</button><button aria-label="New Work note" onClick={capture}>New note</button></div>
           {openedDay.current !== today && day === openedDay.current ? <p className="work-new-day">It’s a new day. This note keeps the day it was written. <button onClick={() => selectDay(today)}>Open today</button></p> : null}
-          {homePage ? <div className="work-home"><div>{planner}{evening ? <WorkDayClose items={items} today={today} onAction={action} onSort={sortLine} /> : null}</div><WorkNeedsYou needs={needs} notes={notes} folders={folders} today={today} onSort={sortLine} onAction={action} onOpen={open} onProject={id => scope('project', id)} onSaveProject={saveProject} onWeekEdition={draftWeek} /></div> : !writing || calendarMode === 'week' ? planner : null}
+          {homePage ? <WorkWeekly session={session} today={today} timeZone={timeZone} items={items} folders={folders} notes={notes} onAction={action} onEdit={editItem} onNew={newItem} onOpen={open} margin={<WorkNeedsYou needs={needs} notes={notes} folders={folders} today={today} onSort={sortLine} onAction={action} onOpen={open} onProject={id => scope('project', id)} onSaveProject={saveProject} onWeekEdition={draftWeek} />}>{planner}{evening ? <WorkDayClose items={items} today={today} onAction={action} onSort={sortLine} /> : null}</WorkWeekly> : !writing || calendarMode === 'week' ? planner : null}
           {writing ? <article className="work-note-paper">
             {note.continuesFromEntryId ? <p className="work-last-time">Last time{predecessor ? <>, <button onClick={() => open(predecessor.clientId)}>{noteDate(note.continuationBridge || predecessor)}</button></> : null}{note.continuationBridge?.text?.trim() ? <>, you left yourself: <q>{note.continuationBridge.text.trim()}</q></> : '.'}</p> : null}
             {owed.length ? <section className="work-owed" aria-label="Owed to you"><h2>{[...new Set(owed.map(item => item.waitingOn))].join(' and ')} {new Set(owed.map(item => item.waitingOn)).size === 1 ? 'owes' : 'owe'} you</h2>{owed.map(item => <p key={item.id}>{item.title}<small>{daysBetween(item.sortedOn || writtenDay(item), today)} days</small></p>)}</section> : null}

@@ -33,6 +33,7 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
   const continuations = new Map();
   const options = { skipAuthHandling: true, headers: { Authorization: `Bearer ${token}` }, signal: abort.signal };
   let saved = {}, drafts = {}, folders = [], disposed = false, tick = 0, loadError = '', loading = true, authNeeded = false, compatible = null;
+  let weeklyDraft = null;
   const listeners = new Set(), flights = new Map(), aliases = new Map();
   const isCurrent = () => !disposed && Boolean(account) && workAccount(storage.getItem('token') || '') === account;
   const emit = () => { tick += 1; listeners.forEach(listener => listener()); };
@@ -201,13 +202,35 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
     snapshot: () => tick,
     entries: () => records().filter(note => !note.workItem),
-    items: () => records().filter(note => note.workItem),
+    items: () => records().filter(note => note.workItem && note.workItem.kind !== 'week'),
+    weeks: () => records().filter(note => note.workItem?.kind === 'week'),
+    // Memory-only UI recovery belongs to this account, not the note draft queue.
+    weeklyDraft: () => workAccount(storage.getItem('token') || '') === account ? weeklyDraft : null,
+    hasWeeklyDraft: () => Boolean(weeklyDraft),
+    setWeeklyDraft(value) { if (isCurrent()) weeklyDraft = value; },
     folders: () => folders,
     loading: () => loading,
     error: () => loadError,
     authNeeded: () => authNeeded,
     load,
     compatible: () => compatible,
+    async saveWeek(week, priorities, expectedRevision = null, timeZone = deviceTimeZone()) {
+      if (!isCurrent()) return null;
+      await requireServer();
+      if (!isCurrent()) return null;
+      const request = { ...options };
+      try {
+        const { data } = await api.put(`/api/work-notes/weeks/${week}`, { priorities, expectedRevision, timeZone }, request);
+        if (!isCurrent() || request.signal.aborted) return null;
+        keepSaved(data); emit(); return data;
+      } catch (error) {
+        if (!isCurrent() || request.signal.aborted) return null;
+        const current = error?.response?.data?.current;
+        if (current?.workItem?.kind === 'week') keepSaved(current);
+        const detail = requestError(error); emit();
+        throw Object.assign(new Error(detail), { current, cause: error });
+      }
+    },
     async addFolder(name, intent = operationId(), kind = 'folder') {
       if (!isCurrent()) return null;
       await requireServer();

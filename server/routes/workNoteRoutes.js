@@ -1,5 +1,6 @@
 const { createWorkNoteReadiness } = require('../services/workNoteReadiness');
 const { EDITION_TAG, draftWeekEdition } = require('../services/workWeekEdition');
+const { saveWorkWeek } = require('../services/workWeek');
 const express = require('express');
 const mongoose = require('mongoose');
 const { inWork, workOperationIndex } = require('../models/knowledgeContext');
@@ -74,6 +75,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
   function operation(req) {
     const id = req.body?.operationId;
     if (typeof id !== 'string' || !id.trim() || id.length > 160) throw fail(400, 'A stable operationId is required.');
+    if (id.startsWith('work-week:')) throw fail(400, 'Save weekly priorities through the weekly planner.');
     return id;
   }
   async function duplicate(req, operationId, source) {
@@ -168,6 +170,10 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     catch (error) { if (error.code !== 11000) throw error; note = await duplicate(req, operationId, source); }
     res.status(201).json({ note });
   }));
+  router.put('/api/work-notes/weeks/:week', handle(async (req, res) => {
+    const { entry, created } = await saveWorkWeek({ NotebookEntry, userId: req.user.id, week: req.params.week, input: req.body });
+    res.status(created ? 201 : 200).json(entry);
+  }));
   router.get('/api/work-notes/:id', handle(async (req, res) => {
     const entry = await find(req); if (!entry) throw fail(404, 'Work note not found.'); res.json(entry);
   }));
@@ -175,6 +181,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     const expected = req.body?.expectedRevision;
     if (!revision(expected)) throw fail(400, 'expectedRevision is required.');
     const current = await find(req); if (!current) throw fail(404, 'Work note not found.');
+    if (current.workItem?.kind === 'week') throw fail(400, 'Edit this plan through the weekly planner.');
     if (replayedActions(current.workItem, req.body.workActions)) return res.json({ ...current.toObject(), _actionReplay: true });
     if (current.revision !== expected) throw fail(409, 'This note changed elsewhere.', current);
     let values;
