@@ -1,5 +1,7 @@
 # Working Studio rail, menus and Deleted
 
+Historical validation for PR #657. Its non-purging retention contract remains applicable to legacy deletion batches. Newly confirmed automatic-erasure batches follow [work-auto-erasure-qa.md](work-auto-erasure-qa.md).
+
 ## Approved scope
 
 Concept 1 (original-faithful Today/Next rail) and concept 3 (compact anchored menus and inline project rename). Project Delete includes its notes and tasks, requires an in-app confirmation, and provides two-week recovery. No production account data was mutated during development.

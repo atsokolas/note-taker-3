@@ -553,3 +553,38 @@ test('account switch at the ready-server await boundary sends no mutation', asyn
   expect(await request).toBeNull();
   expect(api.post).not.toHaveBeenCalled();
 });
+
+
+test('automatic erasure is sent only with explicit confirmation, never inferred from preview', async () => {
+  await session.load();
+  api.post.mockResolvedValue({ data: { project: { _id: 'p', deleted: { batchId: 'intent' } }, entries: [] } });
+  const preview = { revision: 1, reviewToken: 'reviewed', consentVersion: 1 };
+  await session.deleteProject('p', preview, 'plain');
+  expect(api.post.mock.calls[0][1]).not.toHaveProperty('autoErase');
+  await session.deleteProject('p', preview, 'explicit', { autoErase: true });
+  expect(api.post.mock.calls[1][1]).toEqual({ expectedRevision: 1, reviewToken: 'reviewed', operationId: 'explicit', autoErase: true });
+});
+
+
+test('content-free erasure tombstones invalidate pristine cached notes and projects on reload', async () => {
+  await session.load();
+  const erasedAt = '2026-12-01T12:00:00Z';
+  api.get.mockResolvedValue({ data: { entries: [], items: [], folders: [], erasedEntries: [{ _id: 'a', revision: 50, erasedAt }], erasedProjects: [{ _id: 'p', revision: 50, erasedAt }] } });
+  await session.load();
+  expect(session.entry('a')).toBeUndefined();
+  expect(session.entries().some(item => item._id === 'a')).toBe(false);
+  expect(session.trashed()).toEqual([]);
+  expect(session.deletedProjects()).toEqual([]);
+  expect(session.folders().some(item => item._id === 'p')).toBe(false);
+});
+
+test('erasure tombstones retain dirty device drafts as conflicts and never auto-reupload them', async () => {
+  await session.load(); session.edit('a', { content: 'Unsaved local words' });
+  const erased = { _id: 'a', revision: 50, erasedAt: '2026-12-01T12:00:00Z' };
+  api.get.mockResolvedValue({ data: { entries: [], items: [], folders: [], erasedEntries: [erased], erasedProjects: [] } });
+  await session.load();
+  expect(session.entry('a').content).toBe('Unsaved local words');
+  expect(session.conflict('a')).toEqual(erased);
+  await session.flush('a');
+  expect(api.put).not.toHaveBeenCalled(); expect(api.post).not.toHaveBeenCalled();
+});
