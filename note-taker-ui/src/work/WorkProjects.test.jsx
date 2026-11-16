@@ -65,9 +65,10 @@ test('the hill is read from a project’s own lines: up as questions are answere
   expect(FRIDAYS('2026-11-14')).toEqual(['2026-10-30', '2026-11-06', '2026-11-13']);
 });
 
-test('Projects shows where each one stands on one hill and six weeks of days, and a marked day opens', async () => {
+test('Projects retains six weeks of days without the hill, and a marked day opens', async () => {
   work('view=projects');
-  expect(await screen.findByRole('img', { name: /Fund II diligence: making it happen\./ })).toBeInTheDocument();
+  await screen.findByRole('heading', { name: 'Projects', level: 1 });
+  expect(screen.queryByRole('region', { name: 'How far along' })).not.toBeInTheDocument();
   const weeks = within(screen.getByRole('region', { name: 'Six weeks' }));
   expect(weeks.queryByText('Office move')).toBeInTheDocument();
   fireEvent.click(weeks.getAllByRole('button', { name: new RegExp(`^Fund II diligence, `) }).at(-1));
@@ -95,6 +96,8 @@ test('a project page reads the same way every time: log, next with what is owed,
   work('view=project&folder=f');
   const page = within(await screen.findByRole('region', { name: 'Fund II diligence' }));
   expect(page.getByText('2 things open, waiting on Priya, last touched today.')).toBeInTheDocument();
+  expect(page.queryByRole('img')).not.toBeInTheDocument();
+  expect(within(page.getByRole('region', { name: 'Log' })).getByRole('button', { name: 'New note in Fund II diligence' })).toBeInTheDocument();
   expect(within(page.getByRole('region', { name: 'Log' })).getByRole('button', { name: /Call with Priya.*Churn looks fine\. Decided: we ask for the 2024 cohort\./ })).toBeInTheDocument();
   const next = within(page.getByRole('region', { name: 'Next' }));
   expect(next.getByText('Ask Priya for the churn file')).toBeInTheDocument();
@@ -122,9 +125,9 @@ test('a project page keeps its brief and state through back-to-back saves, and a
   const page = within(await screen.findByRole('region', { name: 'Fund II diligence' }));
   const brief = page.getByRole('textbox', { name: 'What Fund II diligence is' });
   fireEvent.change(brief, { target: { value: 'IC memo with a yes or no.' } }); fireEvent.blur(brief);
-  fireEvent.click(page.getByRole('button', { name: 'Paused' }));
+  fireEvent.change(page.getByRole('combobox', { name: 'Project state' }), { target: { value: 'paused' } });
   await waitFor(() => expect(folders[1]).toMatchObject({ brief: 'IC memo with a yes or no.', pausedAt: expect.any(String) }));
-  fireEvent.click(page.getByRole('button', { name: 'Done' }));
+  fireEvent.change(page.getByRole('combobox', { name: 'Project state' }), { target: { value: 'done' } });
   fireEvent.change(page.getByRole('textbox', { name: 'One line on how it ended' }), { target: { value: 'We passed.' } });
   fireEvent.click(page.getByRole('button', { name: 'Mark done' }));
   await waitFor(() => expect(folders[1]).toMatchObject({ closingLine: 'We passed.', archivedAt: expect.any(String) }));
@@ -150,4 +153,24 @@ test('Add to project keeps an article with a project without touching the articl
   fireEvent.keyDown(menu.getByRole('textbox', { name: 'Find a project' }), { key: 'Enter' });
   expect(await screen.findByRole('status')).toHaveTextContent('Added to Hiring.');
   expect(api.put).toHaveBeenCalledWith('/api/work-notes/folders/h', expect.objectContaining({ links: [{ kind: 'article', id: 'a1', title: 'SaaS churn benchmarks' }], expectedRevision: 0 }));
+});
+
+
+test('canceling project completion leaves the project active, and a completed project can reopen', async () => {
+  work('view=project&folder=f');
+  const page = within(await screen.findByRole('region', { name: 'Fund II diligence' }));
+  const state = page.getByRole('combobox', { name: 'Project state' });
+  fireEvent.change(state, { target: { value: 'done' } });
+  fireEvent.click(page.getByRole('button', { name: 'Not yet' }));
+  expect(page.queryByRole('textbox', { name: 'One line on how it ended' })).not.toBeInTheDocument();
+  expect(state).toHaveValue('active');
+  expect(api.put).not.toHaveBeenCalled();
+  fireEvent.change(state, { target: { value: 'done' } });
+  fireEvent.click(page.getByRole('button', { name: 'Mark done' }));
+  await waitFor(() => expect(state).toHaveValue('done'));
+  expect(page.queryByRole('button', { name: 'New note in Fund II diligence' })).not.toBeInTheDocument();
+  fireEvent.change(state, { target: { value: 'active' } });
+  await waitFor(() => expect(state).toHaveValue('active'));
+  expect(page.getByRole('button', { name: 'New note in Fund II diligence' })).toBeInTheDocument();
+  expect(folders[1].archivedAt).toBeNull();
 });

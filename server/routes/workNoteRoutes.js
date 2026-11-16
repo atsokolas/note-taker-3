@@ -58,6 +58,11 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       if (typeof body[key] !== 'string') throw fail(400, `${key} must be text.`);
       result[key] = body[key];
     }
+    if (body.trashedAt !== undefined) {
+      if (current?.workItem || body.workItem) throw fail(400, 'Only authored notes can move to Trash.');
+      if (body.trashedAt !== null && (typeof body.trashedAt !== 'string' || !Number.isFinite(Date.parse(body.trashedAt)))) throw fail(400, 'Choose a valid Trash date.');
+      result.trashedAt = body.trashedAt === null ? null : new Date(body.trashedAt);
+    }
     if (body.blocks !== undefined) {
       if (!Array.isArray(body.blocks)) throw fail(400, 'blocks must be a list.');
       result.blocks = sanitizeNotebookBlocks(body.blocks);
@@ -161,7 +166,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (note) return res.status(201).json({ note });
     if (!date(req.body.through)) throw fail(400, 'Choose the last day of the week.');
     const capture = captureFields({ timeZone: req.body.timeZone });
-    const notes = await inWork(NotebookEntry.find({ userId: req.user.id, workItem: { $exists: false } })).lean();
+    const notes = await inWork(NotebookEntry.find({ userId: req.user.id, workItem: { $exists: false }, trashedAt: null })).lean();
     let result;
     try { result = await draftWeek({ notes, through: req.body.through }); }
     catch (error) { throw fail(error.status === 503 ? 503 : 502, error.status === 503 ? 'Week Editions need Claude, and Claude is not connected right now.' : 'Claude could not draft the week just now. Your notes are unchanged. Try again.'); }

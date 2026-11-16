@@ -21,7 +21,7 @@ export const noteTitle = note => {
 };
 export const noteDate = note => displayDay(note?.occurredOn);
 export const noteWords = note => note?.blocks?.length ? note.blocks.map(block => block.text || '').join('\n') : plainTextFrom(note?.content);
-const body = (note, creating = false) => ({ ...(creating ? { capturedAt: note.capturedAt, timeZone: note.timeZone } : {}), ...(note.workItem ? { workItem: itemMetadata(note.workItem) } : {}), ...(note.workActions?.length ? { workActions: note.workActions } : {}), title: note.title || '', content: note.content || '', blocks: note.blocks || [], folder: note.folder?._id || note.folder || null, project: note.project?._id || note.project || null, occurredOn: note.occurredOn, withText: note.withText || '' });
+const body = (note, creating = false) => ({ ...(creating ? { capturedAt: note.capturedAt, timeZone: note.timeZone } : {}), ...(note.workItem ? { workItem: itemMetadata(note.workItem) } : {}), ...(note.workActions?.length ? { workActions: note.workActions } : {}), ...(!note.workItem ? { trashedAt: note.trashedAt || null } : {}), title: note.title || '', content: note.content || '', blocks: note.blocks || [], folder: note.folder?._id || note.folder || null, project: note.project?._id || note.project || null, occurredOn: note.occurredOn, withText: note.withText || '' });
 const MATCHING_SERVER = 'Noeis is updating. Try again in a minute. Your writing stays here.';
 const message = error => error?.response?.data?.error || 'Sync paused. Retry when you are connected.';
 
@@ -201,7 +201,16 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
     },
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
     snapshot: () => tick,
-    entries: () => records().filter(note => !note.workItem),
+    entries: () => records().filter(note => !note.workItem && !note.trashedAt),
+    trashed: () => records().filter(note => !note.workItem && note.trashedAt),
+    trash(id) {
+      const note = entry(id); if (!isCurrent() || !note || note.workItem) return Promise.resolve(false);
+      edit(id, { trashedAt: note.trashedAt || new Date().toISOString() }); return flush(id);
+    },
+    restore(id) {
+      const note = entry(id); if (!isCurrent() || !note || note.workItem) return Promise.resolve(false);
+      edit(id, { trashedAt: null }); return flush(id);
+    },
     items: () => records().filter(note => note.workItem && note.workItem.kind !== 'week'),
     weeks: () => records().filter(note => note.workItem?.kind === 'week'),
     // Memory-only UI recovery belongs to this account, not the note draft queue.

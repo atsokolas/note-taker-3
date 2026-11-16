@@ -243,3 +243,23 @@ test('the week reads back as a new Work note that stays in Work, cites its entri
   assert.equal(failed.status, 502);
   assert.equal(failed.body.error, 'Claude could not draft the week just now. Your notes are unchanged. Try again.');
 });
+test('Trash is revisioned, reversible, owner-scoped and never deletes notes or linked tasks', async () => {
+  const note = (await call('', 'POST', { operationId: 'trash-note', title: 'Keep all writing', content: '<p>Original</p>' })).body;
+  const task = (await call('', 'POST', { operationId: 'trash-linked-task', title: 'Still open', workItem: { kind: 'task', noteId: note._id } })).body;
+  const trashedAt = '2026-11-16T12:00:00.000Z';
+  const trashed = await call('/' + note._id, 'PUT', { expectedRevision: 0, trashedAt });
+  assert.equal(trashed.status, 200);
+  assert.equal(trashed.body.trashedAt, trashedAt);
+  assert.equal(trashed.body.content, '<p>Original</p>');
+  assert.equal((await call('/' + task._id)).body.workItem.noteId, note._id);
+  assert.equal((await call('/' + note._id, 'PUT', { expectedRevision: 0, trashedAt: null })).status, 409);
+  assert.equal((await call('/' + note._id, 'PUT', { expectedRevision: 1, trashedAt: null }, { 'x-user': String(new mongoose.Types.ObjectId()) })).status, 404);
+  assert.equal((await call('/' + task._id, 'PUT', { expectedRevision: 0, trashedAt })).status, 400);
+  const listed = await call();
+  assert.equal(listed.body.entries.find(entry => entry._id === note._id).trashedAt, trashedAt, 'Trash remains recoverable after reload');
+  const restored = await call('/' + note._id, 'PUT', { expectedRevision: 1, trashedAt: null });
+  assert.equal(restored.status, 200);
+  assert.equal(restored.body.trashedAt, null);
+  assert.equal(restored.body.content, '<p>Original</p>');
+  assert.equal(restored.body.revision, 2);
+});

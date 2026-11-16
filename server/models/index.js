@@ -526,6 +526,7 @@ notebookEntrySchema.plugin(knowledgeContext);
 notebookEntrySchema.add({
   revision: { type: Number, default: 0, min: 0 },
   occurredOn: { type: String, default: '' },
+  trashedAt: { type: Date, default: null },
   withText: { type: String, default: '' },
   capturedAt: { type: Date, immutable: true },
   takenOn: { type: String, immutable: true },

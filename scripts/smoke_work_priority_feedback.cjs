@@ -9,12 +9,15 @@ const task = (n,title,extra={}) => ({_id:id(n),revision:0,title,takenOn:'2026-11
 const priority = (id,title,taskIds=[]) => ({id,title,taskIds,status:'active',reviewed:true,carriedFrom:null});
 const week = (n,day,priorities) => ({_id:id(n),revision:0,title:`Week of ${day}`,workItem:{kind:'week',plannedOn:day,priorities}});
 const data = {entries:[],folders:[{_id:id(10),name:'NOEIS',kind:'folder'}],items:[task(1,'Draft the application story'),task(2,'Compare program deadlines'),task(3,'Ask two founders for feedback',{plannedOn:'2026-11-13'}),task(4,'Refine the product walkthrough'),task(5,'Send investor update',{plannedOn:today}),week(20,today,[priority('accelerators','Apply to accelerators',[id(1)]),priority('product','Make the product easier to understand',[id(4)])]),week(21,prior,[priority('previous','Clarify the accelerator shortlist',[id(2)])])]};
+data.folders.push({_id:id(11), name:'BMS 5.0',kind:'project',hillHistory:[]});
+data.entries.push({_id:id(12),clientId:id(12),title:'Testing handoff',content:'Keep the original notes and every linked follow-up intact.',folder:id(10),project:id(11),revision:0,capturedAt:'2026-11-16T12:00:00Z',occurredOn:today});
+data.items.push(task(13,'Confirm testing handoff',{plannedOn:today,noteId:id(12)}));
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r)); const browser=await chromium.launch({headless:true}); const page=await browser.newPage(); const errors=[]; page.on('pageerror',e=>{errors.push(e.message);console.log('PAGEERROR',e.stack);});
  page.on('console',msg=>{if(msg.type()==='error'||msg.text().startsWith('DRAG'))console.log('CONSOLE',msg.text(),msg.location());}); await page.addInitScript(()=>window.addEventListener('error',e=>console.error('ERROR_FILE',e.filename,e.lineno,e.message)));
  await page.clock.install({time:new Date('2026-11-16T14:00:00Z')});
  await page.addInitScript(()=>localStorage.setItem('token','x.'+btoa(JSON.stringify({id:'synthetic-weekly-qa',exp:Math.floor(Date.now()/1000)+3600}))+'.x'));
- await page.route('**/*',async route=>{const req=route.request(),u=new URL(req.url()); if(u.pathname.startsWith('/_vercel/'))return route.fulfill({contentType:'application/javascript',body:''}); if(u.pathname.startsWith('/api/')||u.hostname!=='127.0.0.1') { if(u.pathname==='/api/ui-settings')return route.fulfill({json:{theme:page.url().includes('?dark')?'tokyo-night':'light'}}); if(u.pathname==='/api/work-notes'&&req.method()==='POST'){const body=req.postDataJSON();const record={...body,_id:id(100+data.items.length),revision:0};data.items.push(record);return route.fulfill({json:record});}if(u.pathname.startsWith('/api/work-notes/weeks/')&&req.method()==='PUT'){const day=u.pathname.split('/').at(-1),body=req.postDataJSON();let record=data.items.find(x=>x.workItem?.kind==='week'&&x.workItem.plannedOn===day);if(record&&body.expectedRevision!==record.revision)return route.fulfill({status:409,json:{error:'Plan changed',current:record}});if(!record){record=week(30,day,[]);record.revision=-1;data.items.push(record);}record.workItem.priorities=body.priorities;record.revision++;return route.fulfill({json:record});}if(u.pathname.startsWith('/api/work-notes/')&&req.method()==='PUT'){const record=data.items.find(x=>x._id===u.pathname.split('/').at(-1));Object.assign(record,req.postDataJSON(),{revision:record.revision+1});return route.fulfill({json:record});}return route.fulfill({json:u.pathname==='/api/work-notes'?data:{}});}return route.continue();});
+ await page.route('**/*',async route=>{const req=route.request(),u=new URL(req.url()); if(u.pathname.startsWith('/_vercel/'))return route.fulfill({contentType:'application/javascript',body:''}); if(u.pathname.startsWith('/api/')||u.hostname!=='127.0.0.1') { if(u.pathname==='/api/ui-settings')return route.fulfill({json:{theme:page.url().includes('?dark')?'tokyo-night':'light'}}); if(u.pathname==='/api/work-notes'&&req.method()==='POST'){const body=req.postDataJSON();const record={...body,_id:id(100+data.items.length),revision:0};data.items.push(record);return route.fulfill({json:record});}if(u.pathname.startsWith('/api/work-notes/weeks/')&&req.method()==='PUT'){const day=u.pathname.split('/').at(-1),body=req.postDataJSON();let record=data.items.find(x=>x.workItem?.kind==='week'&&x.workItem.plannedOn===day);if(record&&body.expectedRevision!==record.revision)return route.fulfill({status:409,json:{error:'Plan changed',current:record}});if(!record){record=week(30,day,[]);record.revision=-1;data.items.push(record);}record.workItem.priorities=body.priorities;record.revision++;return route.fulfill({json:record});}if(u.pathname.startsWith('/api/work-notes/')&&req.method()==='PUT'){const record=[...data.items,...data.entries].find(x=>x._id===u.pathname.split('/').at(-1));Object.assign(record,req.postDataJSON(),{revision:record.revision+1});return route.fulfill({json:record});}return route.fulfill({json:u.pathname==='/api/work-notes'?data:{}});}return route.continue();});
  await page.addInitScript(()=>{if(window.location.search.includes('dark')) localStorage.setItem('ui-settings.v1',JSON.stringify({theme:'tokyo-night'}));});
  const url=`http://127.0.0.1:${server.address().port}/work`;
  for(const width of [1440,1280,430]){
@@ -61,5 +64,45 @@ const data = {entries:[],folders:[{_id:id(10),name:'NOEIS',kind:'folder'}],items
  await page.getByRole('region',{name:'Make the product easier to understand'}).getByRole('checkbox',{name:'Compare program deadlines',exact:true}).waitFor();
  assert.equal(await page.locator('html').getAttribute('data-ui-theme'),'tokyo-night');
  await page.screenshot({path:'tmp/rail-dark-430.png',fullPage:true});console.log('Mobile dark-theme inline creation and native assignment passed');
+
+ for(const width of [1440,1280,430]) {
+  await page.setViewportSize({width,height:1024});
+  await page.goto(url+'?dark&view=project&folder='+id(11));
+  await page.getByRole('heading',{name:'BMS 5.0',exact:true}).waitFor();
+  assert.equal(await page.locator('.work-hill').count(),0);
+  await page.screenshot({path:`tmp/studio-project-${width}.png`,fullPage:true});
+  await page.goto(url+'?dark&note='+id(12));
+  await page.getByLabel('Note title',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Edit Confirm testing handoff'}).click();
+  const inspector=page.getByRole('dialog');
+  await inspector.getByLabel('Item',{exact:true}).waitFor();
+  assert.equal(await inspector.getByLabel('Item',{exact:true}).evaluate(el=>el===document.activeElement),true);
+  await page.screenshot({path:`tmp/studio-inspector-${width}.png`,fullPage:true});
+  const overflow=await page.evaluate(()=>document.body.scrollWidth<=innerWidth);assert.ok(overflow);
+  await inspector.getByRole('button',{name:'Cancel',exact:true}).click();
+  assert.equal(await page.getByRole('dialog').count(),0);
+  await page.getByRole('button',{name:'Edit Confirm testing handoff'}).click();
+  await page.keyboard.press('Escape');
+  assert.equal(await page.getByRole('dialog').count(),0);
+  assert.equal(await page.getByRole('button',{name:'Edit Confirm testing handoff'}).evaluate(el=>el===document.activeElement),true);
+  await page.getByRole('button',{name:'Edit Confirm testing handoff'}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Save item',exact:true}).click();
+  await page.getByRole('dialog').waitFor({state:'detached'});
+  assert.equal(data.items.filter(x=>x._id===id(13)).length,1);
+  await page.goBack();await page.goForward();
+  await page.getByLabel('Note title',{exact:true}).waitFor();
+ }
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.locator('.work-delete-note').click();
+ await page.getByText(/moved to Trash/).waitFor();
+ await page.goto(url+'?dark&view=trash');
+ await page.getByRole('heading',{name:'Trash',exact:true}).waitFor();
+ await page.getByText('Keep the original notes and every linked follow-up intact.').waitFor();
+ assert.equal(data.items.find(x=>x._id===id(13)).title,'Confirm testing handoff');
+ await page.getByRole('button',{name:'Restore Testing handoff',exact:true}).click();
+ await page.getByText('Note restored.',{exact:true}).waitFor();
+ await page.reload();
+ assert.equal(data.entries[0].trashedAt,null);
+ console.log('Project, inspector focus/cancel, responsive widths, note Trash/restore/reload passed');
  assert.deepEqual(errors,[]);console.log('No browser page errors. All QA assertions passed.');await browser.close();server.close();
 })().catch(e=>{console.error(e);server.close();process.exit(1)});

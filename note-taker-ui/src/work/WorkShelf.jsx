@@ -1,12 +1,12 @@
 import React from 'react';
 import WorkIcon from './WorkIcon';
-import WorkHill, { hillPhrase } from './WorkHill';
+import WorkMenu from './WorkMenu';
 import { matchesQuery, noteTitle } from './workSession';
 import { displayDay, writtenDay } from './workPlannerModel';
 
 // Two pages look across everything, then projects, then notes. A note is listed once, in its folder;
 // its project shows on the project page and on the note's place line.
-export default function WorkShelf({ needs, projects, dragging, drag, onDropNote, notes, folders, place, current, view, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose, onCollapse }) {
+export default function WorkShelf({ needs, projects, dragging, drag, onDropNote, notes, folders, place, current, view, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose, onCollapse, onTrash, trashedCount = 0 }) {
   const [over, setOver] = React.useState(null);
   const [expanded, setExpanded] = React.useState({});
   const [sections, setSections] = React.useState({});
@@ -15,7 +15,7 @@ export default function WorkShelf({ needs, projects, dragging, drag, onDropNote,
   const folderId = note => note.folder?._id || note.folder || '';
   const written = note => `${writtenDay(note)} ${note.capturedAt || note.createdAt || ''}`;
   const newest = list => list.sort((a, b) => written(b).localeCompare(written(a)));
-  const leaf = note => <button className="work-shelf-note" {...drag(note)} aria-current={current(note) ? 'page' : undefined} onClick={() => onOpen(note.clientId)}><span>{noteTitle(note)}</span><time className="work-sr-only">{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}</time></button>;
+  const leaf = note => <div className="work-shelf-note-row"><button className="work-shelf-note" {...drag(note)} aria-current={current(note) ? 'page' : undefined} onClick={() => onOpen(note.clientId)}><span>{noteTitle(note)}</span><time className="work-sr-only">{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}</time></button>{onTrash ? <WorkMenu label={`Actions for ${noteTitle(note)}`} icon="more"><button onClick={() => onTrash(note.clientId)}>Delete note</button></WorkMenu> : null}</div>;
   const inbox = newest(notes.filter(note => !folderId(note)));
   const placeRow = (id, name, contents, onName, menu, kind = 'folder', nested = []) => {
     const key = `${kind}:${id}`, childrenId = `${railId}-${key}`;
@@ -26,7 +26,7 @@ export default function WorkShelf({ needs, projects, dragging, drag, onDropNote,
       <div className="work-place-row" aria-current={active && !notes.some(current) ? 'page' : undefined} data-drop={over === key ? true : undefined} onDragOver={event => { if (!dragging || kind === 'project') return; event.preventDefault(); setOver(key); }} onDragLeave={() => setOver(null)} onDrop={event => { if (kind === 'project') return; event.preventDefault(); setOver(null); onDropNote(event.dataTransfer.getData('text/plain') || dragging, id); }}>
         {folds ? <button className="work-place-toggle" aria-label={`${open ? 'Collapse' : 'Expand'} ${name}`} aria-expanded={open} aria-controls={childrenId} onClick={() => setExpanded(previous => ({ ...previous, [key]: !open }))}><WorkIcon name="right" /></button> : <span className="work-place-toggle" aria-hidden="true" />}
         <button className="work-place-name" onClick={() => { setExpanded(previous => ({ ...previous, [key]: true })); onName(); }}><span>{name}</span></button>
-        {!id && contents.length ? <small aria-label={`${contents.length} unfiled`}>{contents.length}</small> : null}{kind === 'project' && id in needs.hills ? <WorkHill width={28} height={10} label={hillPhrase(needs.hills[id])} dots={[{ id, at: needs.hills[id] }]} /> : null}{menu}
+        {!id && contents.length ? <small aria-label={`${contents.length} unfiled`}>{contents.length}</small> : null}{menu}
       </div>
       {folds ? <div id={childrenId} className="work-place-children" hidden={!open}>
         <ul aria-label={`Notes in ${name}`} className="work-place-notes">
@@ -66,6 +66,6 @@ export default function WorkShelf({ needs, projects, dragging, drag, onDropNote,
     {section('projects', 'Projects', () => onScope('projects'), activeProjects, places(visibleProjects, 'project'), 'Projects')}
     {section('notes', 'Notes', () => onScope('notes'), null, <>{placeRow('', 'Inbox', inbox, () => onScope('inbox', ''))}{places(folders.filter(item => !item.archivedAt), 'folder')}<button className="work-add-folder" onClick={onNewFolder}><WorkIcon name="plus" /><span>New folder</span></button></>, 'Work folders')}
     {loading ? <p role="status">Opening Work notes…</p> : error ? <div role="alert"><p>{error}</p><button onClick={onRetry}>Retry</button></div> : null}
-    <div className="work-shelf-foot">{archived.length ? <button onClick={() => onScope('archive')}>Archive</button> : null}<button onClick={onTimeZone} aria-label={`Day timezone: ${timeZone}`}>{timeZone.split('/').pop().replace(/_/g, ' ')} time</button><button aria-label="Collapse Work navigation" onClick={onCollapse}><WorkIcon name="previous" /></button></div>
+    <div className="work-shelf-foot">{trashedCount ? <button onClick={() => onScope('trash')}>Trash ({trashedCount})</button> : null}{archived.length ? <button onClick={() => onScope('archive')}>Archive</button> : null}<button onClick={onTimeZone} aria-label={`Day timezone: ${timeZone}`}>{timeZone.split('/').pop().replace(/_/g, ' ')} time</button><button aria-label="Collapse Work navigation" onClick={onCollapse}><WorkIcon name="previous" /></button></div>
   </aside>;
 }
