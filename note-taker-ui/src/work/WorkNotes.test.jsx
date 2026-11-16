@@ -372,3 +372,19 @@ test('a new page shows one original written date through save, edits and reload 
   expect(screen.getAllByLabelText(/^Written on/)).toHaveLength(1);
   expect(screen.getByLabelText('Work note writing')).toHaveValue('Only my words');
 });
+
+test('home puts today and Next together in the right rail, not twice on the daily page', async () => {
+  window.history.replaceState({}, '', '/work');
+  render(<WorkNotes />);
+  await screen.findByRole('heading', { name: 'This week' });
+  const rail = screen.getByRole('complementary', { name: 'Open to-dos' });
+  const todaySummary = within(rail).getByText('Today’s to-dos');
+  const nextSummary = within(rail).getByText('Next', { selector: 'summary' });
+  expect(todaySummary.closest('details')).toHaveAttribute('open');
+  expect(nextSummary.closest('details')).toHaveAttribute('open');
+  expect(todaySummary.closest('details').nextElementSibling).toBe(nextSummary.closest('details'));
+  expect(screen.getAllByText('Today’s to-dos')).toHaveLength(1);
+  fireEvent.click(todaySummary); fireEvent.click(nextSummary);
+  expect(todaySummary.closest('details')).not.toHaveAttribute('open');
+  expect(nextSummary.closest('details')).not.toHaveAttribute('open');
+});

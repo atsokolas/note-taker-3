@@ -11,7 +11,7 @@ const ago = days => days === 0 ? 'today' : days === 1 ? 'a day' : `${days} days`
 
 // Needs you: the margin of Today, holding every line and project waiting on a decision from you.
 // Every row is a line a note or a day already holds; sorting one changes it everywhere it appears.
-export default function WorkNeedsYou({ needs, notes, folders, today, onSort, onAction, onOpen, onProject, onSaveProject, onWeekEdition }) {
+export default function WorkNeedsYou({ needs, notes, folders, today, onSort, onAction, onOpen, onProject, onSaveProject, onWeekEdition, children }) {
   const [asking, setAsking] = useState(null);
   const [drafting, setDrafting] = useState(null);
   const [copied, setCopied] = useState('');
@@ -48,6 +48,8 @@ export default function WorkNeedsYou({ needs, notes, folders, today, onSort, onA
   const quietLines = new Set(needs.quiet.map(item => item.id));
   const groups = [...folders.filter(folder => !folder.archivedAt).map(folder => ({ id: folder._id, name: folder.name })), { id: '', name: 'Not in a folder' }].map(group => ({ ...group, lines: needs.next.filter(item => !quietLines.has(item.id) && ((folderOf(item) || '') === group.id || (!group.id && !folders.some(folder => !folder.archivedAt && folder._id === folderOf(item))))) })).filter(group => group.lines.length);
   return <section className="work-outstanding work-home-margin" aria-label="Needs you">
+    {children}
+    <details className="work-needs-rest" open><summary>Next <span>({groups.reduce((sum, group) => sum + group.lines.length, 0)})</span></summary>{groups.map(group => <React.Fragment key={group.id || 'loose'}><h3>{group.name}</h3>{group.lines.map(item => row(item, <>{item.plannedOn ? <time>{short(item.plannedOn)}</time> : null}{source(item)}{star(item)}</>))}</React.Fragment>)}{!groups.length ? <p className="work-weekly-empty">Nothing in Next.</p> : null}</details>
     {struckRows}
     {section('New from your notes', needs.fresh, freshRow, 'sort each once')}
     {section('Owed to you', needs.waiting, item => { const days = daysBetween(sortedSince(item), today); return row({ ...item, title: `${item.waitingOn} owes you ${item.title.charAt(0).toLowerCase()}${item.title.slice(1)}` }, <><time className={days >= CHASE_DAYS ? 'is-long' : ''}>{ago(days)}</time>{source(item)}<button onClick={() => setDrafting(drafting === item.id ? null : item.id)}>Nudge</button></>, draft(item)); })}
@@ -58,7 +60,7 @@ export default function WorkNeedsYou({ needs, notes, folders, today, onSort, onA
     <section aria-label="Check-in"><h2>Check-in<small>Fridays</small></h2><p className="work-needs-question">What happened this week?</p>
       <p className="work-outstanding-line">{drafted ? <>{noteTitle(drafted)} is drafted. <button onClick={() => onOpen(drafted.clientId)}>Open it</button><button disabled={reading.busy} onClick={readWeek}>{reading.busy ? 'Reading the week…' : 'Draft again'}</button></> : <><button disabled={reading.busy} onClick={readWeek}>{reading.busy ? 'Reading the week…' : 'Read the week back'}</button> writes up your last seven days: what got done, what you decided, what’s still open.</>}</p>
       <p className="work-outstanding-line">{reading.message ? <span role="status">{reading.message}</span> : 'Only Claude reads these notes, and the draft stays here in Work.'}</p></section>
-    {groups.length ? <details className="work-needs-rest" open><summary>Next <span>({groups.reduce((sum, group) => sum + group.lines.length, 0)})</span></summary>{groups.map(group => <React.Fragment key={group.id || 'loose'}><h3>{group.name}</h3>{group.lines.map(item => row(item, <>{item.plannedOn ? <time>{short(item.plannedOn)}</time> : null}{source(item)}{star(item)}</>))}</React.Fragment>)}</details> : null}
+
     {needs.someday.length ? <details className="work-needs-rest" open><summary>Someday <span>({needs.someday.length})</span></summary>{needs.someday.map(item => row(item, <>{item.returnOn ? <time>Back {short(item.returnOn)}</time> : <label className="work-outstanding-back">Bring back<input type="date" aria-label={`Bring back ${item.title} on`} min={shiftDay(today, 1)} onChange={event => event.target.value && onSort(item.clientId, { returnOn: event.target.value })} /></label>}<button onClick={() => sort(item, { list: 'next', returnOn: null })}>Start now</button></>))}</details> : null}
     {needs.done ? <details className="work-needs-rest" open><summary>Done this week <span>({needs.done})</span></summary><dl className="work-ledger">{needs.ledger.map(entry => <React.Fragment key={entry.day}><dt>{displayDay(entry.day, { weekday: 'long' })}</dt><dd>{entry.items.map((item, index) => <React.Fragment key={item.id}>{index ? ' · ' : ''}<s>{item.title}</s></React.Fragment>)}</dd></React.Fragment>)}</dl>
       {needs.gotBack.map(({ item, days }) => <p className="work-outstanding-line" key={item.id}>{item.waitingOn} sent {item.title.charAt(0).toLowerCase() + item.title.slice(1)}{days > 0 ? `, after ${plural(days, 'day')}` : ''}.</p>)}

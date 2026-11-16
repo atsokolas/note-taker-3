@@ -185,3 +185,30 @@ test('review cannot hide an inline to-do draft and a removed target leaves recov
   fireEvent.click(screen.getByRole('button', { name: 'Previous priority week' }));
   expect(screen.getByText(/Past weeks keep their plan/)).toBeInTheDocument();
 });
+
+test('priorities start expanded and folding keeps the task draft without saving data', () => {
+  render(<WorkWeekly {...props} />);
+  const toggle = screen.getByRole('button', { name: priority.title });
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  expect(document.getElementById(toggle.getAttribute('aria-controls'))).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: `Add to-do to ${priority.title}` }));
+  const input = screen.getByLabelText(`New to-do for ${priority.title}`);
+  fireEvent.change(input, { target: { value: 'Keep this draft' } });
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect(input).not.toBeVisible();
+  expect(screen.queryByRole('checkbox', { name: a.title })).not.toBeInTheDocument();
+  expect(session.saveWeek).not.toHaveBeenCalled();
+  fireEvent.click(toggle);
+  expect(input).toBeVisible();
+  expect(input).toHaveValue('Keep this draft');
+});
+
+test('manage opens a collapsed priority so its editor is reachable', () => {
+  render(<WorkWeekly {...props} />);
+  const toggle = screen.getByRole('button', { name: priority.title });
+  fireEvent.click(toggle);
+  fireEvent.click(screen.getByRole('button', { name: `Manage ${priority.title}` }));
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  expect(screen.getByLabelText(`Rename ${priority.title}`)).toBeVisible();
+});
