@@ -3988,8 +3988,116 @@ a.wiki-read__reference-title:focus-visible {
   margin: 20vh auto 0;
 }
 
-.shared-wiki-page__hero--collection {
-  max-width: 920px;
+.shared-wiki-page.shared-wiki-page--collection .shared-wiki-page__hero--collection {
+  max-width: none;
+  gap: var(--space-5);
+  text-align: left;
+}
+
+.shared-wiki-page--collection .shared-wiki-page__hero--collection h1 {
+  max-width: none;
+  font-size: clamp(2.75rem, 5.2vw, 4.75rem);
+  font-weight: 400;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.shared-wiki-collection__intro {
+  max-width: 65ch;
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-serif);
+  font-size: clamp(1.15rem, 2vw, 1.4rem);
+  line-height: 1.5;
+}
+
+.shared-wiki-collection__metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.shared-wiki-collection__metadata > span + span::before {
+  content: '·';
+  margin-right: var(--space-4);
+}
+
+.shared-wiki-collection__adopt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  margin-top: var(--space-2);
+  font-family: var(--font-sans);
+}
+
+.shared-wiki-collection__adopt p {
+  flex: 1 1 240px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.shared-wiki-collection__adopt-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--text-primary);
+  border-radius: var(--radius-1);
+  background: var(--text-primary);
+  color: var(--surface);
+  font: 600 0.95rem var(--font-sans);
+  cursor: pointer;
+}
+
+.shared-wiki-collection__adopt-button:hover:not(:disabled) {
+  background: var(--text-secondary);
+}
+
+.shared-wiki-collection__adopt-button:focus-visible,
+.shared-wiki-collection__sharing summary:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 4px;
+}
+
+.shared-wiki-collection__adopt-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.shared-wiki-collection__adopt .shared-wiki-page__adopt-error {
+  flex-basis: 100%;
+  color: var(--danger, #9b3b2f);
+}
+
+.shared-wiki-collection__sharing {
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.shared-wiki-collection__sharing summary {
+  width: fit-content;
+  padding-block: var(--space-2);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.shared-wiki-collection__sharing p {
+  max-width: 65ch;
+  margin: var(--space-2) 0 0;
+  color: inherit;
 }
 
 .shared-wiki-collection__pages {

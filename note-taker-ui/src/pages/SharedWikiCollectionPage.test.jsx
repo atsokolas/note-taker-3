@@ -82,10 +82,12 @@ describe('SharedWikiCollectionPage', () => {
     expect(document.body).toHaveClass('noeis-public-share');
     expect(await screen.findByRole('heading', { name: 'Thinking Foundations' })).toBeInTheDocument();
     expect(screen.getByText('A safe public starting point.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Adopt shared wiki')).toHaveTextContent(/every public source they cite comes into your Library/i);
+    expect(screen.getByLabelText('Adopt shared wiki')).toHaveTextContent('Keep these pages and their public sources. Original unchanged.');
     expect(screen.getByText(/Backlinks, highlights, source notes, and agent work stay private/i)).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Public page ready: citations included, private source notes withheld.');
-    expect(screen.getByText('Maintained by the owner\'s agent · last reviewed Jul 4, 2026')).toBeInTheDocument();
+    expect(screen.getByText('Public sharing details').closest('details')).not.toHaveAttribute('open');
+    expect(screen.getByText("Maintained by the owner's agent.")).toBeInTheDocument();
+    expect(screen.getByText('Reviewed Jul 4, 2026')).toBeInTheDocument();
+    expect(screen.getByText('A safe public starting point.').compareDocumentPosition(screen.getByLabelText('Adopt shared wiki')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Opportunity Cost' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Margin of Safety' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Private neighbor' })).not.toBeInTheDocument();

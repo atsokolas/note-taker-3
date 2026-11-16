@@ -4,7 +4,6 @@ import { adoptPublicWikiCollection, getPublicWikiCollection } from '../api/wiki'
 import renderTiptapDoc, { firstParagraphText } from '../components/wiki/renderTiptapDoc';
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
-import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';
 import { normalizeSpaces } from '../utils/editorialText';
@@ -279,30 +278,29 @@ const SharedWikiCollectionPage = () => {
           <header className="shared-wiki-page__hero shared-wiki-page__hero--collection">
             <p className="shared-wiki-page__eyebrow">Shared wiki collection</p>
             <h1>{title}</h1>
-            <section className="shared-wiki-page__adopt" aria-label="Adopt shared wiki">
-              <div>
-                <h2>Take this wiki, and its reading.</h2>
-                <p>The pages come into your Wiki and every public source they cite comes into your Library, ready to read. The original stays as it is.</p>
-              </div>
-              <button type="button" onClick={handleAdopt} disabled={adopting}>
+            <p className="shared-wiki-collection__intro">{description}</p>
+            <div className="shared-wiki-collection__metadata" aria-label="Shared wiki metrics">
+              <span>{pages.length} pages</span>
+              <span>{totalSources} sources</span>
+              {reviewedAt ? <span>Reviewed {reviewedAt}</span> : null}
+            </div>
+            <section className="shared-wiki-collection__adopt" aria-label="Adopt shared wiki">
+              <button className="shared-wiki-collection__adopt-button" type="button" onClick={handleAdopt} disabled={adopting}>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <path d="M12 5.5C9 3.5 5.5 3.5 2 5v15c3.5-1.5 7-1.5 10 .5 3-2 6.5-2 10-.5V5c-3.5-1.5-7-1.5-10 .5Zm0 0v15" />
+                </svg>
                 {adopting ? 'Adding…' : 'Add to my library'}
               </button>
+              <p>Keep these pages and their public sources. Original unchanged.</p>
               {adoptionError ? <p className="shared-wiki-page__adopt-error" role="alert">{adoptionError}</p> : null}
             </section>
-            <p className="shared-wiki-page__receipt" role="status">{buildSharePreviewReceipt()}</p>
-            <p className="shared-wiki-page__maintenance-stamp">
-              Maintained by the owner&apos;s agent{reviewedAt ? ` · last reviewed ${reviewedAt}` : ''}
-            </p>
-            <p className="shared-wiki-page__privacy-note">
-              Public pages and references are visible. Backlinks, highlights, source notes, and agent work stay private.
-            </p>
-            <p className="shared-wiki-page__intro">{description}</p>
-            <div className="shared-wiki-page__metrics" aria-label="Shared wiki metrics">
-              <span>{pages.length} pages</span>
-              <span>{totalWords} words</span>
-              <span>{totalSources} sources</span>
-              <span>{totalClaims} claims</span>
-            </div>
+            <details className="shared-wiki-collection__sharing">
+              <summary>Public sharing details</summary>
+              <p>Maintained by the owner&apos;s agent.</p>
+              <p>Public pages and references are visible. Backlinks, highlights, source notes, and agent work stay private.</p>
+              <p>The pages come into your Wiki and every public source they cite comes into your Library, ready to read. The original stays as it is.</p>
+              <p>{totalWords} words · {totalClaims} claims</p>
+            </details>
           </header>
 
           <section className="shared-wiki-collection__pages" aria-label="Shared wiki pages">
