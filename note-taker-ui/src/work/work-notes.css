@@ -49,11 +49,6 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
 .work-place-toggle[aria-expanded=true] .work-icon { rotate: 90deg; }
 .work-shelf .work-place-menu { display: grid; place-items: center; flex: 0 0 var(--work-row); padding: 0; opacity: .7; }
 .work-place-menu .work-icon { width: 14px; height: 14px; }
-/* With a pointer, the folder menu floats over the name on hover, so names keep their full width. */
-@media (hover: hover) and (pointer: fine) {
-  .work-shelf .work-place-menu { position: absolute; right: 0; width: var(--work-row); opacity: 0; background: var(--noeis-canvas); }
-  .work-place-row:hover > .work-place-menu, .work-shelf .work-place-menu:focus-visible { opacity: .7; }
-}
 .work-place-notes, .work-place-branches { display: flex; flex-direction: column; list-style: none; margin: 0 0 0 calc(var(--work-tree-step) / 2); padding: 0 0 0 calc(var(--work-tree-step) / 2 - 1px); border-left: 1px solid var(--noeis-rule); }
 .work-place-notes:empty { display: none; }
 .work-place-notes > li, .work-place-branches > li { min-width: 0; }
@@ -535,8 +530,8 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-menu-body .work-week-toggle { grid-column: 1 / -1; }
 .work-menu-body .work-return { width: 100%; }
 .work-notes .work-menu-body .work-return textarea { font: inherit; }
-.work-save-state:has(.work-sr-only:only-child) { height: 0; }
-.work-save-state { font: 12px var(--font-sans); }
+.work-save-state { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font: 13px var(--font-sans); color: var(--noeis-ink-muted); }
+.work-note-location { margin-right: auto; }
 /* Each dated entry opens under its date, set a step above the writing and scaled from it. The entry's chevron, like Open's, hangs in the margin so dates and writing share one edge. */
 .work-writing .ProseMirror > h2.work-entry-date { margin: 48px 0 12px calc(-1 * var(--work-entry-toggle)); color: var(--noeis-ink); font: 600 1.2em/1.3 var(--font-sans); letter-spacing: -.01em; overflow-wrap: normal; }
 .work-writing .ProseMirror > h2.work-entry-date:first-child { margin-top: 0; }
@@ -618,3 +613,20 @@ html[data-ui-theme=tokyo-night] .work-notes {
   --noeis-rule-strong: #616571;
 }
 .work-project-studio h2 { font: 400 24px/1.3 var(--font-serif); }
+
+/* Actions stay discoverable with a mouse, keyboard or touch. */
+.work-shelf .work-project-menu { flex: 0 0 var(--work-row); }
+.work-shelf .work-project-menu > summary { min-height: var(--work-row); padding: 4px; }
+.work-shelf .work-project-menu .work-menu-body { position: fixed; top: auto; left: 24px; right: auto; width: 224px; z-index: 30; }
+.work-project-title-row > .work-project-menu { margin-left: auto; }
+.work-dialog form > label > textarea { display: block; width: 100%; min-height: 96px; resize: vertical; padding: 10px; background: var(--noeis-paper); color: var(--noeis-ink); border: 1px solid var(--noeis-rule); font: inherit; }
+
+.work-notes .work-add-day-task { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--noeis-thread-strong); border-radius: var(--noeis-radius-sm); margin: 0 0 16px; font: 14px var(--font-sans); color: var(--noeis-ink); }
+
+.work-notes { --text-primary: var(--noeis-ink); --text-secondary: var(--noeis-ink-muted); --text-muted: var(--noeis-ink-muted); }
+body.noeis-editorial .work-notes .work-inspector input:not([type=checkbox]), body.noeis-editorial .work-notes .work-inspector select { color: var(--noeis-ink); border: 1px solid var(--noeis-rule-strong) !important; border-radius: var(--noeis-radius-sm); padding: 8px 10px; }
+.work-notes .work-project-studio .work-outstanding-line, .work-notes .work-project-brief::placeholder { color: var(--noeis-ink-muted); }
+
+.work-written-row { display: flex; align-items: center; border-bottom: 1px solid var(--noeis-rule); }
+.work-written-row .work-index-note { flex: 1; min-width: 0; border-bottom: 0; }
+.work-written-row > .work-menu { flex: 0 0 44px; }

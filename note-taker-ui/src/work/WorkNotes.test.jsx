@@ -426,3 +426,76 @@ test('a slow deletion never dismisses a newer opened note', async () => {
   await act(async () => finish());
   expect(screen.getByRole('textbox', { name: 'Note title' })).toHaveValue('Smaller depot');
 });
+
+test('note menus rename through the revisioned save path and preserve writing', async () => {
+  await open();
+  fireEvent.click(screen.getByLabelText('Actions for Charging windows'));
+  fireEvent.click(within(screen.getByLabelText('Actions for Charging windows').closest('details')).getByRole('button', { name: 'Rename note' }));
+  const dialog = screen.getByRole('dialog', { name: 'Rename note' });
+  fireEvent.change(within(dialog).getByLabelText('Note name'), { target: { value: 'Charging plan' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+  await screen.findByText('Note renamed.');
+  expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/a', expect.objectContaining({ title: 'Charging plan', content: 'Original account', expectedRevision: 2 }), expect.anything());
+  expect(screen.getByLabelText('Note title')).toHaveValue('Charging plan');
+});
+
+test('project ellipses in sidebar and page share the same safe edit action', async () => {
+  const project = { _id: 'p', kind: 'project', name: 'Launch', brief: 'Original purpose', revision: 4 };
+  api.get.mockResolvedValue({ data: { entries: [source], items: [], folders: [project, { _id: 'f', name: 'Pilot' }] } });
+  api.put.mockImplementation(async (_, body) => ({ data: { ...project, ...body, revision: body.expectedRevision + 1 } }));
+  render(<WorkNotes />);
+  fireEvent.click(await screen.findByLabelText('Actions for project Launch'));
+  fireEvent.click(screen.getByRole('button', { name: 'Rename or edit project' }));
+  const dialog = screen.getByRole('dialog', { name: 'Edit project' });
+  fireEvent.change(within(dialog).getByLabelText('Project name'), { target: { value: 'Launch plan' } });
+  fireEvent.change(within(dialog).getByLabelText('Project description'), { target: { value: 'Clarified purpose' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+  await screen.findByText('Project updated.');
+  expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/folders/p', expect.objectContaining({ name: 'Launch plan', brief: 'Clarified purpose', expectedRevision: 4 }), expect.anything());
+  fireEvent.click(screen.getByRole('button', { name: 'Launch plan', exact: true }));
+  const page = screen.getByRole('main');
+  fireEvent.click(within(page).getByLabelText('Actions for project Launch plan'));
+  fireEvent.click(within(page).getByRole('button', { name: 'Rename or edit project' }));
+  expect(screen.getByLabelText('Project description')).toHaveValue('Clarified purpose');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(api.put).toHaveBeenCalledTimes(1);
+});
+
+test('rename-only project edit cannot overwrite an inline description save in flight', async () => {
+  const project = { _id: 'p', kind: 'project', name: 'Launch', brief: 'Original purpose', revision: 4 };
+  api.get.mockResolvedValue({ data: { entries: [], items: [], folders: [project] } });
+  let finish;
+  api.put.mockImplementationOnce((_, body) => new Promise(resolve => { finish = () => resolve({ data: { ...project, ...body, revision: 5 } }); }));
+  api.put.mockImplementation(async (_, body) => ({ data: { ...project, brief: 'New purpose', ...body, revision: 6 } }));
+  render(<WorkNotes />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Launch', exact: true }));
+  fireEvent.change(screen.getByLabelText('What Launch is'), { target: { value: 'New purpose' } });
+  fireEvent.blur(screen.getByLabelText('What Launch is'));
+  await waitFor(() => expect(finish).toEqual(expect.any(Function)));
+  const page = screen.getByRole('main');
+  fireEvent.click(within(page).getByLabelText('Actions for project Launch'));
+  fireEvent.click(within(page).getByRole('button', { name: 'Rename or edit project' }));
+  fireEvent.change(screen.getByLabelText('Project name'), { target: { value: 'Renamed launch' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  await act(async () => finish());
+  await screen.findByText('Project updated.');
+  expect(api.put.mock.calls[1][1]).toMatchObject({ name: 'Renamed launch', expectedRevision: 5 });
+  expect(api.put.mock.calls[1][1]).not.toHaveProperty('brief');
+  expect(screen.getByLabelText('What Renamed launch is')).toHaveValue('New purpose');
+});
+
+test('a note opened from its project keeps the expanded week planner reachable', async () => {
+  const project = { _id: 'p', kind: 'project', name: 'Launch', revision: 0 };
+  api.get.mockResolvedValue({ data: { entries: [{ ...source, project: 'p' }], items: [], folders: [project, { _id: 'f', name: 'Pilot' }] } });
+  render(<WorkNotes />);
+  fireEvent.click(await within(screen.getByRole('complementary')).findByRole('button', { name: 'Launch', exact: true }));
+  fireEvent.click(within(screen.getByRole('region', { name: 'Log' })).getByRole('button', { name: /Charging windows/ }));
+  expect(screen.getByLabelText('Work note writing')).toHaveValue(source.content);
+  fireEvent.click(screen.getByLabelText('Note information'));
+  fireEvent.click(screen.getByText('Choose a day').closest('summary'));
+  fireEvent.click(screen.getByRole('button', { name: 'Week', exact: true }));
+  const planner = screen.getByRole('region', { name: 'Work planner' });
+  expect(planner).toHaveClass('mode-week');
+  expect(within(planner).getAllByRole('button', { name: /Plan work for/ })).toHaveLength(7);
+  expect(screen.getByLabelText('Work note writing')).toHaveValue(source.content);
+});

@@ -5,7 +5,6 @@
 .work-project-title-row .work-page-title { margin: 0; }
 .work-project-studio .work-page-sense { margin: 10px 0 0; font: 14px/1.5 var(--font-sans); }
 .work-notes .work-project-title-row select { width: auto; min-height: 36px; padding: 6px 12px; border: 1px solid var(--noeis-rule); border-radius: 6px; background: var(--noeis-canvas); color: var(--noeis-ink); font: 14px var(--font-sans); }
-.work-project-studio .work-project-page { grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); gap: 32px; margin-top: 28px; }
 .work-project-studio .work-project-page > section, .work-project-context { min-width: 0; }
 .work-project-context { padding-left: 28px; border-left: 1px solid var(--noeis-rule); }
 .work-project-studio .work-project-context > section { margin: 0 0 24px; padding: 0 0 24px; border-bottom: 1px solid var(--noeis-rule); }
@@ -21,7 +20,6 @@
 .work-project-studio .work-project-closing { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--noeis-rule); }
 .work-project-ending { margin: 0 0 24px; color: var(--noeis-ink-muted); font: italic 18px/1.5 var(--font-serif); }
 @media (max-width: 1100px) {
-  .work-project-studio .work-project-page { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .work-project-context { padding: 24px 0 0; border-left: 0; border-top: 1px solid var(--noeis-rule); }
 }
 @media (max-width: 600px) {
@@ -29,3 +27,15 @@
   .work-project-studio .work-project-checkin p, .work-notes .work-project-studio .work-project-checkin input { grid-column: 1; }
   .work-project-studio .work-project-decision { flex-wrap: wrap; }
 }
+
+.work-project-studio { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); column-gap: 32px; }
+.work-project-studio > :not(.work-project-page), .work-project-page > section { grid-column: 1; min-width: 0; }
+.work-project-studio .work-project-page { display: contents; }
+.work-project-studio .work-project-context { grid-column: 2; grid-row: 1 / span 10; }
+.work-project-log-row { display: flex; align-items: start; border-bottom: 1px solid var(--noeis-rule); }
+.work-project-log-row .work-log-entry { flex: 1; min-width: 0; border: 0; }
+.work-project-log-row > .work-menu { flex: 0 0 44px; }
+.work-project-log-heading { flex-wrap: wrap; }
+.work-project-log-heading > .work-calendar { flex: 1; min-width: 0; margin: 0; }
+.work-project-log-heading .work-calendar-picker { margin: 0; }
+@media (max-width: 1100px) { .work-project-studio { display: block; } .work-project-studio .work-project-page { display: block; } .work-project-context { margin-top: 24px; } }

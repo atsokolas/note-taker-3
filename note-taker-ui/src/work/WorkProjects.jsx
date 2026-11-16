@@ -1,3 +1,5 @@
+import WorkMenu from './WorkMenu';
+import WorkNoteActions from './WorkNoteActions';
 import React, { useEffect, useState } from 'react';
 import { noteTitle } from './workSession';
 import WorkIcon from './WorkIcon';
@@ -82,7 +84,7 @@ export default function WorkProjects({ records, notes, items, today, onOpen, onA
 
 // One project, laid out the same way every time: what it is, this week's question, its log on the left,
 // and on the right what is next, what is coming, what was decided and what is kept with it.
-export function WorkProject({ record, notes, items, today, onAction, onCapture, onOpenNote, onNewNote, onSave }) {
+export function WorkProject({ record, notes, items, today, onAction, onCapture, onOpenNote, onNewNote, onSave, onEdit, calendar, onRenameNote, onTrashNote }) {
   const item = project(record, notes, items, today);
   const [brief, setBrief] = useState(record.brief || '');
   const [line, setLine] = useState('');
@@ -102,7 +104,7 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
   };
   const sense = item.state === 'done' ? `Done ${displayDay(dayInZone(record.archivedAt))}.` : [plural(item.next.length, 'thing') + ' open', item.waiting.length ? `waiting on ${[...new Set(item.waiting.map(line => line.waitingOn))].join(' and ')}` : '', `last touched ${touched(item.touched, today).toLowerCase()}`].filter(Boolean).join(', ').replace(/^./, c => c.toUpperCase()) + '.';
   return <section className="work-outstanding work-project work-project-studio" aria-label={record.name}><header className="work-project-head">
-    <div className="work-project-title-row"><h1 className="work-page-title">{record.name}</h1><select aria-label="Project state" value={item.state} onChange={event => changeState(event.target.value)}><option value="active">Active</option><option value="paused">Paused</option><option value="done">Done</option></select></div>
+    <div className="work-project-title-row"><h1 className="work-page-title">{record.name}</h1><select aria-label="Project state" value={item.state} onChange={event => changeState(event.target.value)}><option value="active">Active</option><option value="paused">Paused</option><option value="done">Done</option></select>{onEdit ? <WorkMenu label={`Actions for project ${record.name}`} icon="more" className="work-project-menu"><button onClick={() => onEdit(record)}>Rename or edit project</button></WorkMenu> : null}</div>
     <p className="work-page-sense">{sense}</p></header>
     {closing !== null ? <form className="work-project-closing" onSubmit={event => { event.preventDefault(); onSave(record, { archived: true, paused: false, closingLine: closing.trim() }).then(saved => { if (saved) setClosing(null); }); }}><label>One line on how it ended<textarea autoFocus rows={2} value={closing} onChange={event => setClosing(event.target.value)} placeholder="We passed, and the churn question answered itself." /></label><div className="work-actions"><button>Mark done</button><button type="button" onClick={() => setClosing(null)}>Not yet</button></div></form> : null}
     {item.state === 'done' && record.closingLine ? <blockquote className="work-project-ending">{record.closingLine}</blockquote> : null}
@@ -110,7 +112,7 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
     {item.state === 'active' ? <form className="work-project-checkin" aria-label="This week’s check-in" onSubmit={answerCheckIn}><small>Monday check-in</small><q>What would move {record.name} this week?</q>
       {answered ? <p>{answered.text}<small>Answered {displayDay(answered.on, { weekday: 'short', day: 'numeric' })}</small></p> : <input aria-label={`What would move ${record.name} this week?`} placeholder="One line, filed in the log" value={answer} onChange={event => setAnswer(event.target.value)} />}</form> : null}
     <div className="work-project-page">
-      <section aria-label="Log"><div className="work-project-log-heading"><h2>Log</h2>{item.state === 'done' ? null : <button className="work-project-new-note" aria-label={`New note in ${record.name}`} onClick={onNewNote}><WorkIcon name="plus" />New note</button>}</div>{item.log.map((entry, index) => <button className="work-log-entry" key={`${entry.note?.clientId || 'check-in'}:${entry.day}:${index}`} disabled={!entry.note} onClick={() => onOpenNote(entry.note.clientId)}><small>{displayDay(entry.day, { weekday: 'short', day: 'numeric', month: 'short' })} · {entry.checkIn ? 'Monday check-in' : noteTitle(entry.note)}</small><span>{entry.text}</span></button>)}
+      <section aria-label="Log"><div className="work-project-log-heading"><h2>Log</h2>{calendar}{item.state === 'done' ? null : <button className="work-project-new-note" aria-label={`New note in ${record.name}`} onClick={onNewNote}><WorkIcon name="plus" />New note</button>}</div>{item.log.map((entry, index) => <div className="work-project-log-row" key={`${entry.note?.clientId || 'check-in'}:${entry.day}:${index}`}><button className="work-log-entry" disabled={!entry.note} onClick={() => onOpenNote(entry.note.clientId)}><small>{displayDay(entry.day, { weekday: 'short', day: 'numeric', month: 'short' })} · {entry.checkIn ? 'Monday check-in' : noteTitle(entry.note)}</small><span>{entry.text}</span></button>{entry.note && onRenameNote ? <WorkNoteActions note={entry.note} onRename={onRenameNote} onOpen={onOpenNote} onTrash={onTrashNote} /> : null}</div>)}
         {item.log.length ? null : <p className="work-outstanding-line">Nothing written yet. Add a note to {record.name} and it shows up here.</p>}
       </section>
       <div className="work-project-context">

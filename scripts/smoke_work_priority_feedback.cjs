@@ -17,7 +17,7 @@ data.items.push(task(13,'Confirm testing handoff',{plannedOn:today,noteId:id(12)
  page.on('console',msg=>{if(msg.type()==='error'||msg.text().startsWith('DRAG'))console.log('CONSOLE',msg.text(),msg.location());}); await page.addInitScript(()=>window.addEventListener('error',e=>console.error('ERROR_FILE',e.filename,e.lineno,e.message)));
  await page.clock.install({time:new Date('2026-11-16T14:00:00Z')});
  await page.addInitScript(()=>localStorage.setItem('token','x.'+btoa(JSON.stringify({id:'synthetic-weekly-qa',exp:Math.floor(Date.now()/1000)+3600}))+'.x'));
- await page.route('**/*',async route=>{const req=route.request(),u=new URL(req.url()); if(u.pathname.startsWith('/_vercel/'))return route.fulfill({contentType:'application/javascript',body:''}); if(u.pathname.startsWith('/api/')||u.hostname!=='127.0.0.1') { if(u.pathname==='/api/ui-settings')return route.fulfill({json:{theme:page.url().includes('?dark')?'tokyo-night':'light'}}); if(u.pathname==='/api/work-notes'&&req.method()==='POST'){const body=req.postDataJSON();const record={...body,_id:id(100+data.items.length),revision:0};data.items.push(record);return route.fulfill({json:record});}if(u.pathname.startsWith('/api/work-notes/weeks/')&&req.method()==='PUT'){const day=u.pathname.split('/').at(-1),body=req.postDataJSON();let record=data.items.find(x=>x.workItem?.kind==='week'&&x.workItem.plannedOn===day);if(record&&body.expectedRevision!==record.revision)return route.fulfill({status:409,json:{error:'Plan changed',current:record}});if(!record){record=week(30,day,[]);record.revision=-1;data.items.push(record);}record.workItem.priorities=body.priorities;record.revision++;return route.fulfill({json:record});}if(u.pathname.startsWith('/api/work-notes/')&&req.method()==='PUT'){const record=[...data.items,...data.entries].find(x=>x._id===u.pathname.split('/').at(-1));Object.assign(record,req.postDataJSON(),{revision:record.revision+1});return route.fulfill({json:record});}return route.fulfill({json:u.pathname==='/api/work-notes'?data:{}});}return route.continue();});
+ await page.route('**/*',async route=>{const req=route.request(),u=new URL(req.url()); if(u.pathname.startsWith('/_vercel/'))return route.fulfill({contentType:'application/javascript',body:''}); if(u.pathname.startsWith('/api/')||u.hostname!=='127.0.0.1') { if(u.pathname==='/api/ui-settings')return route.fulfill({json:{theme:page.url().includes('?dark')?'tokyo-night':'light'}}); if(u.pathname==='/api/work-notes'&&req.method()==='POST'){const body=req.postDataJSON();const record={...body,_id:id(100+data.items.length),revision:0};data.items.push(record);return route.fulfill({json:record});}if(u.pathname.startsWith('/api/work-notes/weeks/')&&req.method()==='PUT'){const day=u.pathname.split('/').at(-1),body=req.postDataJSON();let record=data.items.find(x=>x.workItem?.kind==='week'&&x.workItem.plannedOn===day);if(record&&body.expectedRevision!==record.revision)return route.fulfill({status:409,json:{error:'Plan changed',current:record}});if(!record){record=week(30,day,[]);record.revision=-1;data.items.push(record);}record.workItem.priorities=body.priorities;record.revision++;return route.fulfill({json:record});}if(u.pathname.startsWith('/api/work-notes/folders/')&&req.method()==='PUT'){const record=data.folders.find(x=>x._id===u.pathname.split('/').at(-1));Object.assign(record,req.postDataJSON(),{revision:(record.revision||0)+1});return route.fulfill({json:record});}if(u.pathname.startsWith('/api/work-notes/')&&req.method()==='PUT'){const record=[...data.items,...data.entries].find(x=>x._id===u.pathname.split('/').at(-1));Object.assign(record,req.postDataJSON(),{revision:record.revision+1});return route.fulfill({json:record});}return route.fulfill({json:u.pathname==='/api/work-notes'?data:{}});}return route.continue();});
  await page.addInitScript(()=>{if(window.location.search.includes('dark')) localStorage.setItem('ui-settings.v1',JSON.stringify({theme:'tokyo-night'}));});
  const url=`http://127.0.0.1:${server.address().port}/work`;
  for(const width of [1440,1280,430]){
@@ -29,6 +29,9 @@ data.items.push(task(13,'Confirm testing handoff',{plannedOn:today,noteId:id(12)
   const mainBox=await page.locator('.work-weekly-priorities').boundingBox(), railBox=await dayPanel.boundingBox();
   if(width>900) assert.ok(railBox.x>mainBox.x+mainBox.width,JSON.stringify({mainBox,railBox}));
   await dayPanel.getByRole('checkbox',{name:'Send investor update'}).waitFor();
+  await dayPanel.getByRole('button',{name:'Add to-do',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
+  assert.equal(await page.locator('.work-written-row summary').count(),1);
   const priorityToggle=page.getByRole('button',{name:'Apply to accelerators',exact:true});
   await priorityToggle.focus();await page.keyboard.press('Space');assert.equal(await priorityToggle.getAttribute('aria-expanded'),'false');
   assert.equal(await page.getByRole('region',{name:'Apply to accelerators'}).getByRole('checkbox',{name:'Draft the application story'}).isVisible(),false);
@@ -57,7 +60,7 @@ data.items.push(task(13,'Confirm testing handoff',{plannedOn:today,noteId:id(12)
  await page.setViewportSize({width:430,height:1000});await page.goto(url+'?dark');
  await page.getByRole('button',{name:'Add to-do to Apply to accelerators'}).click();
  await page.getByLabel('New to-do for Apply to accelerators').fill('Mobile task');
- await page.getByRole('button',{name:'Add to-do',exact:true}).click();
+ await page.getByRole('region',{name:'Apply to accelerators'}).getByRole('button',{name:'Add to-do',exact:true}).click();
  await page.getByRole('region',{name:'Apply to accelerators'}).getByRole('checkbox',{name:'Mobile task',exact:true}).waitFor();
  await page.getByRole('button',{name:'Remove Compare program deadlines from priority'}).click();
  await page.getByLabel('Priority for Compare program deadlines',{exact:true}).selectOption('product');
@@ -70,6 +73,10 @@ data.items.push(task(13,'Confirm testing handoff',{plannedOn:today,noteId:id(12)
   await page.goto(url+'?dark&view=project&folder='+id(11));
   await page.getByRole('heading',{name:'BMS 5.0',exact:true}).waitFor();
   assert.equal(await page.locator('.work-hill').count(),0);
+  await page.locator('.work-project-log-row summary').click();
+  await page.locator('.work-project-log-row').getByRole('button',{name:'Rename note',exact:true}).click();
+  await page.getByRole('dialog',{name:'Rename note'}).waitFor();
+  await page.keyboard.press('Escape');
   await page.screenshot({path:`tmp/studio-project-${width}.png`,fullPage:true});
   await page.goto(url+'?dark&note='+id(12));
   await page.getByLabel('Note title',{exact:true}).waitFor();
@@ -92,14 +99,55 @@ data.items.push(task(13,'Confirm testing handoff',{plannedOn:today,noteId:id(12)
   await page.goBack();await page.goForward();
   await page.getByLabel('Note title',{exact:true}).waitFor();
  }
+
+ for(const width of [1440,1280,430]) {
+  await page.setViewportSize({width,height:1024});
+  await page.goto(url+'?dark&view=project&folder='+id(11));
+  const projectActions=page.locator('.work-project-head summary');
+  await projectActions.focus();await page.keyboard.press('Space');
+  await page.locator('.work-project-head').getByRole('button',{name:'Rename or edit project'}).click();
+  await page.getByLabel('Project name',{exact:true}).fill('BMS studio '+width);
+  await page.getByLabel('Project description',{exact:true}).fill('A clearer project purpose');
+  await page.getByRole('button',{name:'Save changes',exact:true}).click();
+  await page.getByRole('heading',{name:'BMS studio '+width,exact:true}).waitFor();
+  await page.reload();await page.getByRole('heading',{name:'BMS studio '+width,exact:true}).waitFor();
+  if(width===430)await page.getByRole('button',{name:'Notes & folders',exact:true}).click();
+  const rail=page.getByRole('complementary',{name:'Work notes',exact:true});
+  const railMenu=rail.getByLabel('Actions for project BMS studio '+width,{exact:true});
+  assert.equal(await railMenu.isVisible(),true);
+  await railMenu.focus();await page.keyboard.press('Enter');
+  await rail.getByRole('button',{name:'Rename or edit project'}).click();
+  await page.getByRole('dialog',{name:'Edit project'}).waitFor();
+  await page.keyboard.press('Escape');
+  assert.equal(await railMenu.evaluate(el=>el===document.activeElement),true);
+  await page.goto(url+'?dark&note='+id(12));
+  await page.getByLabel('Note actions',{exact:true}).click();
+  await page.locator('.work-note-heading').getByRole('button',{name:'Rename note'}).click();
+  await page.getByLabel('Note name',{exact:true}).fill('Testing handoff '+width);
+  await page.getByRole('button',{name:'Save changes',exact:true}).click();
+  await page.getByText('Note renamed.',{exact:true}).waitFor();
+  await page.reload();assert.equal(await page.getByLabel('Note title',{exact:true}).inputValue(),'Testing handoff '+width);
+  if(width===430)await page.getByRole('button',{name:'Notes & folders',exact:true}).click();
+  await rail.getByLabel('Actions for Testing handoff '+width,{exact:true}).click();
+  await rail.getByRole('button',{name:'Edit note',exact:true}).click();
+  await page.getByLabel('Note title',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Edit Confirm testing handoff'}).waitFor();
+  assert.equal(await page.locator('.work-note-location').innerText(),'Notes / NOEIS');
+  assert.equal(await page.locator('.work-note-status').innerText(),'Saved');
+  assert.equal(data.entries[0].content,'Keep the original notes and every linked follow-up intact.');
+  assert.equal(data.items.find(x=>x._id===id(13)).workItem.noteId,id(12));
+  await page.screenshot({path:`tmp/studio-actions-${width}.png`,fullPage:true,animations:'disabled'});
+ }
+ console.log('Project and document actions: keyboard, rename/edit, cancel, reload, content/link retention passed');
+ await page.getByLabel('Note actions',{exact:true}).click();
  await page.emulateMedia({reducedMotion:'reduce'});
- await page.locator('.work-delete-note').click();
+ await page.locator('.work-note-heading').getByRole('button',{name:'Delete note',exact:true}).click();
  await page.getByText(/moved to Trash/).waitFor();
  await page.goto(url+'?dark&view=trash');
  await page.getByRole('heading',{name:'Trash',exact:true}).waitFor();
  await page.getByText('Keep the original notes and every linked follow-up intact.').waitFor();
  assert.equal(data.items.find(x=>x._id===id(13)).title,'Confirm testing handoff');
- await page.getByRole('button',{name:'Restore Testing handoff',exact:true}).click();
+ await page.getByRole('button',{name:'Restore '+data.entries[0].title,exact:true}).click();
  await page.getByText('Note restored.',{exact:true}).waitFor();
  await page.reload();
  assert.equal(data.entries[0].trashedAt,null);
