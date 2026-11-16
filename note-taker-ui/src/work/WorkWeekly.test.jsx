@@ -108,3 +108,9 @@ test('linking another task cannot silently discard a title being edited', () => 
   expect(session.saveWeek).not.toHaveBeenCalled();
   expect(screen.getByLabelText('Rename Apply to accelerators')).toHaveValue('Keep my unfinished title');
 });
+test('an unsent priority title from last week remains editable after Monday rollover', async () => {
+  session.weeklyDraft = () => ({ week: '2026-11-09', newTitle: 'Still worth doing' });
+  render(<WorkWeekly {...props} />);
+  expect(screen.getByLabelText('New weekly priority')).toHaveValue('Still worth doing');
+  expect(screen.getByLabelText('New weekly priority')).toBeEnabled();
+});
