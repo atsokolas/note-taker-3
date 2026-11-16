@@ -3,6 +3,10 @@ import { createWorkSession, workAccount } from './workSession';
 // Route/auth remounts must not discard a draft that the device could not retain.
 // Sessions are keyed by owner; another account never receives the old session.
 const sessions = new Map();
+// Weekly recovery is memory-only, so its unload warning must outlive the Work route.
+if (typeof window !== 'undefined') window.addEventListener('beforeunload', event => {
+  if ([...sessions.values()].some(session => session.hasWeeklyDraft())) { event.preventDefault(); event.returnValue = ''; }
+});
 export const workSessionFor = token => {
   const account = workAccount(token);
   if (!sessions.has(account)) sessions.set(account, createWorkSession({ token }));

@@ -38,3 +38,15 @@ test('weekly drafts survive route release only in their owner session and never 
   const fresh = workSessionFor(token('owner'));
   expect(fresh).not.toBe(original); expect(fresh.weeklyDraft()).toBeNull();
 });
+test('memory-only weekly edits warn before unload even after leaving the Work route', () => {
+  const session = workSessionFor(token('owner'));
+  session.setWeeklyDraft({ newTitle: 'Unsaved outcome' });
+  releaseWorkSession(session);
+  const event = new Event('beforeunload', { cancelable: true });
+  window.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(true);
+  resumeWorkSession(session, token('owner')); session.setWeeklyDraft(null);
+  const cleared = new Event('beforeunload', { cancelable: true });
+  window.dispatchEvent(cleared);
+  expect(cleared.defaultPrevented).toBe(false);
+});

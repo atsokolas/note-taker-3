@@ -100,3 +100,11 @@ test('conflict review shows task assignments in both versions, not just identica
   expect(within(alert).getByText('Saved plan').parentElement).not.toHaveTextContent('Draft the application story');
   expect(within(alert).getByText('Your proposed plan').parentElement).toHaveTextContent('Draft the application story');
 });
+test('linking another task cannot silently discard a title being edited', () => {
+  render(<WorkWeekly {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Manage Apply to accelerators' }));
+  fireEvent.change(screen.getByLabelText('Rename Apply to accelerators'), { target: { value: 'Keep my unfinished title' } });
+  fireEvent.change(screen.getByLabelText('Priority for Compare program deadlines'), { target: { value: 'p' } });
+  expect(session.saveWeek).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('Rename Apply to accelerators')).toHaveValue('Keep my unfinished title');
+});
