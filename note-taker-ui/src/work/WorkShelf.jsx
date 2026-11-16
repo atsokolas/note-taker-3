@@ -1,12 +1,13 @@
 import React from 'react';
 import WorkIcon from './WorkIcon';
 import WorkMenu from './WorkMenu';
+import WorkNoteActions from './WorkNoteActions';
 import { matchesQuery, noteTitle } from './workSession';
 import { displayDay, writtenDay } from './workPlannerModel';
 
 // Two pages look across everything, then projects, then notes. A note is listed once, in its folder;
 // its project shows on the project page and on the note's place line.
-export default function WorkShelf({ needs, projects, dragging, drag, onDropNote, notes, folders, place, current, view, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose, onCollapse, onTrash, trashedCount = 0 }) {
+export default function WorkShelf({ needs, projects, dragging, drag, onDropNote, notes, folders, place, current, view, query, onQuery, onScope, onOpen, onCapture, onNewFolder, onFolderMenu, timeZone, onTimeZone, loading, error, onRetry, onClose, onCollapse, onTrash, onRename, onProjectMenu, trashedCount = 0 }) {
   const [over, setOver] = React.useState(null);
   const [expanded, setExpanded] = React.useState({});
   const [sections, setSections] = React.useState({});
@@ -15,7 +16,7 @@ export default function WorkShelf({ needs, projects, dragging, drag, onDropNote,
   const folderId = note => note.folder?._id || note.folder || '';
   const written = note => `${writtenDay(note)} ${note.capturedAt || note.createdAt || ''}`;
   const newest = list => list.sort((a, b) => written(b).localeCompare(written(a)));
-  const leaf = note => <div className="work-shelf-note-row"><button className="work-shelf-note" {...drag(note)} aria-current={current(note) ? 'page' : undefined} onClick={() => onOpen(note.clientId)}><span>{noteTitle(note)}</span><time className="work-sr-only">{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}</time></button>{onTrash ? <WorkMenu label={`Actions for ${noteTitle(note)}`} icon="more"><button onClick={() => onTrash(note.clientId)}>Delete note</button></WorkMenu> : null}</div>;
+  const leaf = note => <div className="work-shelf-note-row"><button className="work-shelf-note" {...drag(note)} aria-current={current(note) ? 'page' : undefined} onClick={() => onOpen(note.clientId)}><span>{noteTitle(note)}</span><time className="work-sr-only">{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}</time></button>{onTrash ? <WorkNoteActions note={note} onRename={onRename} onOpen={onOpen} onTrash={onTrash} /> : null}</div>;
   const inbox = newest(notes.filter(note => !folderId(note)));
   const placeRow = (id, name, contents, onName, menu, kind = 'folder', nested = []) => {
     const key = `${kind}:${id}`, childrenId = `${railId}-${key}`;
@@ -44,7 +45,7 @@ export default function WorkShelf({ needs, projects, dragging, drag, onDropNote,
       seen.add(record._id);
       const nested = records.filter(child => parent(child) === record._id).map(branch).filter(Boolean);
       const contents = kind === 'project' ? [] : newest(notes.filter(note => folderId(note) === record._id));
-      return { id: record._id, reveal: place === record._id || contents.some(current) || nested.some(child => child.reveal), element: placeRow(record._id, record.name, contents, () => onScope(kind, record._id), kind === 'folder' ? <button className="work-place-menu" aria-label={`Manage folder ${record.name}`} onClick={() => onFolderMenu(record)}><WorkIcon name="more" /></button> : null, kind, nested) };
+      return { id: record._id, reveal: place === record._id || contents.some(current) || nested.some(child => child.reveal), element: placeRow(record._id, record.name, contents, () => onScope(kind, record._id), kind === 'folder' ? <button className="work-place-menu" aria-label={`Manage folder ${record.name}`} onClick={() => onFolderMenu(record)}><WorkIcon name="more" /></button> : <WorkMenu label={`Actions for project ${record.name}`} icon="more" className="work-project-menu"><button onClick={() => onProjectMenu(record)}>Rename or edit project</button><button onClick={() => onScope('project', record._id)}>Open project</button></WorkMenu>, kind, nested) };
     };
     const roots = records.filter(record => !records.some(candidate => candidate._id === parent(record))).map(branch).filter(Boolean);
     // Orphaned and cyclic legacy records remain reachable instead of disappearing.

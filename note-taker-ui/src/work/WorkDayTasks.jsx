@@ -2,6 +2,7 @@ import React from 'react';
 import { WorkTaskRow } from './WorkPlanItem';
 import { noteTitle } from './workSession';
 import { displayDay, writtenDay } from './workPlannerModel';
+import WorkIcon from './WorkIcon';
 import { listOf } from './workOutstanding';
 
 export function dayTasks(items, notes, day, today) {
@@ -21,6 +22,7 @@ export default function WorkDayTasks({ day, today, items, notes, folders, onActi
   const label = day === today ? 'Today’s to-dos' : `${displayDay(day, { weekday: 'long' })}’s to-dos`;
   return <details className="work-day-tasks" open>
     <summary>{label}<span> ({planned.filter(item => !item.completed).length})</span></summary>
+    <button className="work-add-day-task" onClick={() => onNew({ plannedOn: day })}><WorkIcon name="plus" />Add to-do</button>
     <div className="work-day-lines"><section className="work-priorities" aria-label={label}>{planned.map(item => row(item))}</section>
       <form className="work-plan-new" onSubmit={event => { event.preventDefault(); const line = event.currentTarget.elements.plan; if (line.value.trim()) onPlan(line.value); else onNew({ plannedOn: day }); line.value = ''; }}><input name="plan" aria-label="Add a line" placeholder="Add a line" title="Try ‘IC meeting thu 2pm’, ‘@Sam the deck’ or ‘someday’. Enter on an empty line opens the full form." /></form>
     </div>

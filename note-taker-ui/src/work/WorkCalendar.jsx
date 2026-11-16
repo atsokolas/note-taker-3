@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import WorkIcon from './WorkIcon';
+import WorkNoteActions from './WorkNoteActions';
 import { WorkTaskRow, WorkAppointmentRow } from './WorkPlanItem';
 import { matchesQuery, noteTitle } from './workSession';
 import { deviceTimeZone, displayDay, shiftDay, weekDays, writtenDay } from './workPlannerModel';
@@ -7,7 +8,7 @@ import WorkDayTasks, { dayTasks } from './WorkDayTasks';
 
 // The week line sits over every Work page. On Today it is followed by the day itself, read top to bottom like a page in a day book:
 // its appointments and follow-ups, what is carried from earlier, what was written, the margin.
-export default function WorkCalendar({ day, today, mode, onMode, onDay, items, notes, query, folders, projects = [], timeZone = deviceTimeZone(), page, mark, drag, onOpen, onStart, onEdit, onAction, onNew, onPlan, margin, oneThing, sense, showTasks = true }) {
+export default function WorkCalendar({ day, today, mode, onMode, onDay, items, notes, query, folders, projects = [], timeZone = deviceTimeZone(), page, mark, drag, onOpen, onRenameNote, onTrashNote, onStart, onEdit, onAction, onNew, onPlan, margin, oneThing, sense, showTasks = true }) {
   const frame = useRef(null), contents = useRef(null), animation = useRef(null), origin = useRef(null);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const clock = window.setInterval(() => setNow(new Date()), 30000); return () => window.clearInterval(clock); }, []);
@@ -79,7 +80,7 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, n
       {oneThing && day === today ? <p className="work-one-thing"><small>Today’s one thing</small><span>{oneThing.title}</span></p> : null}
       {selectedAppointments.length ? <section className="work-appointments" aria-label="Appointments">{selectedAppointments.map(appointmentRow)}</section> : null}
       {showTasks ? <WorkDayTasks day={day} today={today} items={items} notes={notes} folders={folders} onAction={onAction} onEdit={onEdit} onOpen={onOpen} onPlan={onPlan} onNew={onNew} /> : null}
-      {written.length ? <section aria-labelledby="work-written"><h2 id="work-written">Written {day === today ? 'today' : displayDay(day, { weekday: 'long' })}</h2>{written.map(note => <button className="work-index-note" key={note.clientId} {...drag(note)} onClick={() => onOpen(note.clientId)}><WorkIcon name="file" /><span>{noteTitle(note)}</span><small>{folderName(note)}</small></button>)}</section> : null}
+      {written.length ? <section aria-labelledby="work-written"><h2 id="work-written">Written {day === today ? 'today' : displayDay(day, { weekday: 'long' })}</h2>{written.map(note => <div className="work-written-row" key={note.clientId}><button className="work-index-note" {...drag(note)} onClick={() => onOpen(note.clientId)}><WorkIcon name="file" /><span>{noteTitle(note)}</span><small>{folderName(note)}</small></button>{onRenameNote && onTrashNote ? <WorkNoteActions note={note} onRename={onRenameNote} onOpen={onOpen} onTrash={onTrashNote} /> : null}</div>)}</section> : null}
       <details className="work-day-margin" open><summary>Day margin</summary>{margin}</details>
     </div> : null}
   </section>;
