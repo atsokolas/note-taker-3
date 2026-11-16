@@ -97,8 +97,37 @@ export const buildSharedWikiCollectionSchema = ({
   };
 };
 
+const CollectionEntryBody = ({ page, className = '' }) => (
+  <div className={className} onClick={(event) => {
+    const citation = event.target.closest?.('.wiki-claim-citation');
+    const target = citation?.getAttribute('data-footnote-target');
+    if (!/^wiki-ref-\d+$/.test(target || '')) return;
+    const reference = event.currentTarget.querySelector(`[data-reference="${target}"]`);
+    reference?.scrollIntoView?.({ block: 'center' });
+  }}>
+    <div className="shared-wiki-page__body wiki-read">
+      {renderTiptapDoc(page.body, { disableInternalWikiLinks: true })}
+    </div>
+    {Array.isArray(page.sourceRefs) && page.sourceRefs.length > 0 ? (
+      <section className="shared-wiki-page__sources" aria-label="References">
+        <h2>References</h2>
+        <ol>
+          {page.sourceRefs.map((source, index) => (
+            <li key={source._id || source.id || index} data-reference={`wiki-ref-${index + 1}`}>
+              {source.url ? (
+                <a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || source.url}</a>
+              ) : <span>{source.title || source.type || 'Source'}</span>}
+              {source.snippet ? <p>{source.snippet}</p> : null}
+            </li>
+          ))}
+        </ol>
+      </section>
+    ) : null}
+  </div>
+);
+
 const SharedWikiCollectionPage = () => {
-  const { idOrSlug = '' } = useParams();
+  const { idOrSlug = '', entryId = '' } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const [collection, setCollection] = useState(null);
@@ -114,6 +143,9 @@ const SharedWikiCollectionPage = () => {
     return params.get('adopt') === '1';
   }, [location.search]);
   usePublicShareScrollSurface();
+  useEffect(() => {
+    if (entryId) window.scrollTo(0, 0);
+  }, [entryId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -181,6 +213,10 @@ const SharedWikiCollectionPage = () => {
     handleAdopt();
   }, [collection, handleAdopt, shouldAutoAdopt]);
 
+  const collectionPath = `/share/wiki/collection/${encodeURIComponent(idOrSlug)}`;
+  const entryPath = (page) => `${collectionPath}/${encodeURIComponent(pageIdFor(page) || page.slug)}`;
+  const entry = entryId ? pages.find(page => String(pageIdFor(page)) === entryId || page.slug === entryId) : null;
+  const entryMissing = Boolean(entryId && !loading && !error && !entry);
   const title = collection?.name || collection?.title || 'Shared wiki';
   const description = collection?.description || 'A shared Noeis wiki you can copy into your own workspace.';
   const totalWords = pages.reduce((sum, page) => sum + countWikiPageWords(page), 0);
@@ -188,7 +224,7 @@ const SharedWikiCollectionPage = () => {
   const totalClaims = pages.reduce((sum, page) => sum + countWikiClaims(page), 0);
   const reviewedAt = formatDate(newestReviewedDate(pages));
   const canonicalPath = location.pathname || `/share/wiki/collection/${idOrSlug}`;
-  const seoTitle = collection ? `${title} · Shared Wiki Collection · Noeis` : 'Shared Wiki Collection · Noeis';
+  const seoTitle = entry ? `${entry.title} · ${title} · Noeis` : collection ? `${title} · Shared Wiki Collection · Noeis` : 'Shared Wiki Collection · Noeis';
   const seoDescription = normalizeSpaces(description).slice(0, 220) || 'A shared Noeis wiki you can copy into your own workspace.';
   const seoSchema = useMemo(
     () => buildSharedWikiCollectionSchema({
@@ -204,9 +240,9 @@ const SharedWikiCollectionPage = () => {
     title: seoTitle,
     description: seoDescription,
     canonicalPath,
-    schema: collection && !error ? seoSchema : null,
+    schema: collection && !error && !entryId ? seoSchema : null,
     ogType: 'article',
-    robots: collection && !error ? 'index,follow' : 'noindex,follow'
+    robots: collection && !error && !entryMissing ? 'index,follow' : 'noindex,follow'
   });
 
   return (
@@ -223,6 +259,21 @@ const SharedWikiCollectionPage = () => {
           <h1>Shared wiki unavailable</h1>
           <p>{error}</p>
         </section>
+      ) : entryMissing ? (
+        <section className="shared-wiki-page__state">
+          <h1>Shared page unavailable</h1>
+          <p>This page is not in this public collection.</p>
+          <Link to={collectionPath}>Back to {title}</Link>
+        </section>
+      ) : entry ? (
+        <article className="shared-wiki-page__article">
+          <header className="shared-wiki-page__hero">
+            <Link to={collectionPath}>Back to {title}</Link>
+            <p className="shared-wiki-page__eyebrow">Shared wiki</p>
+            <h1>{entry.title || 'Untitled page'}</h1>
+          </header>
+          <CollectionEntryBody page={entry} />
+        </article>
       ) : collection ? (
         <article className="shared-wiki-page__article">
           <header className="shared-wiki-page__hero shared-wiki-page__hero--collection">
@@ -260,13 +311,11 @@ const SharedWikiCollectionPage = () => {
               return (
                 <article className="shared-wiki-collection__page" key={pageIdFor(page) || page.title}>
                   <div className="shared-wiki-collection__page-header">
-                    <h2>{page.title || 'Untitled page'}</h2>
+                    <h2><Link to={entryPath(page)}>{page.title || 'Untitled page'}</Link></h2>
                     <span>{countWikiSources(page)} sources</span>
                   </div>
                   {preview ? <p>{preview}</p> : null}
-                  <div className="shared-wiki-collection__page-preview wiki-read">
-                    {renderTiptapDoc(page.body, { disableInternalWikiLinks: true })}
-                  </div>
+                  <CollectionEntryBody page={page} className="shared-wiki-collection__page-preview" />
                 </article>
               );
             })}
