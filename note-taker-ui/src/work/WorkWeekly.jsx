@@ -97,12 +97,12 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
       taskDraftRef.current = { ...taskDraft, clientId: id }; setTaskDraft(taskDraftRef.current);
       cache({ week, newTitle, editing, editTitle, pending });
       session.edit(id, { title });
-      if (!await session.flush(id) || !session.entry(id)?._id) throw new Error(session.status?.(id) || 'Could not save this to-do. Try again.');
+      if (!await session.flush(id) || !session.entry(id)?._id) throw new Error(session.status?.(id) || 'That did not save.');
       const taskId = session.entry(id)._id;
       taskDraftRef.current = null; setTaskDraft(null); inFlight.current = false;
       if (active.some(priority => priority.id === taskDraft.priorityId)) await save(assignTask(priorities, taskId, taskDraft.priorityId));
       else { cache(null); setMessage('To-do saved in Open to-dos.'); }
-    } catch (error) { setMessage(error.message || 'Could not save this to-do. Try again.'); }
+    } catch (error) { setMessage(error.message || 'That did not save.'); }
     finally { inFlight.current = false; setBusy(false); }
   };
   const source = item => {

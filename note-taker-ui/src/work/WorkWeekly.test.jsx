@@ -154,7 +154,7 @@ test('retrying a failed inline to-do save reuses its captured task', async () =>
   fireEvent.click(screen.getByRole('button', { name: 'Add to-do to Apply to accelerators' }));
   const field = screen.getByLabelText('New to-do for Apply to accelerators');
   fireEvent.change(field, { target: { value: 'Send once' } }); fireEvent.submit(field.closest('form'));
-  await screen.findByText('Could not save this to-do. Try again.');
+  await screen.findByText('That did not save.');
   expect(field).toHaveValue('Send once'); expect(session.saveWeek).not.toHaveBeenCalled();
   fireEvent.submit(field.closest('form'));
   await waitFor(() => expect(session.saveWeek).toHaveBeenCalledTimes(1));
