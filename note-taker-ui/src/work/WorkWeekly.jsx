@@ -55,7 +55,7 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
     } finally { inFlight.current = false; setBusy(false); }
   };
   useEffect(() => {
-    if (previousWeek.current !== currentWeek) { setWeek(value => value === previousWeek.current ? currentWeek : value); previousWeek.current = currentWeek; }
+    if (previousWeek.current !== currentWeek) { const prior = previousWeek.current; previousWeek.current = currentWeek; setWeek(value => value === prior ? currentWeek : value); }
   }, [currentWeek]);
   useEffect(() => {
     if (session.loading() || session.error() || inFlight.current || pending || attempted.current.has(currentWeek) || weekRecord(records, currentWeek)) return;

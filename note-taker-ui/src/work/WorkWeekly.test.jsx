@@ -114,3 +114,11 @@ test('an unsent priority title from last week remains editable after Monday roll
   expect(screen.getByLabelText('New weekly priority')).toHaveValue('Still worth doing');
   expect(screen.getByLabelText('New weekly priority')).toBeEnabled();
 });
+test('an open dashboard advances to the new week without rewriting the prior plan', async () => {
+  const { rerender } = render(<WorkWeekly {...props} />);
+  const before = JSON.stringify(records[0]);
+  rerender(<WorkWeekly {...props} today="2026-11-23" />);
+  await waitFor(() => expect(session.saveWeek).toHaveBeenCalledWith('2026-11-23', expect.any(Array), null, 'UTC'));
+  expect(screen.getByRole('heading', { name: 'This week' })).toBeInTheDocument();
+  expect(JSON.stringify(records[0])).toBe(before);
+});
