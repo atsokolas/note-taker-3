@@ -18,7 +18,11 @@ import archive from '../assets/work-icons/archive.svg';
 import search from '../assets/work-icons/search.svg';
 import briefcase from '../assets/work-icons/briefcase.svg';
 import rotatecw from '../assets/work-icons/rotate-cw.svg';
-const assets = { calendar, file, inbox, folder, lock, more, down, right, plus, check, previous, next, sun, layers, clock, archive, search, briefcase, review: rotatecw };
+import edit from '../assets/work-icons/edit-2.svg';
+import trash from '../assets/work-icons/trash-2.svg';
+import open from '../assets/work-icons/external-link.svg';
+import close from '../assets/work-icons/x.svg';
+const assets = { edit, trash, open, close, calendar, file, inbox, folder, lock, more, down, right, plus, check, previous, next, sun, layers, clock, archive, search, briefcase, review: rotatecw };
 export default function WorkIcon({ name, className = '' }) {
   return <span aria-hidden="true" className={`work-icon ${className}`} style={{ maskImage: `url(${assets[name]})`, WebkitMaskImage: `url(${assets[name]})` }} />;
 }

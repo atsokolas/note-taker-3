@@ -74,6 +74,8 @@ export default function WorkNotes() {
   const [folderEditing, setFolderEditing] = useState(null);
   const [noteEditing, setNoteEditing] = useState('');
   const [projectBrief, setProjectBrief] = useState('');
+  const [projectRenaming, setProjectRenaming] = useState('');
+  const [deletion, setDeletion] = useState(null);
   const [folderFor, setFolderFor] = useState(false);
   const [folderKind, setFolderKind] = useState('folder');
   const [joining, setJoining] = useState(false);
@@ -107,7 +109,7 @@ export default function WorkNotes() {
   const currentFolder = folders.find(item => item._id === folder), currentProject = view === 'project' && projectRecords.find(item => item._id === folder);
   const folderScope = view === 'folder' ? folder : view === 'inbox' ? '' : null;
   const writing = note && !note.trashedAt && !quick ? note : null;
-  const trash = session.trashed();
+  const trash = session.trashed(), deletedProjects = session.deletedProjects();
   const home = writing && folders.find(item => item._id === (writing.folder?._id || writing.folder));
   const partOf = writing && projectRecords.find(item => item._id === (writing.project?._id || writing.project));
   const elsewhere = [...folders.filter(item => !item.archivedAt && item !== home), ...(home ? [{ _id: '', name: 'Inbox' }] : [])];
@@ -199,15 +201,22 @@ export default function WorkNotes() {
     const ok = await session.restore(id);
     setReceipt({ text: ok ? 'Note restored.' : `Restore pending: ${session.status(id)}. Keep this page open until saved.` });
   };
-  const trashNote = id => leave(async () => {
-    const title = noteTitle(session.entry(id));
-    window.clearTimeout(timer.current);
-    const saving = session.trash(id);
-    if (!session.entry(id)?.trashedAt) { setNotice('This note could not be moved. Your writing is still here.'); return; }
-    if (selected === id) { setSelected(''); setFresh(''); url({ note: '' }); }
-    const saved = await saving;
-    setReceipt({ text: saved ? `“${title}” moved to Trash. Linked to-dos are kept.` : `Move to Trash pending: ${session.status(id)}. Keep this page open until saved. Linked to-dos are kept.`, undo: () => restoreNote(id) });
-  });
+  const trashNote = id => leave(() => { setDeletion({ noteId: id }); setNotice(''); setSheet('delete-note'); });
+  const confirmTrashNote = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true; setBusy(true);
+    try {
+      const id = deletion.noteId;
+      const title = noteTitle(session.entry(id));
+      window.clearTimeout(timer.current);
+      const saving = session.trash(id);
+      if (!session.entry(id)?.trashedAt) { setNotice('This note could not be moved. Your writing is still here.'); return; }
+      if (selected === id) { setSelected(''); setFresh(''); url({ note: '' }); }
+      const saved = await saving;
+      setReceipt({ text: saved ? `“${title}” moved to Deleted. Linked to-dos are kept.` : `Move to Deleted pending: ${session.status(id)}. Keep this page open until saved. Linked to-dos are kept.`, undo: () => restoreNote(id) });
+      setSheet(null); setDeletion(null);
+    } finally { busyRef.current = false; setBusy(false); }
+  };
   const prepareContinue = async id => {
     if (busyRef.current) return;
     const pending = session.continuation();
@@ -248,7 +257,39 @@ export default function WorkNotes() {
   // Choosing a day from anywhere in Work opens that day's page.
   const selectDay = next => leave(() => { setView('today'); setFolder('all'); setDay(next); setSelected(''); setFresh(''); setMobileShelf(false); url({ view: 'today', folder: 'all', date: next, note: '' }, false); });
   const renameNote = id => { setNoteEditing(id); setNewFolder(session.entry(id)?.title || ''); setNotice(''); setSheet('rename-note'); };
-  const editProject = item => { setFolderEditing(item); setNewFolder(item.name); setProjectBrief(item.brief || ''); setNotice(''); setSheet('manage-project'); };
+  const editProject = (item, action = 'description') => {
+    if (action === 'delete') return prepareProjectDeletion(item);
+    if (action === 'rename') { scope('project', item._id); setProjectRenaming(item._id); return; }
+    setFolderEditing(item); setNewFolder(item.name); setProjectBrief(item.brief || ''); setNotice(''); setSheet('manage-project');
+  };
+  const prepareProjectDeletion = item => leave(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true; setBusy(true); setNotice(''); setSheet('delete-project'); setDeletion({ project: item });
+    try {
+      const preview = await session.previewProjectDeletion(item._id);
+      if (preview) setDeletion({ project: item, preview, intent: operationId() });
+    } catch (error) { setNotice(error?.response?.data?.error || error.message || 'Could not review this deletion. Nothing changed.'); }
+    finally { busyRef.current = false; setBusy(false); }
+  });
+  const confirmProjectDeletion = async () => {
+    if (busyRef.current || !deletion?.preview) return;
+    busyRef.current = true; setBusy(true); setNotice('');
+    try {
+      const result = await session.deleteProject(deletion.project._id, deletion.preview, deletion.intent);
+      if (!result) return;
+      if (result.project.deleted.restoredAt) { setSheet(null); setDeletion(null); setReceipt({ text: 'This project was already restored. Nothing was deleted again.' }); return; }
+      setSheet(null); setDeletion(null); setSelected(''); setFresh(''); scope('trash', '');
+      setReceipt({ text: `“${result.project.name}” and its reviewed notes and tasks moved to Deleted.`, undo: () => restoreProject(result.project) });
+    } catch (error) { setNotice(error.message || 'Deletion did not finish. Retry safely.'); }
+    finally { busyRef.current = false; setBusy(false); }
+  };
+  const restoreProject = async project => {
+    if (busyRef.current) return;
+    busyRef.current = true; setBusy(true);
+    try { const result = await session.restoreProject(project); if (result) setReceipt({ text: `“${project.name}” and its deleted notes and tasks restored.` }); }
+    catch (error) { setReceipt({ text: error.message || 'Could not restore. Nothing was erased.' }); }
+    finally { busyRef.current = false; setBusy(false); }
+  };
   const openFolder = item => { setFolderEditing(item); setNewFolder(item.name); folderOperation.current = operationId(); setNotice(''); setSheet('manage-folder'); };
   const place = folderKind === 'project' ? 'Project' : 'Folder';
   // From a note's place line, the new folder is where that note goes; from the rail it is only a new place.
@@ -423,13 +464,13 @@ export default function WorkNotes() {
   return <div className={`work-notes${sheet === 'item' ? ' has-inspector' : ''}`}>
     <div inert={sheet || quick ? true : undefined}>
       <div className={`work-layout ${mobileShelf ? 'is-shelf-open' : ''} ${shelfCollapsed ? 'is-shelf-collapsed' : ''}`}>
-        <WorkShelf onRename={renameNote} onProjectMenu={editProject} onTrash={trashNote} trashedCount={trash.length} needs={needs} projects={projectRecords} dragging={dragging} drag={drag} onDropNote={dropNote} onClose={() => { setMobileShelf(false); window.requestAnimationFrame(() => shelfTrigger.current?.focus()); }} onCollapse={() => { setMobileShelf(false); setShelfCollapsed(true); window.requestAnimationFrame(() => shelfTrigger.current?.focus()); }} notes={notes} folders={folders} place={writing ? (view === 'project' ? partOf?._id : home?._id) || '' : currentProject?._id || folderScope} current={isWriting} view={view} query={query} onQuery={setQuery} onScope={scope} onOpen={open} onCapture={capture} onNewFolder={() => newFolderDialog()} onFolderMenu={openFolder} timeZone={timeZone} onTimeZone={() => { setZoneInput(timeZone); setSheet('timezone'); }} loading={session.loading()} error={session.error()} onRetry={() => session.load()} />
+        <WorkShelf onRename={renameNote} onProjectMenu={editProject} onTrash={trashNote} trashedCount={trash.filter(note => !note.deletionBatchId).length + deletedProjects.length} needs={needs} projects={projectRecords} dragging={dragging} drag={drag} onDropNote={dropNote} onClose={() => { setMobileShelf(false); window.requestAnimationFrame(() => shelfTrigger.current?.focus()); }} onCollapse={() => { setMobileShelf(false); setShelfCollapsed(true); window.requestAnimationFrame(() => shelfTrigger.current?.focus()); }} notes={notes} folders={folders} place={writing ? (view === 'project' ? partOf?._id : home?._id) || '' : currentProject?._id || folderScope} current={isWriting} view={view} query={query} onQuery={setQuery} onScope={scope} onOpen={open} onCapture={capture} onNewFolder={() => newFolderDialog()} onFolderMenu={openFolder} timeZone={timeZone} onTimeZone={() => { setZoneInput(timeZone); setSheet('timezone'); }} loading={session.loading()} error={session.error()} onRetry={() => session.load()} />
         <main className="work-page">
           {!sheet && !quick ? signIn : null}
           <div className="work-mobile-nav"><button ref={shelfTrigger} onClick={() => { setMobileShelf(true); setShelfCollapsed(false); }}>Notes &amp; folders</button><button aria-label="New Work note" onClick={capture}>New note</button></div>
           {openedDay.current !== today && day === openedDay.current ? <p className="work-new-day">It’s a new day. This note keeps the day it was written. <button onClick={() => selectDay(today)}>Open today</button></p> : null}
-          {homePage ? <WorkWeekly session={session} today={today} timeZone={timeZone} items={items} folders={folders} notes={notes} onAction={action} onEdit={editItem} onNew={newItem} onOpen={open} margin={<WorkNeedsYou needs={needs} notes={notes} folders={folders} today={today} onSort={sortLine} onAction={action} onOpen={open} onProject={id => scope('project', id)} onSaveProject={saveProject} onWeekEdition={draftWeek}>{dayTasks}</WorkNeedsYou>}>{planner}{evening ? <WorkDayClose items={items} today={today} onAction={action} onSort={sortLine} /> : null}</WorkWeekly> : (!currentProject || writing) && ((!writing && view !== 'trash' && !note?.trashedAt) || calendarMode === 'week') ? planner : null}
-          {(!writing && view === 'trash') || note?.trashedAt ? <WorkTrash notes={trash} session={session} onRestore={restoreNote} /> : writing ? <article className="work-note-paper">
+          {homePage ? <WorkWeekly session={session} today={today} timeZone={timeZone} items={items} folders={folders} notes={notes} onAction={action} onEdit={editItem} onNew={newItem} onOpen={open} margin={<WorkNeedsYou needs={needs} items={items} onEdit={editItem} notes={notes} folders={folders} today={today} onSort={sortLine} onAction={action} onOpen={open} onProject={id => scope('project', id)} onSaveProject={saveProject} onWeekEdition={draftWeek}>{dayTasks}</WorkNeedsYou>}>{planner}{evening ? <WorkDayClose items={items} today={today} onAction={action} onSort={sortLine} /> : null}</WorkWeekly> : (!currentProject || writing) && ((!writing && view !== 'trash' && !note?.trashedAt) || calendarMode === 'week') ? planner : null}
+          {(!writing && view === 'trash') || note?.trashedAt ? <WorkTrash notes={trash} projects={deletedProjects} session={session} onRestore={restoreNote} onRestoreProject={restoreProject} busy={busy} /> : writing ? <article className="work-note-paper">
             {note.continuesFromEntryId ? <p className="work-last-time">Last time{predecessor ? <>, <button onClick={() => open(predecessor.clientId)}>{noteDate(note.continuationBridge || predecessor)}</button></> : null}{note.continuationBridge?.text?.trim() ? <>, you left yourself: <q>{note.continuationBridge.text.trim()}</q></> : '.'}</p> : null}
             {owed.length ? <section className="work-owed" aria-label="Owed to you"><h2>{[...new Set(owed.map(item => item.waitingOn))].join(' and ')} {new Set(owed.map(item => item.waitingOn)).size === 1 ? 'owes' : 'owe'} you</h2>{owed.map(item => <p key={item.id}>{item.title}<small>{daysBetween(item.sortedOn || writtenDay(item), today)} days</small></p>)}</section> : null}
             {conflict ? <section className="work-conflict" role="alert"><h2>This note changed elsewhere</h2><p>This note was changed somewhere else. Both versions are kept.</p><details><summary>See the other version</summary><h3>{noteTitle(conflict)}</h3><p className="work-server-prose">{noteWords(conflict)}</p><blockquote>{conflict.workingState?.nextTimeLine?.text}</blockquote></details><button onClick={() => { session.useServer(selected); setFresh(''); }}>Use the other version</button><button onClick={() => { const id = session.saveAsNew(selected); setSelected(id); setFresh(id); }}>Keep mine as a new note</button></section> : null}
@@ -442,7 +483,7 @@ export default function WorkNotes() {
 
             {onward.length ? <nav className="work-onward" aria-label="Continued in">{onward.map(item => <button key={item.clientId} onClick={() => open(item.clientId)}>Continued in {noteTitle(item)} · {noteDate(item)}</button>)}</nav> : null}</>} note={note} sourceBlock={params.get('block')} today={today} fresh={fresh === selected} onChange={update} onMakeOpen={makeOpen} />}</WorkFollowups>
 
-          </article> : view === 'today' ? null : view === 'projects' || (view === 'project' && !currentProject) ? <WorkProjects records={projectRecords} notes={notes} items={items} today={today} onDay={selectDay} onOpen={id => scope('project', id)} onAction={action} onNew={() => newFolderDialog(false, 'project')} /> : currentProject ? <WorkProject key={currentProject._id} record={currentProject} notes={notes} items={items} today={today} onAction={action} onCapture={(line, id) => captureOutstanding(line, null, id)} onOpenNote={open} onNewNote={capture} onSave={saveProject} onEdit={editProject} calendar={planner} onRenameNote={renameNote} onTrashNote={trashNote} /> : <WorkIndex drag={drag} view={view} folder={currentFolder} folders={folders} notes={notes} items={session.items()} query={query} onOpen={open} onItem={item => editItem(item)} onNew={newItem} onFolderMenu={openFolder} />}
+          </article> : view === 'today' ? null : view === 'projects' || (view === 'project' && !currentProject) ? <WorkProjects records={projectRecords} notes={notes} items={items} today={today} onDay={selectDay} onOpen={id => scope('project', id)} onAction={action} onNew={() => newFolderDialog(false, 'project')} /> : currentProject ? <WorkProject key={currentProject._id} record={currentProject} notes={notes} items={items} today={today} onAction={action} onCapture={(line, id) => captureOutstanding(line, null, id)} onOpenNote={open} onNewNote={capture} onSave={saveProject} onEdit={editProject} renaming={projectRenaming === currentProject._id} renameBusy={busy} onRenameCancel={() => setProjectRenaming('')} onRenameSave={async name => { if (busyRef.current) return; busyRef.current = true; setBusy(true); try { if (name === currentProject.name || await saveProject(currentProject, { name }, true)) setProjectRenaming(''); } finally { busyRef.current = false; setBusy(false); } }} calendar={planner} onRenameNote={renameNote} onTrashNote={trashNote} /> : <WorkIndex drag={drag} view={view} folder={currentFolder} folders={folders} notes={notes} items={session.items()} query={query} onOpen={open} onItem={item => editItem(item)} onNew={newItem} onFolderMenu={openFolder} />}
           {notice && !sheet ? <p role="alert">{notice}</p> : null}
         </main>
       </div>
@@ -453,6 +494,11 @@ export default function WorkNotes() {
       {signIn}{notice ? <p role="alert">{notice}</p> : null}<button disabled={busy} onClick={closeSheet}>Cancel</button>
     </WorkDialog> : null}
     {sheet === 'folder' ? <WorkDialog title={`New ${place.toLowerCase()}`} onClose={closeSheet}><form onSubmit={async event => { event.preventDefault(); if (busyRef.current || !newFolder.trim()) return; busyRef.current = true; setBusy(true); try { const created = await session.addFolder(newFolder, folderOperation.current, folderKind); if (created) { setSheet(null); if (folderFor) { setFiling(''); folderKind === 'project' ? joinProject(created._id) : fileNote(created._id); } else scope(folderKind, created._id); } } catch (error) { setNotice(error?.response?.data?.error || `Could not create this ${folderKind}. Retry.`); } finally { busyRef.current = false; setBusy(false); } }}><label>{place} name<input aria-label={`${place} name`} value={newFolder} onChange={event => setNewFolder(event.target.value)} /></label><button disabled={busy || !newFolder.trim()}>Create {place.toLowerCase()}</button></form>{signIn}{notice ? <p role="alert">{notice}</p> : null}<button onClick={closeSheet}>Cancel</button></WorkDialog> : null}
+    {sheet === 'delete-note' && deletion?.noteId ? <WorkDialog title="Delete note?" onClose={closeSheet}><p>Move “{noteTitle(session.entry(deletion.noteId))}” to Deleted? Its linked tasks stay in your work.</p><p>You can restore it for at least 14 days. Nothing is permanently erased automatically.</p><div className="work-actions"><button type="button" onClick={closeSheet}>Cancel</button><button type="button" className="work-delete-note" disabled={busy} onClick={confirmTrashNote}>Delete note</button></div></WorkDialog> : null}
+    {sheet === 'delete-project' && deletion?.project ? <WorkDialog title={`Delete ${deletion.project.name}?`} onClose={closeSheet}>
+      {deletion.preview ? <><p>This moves the project, {deletion.preview.counts.notes} notes and {deletion.preview.counts.tasks} tasks to Deleted.</p>{deletion.preview.counts.excludedTasks ? <p>{deletion.preview.counts.excludedTasks} linked tasks belong to other projects and will stay active.</p> : null}{deletion.preview.counts.alreadyDeleted ? <p>{deletion.preview.counts.alreadyDeleted} already-deleted items will not be changed.</p> : null}<p>Restore the group from Deleted for at least {deletion.preview.retentionDays} days. Nothing is permanently erased automatically.</p></> : <p>{busy ? 'Reviewing this project’s notes and tasks…' : 'This deletion has not been reviewed. Nothing changed.'}</p>}
+      {notice ? <p role="alert">{notice}</p> : null}<div className="work-actions"><button type="button" disabled={busy} onClick={closeSheet}>Cancel</button>{notice ? <button type="button" disabled={busy} onClick={() => prepareProjectDeletion(deletion.project)}>Review again</button> : null}<button type="button" className="work-delete-note" disabled={busy || !deletion.preview || Boolean(notice)} onClick={confirmProjectDeletion}>{busy ? 'Working…' : 'Delete project'}</button></div>
+    </WorkDialog> : null}
     {sheet === 'rename-note' || sheet === 'manage-project' ? <WorkDialog title={sheet === 'rename-note' ? 'Rename note' : 'Edit project'} onClose={closeSheet}><form onSubmit={saveName}><label>{sheet === 'rename-note' ? 'Note name' : 'Project name'}<input autoFocus value={newFolder} onChange={event => setNewFolder(event.target.value)} required /></label>{sheet === 'manage-project' ? <label>Project description<textarea aria-label="Project description" value={projectBrief} onChange={event => setProjectBrief(event.target.value)} rows={3} /></label> : null}<div className="work-actions"><button type="submit" disabled={busy || !newFolder.trim()}>{busy ? 'Saving…' : 'Save changes'}</button><button type="button" disabled={busy} onClick={closeSheet}>Cancel</button></div></form>{signIn}{notice ? <p role="alert">{notice}</p> : null}</WorkDialog> : null}
     {sheet === 'manage-folder' && folderEditing ? <WorkDialog title={`Folder: ${folderEditing.name}`} onClose={closeSheet}><form onSubmit={event => { event.preventDefault(); mutateFolder({ name: newFolder }); }}><label>Folder name<input value={newFolder} onChange={event => setNewFolder(event.target.value)} /></label><button disabled={busy || !newFolder.trim()}>Save name</button></form><div className="work-actions">{!folderEditing.archivedAt ? <><button disabled={busy} onClick={() => reorderFolder(-1)}>Move up</button><button disabled={busy} onClick={() => reorderFolder(1)}>Move down</button></> : null}<button disabled={busy} onClick={() => mutateFolder({ archived: !folderEditing.archivedAt })}>{folderEditing.archivedAt ? 'Restore folder' : 'Archive folder'}</button><button disabled={busy} onClick={() => { setSheet(null); scope('folder', folderEditing._id); }}>Open folder</button></div><p>Archived folders are hidden, not deleted.</p>{signIn}{notice ? <p role="alert">{notice}</p> : null}<button onClick={closeSheet}>Close</button></WorkDialog> : null}
     {sheet === 'item' && itemDraft ? <WorkDialog inspector title={itemDraft.item ? `Edit ${KIND_LABEL[itemDraft.item.kind].toLowerCase()}` : 'New task'} onClose={closeSheet}><WorkItemForm key={itemDraft.intent} item={itemDraft.item} defaults={itemDraft.defaults} notes={[...notes, ...trash.filter(note => note._id === itemDraft.item?.noteId)]} folders={folders} projects={projectRecords} occupiedPriorities={occupiedPriorities} onSave={saveItem} busy={busy} onClose={closeSheet} />{signIn}{notice ? <p role="alert">{notice}</p> : null}</WorkDialog> : null}

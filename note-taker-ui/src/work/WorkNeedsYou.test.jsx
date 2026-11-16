@@ -81,6 +81,7 @@ test('Today on a new line plans it for today and leaves it sorted', async () => 
 
 test('one typed line with @name lands in Owed to you, and Nudge drafts a message from it', async () => {
   work('needs');
+  fireEvent.click(await screen.findByRole('button', { name: 'Add to-do' }));
   const line = await screen.findByRole('textbox', { name: 'Add a line' });
   fireEvent.change(line, { target: { value: '@Priya data room access' } }); fireEvent.submit(line.closest('form'));
   await waitFor(() => expect(records.at(-1)).toMatchObject({ title: 'data room access', workItem: { kind: 'task', list: 'waiting', waitingOn: 'Priya' } }));
@@ -178,6 +179,7 @@ test('a line set aside for someday is not carried on the day page until its day 
   const { rerender } = render(calendar('2026-10-29'));
   expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
   rerender(calendar('2026-11-03'));
+  fireEvent.click(screen.getByText('Earlier'));
   expect(within(screen.getByRole('region', { name: 'Carried from earlier' })).getByText('Plan the offsite')).toBeInTheDocument();
 });
 

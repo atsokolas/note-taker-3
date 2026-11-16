@@ -263,3 +263,96 @@ test('Trash is revisioned, reversible, owner-scoped and never deletes notes or l
   assert.equal(restored.body.content, '<p>Original</p>');
   assert.equal(restored.body.revision, 2);
 });
+
+test('reviewed project deletion keeps cross-project tasks and prior Trash, restores its own batch after expiry', async () => {
+  const project = (await call('/folders', 'POST', { name: 'Delete scope', kind: 'project', operationId: 'project-delete-scope' })).body;
+  const other = (await call('/folders', 'POST', { name: 'Other project', kind: 'project', operationId: 'project-delete-other' })).body;
+  const note = (await call('', 'POST', { title: 'Keep exact words', content: 'Exact original', project: project._id, operationId: 'delete-member-note' })).body;
+  const prior = (await call('', 'POST', { title: 'Already in Trash', project: project._id, trashedAt: '2026-10-01T12:00:00.000Z', operationId: 'delete-prior-note' })).body;
+  const task = (await call('', 'POST', { title: 'Linked no project', operationId: 'delete-linked-task', workItem: { kind: 'task', noteId: note._id } })).body;
+  const direct = (await call('', 'POST', { title: 'Direct question', project: project._id, operationId: 'delete-direct-task', workItem: { kind: 'question' } })).body;
+  const excluded = (await call('', 'POST', { title: 'Other canonical task', project: other._id, operationId: 'delete-excluded-task', workItem: { kind: 'task', noteId: note._id } })).body;
+  const preview = await call(`/projects/${project._id}/delete-preview`);
+  assert.equal(preview.status, 200);
+  assert.deepEqual(preview.body.counts, { notes: 1, tasks: 2, alreadyDeleted: 1, excludedTasks: 1 });
+  assert.deepEqual(preview.body.entryIds.sort(), [note._id, task._id, direct._id].sort());
+  const input = { expectedRevision: preview.body.revision, reviewToken: preview.body.reviewToken, operationId: 'delete-scope-batch' };
+  const removed = await call(`/projects/${project._id}/delete`, 'POST', input);
+  assert.equal(removed.status, 200, JSON.stringify(removed.body));
+  assert.equal(removed.body.entries.length, 3);
+  assert.equal(new Date(removed.body.receipt.expiresAt) - new Date(removed.body.receipt.deletedAt), 14 * 86400000);
+  assert.ok(removed.body.entries.every(entry => entry.deletionBatchId === input.operationId && entry.trashedAt));
+  assert.equal((await call('/' + note._id)).body.content, 'Exact original');
+  assert.equal((await call('/' + prior._id)).body.trashedAt, prior.trashedAt);
+  assert.equal((await call('/' + excluded._id)).body.trashedAt, null);
+  assert.equal((await call('/' + excluded._id, 'PUT', { expectedRevision: 0, title: 'Still usable' })).status, 200, 'excluded canonical task remains editable');
+  assert.equal((await call('/projects')).body.some(row => row._id === project._id), false);
+  assert.equal((await call(`/projects/${project._id}/delete`, 'POST', input)).body.project.revision, removed.body.project.revision, 'retry is idempotent');
+  assert.equal((await call('/' + note._id, 'PUT', { expectedRevision: 1, trashedAt: null })).status, 409, 'single-note restore cannot split project batch');
+  assert.equal((await call('', 'POST', { operationId: 'create-deleted-project', project: project._id, title: 'No phantom' })).status, 409);
+  assert.equal((await call('', 'POST', { operationId: 'link-deleted-project', title: 'No phantom linked task', workItem: { kind: 'task', noteId: note._id } })).status, 409);
+  assert.equal((await call('/folders/' + project._id, 'PUT', { expectedRevision: removed.body.project.revision, name: 'No edit' })).status, 409);
+  // The deadline never causes an automatic irreversible purge or blocks recovery.
+  await NotebookFolder.collection.updateOne({ _id: new mongoose.Types.ObjectId(project._id) }, { $set: { 'deleted.expiresAt': new Date('2000-01-01') } });
+  const restored = await call(`/projects/${project._id}/restore`, 'POST', { operationId: input.operationId });
+  assert.equal(restored.status, 200);
+  assert.ok(restored.body.project.deleted.restoredAt);
+  assert.ok(restored.body.entries.every(entry => entry.trashedAt === null && entry.deletionBatchId === null));
+  assert.equal((await call('/' + prior._id)).body.trashedAt, prior.trashedAt, 'pre-existing Trash is not restored');
+  const replay = await call(`/projects/${project._id}/restore`, 'POST', { operationId: input.operationId });
+  assert.equal(replay.body.project.revision, restored.body.project.revision);
+  assert.equal((await call(`/projects/${project._id}/delete`, 'POST', input)).body.project.deleted.restoredAt, restored.body.project.deleted.restoredAt, 'late delete retry never re-deletes restored data');
+});
+
+test('project delete preview rejects changed membership and foreign owners', async () => {
+  const project = (await call('/folders', 'POST', { name: 'Reviewed set', kind: 'project', operationId: 'reviewed-set' })).body;
+  const preview = (await call(`/projects/${project._id}/delete-preview`)).body;
+  const note = (await call('', 'POST', { title: 'Arrived after review', project: project._id, operationId: 'review-new-note' })).body;
+  const input = { expectedRevision: preview.revision, reviewToken: preview.reviewToken, operationId: 'stale-reviewed-set' };
+  assert.equal((await call(`/projects/${project._id}/delete`, 'POST', input)).status, 409);
+  assert.equal((await call('/' + note._id)).body.trashedAt, null);
+  const foreign = { 'x-user': String(new mongoose.Types.ObjectId()) };
+  assert.equal((await call(`/projects/${project._id}/delete-preview`, 'GET', null, foreign)).status, 404);
+  assert.equal((await call(`/projects/${project._id}/delete`, 'POST', input, foreign)).status, 404);
+  assert.equal((await call(`/projects/${project._id}/restore`, 'POST', { operationId: input.operationId }, foreign)).status, 404);
+});
+
+test('project deletion racing a new note never leaves an active member in a deleted project', async () => {
+  for (let index = 0; index < 3; index += 1) {
+    const project = (await call('/folders', 'POST', { name: 'Racing project', kind: 'project', operationId: `racing-project-${index}` })).body;
+    const preview = (await call(`/projects/${project._id}/delete-preview`)).body;
+    const [removed, created] = await Promise.all([
+      call(`/projects/${project._id}/delete`, 'POST', { expectedRevision: preview.revision, reviewToken: preview.reviewToken, operationId: `racing-delete-${index}` }),
+      call('', 'POST', { project: project._id, operationId: `racing-note-${index}`, title: 'Concurrent' })
+    ]);
+    assert.ok([200, 409].includes(removed.status), JSON.stringify(removed));
+    assert.ok([201, 409].includes(created.status), JSON.stringify(created));
+    assert.equal(removed.status === 200 && created.status === 201, false, 'either membership review changes or the new writer is rejected');
+  }
+});
+
+test('project review fingerprints revisions and linked-task membership, not just counts', async () => {
+  const project = (await call('/folders', 'POST', { name: 'Exact review', kind: 'project', operationId: 'exact-review' })).body;
+  const note = (await call('', 'POST', { title: 'Reviewed prose', project: project._id, operationId: 'exact-note' })).body;
+  let preview = (await call(`/projects/${project._id}/delete-preview`)).body;
+  await call('/' + note._id, 'PUT', { expectedRevision: 0, content: 'New prose since review' });
+  const request = reviewed => ({ expectedRevision: reviewed.revision, reviewToken: reviewed.reviewToken, operationId: 'exact-batch' });
+  assert.equal((await call(`/projects/${project._id}/delete`, 'POST', request(preview))).status, 409);
+  preview = (await call(`/projects/${project._id}/delete-preview`)).body;
+  const created = await call('', 'POST', { operationId: 'exact-linked', title: 'New linked task', workItem: { kind: 'task', noteId: note._id } });
+  assert.equal(created.status, 201);
+  assert.equal((await call(`/projects/${project._id}/delete`, 'POST', request(preview))).status, 409);
+  const current = (await call(`/projects/${project._id}/delete-preview`)).body;
+  assert.equal(current.counts.tasks, 1);
+  assert.equal(current.revision, project.revision, 'membership fences do not change the user-facing project revision');
+  const [first, retry] = await Promise.all([call(`/projects/${project._id}/delete`, 'POST', request(current)), call(`/projects/${project._id}/delete`, 'POST', request(current))]);
+  assert.equal(first.status, 200); assert.equal(retry.status, 200);
+  assert.equal(first.body.project.revision, retry.body.project.revision);
+  // Restoration must not clear a later independently owned tombstone.
+  await NotebookEntry.collection.updateOne({ _id: new mongoose.Types.ObjectId(note._id) }, { $set: { deletionBatchId: 'later-owner' } });
+  const restored = await call(`/projects/${project._id}/restore`, 'POST', { operationId: 'exact-batch' });
+  assert.equal(restored.status, 200);
+  assert.equal(restored.body.entries.find(entry => entry._id === note._id).deletionBatchId, 'later-owner');
+  assert.ok(restored.body.entries.find(entry => entry._id === note._id).trashedAt);
+  assert.equal(restored.body.entries.find(entry => entry._id === created.body._id).trashedAt, null);
+});

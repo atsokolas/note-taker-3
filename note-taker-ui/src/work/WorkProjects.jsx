@@ -1,6 +1,7 @@
-import WorkMenu from './WorkMenu';
+import WorkProjectActions from './WorkProjectActions';
+import WorkInlineRename from './WorkInlineRename';
 import WorkNoteActions from './WorkNoteActions';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { noteTitle } from './workSession';
 import WorkIcon from './WorkIcon';
 import './work-project.css';
@@ -84,8 +85,14 @@ export default function WorkProjects({ records, notes, items, today, onOpen, onA
 
 // One project, laid out the same way every time: what it is, this week's question, its log on the left,
 // and on the right what is next, what is coming, what was decided and what is kept with it.
-export function WorkProject({ record, notes, items, today, onAction, onCapture, onOpenNote, onNewNote, onSave, onEdit, calendar, onRenameNote, onTrashNote }) {
+export function WorkProject({ record, notes, items, today, onAction, onCapture, onOpenNote, onNewNote, onSave, onEdit, onOpenProject, calendar, onRenameNote, onTrashNote, renaming = false, onRenameSave, onRenameCancel, renameBusy = false }) {
   const item = project(record, notes, items, today);
+  const header = useRef(null);
+  const wasRenaming = useRef(renaming);
+  useEffect(() => {
+    if (wasRenaming.current && !renaming) header.current?.querySelector('summary')?.focus({ preventScroll: true });
+    wasRenaming.current = renaming;
+  }, [renaming]);
   const [brief, setBrief] = useState(record.brief || '');
   const [line, setLine] = useState('');
   const [answer, setAnswer] = useState('');
@@ -103,8 +110,8 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
     else { setClosing(null); onSave(record, { paused: value === 'paused', archived: false }); }
   };
   const sense = item.state === 'done' ? `Done ${displayDay(dayInZone(record.archivedAt))}.` : [plural(item.next.length, 'thing') + ' open', item.waiting.length ? `waiting on ${[...new Set(item.waiting.map(line => line.waitingOn))].join(' and ')}` : '', `last touched ${touched(item.touched, today).toLowerCase()}`].filter(Boolean).join(', ').replace(/^./, c => c.toUpperCase()) + '.';
-  return <section className="work-outstanding work-project work-project-studio" aria-label={record.name}><header className="work-project-head">
-    <div className="work-project-title-row"><h1 className="work-page-title">{record.name}</h1><select aria-label="Project state" value={item.state} onChange={event => changeState(event.target.value)}><option value="active">Active</option><option value="paused">Paused</option><option value="done">Done</option></select>{onEdit ? <WorkMenu label={`Actions for project ${record.name}`} icon="more" className="work-project-menu"><button onClick={() => onEdit(record)}>Rename or edit project</button></WorkMenu> : null}</div>
+  return <section className="work-outstanding work-project work-project-studio" aria-label={record.name}><header ref={header} className="work-project-head">
+    <div className="work-project-title-row"><div className="work-project-title">{renaming ? <WorkInlineRename key={record._id} value={record.name} label="Project name" onSave={onRenameSave} onCancel={onRenameCancel} busy={renameBusy} /> : <h1 className="work-page-title">{record.name}</h1>}</div><select aria-label="Project state" value={item.state} onChange={event => changeState(event.target.value)}><option value="active">Active</option><option value="paused">Paused</option><option value="done">Done</option></select>{onEdit ? <WorkProjectActions record={record} onOpen={onOpenProject} onAction={onEdit} /> : null}</div>
     <p className="work-page-sense">{sense}</p></header>
     {closing !== null ? <form className="work-project-closing" onSubmit={event => { event.preventDefault(); onSave(record, { archived: true, paused: false, closingLine: closing.trim() }).then(saved => { if (saved) setClosing(null); }); }}><label>One line on how it ended<textarea autoFocus rows={2} value={closing} onChange={event => setClosing(event.target.value)} placeholder="We passed, and the churn question answered itself." /></label><div className="work-actions"><button>Mark done</button><button type="button" onClick={() => setClosing(null)}>Not yet</button></div></form> : null}
     {item.state === 'done' && record.closingLine ? <blockquote className="work-project-ending">{record.closingLine}</blockquote> : null}

@@ -392,17 +392,19 @@ test('home puts today and Next together in the right rail, not twice on the dail
 test('note deletion is recoverable from editor and sidebar without deleting linked tasks', async () => {
   await open();
   fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
-  await screen.findByText(/moved to Trash/);
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete note?' })).getByRole('button', { name: 'Delete note' }));
+  await screen.findByText(/moved to Deleted/);
   expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/a', expect.objectContaining({ content: 'Original account', trashedAt: expect.any(String) }), expect.anything());
-  fireEvent.click(screen.getByRole('button', { name: 'Trash (1)' }));
-  expect(screen.getByRole('region', { name: 'Trash' })).toHaveTextContent('Original account');
+  fireEvent.click(screen.getByRole('button', { name: 'Deleted (1)' }));
+  expect(screen.getByRole('region', { name: 'Deleted' })).toHaveTextContent('Original account');
   fireEvent.click(screen.getByRole('button', { name: 'Restore Charging windows' }));
   await screen.findByText('Note restored.');
   expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/a', expect.objectContaining({ content: 'Original account', trashedAt: null }), expect.anything());
   const menu = screen.getByLabelText('Actions for Charging windows');
   fireEvent.click(menu);
   fireEvent.click(within(menu.closest('details')).getByRole('button', { name: 'Delete note' }));
-  await screen.findByText(/moved to Trash/);
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete note?' })).getByRole('button', { name: 'Delete note' }));
+  await screen.findByText(/moved to Deleted/);
   fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
   await screen.findByText('Note restored.');
 });
@@ -410,17 +412,19 @@ test('note deletion is recoverable from editor and sidebar without deleting link
 test('opening a note from Trash returns to writing', async () => {
   await open();
   fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
-  await screen.findByText(/moved to Trash/);
-  fireEvent.click(screen.getByRole('button', { name: 'Trash (1)' }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete note?' })).getByRole('button', { name: 'Delete note' }));
+  await screen.findByText(/moved to Deleted/);
+  fireEvent.click(screen.getByRole('button', { name: 'Deleted (1)' }));
   fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('Original account');
-  expect(screen.queryByRole('region', { name: 'Trash' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Deleted' })).not.toBeInTheDocument();
 });
 
 test('a slow deletion never dismisses a newer opened note', async () => {
   await open(); let finish;
   api.put.mockImplementationOnce((_, body) => new Promise(resolve => { finish = () => resolve({ data: { ...source, ...body, revision: 3 } }); }));
   fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete note?' })).getByRole('button', { name: 'Delete note' }));
   fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
   await waitFor(() => expect(finish).toEqual(expect.any(Function)));
   await act(async () => finish());
@@ -430,7 +434,7 @@ test('a slow deletion never dismisses a newer opened note', async () => {
 test('note menus rename through the revisioned save path and preserve writing', async () => {
   await open();
   fireEvent.click(screen.getByLabelText('Actions for Charging windows'));
-  fireEvent.click(within(screen.getByLabelText('Actions for Charging windows').closest('details')).getByRole('button', { name: 'Rename note' }));
+  fireEvent.click(within(screen.getByLabelText('Actions for Charging windows').closest('details')).getByRole('button', { name: 'Rename', exact: true }));
   const dialog = screen.getByRole('dialog', { name: 'Rename note' });
   fireEvent.change(within(dialog).getByLabelText('Note name'), { target: { value: 'Charging plan' } });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
@@ -445,7 +449,7 @@ test('project ellipses in sidebar and page share the same safe edit action', asy
   api.put.mockImplementation(async (_, body) => ({ data: { ...project, ...body, revision: body.expectedRevision + 1 } }));
   render(<WorkNotes />);
   fireEvent.click(await screen.findByLabelText('Actions for project Launch'));
-  fireEvent.click(screen.getByRole('button', { name: 'Rename or edit project' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit description' }));
   const dialog = screen.getByRole('dialog', { name: 'Edit project' });
   fireEvent.change(within(dialog).getByLabelText('Project name'), { target: { value: 'Launch plan' } });
   fireEvent.change(within(dialog).getByLabelText('Project description'), { target: { value: 'Clarified purpose' } });
@@ -455,7 +459,7 @@ test('project ellipses in sidebar and page share the same safe edit action', asy
   fireEvent.click(screen.getByRole('button', { name: 'Launch plan', exact: true }));
   const page = screen.getByRole('main');
   fireEvent.click(within(page).getByLabelText('Actions for project Launch plan'));
-  fireEvent.click(within(page).getByRole('button', { name: 'Rename or edit project' }));
+  fireEvent.click(within(page).getByRole('button', { name: 'Edit description' }));
   expect(screen.getByLabelText('Project description')).toHaveValue('Clarified purpose');
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(api.put).toHaveBeenCalledTimes(1);
@@ -474,11 +478,11 @@ test('rename-only project edit cannot overwrite an inline description save in fl
   await waitFor(() => expect(finish).toEqual(expect.any(Function)));
   const page = screen.getByRole('main');
   fireEvent.click(within(page).getByLabelText('Actions for project Launch'));
-  fireEvent.click(within(page).getByRole('button', { name: 'Rename or edit project' }));
+  fireEvent.click(within(page).getByRole('button', { name: 'Rename', exact: true }));
   fireEvent.change(screen.getByLabelText('Project name'), { target: { value: 'Renamed launch' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
   await act(async () => finish());
-  await screen.findByText('Project updated.');
+  await screen.findByRole('heading', { name: 'Renamed launch', exact: true });
   expect(api.put.mock.calls[1][1]).toMatchObject({ name: 'Renamed launch', expectedRevision: 5 });
   expect(api.put.mock.calls[1][1]).not.toHaveProperty('brief');
   expect(screen.getByLabelText('What Renamed launch is')).toHaveValue('New purpose');
@@ -498,4 +502,47 @@ test('a note opened from its project keeps the expanded week planner reachable',
   expect(planner).toHaveClass('mode-week');
   expect(within(planner).getAllByRole('button', { name: /Plan work for/ })).toHaveLength(7);
   expect(screen.getByLabelText('Work note writing')).toHaveValue(source.content);
+});
+
+test('project deletion requires reviewed confirmation and restores the whole batch from Deleted', async () => {
+  const project = { _id: 'p', kind: 'project', name: 'Launch', revision: 4 };
+  const entry = { ...source, project: 'p' };
+  const task = { _id: 't', title: 'Ship', revision: 1, project: 'p', workItem: { kind: 'task', list: 'next' } };
+  const preview = { projectId: 'p', revision: 4, reviewToken: 'review-1', entryIds: ['a', 't'], counts: { notes: 1, tasks: 1, excludedTasks: 2, alreadyDeleted: 1 }, retentionDays: 14 };
+  api.get.mockImplementation(async path => ({ data: path.endsWith('/delete-preview') ? preview : { entries: [entry], items: [task], folders: [project] } }));
+  const deleted = { ...project, revision: 5, deleted: { batchId: 'batch', deletedAt: '2026-11-16T12:00:00Z', expiresAt: '2026-11-30T12:00:00Z', restoredAt: null } };
+  api.post.mockImplementation(async path => ({ data: path.endsWith('/restore') ? { project: { ...deleted, revision: 6, deleted: { ...deleted.deleted, restoredAt: '2026-11-17T12:00:00Z' } }, entries: [entry, task].map(record => ({ ...record, revision: 7, trashedAt: null, deletionBatchId: null })) } : { project: deleted, entries: [entry, task].map(record => ({ ...record, revision: 6, trashedAt: deleted.deleted.deletedAt, deletionBatchId: 'batch' })) } }));
+  render(<WorkNotes />);
+  const openDelete = async () => {
+    fireEvent.click(await screen.findByLabelText('Actions for project Launch'));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete project', exact: true }));
+    const dialog = await screen.findByRole('dialog', { name: 'Delete Launch?' });
+    await within(dialog).findByText(/1 notes and 1 tasks/); return dialog;
+  };
+  let dialog = await openDelete();
+  expect(dialog).toHaveTextContent('2 linked tasks belong to other projects');
+  expect(dialog).toHaveTextContent('1 already-deleted items');
+  expect(dialog).toHaveTextContent('Nothing is permanently erased automatically');
+  expect(api.post).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+  expect(api.post).not.toHaveBeenCalled();
+  dialog = await openDelete();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete project', exact: true }));
+  const deletedPage = await screen.findByRole('region', { name: 'Deleted' });
+  expect(deletedPage).toHaveTextContent('Recovery protected through');
+  expect(api.post).toHaveBeenCalledWith('/api/work-notes/projects/p/delete', expect.objectContaining({ expectedRevision: 4, reviewToken: 'review-1', operationId: expect.any(String) }), expect.anything());
+  expect(screen.queryByLabelText('Actions for project Launch')).not.toBeInTheDocument();
+  fireEvent.click(within(deletedPage).getByRole('button', { name: 'Restore Launch' }));
+  await screen.findByText('“Launch” and its deleted notes and tasks restored.');
+  expect(screen.getByLabelText('Actions for project Launch')).toBeInTheDocument();
+});
+
+test('canceling note deletion leaves original writing untouched', async () => {
+  await open();
+  fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
+  const dialog = await screen.findByRole('dialog', { name: 'Delete note?' });
+  expect(api.put).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByLabelText('Work note writing')).toHaveValue('Original account');
+  expect(api.put).not.toHaveBeenCalled();
 });

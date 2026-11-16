@@ -490,3 +490,66 @@ test('a Trash conflict keeps both copies and does not overwrite the server', asy
   session.useServer('a');
   expect(session.entries()[0].title).toBe('New remote writing');
 });
+
+test('project deletion is reviewed, hides only returned batch records, and restores them together', async () => {
+  const project = { _id: 'p', kind: 'project', name: 'Launch', revision: 3 };
+  const owned = note({ project: 'p' });
+  const task = note({ _id: 't', project: 'p', workItem: { kind: 'task', noteId: 'a' } });
+  const elsewhere = note({ _id: 'other', project: 'q', workItem: { kind: 'task', noteId: 'a' } });
+  api.get.mockResolvedValueOnce({ data: { entries: [owned], items: [task, elsewhere], folders: [project] } });
+  await session.load();
+  const preview = { projectId: 'p', revision: 3, reviewToken: 'reviewed', entryIds: ['a', 't'], counts: { notes: 1, tasks: 1, excludedTasks: 1 }, retentionDays: 14 };
+  api.get.mockResolvedValueOnce({ data: preview });
+  expect(await session.previewProjectDeletion('p')).toEqual(preview);
+  const deleted = { ...project, revision: 4, deleted: { batchId: 'delete-once', deletedAt: '2026-11-16T12:00:00Z', expiresAt: '2026-11-30T12:00:00Z', restoredAt: null } };
+  const moved = [owned, task].map(record => ({ ...record, revision: record.revision + 1, trashedAt: deleted.deleted.deletedAt, deletionBatchId: 'delete-once' }));
+  api.post.mockResolvedValueOnce({ data: { project: deleted, entries: moved } });
+  await session.deleteProject('p', preview, 'delete-once');
+  expect(api.post).toHaveBeenLastCalledWith('/api/work-notes/projects/p/delete', { expectedRevision: 3, reviewToken: 'reviewed', operationId: 'delete-once' }, expect.any(Object));
+  expect(session.entries()).toHaveLength(0); expect(session.items().map(item => item._id)).toEqual(['other']);
+  expect(session.folders()).toHaveLength(0); expect(session.deletedProjects()).toEqual([deleted]);
+  api.post.mockResolvedValueOnce({ data: { project: { ...deleted, revision: 5, deleted: { ...deleted.deleted, restoredAt: '2026-12-01T12:00:00Z' } }, entries: moved.map(record => ({ ...record, revision: record.revision + 1, trashedAt: null, deletionBatchId: null })) } });
+  await session.restoreProject(deleted);
+  expect(api.post).toHaveBeenLastCalledWith('/api/work-notes/projects/p/restore', { operationId: 'delete-once' }, expect.any(Object));
+  expect(session.entries()[0].content).toEqual(owned.content); expect(session.items()).toHaveLength(2);
+  expect(session.folders()).toHaveLength(1); expect(session.deletedProjects()).toHaveLength(0);
+});
+
+test('project deletion cannot sweep away pending local writing or apply a response to another account', async () => {
+  await session.load(); session.edit('a', { content: 'Unsaved exact words' });
+  await expect(session.previewProjectDeletion('p')).rejects.toThrow(/pending changes/);
+  await expect(session.deleteProject('p', { revision: 1, reviewToken: 'old' }, 'intent')).rejects.toThrow(/writing changed/);
+  expect(api.post).not.toHaveBeenCalled(); expect(session.entry('a').content).toBe('Unsaved exact words');
+  await session.flush('a');
+  const pending = deferred(); api.post.mockReturnValueOnce(pending.promise);
+  const request = session.deleteProject('p', { revision: 1, reviewToken: 'old' }, 'intent');
+  await Promise.resolve(); localStorage.setItem('token', token('other'));
+  pending.resolve({ data: { project: { _id: 'p', deleted: { batchId: 'intent' } }, entries: [] } });
+  expect(await request).toBeNull(); expect(session.deletedProjects()).toHaveLength(0);
+});
+
+test('account switch while server readiness is pending never dispatches deletion', async () => {
+  const ready = deferred(); api.get.mockReturnValueOnce(ready.promise);
+  const request = session.deleteProject('p', { revision: 1, reviewToken: 'reviewed' }, 'intent');
+  localStorage.setItem('token', token('other'));
+  ready.resolve({ data: { entries: [note()], items: [], folders: [] } });
+  await request.catch(() => null);
+  expect(api.post).not.toHaveBeenCalled();
+});
+
+test('new writing during readiness prevents project deletion before dispatch', async () => {
+  const ready = deferred(); api.get.mockReturnValueOnce(ready.promise);
+  const request = session.deleteProject('p', { revision: 1, reviewToken: 'reviewed' }, 'intent');
+  const id = session.capture(); session.edit(id, { content: 'Keep this newly written draft' });
+  ready.resolve({ data: { entries: [note()], items: [], folders: [] } });
+  await expect(request).rejects.toThrow(/writing changed/);
+  expect(api.post).not.toHaveBeenCalled(); expect(session.entry(id).content).toBe('Keep this newly written draft');
+});
+
+test('account switch at the ready-server await boundary sends no mutation', async () => {
+  await session.load();
+  const request = session.deleteProject('p', { revision: 1, reviewToken: 'reviewed' }, 'intent');
+  localStorage.setItem('token', token('other'));
+  expect(await request).toBeNull();
+  expect(api.post).not.toHaveBeenCalled();
+});

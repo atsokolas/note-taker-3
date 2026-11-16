@@ -1,6 +1,6 @@
 import React from 'react';
 import WorkIcon from './WorkIcon';
-import WorkMenu from './WorkMenu';
+import WorkProjectActions from './WorkProjectActions';
 import WorkNoteActions from './WorkNoteActions';
 import { matchesQuery, noteTitle } from './workSession';
 import { displayDay, writtenDay } from './workPlannerModel';
@@ -45,7 +45,7 @@ export default function WorkShelf({ needs, projects, dragging, drag, onDropNote,
       seen.add(record._id);
       const nested = records.filter(child => parent(child) === record._id).map(branch).filter(Boolean);
       const contents = kind === 'project' ? [] : newest(notes.filter(note => folderId(note) === record._id));
-      return { id: record._id, reveal: place === record._id || contents.some(current) || nested.some(child => child.reveal), element: placeRow(record._id, record.name, contents, () => onScope(kind, record._id), kind === 'folder' ? <button className="work-place-menu" aria-label={`Manage folder ${record.name}`} onClick={() => onFolderMenu(record)}><WorkIcon name="more" /></button> : <WorkMenu label={`Actions for project ${record.name}`} icon="more" className="work-project-menu"><button onClick={() => onProjectMenu(record)}>Rename or edit project</button><button onClick={() => onScope('project', record._id)}>Open project</button></WorkMenu>, kind, nested) };
+      return { id: record._id, reveal: place === record._id || contents.some(current) || nested.some(child => child.reveal), element: placeRow(record._id, record.name, contents, () => onScope(kind, record._id), kind === 'folder' ? <button className="work-place-menu" aria-label={`Manage folder ${record.name}`} onClick={() => onFolderMenu(record)}><WorkIcon name="more" /></button> : <WorkProjectActions record={record} onOpen={id => onScope('project', id)} onAction={onProjectMenu} />, kind, nested) };
     };
     const roots = records.filter(record => !records.some(candidate => candidate._id === parent(record))).map(branch).filter(Boolean);
     // Orphaned and cyclic legacy records remain reachable instead of disappearing.
@@ -67,6 +67,6 @@ export default function WorkShelf({ needs, projects, dragging, drag, onDropNote,
     {section('projects', 'Projects', () => onScope('projects'), activeProjects, places(visibleProjects, 'project'), 'Projects')}
     {section('notes', 'Notes', () => onScope('notes'), null, <>{placeRow('', 'Inbox', inbox, () => onScope('inbox', ''))}{places(folders.filter(item => !item.archivedAt), 'folder')}<button className="work-add-folder" onClick={onNewFolder}><WorkIcon name="plus" /><span>New folder</span></button></>, 'Work folders')}
     {loading ? <p role="status">Opening Work notes…</p> : error ? <div role="alert"><p>{error}</p><button onClick={onRetry}>Retry</button></div> : null}
-    <div className="work-shelf-foot">{trashedCount ? <button onClick={() => onScope('trash')}>Trash ({trashedCount})</button> : null}{archived.length ? <button onClick={() => onScope('archive')}>Archive</button> : null}<button onClick={onTimeZone} aria-label={`Day timezone: ${timeZone}`}>{timeZone.split('/').pop().replace(/_/g, ' ')} time</button><button aria-label="Collapse Work navigation" onClick={onCollapse}><WorkIcon name="previous" /></button></div>
+    <div className="work-shelf-foot">{trashedCount ? <button onClick={() => onScope('trash')}>Deleted ({trashedCount})</button> : null}{archived.length ? <button onClick={() => onScope('archive')}>Archive</button> : null}<button onClick={onTimeZone} aria-label={`Day timezone: ${timeZone}`}>{timeZone.split('/').pop().replace(/_/g, ' ')} time</button><button aria-label="Collapse Work navigation" onClick={onCollapse}><WorkIcon name="previous" /></button></div>
   </aside>;
 }
