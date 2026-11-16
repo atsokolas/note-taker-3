@@ -18,7 +18,7 @@ test('the rail is Today, Projects and Notes, and a note is listed once, in its f
   fireEvent.click(screen.getByRole('button', { name: 'Launch' }));
   expect(props.onScope).toHaveBeenCalledWith('project', 'p');
   expect(screen.getByRole('button', { name: 'Later' })).toBeInTheDocument();
-  expect(screen.getByRole('img', { name: 'Still figuring it out.' })).toBeInTheDocument();
+  expect(screen.queryByRole('img', { name: 'Still figuring it out.' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Notes' }));
   expect(props.onScope).toHaveBeenCalledWith('notes');
 });

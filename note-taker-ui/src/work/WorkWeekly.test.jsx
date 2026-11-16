@@ -32,6 +32,7 @@ test('dragging adds one canonical link and completion uses the existing action',
 });
 test('new priorities persist and empty input is not saved', async () => {
   render(<WorkWeekly {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Add priority', exact: true }));
   fireEvent.submit(screen.getByLabelText('New weekly priority').closest('form'));
   expect(session.saveWeek).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText('New weekly priority'), { target: { value: 'Clarify the next decision' } });
@@ -211,4 +212,37 @@ test('manage opens a collapsed priority so its editor is reachable', () => {
   fireEvent.click(screen.getByRole('button', { name: `Manage ${priority.title}` }));
   expect(toggle).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByLabelText(`Rename ${priority.title}`)).toBeVisible();
+});
+
+
+test('priority composer opens on demand, cancels cleanly, and returns focus', async () => {
+  render(<WorkWeekly {...props} />);
+  expect(screen.queryByLabelText('New weekly priority')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Add priority', exact: true }));
+  expect(screen.getByLabelText('New weekly priority')).toHaveFocus();
+  fireEvent.change(screen.getByLabelText('New weekly priority'), { target: { value: 'Not this week' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel', exact: true }));
+  expect(screen.queryByLabelText('New weekly priority')).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Add priority', exact: true })).toHaveFocus());
+  expect(session.saveWeek).not.toHaveBeenCalled();
+});
+
+test('closure follows saved task completion, and reopening restores the count', () => {
+  const { rerender } = render(<WorkWeekly {...props} />);
+  expect(screen.getByRole('status')).toHaveTextContent('0/1 done');
+  rerender(<WorkWeekly {...props} items={[{ ...a, completed: true, pending: true }, b]} />);
+  expect(screen.getByRole('status')).toHaveTextContent('1/1 done · saving');
+  expect(screen.queryByText('Every linked to-do is done.')).not.toBeInTheDocument();
+  rerender(<WorkWeekly {...props} items={[{ ...a, completed: true }, b]} />);
+  expect(screen.getByRole('status')).toHaveTextContent('Every linked to-do is done.');
+  expect(session.saveWeek).not.toHaveBeenCalled();
+  rerender(<WorkWeekly {...props} />);
+  expect(screen.getByRole('status')).toHaveTextContent('0/1 done');
+});
+
+test('empty and unavailable tasks never claim a completed priority', () => {
+  records[0].workItem.priorities = [{ ...priority, taskIds: [] }, { ...priority, id: 'missing', title: 'Keep the unavailable task', taskIds: ['gone'] }];
+  render(<WorkWeekly {...props} />);
+  expect(screen.queryByText('Every linked to-do is done.')).not.toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('0/1 done');
 });

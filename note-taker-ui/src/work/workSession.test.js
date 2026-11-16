@@ -443,3 +443,50 @@ test('cross-notebook draft recovers its original selection and waits for source 
   session.edit(id, { title: 'Edited task' }); await session.flush(id);
   expect(api.put.mock.calls.at(-1)[1].workItem.origin).toEqual(receipt);
 });
+test('Trash preserves note content and linked items and restores through the same revisioned save', async () => {
+  const task = note({ _id: 'task', workItem: { kind: 'task', noteId: 'a' } });
+  api.get.mockResolvedValue({ data: { entries: [note()], items: [task], folders: [] } });
+  await session.load();
+  expect(await session.trash('a')).toBe(true);
+  expect(session.entries()).toEqual([]);
+  expect(session.trashed()[0]).toMatchObject({ title: 'Charging windows', content: '<p>Original</p>' });
+  expect(session.items()[0].workItem.noteId).toBe('a');
+  expect(api.put.mock.calls[0][1]).toMatchObject({ expectedRevision: 2, content: '<p>Original</p>', trashedAt: expect.any(String) });
+  expect(await session.restore('a')).toBe(true);
+  expect(session.trashed()).toEqual([]);
+  expect(session.entries()[0].content).toBe('<p>Original</p>');
+  expect(api.put.mock.calls[1][1]).toMatchObject({ expectedRevision: 3, trashedAt: null });
+  expect(await session.trash('task')).toBe(false);
+});
+test('offline Trash persists across reload and undo remains a durable edit', async () => {
+  await session.load();
+  api.put.mockRejectedValue(new Error('offline'));
+  expect(await session.trash('a')).toBe(false);
+  session.dispose(); session = createWorkSession({ token: token('owner'), api });
+  expect(session.trashed()[0].content).toBe('<p>Original</p>');
+  expect(await session.restore('a')).toBe(false);
+  expect(session.entries()[0].content).toBe('<p>Original</p>');
+  expect(session.canLeave()).toBe(true);
+});
+test('undo during a Trash save serializes and does not lose newer writing', async () => {
+  await session.load(); const pending = deferred(); api.put.mockReturnValueOnce(pending.promise);
+  const saving = session.trash('a');
+  session.edit('a', { content: '<p>Latest writing</p>' });
+  const restoring = session.restore('a');
+  pending.resolve({ data: note({ trashedAt: '2026-11-16T12:00:00.000Z', revision: 3 }) });
+  await Promise.all([saving, restoring]);
+  expect(session.trashed()).toEqual([]);
+  expect(session.entries()[0].content).toBe('<p>Latest writing</p>');
+  expect(api.put.mock.calls[1][1]).toMatchObject({ content: '<p>Latest writing</p>', trashedAt: null, expectedRevision: 3 });
+});
+test('a Trash conflict keeps both copies and does not overwrite the server', async () => {
+  await session.load();
+  api.put.mockRejectedValue({ response: { status: 409, data: { current: note({ title: 'New remote writing', revision: 3 }) } } });
+  expect(await session.trash('a')).toBe(false);
+  expect(session.trashed()[0].content).toBe('<p>Original</p>');
+  expect(session.conflict('a').title).toBe('New remote writing');
+  await session.flush('a');
+  expect(api.put).toHaveBeenCalledTimes(1);
+  session.useServer('a');
+  expect(session.entries()[0].title).toBe('New remote writing');
+});

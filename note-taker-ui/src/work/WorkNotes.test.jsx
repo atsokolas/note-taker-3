@@ -388,3 +388,41 @@ test('home puts today and Next together in the right rail, not twice on the dail
   expect(todaySummary.closest('details')).not.toHaveAttribute('open');
   expect(nextSummary.closest('details')).not.toHaveAttribute('open');
 });
+
+test('note deletion is recoverable from editor and sidebar without deleting linked tasks', async () => {
+  await open();
+  fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
+  await screen.findByText(/moved to Trash/);
+  expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/a', expect.objectContaining({ content: 'Original account', trashedAt: expect.any(String) }), expect.anything());
+  fireEvent.click(screen.getByRole('button', { name: 'Trash (1)' }));
+  expect(screen.getByRole('region', { name: 'Trash' })).toHaveTextContent('Original account');
+  fireEvent.click(screen.getByRole('button', { name: 'Restore Charging windows' }));
+  await screen.findByText('Note restored.');
+  expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/a', expect.objectContaining({ content: 'Original account', trashedAt: null }), expect.anything());
+  const menu = screen.getByLabelText('Actions for Charging windows');
+  fireEvent.click(menu);
+  fireEvent.click(within(menu.closest('details')).getByRole('button', { name: 'Delete note' }));
+  await screen.findByText(/moved to Trash/);
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+  await screen.findByText('Note restored.');
+});
+
+test('opening a note from Trash returns to writing', async () => {
+  await open();
+  fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
+  await screen.findByText(/moved to Trash/);
+  fireEvent.click(screen.getByRole('button', { name: 'Trash (1)' }));
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('Original account');
+  expect(screen.queryByRole('region', { name: 'Trash' })).not.toBeInTheDocument();
+});
+
+test('a slow deletion never dismisses a newer opened note', async () => {
+  await open(); let finish;
+  api.put.mockImplementationOnce((_, body) => new Promise(resolve => { finish = () => resolve({ data: { ...source, ...body, revision: 3 } }); }));
+  fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  await waitFor(() => expect(finish).toEqual(expect.any(Function)));
+  await act(async () => finish());
+  expect(screen.getByRole('textbox', { name: 'Note title' })).toHaveValue('Smaller depot');
+});
