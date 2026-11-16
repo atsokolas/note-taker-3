@@ -32,7 +32,7 @@ beforeEach(() => {
   });
 });
 const work = view => render(<MemoryRouter initialEntries={[`/work?view=${view}`]}><WorkNotes /></MemoryRouter>);
-const rail = () => within(screen.getByRole('complementary'));
+const rail = () => within(screen.getByRole('complementary', { name: 'Work notes' }));
 
 test('Today is the home: its margin is Needs you, the rail counts it, and old Needs you and Outstanding links open it', async () => {
   for (const view of ['needs', 'outstanding']) {
@@ -110,8 +110,8 @@ test('a project untouched for three weeks is Gone quiet, and Pause sets it aside
 
 test('a note with Mira shows what Mira owes you in its margin', async () => {
   render(<MemoryRouter initialEntries={['/work?note=note']}><WorkNotes /></MemoryRouter>);
-  fireEvent.click(await within(await screen.findByRole('complementary')).findByRole('button', { name: 'Customer discovery' }));
-  fireEvent.click(await within(screen.getByRole('complementary')).findByRole('button', { name: /Fieldwell/ }));
+  fireEvent.click(await within(await screen.findByRole('complementary', { name: 'Work notes' })).findByRole('button', { name: 'Customer discovery' }));
+  fireEvent.click(await within(screen.getByRole('complementary', { name: 'Work notes' })).findByRole('button', { name: /Fieldwell/ }));
   const owed = within(await screen.findByRole('region', { name: 'Owed to you' }));
   expect(owed.getByRole('heading', { name: 'Mira owes you' })).toBeInTheDocument(); expect(owed.getByText('The pilot numbers')).toBeInTheDocument();
 });
@@ -126,7 +126,7 @@ test('the check-in reads the week back as a new Work note, and offers the one it
     records.push(draft); return { data: { note: draft } };
   });
   work('review');
-  await screen.findByText('Confirm service-training dates');
+  await within(await screen.findByRole('region', { name: 'Needs you' })).findByText('Confirm service-training dates');
   expect(screen.getByText('Only Claude reads these notes, and the draft stays here in Work.')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Read the week back' }));
   expect(await screen.findByText('Agreed the pilot sites. · Fieldwell, 9 Nov')).toBeInTheDocument();
@@ -141,7 +141,7 @@ test('a quiet week says so, and a failed draft keeps the page in place', async (
   let answer = async () => ({ data: { silence: 'No Work entries between 5 Nov and 11 Nov. Nothing to draft.' } });
   api.post.mockImplementation(async (path, body) => path.endsWith('/week-edition') ? answer() : post(path, body));
   work('needs');
-  await screen.findByText('Confirm service-training dates');
+  await within(await screen.findByRole('region', { name: 'Needs you' })).findByText('Confirm service-training dates');
   fireEvent.click(screen.getByRole('button', { name: 'Read the week back' }));
   expect(await screen.findByText('No Work entries between 5 Nov and 11 Nov. Nothing to draft.')).toHaveAttribute('role', 'status');
   answer = async () => { throw { response: { status: 502, data: { error: 'Claude could not draft the week just now. Your notes are unchanged. Try again.' } } }; };
@@ -189,7 +189,7 @@ test('the dashboard opens Next, Someday and Done without extra clicks, including
     { _id: 'done-visible', revision: 0, title: 'Done visible task', takenOn: today, workItem: { kind: 'task', list: 'next', history: [{ type: 'complete', operationId: 'done', actionAt: new Date().toISOString(), timeZone: 'UTC' }] } }
   );
   const view = work('today');
-  await screen.findByText('Next visible task');
+  await within(await screen.findByRole('region', { name: 'Needs you' })).findByText('Next visible task');
   const sections = () => [...document.querySelectorAll('.work-needs-rest')];
   expect(sections()).toHaveLength(3);
   sections().forEach(section => expect(section.open).toBe(true));
@@ -197,6 +197,6 @@ test('the dashboard opens Next, Someday and Done without extra clicks, including
   sections().forEach(section => expect(section.open).toBe(false));
   view.unmount();
   work('today');
-  await screen.findByText('Next visible task');
+  await within(await screen.findByRole('region', { name: 'Needs you' })).findByText('Next visible task');
   sections().forEach(section => expect(section.open).toBe(true));
 });
