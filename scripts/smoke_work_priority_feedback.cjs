@@ -8,7 +8,7 @@ const today = '2026-11-16', prior = '2026-11-09';
 const task = (n,title,extra={}) => ({_id:id(n),revision:0,title,takenOn:'2026-11-12',capturedAt:'2026-11-12T12:00:00Z',timeZone:'UTC',folder:id(10),workItem:{kind:'task',list:'next',history:[],...extra}});
 const priority = (id,title,taskIds=[]) => ({id,title,taskIds,status:'active',reviewed:true,carriedFrom:null});
 const week = (n,day,priorities) => ({_id:id(n),revision:0,title:`Week of ${day}`,workItem:{kind:'week',plannedOn:day,priorities}});
-const data = {entries:[],folders:[{_id:id(10),name:'NOEIS',kind:'folder'}],items:[task(1,'Draft the application story'),task(2,'Compare program deadlines'),task(3,'Ask two founders for feedback',{plannedOn:'2026-11-13'}),task(4,'Refine the product walkthrough'),week(20,today,[priority('accelerators','Apply to accelerators',[id(1)]),priority('product','Make the product easier to understand',[id(4)])]),week(21,prior,[priority('previous','Clarify the accelerator shortlist',[id(2)])])]};
+const data = {entries:[],folders:[{_id:id(10),name:'NOEIS',kind:'folder'}],items:[task(1,'Draft the application story'),task(2,'Compare program deadlines'),task(3,'Ask two founders for feedback',{plannedOn:'2026-11-13'}),task(4,'Refine the product walkthrough'),task(5,'Send investor update',{plannedOn:today}),week(20,today,[priority('accelerators','Apply to accelerators',[id(1)]),priority('product','Make the product easier to understand',[id(4)])]),week(21,prior,[priority('previous','Clarify the accelerator shortlist',[id(2)])])]};
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r)); const browser=await chromium.launch({headless:true}); const page=await browser.newPage(); const errors=[]; page.on('pageerror',e=>{errors.push(e.message);console.log('PAGEERROR',e.stack);});
  page.on('console',msg=>{if(msg.type()==='error'||msg.text().startsWith('DRAG'))console.log('CONSOLE',msg.text(),msg.location());}); await page.addInitScript(()=>window.addEventListener('error',e=>console.error('ERROR_FILE',e.filename,e.lineno,e.message)));
@@ -20,9 +20,23 @@ const data = {entries:[],folders:[{_id:id(10),name:'NOEIS',kind:'folder'}],items
  for(const width of [1440,1280,430]){
   await page.setViewportSize({width,height:1000});await page.goto(url);await page.getByRole('heading',{name:'This week',exact:true}).waitFor();await page.getByRole('heading',{name:'Apply to accelerators',exact:true}).waitFor();
   const overflow=await page.evaluate(()=>({body:document.body.scrollWidth,window:innerWidth}));assert.ok(overflow.body<=overflow.window,JSON.stringify(overflow));
-  await page.screenshot({path:`tmp/weekly-${width}.png`,fullPage:true});console.log(`Viewport ${width}: rendered, no horizontal overflow`);
+  const dayPanel=page.locator('.work-day-tasks'), nextPanel=page.locator('.work-home-margin > .work-needs-rest').first();
+  assert.equal(await dayPanel.count(),1); assert.equal(await dayPanel.getAttribute('open'),''); assert.equal(await nextPanel.getAttribute('open'),'');
+  assert.ok(await dayPanel.evaluate(el=>el.nextElementSibling?.querySelector('summary')?.textContent.startsWith('Next')));
+  const mainBox=await page.locator('.work-weekly-priorities').boundingBox(), railBox=await dayPanel.boundingBox();
+  if(width>900) assert.ok(railBox.x>mainBox.x+mainBox.width,JSON.stringify({mainBox,railBox}));
+  await dayPanel.getByRole('checkbox',{name:'Send investor update'}).waitFor();
+  const priorityToggle=page.getByRole('button',{name:'Apply to accelerators',exact:true});
+  await priorityToggle.focus();await page.keyboard.press('Space');assert.equal(await priorityToggle.getAttribute('aria-expanded'),'false');
+  assert.equal(await page.getByRole('region',{name:'Apply to accelerators'}).getByRole('checkbox',{name:'Draft the application story'}).isVisible(),false);
+  await page.keyboard.press('Enter');assert.equal(await priorityToggle.getAttribute('aria-expanded'),'true');
+  const draft=dayPanel.getByRole('textbox',{name:'Add a line'});await draft.fill('Keep the rail draft');
+  await dayPanel.locator(':scope > summary').focus();await page.keyboard.press('Enter');assert.equal(await dayPanel.getAttribute('open'),null);assert.equal(await draft.isVisible(),false);
+  await page.keyboard.press('Space');assert.equal(await draft.inputValue(),'Keep the rail draft');await draft.fill('');
+  await nextPanel.locator(':scope > summary').focus();await page.keyboard.press('Space');assert.equal(await nextPanel.getAttribute('open'),null);await page.keyboard.press('Enter');assert.equal(await nextPanel.getAttribute('open'),'');
+  await page.screenshot({path:`tmp/rail-${width}.png`,fullPage:true});console.log(`Viewport ${width}: right rail order, default expansion, keyboard folding, draft retention, no overflow`);
  }
- await page.setViewportSize({width:1440,height:1000});
+ await page.setViewportSize({width:1440,height:2400});
  const tray=page.getByRole('complementary',{name:'Open to-dos'}), target=page.getByRole('region',{name:'Apply to accelerators'});
  await tray.locator('li').filter({hasText:'Compare program deadlines'}).dragTo(target);
  await target.getByRole('checkbox',{name:'Compare program deadlines',exact:true}).waitFor();assert.deepEqual(data.items.find(x=>x._id===id(20)).workItem.priorities[0].taskIds.slice().sort(),[id(1),id(2)]);console.log('Real drag linked canonical task');
@@ -35,7 +49,7 @@ const data = {entries:[],folders:[{_id:id(10),name:'NOEIS',kind:'folder'}],items
  await target.getByRole('checkbox',{name:'Send the application',exact:true}).waitFor();
  assert.equal(data.items.filter(x=>x.title==='Send the application').length,1);console.log('Inline creation saved one canonical task and linked it');
  await page.reload();await page.getByRole('region',{name:'Apply to accelerators'}).getByRole('checkbox',{name:'Ask two founders for feedback',exact:true}).waitFor();await page.getByRole('region',{name:'Apply to accelerators'}).getByRole('checkbox',{name:'Send the application',exact:true}).waitFor();console.log('Reload retained fixture-persisted assignments and created task');
- for(const width of [1440,1280,430]){await page.setViewportSize({width,height:1000});await page.screenshot({path:`tmp/feedback-${width}.png`,fullPage:true});const size=await page.evaluate(()=>({body:document.body.scrollWidth,window:innerWidth}));assert.ok(size.body<=size.window);}
+ for(const width of [1440,1280,430]){await page.setViewportSize({width,height:1000});await page.screenshot({path:`tmp/rail-${width}.png`,fullPage:true});const size=await page.evaluate(()=>({body:document.body.scrollWidth,window:innerWidth}));assert.ok(size.body<=size.window);}
  await page.getByRole('button',{name:'Previous priority week',exact:true}).click();await page.getByRole('heading',{name:'Clarify the accelerator shortlist',exact:true}).waitFor();assert.equal(await page.getByRole('checkbox',{name:'Compare program deadlines',exact:true}).isDisabled(),true);await page.getByRole('button',{name:'Next priority week',exact:true}).click();await page.getByRole('heading',{name:'Apply to accelerators',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Next priority week',exact:true}).isDisabled(),true);console.log('Prior week read-only and navigation back clean');
  await page.setViewportSize({width:430,height:1000});await page.goto(url+'?dark');
  await page.getByRole('button',{name:'Add to-do to Apply to accelerators'}).click();
@@ -46,6 +60,6 @@ const data = {entries:[],folders:[{_id:id(10),name:'NOEIS',kind:'folder'}],items
  await page.getByLabel('Priority for Compare program deadlines',{exact:true}).selectOption('product');
  await page.getByRole('region',{name:'Make the product easier to understand'}).getByRole('checkbox',{name:'Compare program deadlines',exact:true}).waitFor();
  assert.equal(await page.locator('html').getAttribute('data-ui-theme'),'tokyo-night');
- await page.screenshot({path:'tmp/feedback-dark-430.png',fullPage:true});console.log('Mobile dark-theme inline creation and native assignment passed');
+ await page.screenshot({path:'tmp/rail-dark-430.png',fullPage:true});console.log('Mobile dark-theme inline creation and native assignment passed');
  assert.deepEqual(errors,[]);console.log('No browser page errors. All QA assertions passed.');await browser.close();server.close();
 })().catch(e=>{console.error(e);server.close();process.exit(1)});

@@ -22,3 +22,11 @@ Browser smoke uses a built local app with synthetic API fixtures only. It covers
 `node scripts/smoke_work_priority_feedback.cjs` runs after building `note-taker-ui`. Screenshots and logs are written under ignored `tmp/`.
 
 Playwright's one-shot cross-scroll drag positioning is unreliable when source and target cannot be visible together; the daily-row drag assertion makes both visible. Browser QA does not claim a real-device touch-drag test. Touch and keyboard use the native assignment control.
+
+## Follow-up: foldable priorities and task rail
+
+Priorities now fold individually with keyboard-accessible buttons and explicit expanded state. Panels stay mounted so hiding a draft never discards it. Manage reopens the target panel. They start expanded, matching the existing dashboard preference.
+
+Today’s to-dos and its carried tasks now appear once at the top of the right rail, with Next directly beneath. Both start expanded and use native disclosures; collapsing Today retains its quick-entry draft. Next remains visible even when empty. Appointments, notes and the day margin remain on the daily page. Task records, dates and list membership are unchanged. The existing unassigned-task picker stays below the rail sections.
+
+The daily task renderer and its selection/order logic were extracted rather than copied. Calendar and home now share that one path. The existing browser smoke was extended rather than adding a duplicate harness: it checks rail geometry, one Today instance, native keyboard folding and draft retention at desktop/mobile widths, followed by the original task creation/drag/reload checks. A tall viewport is used for native assignment-tray drag so both source and target are visible; real-device touch dragging remains untested.
