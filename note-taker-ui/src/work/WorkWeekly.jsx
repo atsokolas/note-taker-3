@@ -18,8 +18,8 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
   const [pending, setPending] = useState(restored?.pending || null);
   const [message, setMessage] = useState(restored?.pending ? 'Your unsaved plan is ready to retry.' : '');
   const [review, setReview] = useState(false);
-  const [newTitle, setNewTitle] = useState(restored?.newTitle || '');
-  const [editing, setEditing] = useState(restored?.editing || '');
+  const [newTitle, setNewTitle] = useState(restored?.newTitle || (restored?.week < currentWeek ? restored.editTitle : '') || '');
+  const [editing, setEditing] = useState(restored?.week === currentWeek ? restored.editing || '' : '');
   const [editTitle, setEditTitle] = useState(restored?.editTitle || '');
   const [dragging, setDragging] = useState('');
   const [dropTarget, setDropTarget] = useState('');
