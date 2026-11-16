@@ -68,10 +68,6 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
   useEffect(() => {
     if (!busy) session.setWeeklyDraft?.(pending || newTitle.trim() || editing ? { week, newTitle, editing, editTitle, pending } : null);
   }, [session, week, newTitle, editing, editTitle, pending, busy]);
-  useEffect(() => {
-    const leave = event => { if (pending || busy || newTitle.trim() || editing) { event.preventDefault(); event.returnValue = ''; } };
-    window.addEventListener('beforeunload', leave); return () => window.removeEventListener('beforeunload', leave);
-  }, [pending, busy, newTitle, editing]);
   const navigate = next => { if (disabled || newTitle.trim() || editing) { setMessage('Save or cancel your priority edit before changing weeks.'); return; } setWeek(next); setReview(false); setEditing(''); setMessage(''); };
   const changePriority = (id, patch) => save(priorities.map(priority => priority.id === id ? { ...priority, ...patch } : priority), week, record?.revision ?? null);
   const link = (taskId, priorityId, beforeId) => {

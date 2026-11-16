@@ -153,7 +153,7 @@ export default function WorkNotes() {
       const returned = resumeWorkSession(session, localStorage.getItem('token') || '');
       setLocked(!returned); if (returned && !session.authNeeded()) setReauthenticate(false);
     };
-    const unload = event => { if (!session.canLeave() || session.weeklyDraft?.()) { event.preventDefault(); event.returnValue = ''; } };
+    const unload = event => { if (!session.canLeave()) { event.preventDefault(); event.returnValue = ''; } };
     window.addEventListener('online', online); window.addEventListener('storage', account); window.addEventListener('focus', account); window.addEventListener('beforeunload', unload);
     return () => { window.clearTimeout(timer.current); timers.forEach(value => window.clearTimeout(value)); releaseWorkSession(session); window.removeEventListener('online', online); window.removeEventListener('storage', account); window.removeEventListener('focus', account); window.removeEventListener('beforeunload', unload); };
   }, [session]);
