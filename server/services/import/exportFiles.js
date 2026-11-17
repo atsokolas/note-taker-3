@@ -432,6 +432,23 @@ const renderInline = (source = '') => {
 
 const CITED_MARK = /^— \[(.+)\]\((\/library\?articleId=([a-f0-9]{24})(?:&highlightId=([a-f0-9]{24}))?)\)$/;
 
+/* The lines Noeis writes for a note's references (notebookMarkdown.js), read
+   back as those references, so a note sent out to a folder comes home whole. */
+const ID = '([a-f0-9]{24})';
+const REFERENCES = [
+  [new RegExp(`^\\[(.+)\\]\\(/articles/${ID}\\)$`), ([, title, articleId]) => ({ type: 'article_ref', text: title, articleTitle: title, articleId })],
+  [new RegExp(`^Concept: \\[(.+)\\]\\(/think\\?tab=concepts&conceptId=${ID}\\)$`), ([, name, conceptId]) => ({ type: 'concept_ref', text: name, conceptName: name, conceptId })],
+  [new RegExp(`^Question: \\[(.+)\\]\\(/think\\?tab=questions&questionId=${ID}\\)$`), ([, question, questionId]) => ({ type: 'question_ref', text: question, questionText: question, questionId })],
+  [/^\[(.+)\]\((\/wiki\/[^)\s]+)\)$/, ([, title, sourcePath]) => ({ type: 'wiki_ref', text: title, articleTitle: title, sourcePath })]
+];
+const referenceIn = (line) => {
+  for (const [pattern, read] of REFERENCES) {
+    const match = line.match(pattern);
+    if (match) return read(match);
+  }
+  return null;
+};
+
 const parseMarkdownNote = ({ name = '', path = '', text = '' }) => {
   const relative = clean(path || name).replace(/\\/g, '/');
   const { body, tags, title: metaTitle } = readFrontMatter(String(text).replace(/^﻿/, ''));
@@ -450,6 +467,13 @@ const parseMarkdownNote = ({ name = '', path = '', text = '' }) => {
   let fence = null;
   const flushParagraph = () => {
     if (!paragraph.length) return;
+    const reference = paragraph.length === 1 && referenceIn(paragraph[0]);
+    if (reference) {
+      blocks.push(reference);
+      html.push(`<p>${escapeHtml(reference.text)}</p>`);
+      paragraph = [];
+      return;
+    }
     const { plain, html: inner } = renderInline(paragraph.join(' '));
     if (plain) {
       blocks.push({ type: 'paragraph', text: plain });
@@ -478,6 +502,13 @@ const parseMarkdownNote = ({ name = '', path = '', text = '' }) => {
     quote = [];
   };
 
+  const flushFence = () => {
+    const code = fence.lines.join('\n');
+    blocks.push({ type: 'code', text: code, ...(fence.language ? { sourcePath: fence.language } : {}) });
+    html.push(`<pre><code>${escapeHtml(code)}</code></pre>`);
+    fence = null;
+  };
+
   lines.forEach((line) => {
     if (!fence && /^\s*>/.test(line)) {
       if (!quote.length) {
@@ -489,24 +520,25 @@ const parseMarkdownNote = ({ name = '', path = '', text = '' }) => {
     }
     flushQuote();
     if (fence) {
-      if (/^\s*(```|~~~)/.test(line)) {
-        blocks.push({ type: 'paragraph', text: fence.join('\n') });
-        html.push(`<pre><code>${escapeHtml(fence.join('\n'))}</code></pre>`);
-        fence = null;
-      } else {
-        fence.push(line);
-      }
+      if (/^\s*(```|~~~)/.test(line)) flushFence();
+      else fence.lines.push(line);
       return;
     }
-    if (/^\s*(```|~~~)/.test(line)) {
+    const opening = line.match(/^\s*(?:```|~~~)\s*(\S*)/);
+    if (opening) {
       flushParagraph();
       flushList();
-      fence = [];
+      fence = { language: opening[1], lines: [] };
       return;
     }
     const heading = line.match(/^(#{1,6})\s+(.*)$/);
     const bullet = line.match(/^(\s*)(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?(.*)$/);
-    if (!line.trim() || /^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: 'divider', text: '' });
+      html.push('<hr>');
+    } else if (!line.trim()) {
       flushParagraph();
       flushList();
     } else if (heading) {
@@ -530,7 +562,7 @@ const parseMarkdownNote = ({ name = '', path = '', text = '' }) => {
       paragraph.push(line.trim());
     }
   });
-  if (fence) blocks.push({ type: 'paragraph', text: fence.join('\n') });
+  if (fence) flushFence();
   flushQuote();
   flushParagraph();
   flushList();

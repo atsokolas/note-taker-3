@@ -179,3 +179,19 @@ test('a note read back from the Markdown Noeis wrote keeps its marks and the rea
   // A quote of the reader's own, with no source line under it, is text.
   assert.deepEqual(parseMarkdownNote({ name: 'q.md', text: '> Nets, not crutches.\n' }).blocks, [{ type: 'paragraph', text: 'Nets, not crutches.' }]);
 });
+
+test('a note keeps its references, code and rules through its Markdown', () => {
+  const { parseMarkdownNote } = require('./exportFiles');
+  const { buildNotebookMarkdown } = require('../notebookMarkdown');
+  const [articleId, conceptId, questionId] = ['a'.repeat(24), 'c'.repeat(24), 'd'.repeat(24)];
+  const blocks = [
+    { type: 'article_ref', text: 'Base rates', articleTitle: 'Base rates', articleId },
+    { type: 'concept_ref', text: 'Slope', conceptName: 'Slope', conceptId },
+    { type: 'question_ref', text: 'Do panels help?', questionText: 'Do panels help?', questionId },
+    { type: 'wiki_ref', text: 'Hiring', articleTitle: 'Hiring', sourcePath: '/wiki/workspace?page=abc' },
+    { type: 'code', text: 'score = slope * 2', sourcePath: 'js' },
+    { type: 'divider', text: '' }
+  ];
+  const back = parseMarkdownNote({ name: 'refs.md', text: buildNotebookMarkdown({ title: 'Refs', blocks }) });
+  assert.deepEqual(back.blocks, blocks);
+});

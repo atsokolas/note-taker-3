@@ -17,6 +17,8 @@ const sourceHref = (block = {}) => {
   return '';
 };
 
+const linked = (label, href) => (href ? `[${label}](${href})` : label);
+
 const pushBlank = (lines) => {
   if (lines[lines.length - 1] !== '') lines.push('');
 };
@@ -94,17 +96,17 @@ const buildNotebookMarkdown = (entry, { keepDimmed = false } = {}) => {
     if (type === 'article_ref' || type === 'article-ref') {
       const label = block.articleTitle || text || 'Untitled article';
       const href = block.articleId ? `/articles/${block.articleId}` : sourceHref(block);
-      lines.push(href ? `[${label}](${href})` : label);
+      lines.push(linked(label, href));
       pushBlank(lines);
       return;
     }
     if (type === 'concept_ref' || type === 'concept-ref') {
-      lines.push(`Concept: ${block.conceptName || text || 'Concept'}`);
+      lines.push(`Concept: ${linked(block.conceptName || text || 'Concept', block.conceptId && `/think?tab=concepts&conceptId=${block.conceptId}`)}`);
       pushBlank(lines);
       return;
     }
     if (type === 'question_ref' || type === 'question-ref') {
-      lines.push(`Question: ${block.questionText || text || 'Question'}`);
+      lines.push(`Question: ${linked(block.questionText || text || 'Question', block.questionId && `/think?tab=questions&questionId=${block.questionId}`)}`);
       pushBlank(lines);
       return;
     }
