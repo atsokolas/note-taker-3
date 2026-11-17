@@ -87,8 +87,9 @@ describe('appNavigation', () => {
     ['Today', 'Map', 'Review', 'Return Queue'].forEach((label) => {
       expect(secondaryLabels).not.toContain(label);
     });
-    /* Exact, so a room cannot creep back in unnoticed. */
-    expect(secondaryLabels).toEqual(['Help']);
+    /* Exact, so a room cannot creep back in unnoticed. Handed off is where
+       the reader comes back to what agents did while they were away. */
+    expect(secondaryLabels).toEqual(['Handed off', 'Help']);
   });
 
   /* Every letter is the room's own initial, so the rule is guessable and the

@@ -106,6 +106,7 @@ const WhileAway = () => {
         </section>
       ))}
       {written.length ? <p className="while-away__keys">j and k move, i inks, Return opens.</p> : null}
+      <p className="while-away__keys"><Link to="/knows">Does Noeis know you?</Link></p>
     </main>
   );
 };
