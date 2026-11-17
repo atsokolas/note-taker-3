@@ -81,7 +81,6 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
 .work-plan-new input:focus { border-bottom-color: var(--noeis-rule-strong); outline: none; text-align: left; }
 .work-plan-new input::placeholder { color: var(--noeis-ink-muted); }
 .work-day-margin { font-size: 12px; color: var(--noeis-ink-muted); }
-.work-day-margin summary { width: fit-content; min-height: 24px; padding: 3px 4px; cursor: pointer; }
 .work-day-margin:not([open]) { margin-top: 4px; }
 .work-day-margin textarea { width: 100%; min-height: 84px; margin: 8px 0 16px; resize: vertical; background: var(--noeis-paper-muted); border: 1px solid var(--noeis-rule); padding: 16px; color: var(--noeis-ink); font: 17px/1.6 var(--font-serif); }
 
@@ -210,7 +209,6 @@ html[data-ui-motion=reduced] .work-notes *, html[data-ui-motion=reduced] .work-d
 .work-day-lines .work-planner-task label { gap: 16px; padding: 12px 0; }
 .work-day-lines .work-plan-new input { width: 100%; padding: 12px 0; text-align: left; font: 16px/1.5 var(--font-serif); }
 .work-earlier { margin: 24px 0; }
-.work-earlier > summary { min-height: 44px; padding: 12px 16px; border-radius: var(--noeis-radius-sm); background: var(--noeis-active); color: var(--noeis-ink-muted); font: 14px/1.5 var(--font-serif); cursor: pointer; }
 .work-earlier > section { padding: 8px 0; }
 .work-day-page section .work-planner-task, .work-outstanding .work-planner-task, .work-day-close .work-planner-task { border-bottom: 1px solid var(--noeis-rule); }
 .work-carried { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 4px 14px; padding: 9px 12px 0; font-size: 12px; color: var(--noeis-ink-muted); }
@@ -281,7 +279,7 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-notes .work-place-line button { min-height: 0; padding: 0; font: inherit; color: var(--noeis-ink); text-decoration: underline; text-decoration-color: var(--noeis-rule); text-underline-offset: 3px; }
 .work-place-line button:hover { text-decoration-color: currentColor; }
 .work-note-status { font: 12px var(--font-sans); }
-.work-day-page h2, .work-followups h2, .work-index h3, .work-outstanding h2, .work-day-close h2 { margin: 36px 0 6px; font: 400 15px/1.4 var(--font-serif); color: var(--noeis-ink-muted); }
+.work-followups h2, .work-index h3 { margin: 36px 0 6px; font: 400 15px/1.4 var(--font-serif); color: var(--noeis-ink-muted); }
 
 /* The note keeps one reading measure; follow-ups remain with its words. */
 .work-page > .work-note-paper { display: flex; flex-direction: column; align-items: stretch; max-width: var(--work-reading-width); }
@@ -370,22 +368,16 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-ledger s { text-decoration-color: var(--noeis-ink-subtle); }
 .work-outstanding-tally { margin: 10px 0 0; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-day-close { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--noeis-ink); }
-.work-day-close h2 { margin-top: 0; }
-.work-day-close h2, .work-outstanding .work-day-close h2 { color: var(--noeis-ink); font-size: 22px; }
 .work-owed { padding-top: 14px; border-top: 1px solid var(--noeis-rule); }
-.work-owed h2 { margin: 0 0 6px; font: 400 15px/1.4 var(--font-serif); color: var(--noeis-ink-muted); }
 .work-owed p { margin: 4px 0; font: 15px/1.5 var(--font-serif); color: var(--noeis-ink); }
 .work-owed small { display: block; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 
 /* Needs you: one page of what waits on a decision. Quiet projects read as one ruled line each. */
-.work-outstanding h2 small { margin-left: 12px; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-needs-project { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; padding: 11px 0; border-bottom: 1px solid var(--noeis-rule); font: 15px/1.5 var(--font-serif); color: var(--noeis-ink-muted); }
 .work-notes .work-needs-project > button { font: 17px/1.4 var(--font-serif); color: var(--noeis-ink); }
 .work-needs-project .work-carried { margin-left: auto; }
 .work-needs-question { margin: 6px 0 0; font: italic 19px/1.4 var(--font-serif); color: var(--noeis-ink); }
-.work-needs-rest { margin-top: 18px; border-top: 1px solid var(--noeis-rule); }
-.work-needs-rest > summary { padding: 12px 0 4px; cursor: pointer; font: 15px var(--font-serif); color: var(--noeis-ink-muted); }
-.work-needs-rest > summary span { font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
+.work-needs-rest { margin-top: 18px; }
 
 /* Projects: Work's folders read whole. One ruled list, then one page per project in the same order every time:
    the brief, this week's question, the log on the left, what is next and kept on the right. */
@@ -652,7 +644,9 @@ html[data-ui-theme=tokyo-night] .work-notes {
 .work-project-title-row > .work-project-menu { margin-left: auto; }
 .work-dialog form > label > textarea { display: block; width: 100%; min-height: 96px; resize: vertical; padding: 10px; background: var(--noeis-paper); color: var(--noeis-ink); border: 1px solid var(--noeis-rule); font: inherit; }
 
-.work-notes .work-add-day-task { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--noeis-thread-strong); border-radius: var(--noeis-radius-sm); margin: 0 0 16px; font: 14px var(--font-sans); color: var(--noeis-ink); }
+/* Adding is a quiet line, not a boxed button: the page's ink stays on the work. */
+.work-notes :is(.work-add-day-task, .work-weekly-add-trigger) { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0 10px; padding: 4px 0; border: 0; border-radius: 0; background: none; color: var(--noeis-ink-muted); font: 13px var(--font-sans); }
+.work-notes :is(.work-add-day-task, .work-weekly-add-trigger):hover { background: none; color: var(--noeis-ink); }
 
 .work-notes { --text-primary: var(--noeis-ink); --text-secondary: var(--noeis-ink-muted); --text-muted: var(--noeis-ink-muted); }
 body.noeis-editorial .work-notes .work-inspector input:not([type=checkbox]), body.noeis-editorial .work-notes .work-inspector select { color: var(--noeis-ink); border: 1px solid var(--noeis-rule-strong) !important; border-radius: var(--noeis-radius-sm); padding: 8px 10px; }
@@ -661,3 +655,12 @@ body.noeis-editorial .work-notes .work-inspector input:not([type=checkbox]), bod
 .work-written-row { display: flex; align-items: center; border-bottom: 1px solid var(--noeis-rule); }
 .work-written-row .work-index-note { flex: 1; min-width: 0; border-bottom: 0; }
 .work-written-row > .work-menu { flex: 0 0 44px; }
+
+/* One section header across Today: a small label, its plain count, one chevron on what folds, and a rule. */
+:is(.work-day-tasks, .work-earlier, .work-done-today, .work-needs-rest, .work-weekly-set-aside, .work-day-margin) > summary,
+.work-notes :is(.work-day-page, .work-outstanding, .work-day-close, .work-owed) h2 { display: flex; align-items: center; gap: 8px; min-height: 0; margin: 0 0 4px; padding: 20px 0 8px; border-bottom: 1px solid var(--noeis-rule); border-radius: 0; background: none; color: var(--noeis-ink-muted); font: 500 11px/1.4 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; list-style: none; }
+:is(.work-day-tasks, .work-earlier, .work-done-today, .work-needs-rest, .work-weekly-set-aside, .work-day-margin) > summary { cursor: pointer; }
+:is(.work-day-tasks, .work-earlier, .work-done-today, .work-needs-rest, .work-weekly-set-aside, .work-day-margin) > summary::-webkit-details-marker { display: none; }
+:is(.work-day-tasks, .work-earlier, .work-done-today, .work-needs-rest, .work-weekly-set-aside, .work-day-margin) > summary::before { content: ''; flex: 0 0 10px; height: 10px; background: var(--noeis-ink-subtle); mask: url(../assets/work-icons/chevron-right.svg) center / contain no-repeat; -webkit-mask: url(../assets/work-icons/chevron-right.svg) center / contain no-repeat; }
+:is(.work-day-tasks, .work-earlier, .work-done-today, .work-needs-rest, .work-weekly-set-aside, .work-day-margin)[open] > summary::before { rotate: 90deg; }
+.work-notes :is(.work-day-tasks, .work-earlier, .work-done-today, .work-needs-rest) > summary span, .work-notes .work-outstanding h2 small { margin: 0; color: var(--noeis-ink-subtle); font: inherit; letter-spacing: 0; font-variant-numeric: tabular-nums; }
