@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import HandOff from '../handoff/HandOff';
 import { Link } from 'react-router-dom';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -332,6 +333,7 @@ const ThinkEntryEditor = ({
         >
           <Button variant="quiet" onClick={() => setPicking(true)}>Pull a passage in</Button>
           {isQuestion ? <Button variant="quiet" onClick={() => setSharing(true)}>Share</Button> : null}
+          {isQuestion && entry.record?._id ? <HandOff context={{ kind: 'question', id: entry.record._id, title: entry.record.text || title }} /> : null}
           {concept?._id ? <Button variant="quiet" onClick={settleConcept} disabled={settlement.settling}>{settlement.action}</Button> : null}
           {entry.record?._id ? <Button variant="quiet" onClick={openHistory}>History</Button> : null}
         </EntryBar>

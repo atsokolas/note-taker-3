@@ -51,13 +51,13 @@ const standing = async ({ userId, models: { Article, NotebookEntry, WikiPage, Qu
   const recent = (query, fields) => query.sort({ updatedAt: -1 }).limit(STANDING).select(fields).lean();
   const [views, questions, pencilNotes, pencilReading, reading] = await Promise.all([
     recent(WikiPage.find({ userId, 'judgment.currentJudgment': { $nin: ['', null] }, 'judgment.status': { $nin: ['parked', 'closed', 'archived'] }, status: { $ne: 'archived' } }), '_id title judgment.currentJudgment updatedAt'),
-    Question ? recent(Question.find({ userId, status: 'open', archived: { $ne: true } }), '_id text updatedAt') : [],
+    Question ? recent(Question.find({ userId, status: 'open', archived: { $ne: true } }), '_id text settledBy updatedAt') : [],
     recent(NotebookEntry.find({ userId, pencil: { $ne: null } }), '_id title pencil updatedAt'),
     recent(Article.find({ userId, pencil: { $ne: null } }), '_id title pencil updatedAt'),
     recent(Article.find({ userId, pencil: null, archived: { $ne: true }, hiddenFromHome: { $ne: true } }), '_id title updatedAt')
   ]);
-  const row = kind => ({ _id, title, text, pencil, judgment, updatedAt }) => ({
-    kind, id: String(_id), title: title || text, ...(judgment ? { held: judgment.currentJudgment } : {}), ...(pencil ? { pencil: pencil.agent } : {}), updatedAt
+  const row = kind => ({ _id, title, text, settledBy, pencil, judgment, updatedAt }) => ({
+    kind, id: String(_id), title: title || text, ...(settledBy ? { settledBy } : {}), ...(judgment ? { held: judgment.currentJudgment } : {}), ...(pencil ? { pencil: pencil.agent } : {}), updatedAt
   });
   return {
     view: views.map(row('view')),

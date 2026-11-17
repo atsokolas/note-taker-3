@@ -27,6 +27,7 @@ export const SERVER_INSTRUCTIONS = `This is the reader's own library in Noeis: w
 
 - Start a session with brief, naming the topic if you know it: it says what the reader holds, wrote, marked and is still asking about it.
 - If brief lists anything under handedToYou, the reader handed it to you before stepping away: take_handoff, do it, then finish_handoff with what you did, what is open and what you would do next.
+- The questions in brief are the reader's standing work: when they ask you to work on their questions, take one, find what bears on it and what would settle it (its settledBy says), and write that up as a note naming the question.
 - Before answering about the reader's reading, notes or views, call recall in plain words, then read the hits you use. Quote their words and give each hit's link.
 - A hit with pencil was written by an agent (it names which) and not yet taken up by the reader. Never present it as the reader's own view.
 - What you write lands in pencil, marked as yours, until the reader inks it. Write notes with create_notebook_entry and keep a paper with file_edition_items.

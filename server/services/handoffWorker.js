@@ -16,7 +16,6 @@ const NAME = runtimeLabel(BUILT_IN);
 const ROUNDS = 16;
 const TIME_LIMIT_MS = 10 * 60 * 1000;
 const READ_LIMIT = 8000;
-const PAGES = { note: 'note', work_note: 'work_note' };
 
 const tool = (name, description, properties = {}, required = Object.keys(properties)) => ({
   type: 'function',
@@ -37,6 +36,7 @@ const TOOLS = [
 const SYSTEM = `You are ${NAME}, the agent built into the reader's Noeis. Before stepping away, they handed you the work below. Do it now, from their own library.
 - Use recall to find what they have read and written that bears on it, and read what you use. Quote their sources' exact words, and never present an agent's pencil as the reader's own view.
 - If the work is the page they handed off (finish it, continue it, tighten it), call rewrite_page with the complete new text. Otherwise write what they asked for with write_note.
+- Handed a question, find what in their library bears on it, and what would settle it, and write that up with write_note, naming the question.
 - You cannot browse the web. Say so in "open" when the work needs it.
 - Everything you write lands in pencil until the reader takes it up.
 - End with finish: did, open, next, in plain sentences.`;
@@ -50,12 +50,17 @@ const opening = ({ handoff, page }) => [
   page && `The page as it stands:\n${pageText(page)}`
 ].filter(Boolean).join('\n\n');
 
-// The open page and how to write it back, for the kinds of page the built-in agent can rewrite.
+// The page the reader was on: any page recall reads, or a Work note; the
+// two kinds the reader writes in can be rewritten.
+const recalled = (api, id) => ({ read: async () => ({ text: (await api(`/api/recall/read/${id}`)).text }) });
 const pageOf = (api, context = {}) => ({
   note: {
-    read: async () => ({ text: (await api(`/api/recall/read/${context.id}`)).text }),
+    ...recalled(api, context.id),
     write: text => api(`/api/notebook/${context.id}`, { method: 'PUT', body: { markdown: `# ${context.title || 'Untitled'}\n\n${text}` } })
   },
+  question: recalled(api, context.id),
+  article: recalled(api, context.id),
+  wiki_page: recalled(api, context.id),
   work_note: {
     read: async () => ({ text: stripHtmlToLines((await api(`/api/work-notes/${context.id}`)).content).join('\n\n') }),
     write: async (text) => {
@@ -63,7 +68,7 @@ const pageOf = (api, context = {}) => ({
       return api(`/api/work-notes/${context.id}`, { method: 'PUT', body: { expectedRevision: revision, content: parseMarkdownNote({ text }).content, blocks: [] } });
     }
   }
-}[PAGES[context.kind]] || null);
+}[context.kind] || null);
 
 const connect = async ({ AgentToken, handoff }) => {
   const secret = createAgentTokenSecret();
@@ -73,7 +78,7 @@ const connect = async ({ AgentToken, handoff }) => {
     runtime: BUILT_IN,
     hashedSecret: hashAgentTokenSecret(secret),
     secretPrefix: `${secret.slice(0, 12)}...`,
-    scopes: ['agent-write', ...(handoff.context?.kind === PAGES.work_note ? ['work'] : [])],
+    scopes: ['agent-write', ...(handoff.context?.kind === 'work_note' ? ['work'] : [])],
     expiresAt: new Date(Date.now() + 2 * TIME_LIMIT_MS),
     status: 'active'
   });
@@ -112,7 +117,7 @@ const workHandoff = async ({ handoffId, models: { Handoff, AgentToken }, apiUrl,
         return { ...source, text: String(source.text || '').slice(0, READ_LIMIT) };
       },
       rewrite_page: async ({ text }) => {
-        if (!page) return { result: 'The page they handed off cannot be rewritten here; use write_note.' };
+        if (!page?.write) return { result: 'The page they handed off cannot be rewritten here; use write_note.' };
         await page.write(String(text || ''));
         return { result: 'Rewritten, in pencil.' };
       },
