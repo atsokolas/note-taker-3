@@ -80,8 +80,9 @@ test('failed proposals and rename drafts survive leaving the weekly page and ret
   const second = render(<WorkWeekly {...props} />);
   expect(screen.getByRole('alert')).toHaveTextContent('ready to retry');
   fireEvent.click(screen.getByRole('button', { name: 'Retry save' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Manage Apply to accelerators' })).toBeEnabled());
-  fireEvent.click(screen.getByRole('button', { name: 'Manage Apply to accelerators' }));
+  fireEvent.click(screen.getByLabelText('Manage Apply to accelerators'));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Rename' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
   fireEvent.change(screen.getByLabelText('Rename Apply to accelerators'), { target: { value: 'Finish applications' } });
   second.unmount();
   render(<WorkWeekly {...props} />);
@@ -103,7 +104,7 @@ test('conflict review shows task assignments in both versions, not just identica
 });
 test('linking another task cannot silently discard a title being edited', () => {
   render(<WorkWeekly {...props} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Manage Apply to accelerators' }));
+  fireEvent.click(screen.getByLabelText('Manage Apply to accelerators')); fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
   fireEvent.change(screen.getByLabelText('Rename Apply to accelerators'), { target: { value: 'Keep my unfinished title' } });
   fireEvent.change(screen.getByLabelText('Priority for Compare program deadlines'), { target: { value: 'p' } });
   expect(session.saveWeek).not.toHaveBeenCalled();
@@ -205,11 +206,11 @@ test('priorities start expanded and folding keeps the task draft without saving 
   expect(input).toHaveValue('Keep this draft');
 });
 
-test('manage opens a collapsed priority so its editor is reachable', () => {
+test('Rename opens a collapsed priority so its editor is reachable', () => {
   render(<WorkWeekly {...props} />);
   const toggle = screen.getByRole('button', { name: priority.title });
   fireEvent.click(toggle);
-  fireEvent.click(screen.getByRole('button', { name: `Manage ${priority.title}` }));
+  fireEvent.click(screen.getByLabelText(`Manage ${priority.title}`)); fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
   expect(toggle).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByLabelText(`Rename ${priority.title}`)).toBeVisible();
 });
@@ -245,4 +246,11 @@ test('empty and unavailable tasks never claim a completed priority', () => {
   render(<WorkWeekly {...props} />);
   expect(screen.queryByText('Every linked to-do is done.')).not.toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveTextContent('0/1 done');
+});
+test('a priority keeps its actions in one ··· menu with Remove priority last', async () => {
+  render(<WorkWeekly {...props} />);
+  const menu = screen.getByLabelText('Manage Apply to accelerators').closest('details');
+  expect(within(menu).getAllByRole('button').map(button => button.textContent)).toEqual(['Rename', 'Complete priority', 'Move to next week', 'Remove priority']);
+  fireEvent.click(within(menu).getByRole('button', { name: 'Remove priority' }));
+  await waitFor(() => expect(session.saveWeek.mock.calls.at(-1)[1][0]).toMatchObject({ id: 'p', status: 'dropped' }));
 });
