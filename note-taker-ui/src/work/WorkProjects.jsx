@@ -11,7 +11,8 @@ import { LINK_ROOM, checkInOf, fade, linkHref, project, projects, quiet } from '
 
 const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 const short = day => displayDay(day, { day: 'numeric', month: 'short' });
-const touched = (day, today) => { const days = daysBetween(day, today); return days === 0 ? 'Today' : days < 7 ? displayDay(day, { weekday: 'short' }) : short(day); };
+const touched = (day, today) => { const days = daysBetween(day, today); return days === 0 ? 'today' : days < 7 ? displayDay(day, { weekday: 'short' }) : short(day); };
+const capital = text => text.replace(/^./, c => c.toUpperCase());
 const owes = item => `${item.waitingOn} owes you ${item.title.charAt(0).toLowerCase()}${item.title.slice(1)}`;
 const keyed = event => !event.metaKey && !event.ctrlKey && !event.altKey && !event.target.closest?.('input, textarea, [contenteditable="true"], dialog');
 
@@ -65,7 +66,7 @@ export default function WorkProjects({ records, notes, items, today, onOpen, onA
       <span className="work-project-next">{item.state === 'done' ? item.record.closingLine || `Done ${short(item.touched)}.` : <>{quiet(item) ? <em>Quiet for {plural(Math.floor(item.idle / 7), 'week')}. </em> : null}{item.next[0]?.title || (item.waiting[0] ? owes(item.waiting[0]) : 'Nothing next yet.')}</>}</span>
       <span className="work-project-count" aria-label={`${plural(item.next.length, 'open line')}`}>{item.next.length || ''}</span>
       <span className="work-project-count" aria-label={`${plural(item.waiting.length, 'line')} waiting`}>{item.waiting.length || ''}</span>
-      <time>{touched(item.touched, today)}</time>
+      <time>{capital(touched(item.touched, today))}</time>
     </div>
     {unfoldedRow ? <div className="work-project-unfolded">
       {item.next.map(line => <Line key={line.id} item={line} onAction={onAction} aside={line.plannedOn ? <time>{short(line.plannedOn)}</time> : null} />)}
@@ -109,7 +110,7 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
     if (value === 'done') setClosing('');
     else { setClosing(null); onSave(record, { paused: value === 'paused', archived: false }); }
   };
-  const sense = item.state === 'done' ? `Done ${displayDay(dayInZone(record.archivedAt))}.` : [plural(item.next.length, 'thing') + ' open', item.waiting.length ? `waiting on ${[...new Set(item.waiting.map(line => line.waitingOn))].join(' and ')}` : '', `last touched ${touched(item.touched, today).toLowerCase()}`].filter(Boolean).join(', ').replace(/^./, c => c.toUpperCase()) + '.';
+  const sense = item.state === 'done' ? `Done ${displayDay(dayInZone(record.archivedAt))}.` : capital([plural(item.next.length, 'thing') + ' open', item.waiting.length ? `waiting on ${[...new Set(item.waiting.map(line => line.waitingOn))].join(' and ')}` : '', `last touched ${touched(item.touched, today)}`].filter(Boolean).join(', ')) + '.';
   return <section className="work-outstanding work-project work-project-studio" aria-label={record.name}><header ref={header} className="work-project-head">
     <div className="work-project-title-row"><div className="work-project-title">{renaming ? <WorkInlineRename key={record._id} value={record.name} label="Project name" onSave={onRenameSave} onCancel={onRenameCancel} busy={renameBusy} /> : <h1 className="work-page-title">{record.name}</h1>}</div><select aria-label="Project state" value={item.state} onChange={event => changeState(event.target.value)}><option value="active">Active</option><option value="paused">Paused</option><option value="done">Done</option></select>{onEdit ? <WorkProjectActions record={record} onOpen={onOpenProject} onAction={onEdit} /> : null}</div>
     <p className="work-page-sense">{sense}</p></header>
