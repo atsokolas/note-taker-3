@@ -140,7 +140,7 @@ test.each(['task', 'appointment'])('standalone %s conflicts open both versions r
   fireEvent.click(kind === 'appointment' ? screen.getByRole('button', { name: 'Edit appointment Standalone work', exact: true }) : within(screen.getByLabelText('Actions for Standalone work').closest('details')).getByRole('button', { name: 'Edit to-do' }));
   const form = await screen.findByRole('dialog', { name: kind === 'appointment' ? 'Edit appointment' : 'Edit follow-up' });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'standalone'), revision: 1, title: 'Other device version' } } } });
-  fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My version' } }); fireEvent.click(within(form).getByRole('button', { name: 'Save item' }));
+  fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My version' } }); fireEvent.click(within(form).getByRole('button', { name: 'Save', exact: true }));
   const review = await screen.findByRole('dialog', { name: 'Two versions' }); expect(review).toHaveTextContent('Other device version'); expect(review).toHaveTextContent('My version');
   fireEvent.click(within(review).getByRole('button', { name: 'Use the other one' }));
   expect(screen.queryByRole('dialog')).toBeNull();
@@ -177,7 +177,7 @@ test('review resolution stays locked while its accepted change is being acknowle
   const form = await screen.findByRole('dialog', { name: 'Edit follow-up' });
   fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My reviewed wording' } });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: remote } } });
-  fireEvent.click(within(form).getByRole('button', { name: 'Save item', exact: true }));
+  fireEvent.click(within(form).getByRole('button', { name: 'Save', exact: true }));
   const review = await screen.findByRole('dialog', { name: 'Two versions' });
   let acknowledge; api.put.mockImplementationOnce((_, body) => new Promise(resolve => { acknowledge = () => { const data = { ...current, revision: 2, workItem: { ...current.workItem, history: (body.workActions || []).map(action => ({ ...action, recordedAt: new Date().toISOString() })) } }; records[records.findIndex(x => x._id === 'task')] = data; resolve({ data }); }; }));
   fireEvent.click(within(review).getByRole('button', { name: 'Use mine' }));

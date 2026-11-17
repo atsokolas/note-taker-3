@@ -115,7 +115,7 @@ let browser;
     await noOverflow(); await shot('inspector-' + width);
     await inspector.getByRole('button', { name: 'Cancel', exact: true }).click(); assert.equal(await page.getByRole('dialog').count(), 0);
     await editTask.click(); await page.keyboard.press('Escape'); assert.equal(await editTask.evaluate(el => el === document.activeElement), true);
-    await editTask.click(); await inspector.getByRole('button', { name: 'Save item', exact: true }).click(); await inspector.waitFor({ state: 'detached' });
+    await editTask.click(); await inspector.getByRole('button', { name: 'Save', exact: true }).click(); await inspector.waitFor({ state: 'detached' });
     assert.equal(data.items.filter(x => x._id === id(13)).length, 1);
     await page.goBack(); await page.goForward(); await page.getByLabel('Note title', { exact: true }).waitFor();
     assert.equal(data.items.find(x => x._id === id(13)).workItem.noteId, id(12));
