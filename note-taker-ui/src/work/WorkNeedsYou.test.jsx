@@ -53,14 +53,16 @@ test('the morning sentence says the day and crosses out each part as it is done'
     { kind: 'appointment', title: 'Jo', plannedOn: '2026-11-13', startTime: '15:30', endTime: '16:00' },
     { kind: 'task', title: 'Draft the risk section', plannedOn: '2026-11-13', oneThingOn: '2026-11-13', completed: true },
     { kind: 'task', title: 'Send Sam the bands', plannedOn: '2026-11-13' }];
-  expect(morning(items, needs, '2026-11-13', '11:00')).toEqual([
+  expect(morning(items, [], needs, '2026-11-13', '11:00')).toEqual([
     { text: 'Call with Priya at 10:00.', done: true }, { text: 'Jo at 15:30.', done: false },
     { text: 'Your one thing: draft the risk section.', done: true }, { text: 'One more line is planned.', done: false },
     { text: 'Priya has owed you the data room login for 9 days.' }, { text: '2 lines from your notes need a place.' },
     { text: 'Pricing has gone quiet.' }, { text: 'It’s Friday: read the week back.' }]);
   const next = { kind: 'task', title: 'Call the auditor', plannedOn: '2026-11-13', oneThingOn: '2026-11-13' };
-  expect(morning([...items, next], { ...needs, oneThing: next }, '2026-11-13', '11:00')).toContainEqual({ text: 'Your one thing: call the auditor.', done: undefined });
-  expect(morning([], { waiting: [], fresh: [], silent: [] }, '2026-11-12', '09:00')).toEqual([{ text: 'A clear day, and nothing needs you.' }]);
+  expect(morning([...items, next], [], { ...needs, oneThing: next }, '2026-11-13', '11:00')).toContainEqual({ text: 'Your one thing: call the auditor.', done: undefined });
+  expect(morning([], [], { waiting: [], fresh: [], silent: [] }, '2026-11-12', '09:00')).toEqual([{ text: 'A clear day, and nothing needs you.' }]);
+  const carried = [{ kind: 'task', title: 'Send the deck', plannedOn: '2026-11-10' }, { kind: 'task', title: 'Book the room', plannedOn: '2026-11-11' }];
+  expect(morning(carried, [], { waiting: [], fresh: [], silent: [] }, '2026-11-12', '09:00')).toEqual([{ text: '2 lines are carried from earlier.' }]);
 });
 
 test('a new line from a note is sorted onto Waiting on with the person, on the same record', async () => {

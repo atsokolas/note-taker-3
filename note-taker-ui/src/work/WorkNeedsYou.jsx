@@ -8,7 +8,6 @@ import { displayDay, shiftDay, writtenDay } from './workPlannerModel';
 import { CHASE_DAYS, daysBetween, nudge, sortedSince } from './workOutstanding';
 
 const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
-const short = day => displayDay(day, { weekday: 'short', day: 'numeric', month: 'short' });
 const ago = days => days === 0 ? 'today' : days === 1 ? 'a day' : `${days} days`;
 
 // Needs you: the margin of Today, holding every line and project waiting on a decision from you.
@@ -32,11 +31,11 @@ export default function WorkNeedsYou({ needs, notes, folders, items, today, onSo
   const sorting = item => asking === item.id
     ? <form className="work-outstanding-ask" onSubmit={event => { event.preventDefault(); const name = event.currentTarget.elements.person.value.trim(); if (name) sort(item, { list: 'waiting', waitingOn: name }); }}><input name="person" aria-label={`Who is ${item.title} waiting on?`} placeholder="Waiting on whom?" autoFocus /><button>Save</button><button type="button" onClick={() => setAsking(null)}>Cancel</button></form>
     : <span className="work-outstanding-sort"><button onClick={() => { onAction(item.clientId, { type: 'plan', plannedOn: today }); sort(item, { list: 'next', returnOn: null }); }}>Today</button><button onClick={() => sort(item, { list: 'next', returnOn: null })}>Next</button><button onClick={() => setAsking(item.id)}>Waiting on…</button><button onClick={() => sort(item, { list: 'someday', returnOn: null })}>Someday</button><button onClick={() => tick(item)}>Done</button></span>;
-  const freshRow = item => <div {...taskDragProps(item)} className="work-planner-task work-outstanding-row is-new" key={item.id}><WorkTaskGrip item={item} /><label><input type="checkbox" checked={false} onChange={() => tick(item)} /><span>{item.title}<small>{item.list === 'someday' ? `Set aside ${short(item.sortedOn)}` : noteOf(item) ? `From ${noteTitle(noteOf(item))}` : 'Added here'}</small></span></label><span className="work-carried"><WorkItemSource origin={item.origin} />{sorting(item)}</span></div>;
+  const freshRow = item => <div {...taskDragProps(item)} className="work-planner-task work-outstanding-row is-new" key={item.id}><WorkTaskGrip item={item} /><label><input type="checkbox" checked={false} onChange={() => tick(item)} /><span>{item.title}<small>{item.list === 'someday' ? `Set aside ${displayDay(item.sortedOn)}` : noteOf(item) ? `From ${noteTitle(noteOf(item))}` : 'Added here'}</small></span></label><span className="work-carried"><WorkItemSource origin={item.origin} />{sorting(item)}</span></div>;
   const star = item => <button className="work-outstanding-star" aria-label={`Make ${item.title} today’s one thing`} aria-pressed={item.oneThingOn === today} onClick={() => { if (needs.oneThing && needs.oneThing.id !== item.id) onSort(needs.oneThing.clientId, { oneThingOn: null }); onSort(item.clientId, { oneThingOn: item.oneThingOn === today ? null : today }); }}>{item.oneThingOn === today ? 'Today’s one thing' : 'Make it today’s'}</button>;
   const quietAsk = item => <p className="work-outstanding-quiet">Untouched for {plural(daysBetween(sortedSince(item), today), 'day')}. Still want it?<button onClick={() => sort(item, { list: 'next' })}>Keep</button><button onClick={() => sort(item, { list: 'someday' })}>Someday</button><button onClick={() => tick(item)}>Let it go</button></p>;
   const copy = async (item, text) => { try { await navigator.clipboard.writeText(text); setCopied(item.id); } catch (_) { setCopied(''); } };
-  const message = item => nudge(item, noteOf(item) ? displayDay(writtenDay(noteOf(item))) : '');
+  const message = item => nudge(item, noteOf(item) ? displayDay(writtenDay(noteOf(item)), { weekday: 'long', day: 'numeric', month: 'short' }) : '');
   const draft = item => drafting === item.id ? <div className="work-outstanding-draft"><p>{message(item)}</p><small>A draft from the line{noteOf(item) ? ' and its note' : ''}.<button onClick={() => copy(item, message(item))}>{copied === item.id ? 'Copied' : 'Copy'}</button><button onClick={() => setDrafting(null)}>Not now</button></small></div> : null;
   const section = (label, list, render, note = null) => list.length ? <section aria-label={label}><h2>{label}{note ? <small>{note}</small> : null}</h2>{list.map(render)}</section> : null;
 
@@ -53,7 +52,7 @@ export default function WorkNeedsYou({ needs, notes, folders, items, today, onSo
   const next = needs.next.filter(item => !placed.has(item.id));
   return <section className="work-outstanding work-home-margin" aria-label="Needs you">
     {children}
-    <details className="work-needs-rest work-rail-next" open><summary>Next <span>({next.length})</span></summary>{next.map(item => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} notes={notes} onOpen={onOpen} onAction={onAction} onEdit={onEdit} aside={item.plannedOn ? <time>{short(item.plannedOn)}</time> : null} actions={<>{star(item)}{sorting(item)}</>} />)}{!next.length ? <p className="work-weekly-empty">Nothing in Next.</p> : null}</details>
+    <details className="work-needs-rest work-rail-next" open><summary>Next <span>{next.length}</span></summary>{next.map(item => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} notes={notes} onOpen={onOpen} onAction={onAction} onEdit={onEdit} aside={item.plannedOn ? <time>{displayDay(item.plannedOn)}</time> : null} actions={<>{star(item)}{sorting(item)}</>} />)}{!next.length ? <p className="work-weekly-empty">Nothing in Next.</p> : null}</details>
     {struckRows}
     {section('New from your notes', needs.fresh, freshRow, 'sort each once')}
     {section('Owed to you', needs.waiting, item => { const days = daysBetween(sortedSince(item), today); return row({ ...item, title: `${item.waitingOn} owes you ${item.title.charAt(0).toLowerCase()}${item.title.slice(1)}` }, <><time className={days >= CHASE_DAYS ? 'is-long' : ''}>{ago(days)}</time>{source(item)}<button onClick={() => setDrafting(drafting === item.id ? null : item.id)}>Nudge</button></>, draft(item)); })}
@@ -65,8 +64,8 @@ export default function WorkNeedsYou({ needs, notes, folders, items, today, onSo
       <p className="work-outstanding-line">{drafted ? <>{noteTitle(drafted)} is drafted. <button onClick={() => onOpen(drafted.clientId)}>Open it</button><button disabled={reading.busy} onClick={readWeek}>{reading.busy ? 'Reading the week…' : 'Draft again'}</button></> : <><button disabled={reading.busy} onClick={readWeek}>{reading.busy ? 'Reading the week…' : 'Read the week back'}</button> writes up your last seven days: what got done, what you decided, what’s still open.</>}</p>
       <p className="work-outstanding-line">{reading.message ? <span role="status">{reading.message}</span> : 'Only Claude reads these notes, and the draft stays here in Work.'}</p></section>
 
-    {needs.someday.length ? <details className="work-needs-rest" open><summary>Someday <span>({needs.someday.length})</span></summary>{needs.someday.map(item => row(item, <>{item.returnOn ? <time>Back {short(item.returnOn)}</time> : <label className="work-outstanding-back">Bring back<input type="date" aria-label={`Bring back ${item.title} on`} min={shiftDay(today, 1)} onChange={event => event.target.value && onSort(item.clientId, { returnOn: event.target.value })} /></label>}<button onClick={() => sort(item, { list: 'next', returnOn: null })}>Start now</button></>))}</details> : null}
-    {needs.done ? <details className="work-needs-rest" open><summary>Done this week <span>({needs.done})</span></summary><dl className="work-ledger">{needs.ledger.map(entry => <React.Fragment key={entry.day}><dt>{displayDay(entry.day, { weekday: 'long' })}</dt><dd>{entry.items.map((item, index) => <React.Fragment key={item.id}>{index ? ' · ' : ''}<s>{item.title}</s></React.Fragment>)}</dd></React.Fragment>)}</dl>
+    {needs.someday.length ? <details className="work-needs-rest" open><summary>Someday <span>{needs.someday.length}</span></summary>{needs.someday.map(item => row(item, <>{item.returnOn ? <time>Back {displayDay(item.returnOn)}</time> : <label className="work-outstanding-back">Bring back<input type="date" aria-label={`Bring back ${item.title} on`} min={shiftDay(today, 1)} onChange={event => event.target.value && onSort(item.clientId, { returnOn: event.target.value })} /></label>}<button onClick={() => sort(item, { list: 'next', returnOn: null })}>Start now</button></>))}</details> : null}
+    {needs.done ? <details className="work-needs-rest" open><summary>Done this week <span>{needs.done}</span></summary><dl className="work-ledger">{needs.ledger.map(entry => <React.Fragment key={entry.day}><dt>{displayDay(entry.day, { weekday: 'long' })}</dt><dd>{entry.items.map((item, index) => <React.Fragment key={item.id}>{index ? ' · ' : ''}<s>{item.title}</s></React.Fragment>)}</dd></React.Fragment>)}</dl>
       {needs.gotBack.map(({ item, days }) => <p className="work-outstanding-line" key={item.id}>{item.waitingOn} sent {item.title.charAt(0).toLowerCase() + item.title.slice(1)}{days > 0 ? `, after ${plural(days, 'day')}` : ''}.</p>)}
       <p className="work-outstanding-tally">{plural(needs.done, 'thing')} closed this week{needs.lastWeek ? `, ${needs.done === needs.lastWeek ? 'the same as' : needs.done > needs.lastWeek ? `${needs.done - needs.lastWeek} more than` : `${needs.lastWeek - needs.done} fewer than`} last week` : ''}.</p></details> : null}
   </section>;
@@ -74,17 +73,19 @@ export default function WorkNeedsYou({ needs, notes, folders, items, today, onSo
 
 // The day as one sentence, written from the morning's plan and crossed out in ink as it gets done.
 // Nothing is stored: today's meetings, one thing and lines are read whether done or not, so the sentence keeps its shape all day.
-export function morning(items, needs, today, clock) {
+export function morning(items, notes, needs, today, clock) {
   const todays = items.filter(item => item.plannedOn === today);
   // An open one thing wins over one already done today, so choosing a second after the first names the second.
   const one = needs.oneThing || items.find(item => item.oneThingOn === today && item.completed && ['task', 'question'].includes(item.kind));
   const lines = todays.filter(item => ['task', 'question'].includes(item.kind) && item !== one);
   const owed = [...needs.waiting].sort((a, b) => sortedSince(a).localeCompare(sortedSince(b)))[0], owedDays = owed ? daysBetween(sortedSince(owed), today) : 0;
   const lower = text => text.charAt(0).toLowerCase() + text.slice(1);
+  const { carried } = dayTasks(items, notes, today, today);
   const sentences = [
     ...todays.filter(item => item.kind === 'appointment' && item.startTime).sort((a, b) => a.startTime.localeCompare(b.startTime)).map(item => ({ text: `${item.title} at ${item.startTime}.`, done: item.completed || (item.endTime || item.startTime) <= clock })),
     one && { text: `Your one thing: ${lower(one.title)}.`, done: one.completed },
     lines.length && { text: `${lines.length === 1 ? `One ${one ? 'more ' : ''}line is` : `${lines.length} ${one ? 'more ' : ''}lines are`} planned.`, done: lines.every(item => item.completed) },
+    carried.length && { text: `${carried.length === 1 ? 'One line is' : `${carried.length} lines are`} carried from earlier.` },
     owedDays >= CHASE_DAYS && { text: `${owed.waitingOn} has owed you ${lower(owed.title)} for ${plural(owedDays, 'day')}.` },
     needs.fresh.length && { text: `${needs.fresh.length === 1 ? 'One line' : `${needs.fresh.length} lines`} from your notes ${needs.fresh.length === 1 ? 'needs' : 'need'} a place.` },
     needs.silent[0] && { text: `${needs.silent.map(item => item.name).join(' and ')} ${needs.silent.length === 1 ? 'has' : 'have'} gone quiet.` },
@@ -93,11 +94,11 @@ export function morning(items, needs, today, clock) {
   return sentences.length ? sentences : [{ text: 'A clear day, and nothing needs you.' }];
 }
 
-export function WorkMorning({ items, needs, today, timeZone }) {
+export function WorkMorning({ items, notes, needs, today, timeZone }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const clock = window.setInterval(() => setNow(new Date()), 60000); return () => window.clearInterval(clock); }, []);
   const clock = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now);
-  return <p className="work-page-sense work-morning">{morning(items, needs, today, clock).map(({ text, done }) => <React.Fragment key={text}>{done ? <s>{text}</s> : text} </React.Fragment>)}</p>;
+  return <p className="work-page-sense work-morning">{morning(items, notes, needs, today, clock).map(({ text, done }) => <React.Fragment key={text}>{done ? <s>{text}</s> : text} </React.Fragment>)}</p>;
 }
 
 // At the end of today, what is still open from it goes to tomorrow, Monday or Someday, and one sentence says how tomorrow starts.

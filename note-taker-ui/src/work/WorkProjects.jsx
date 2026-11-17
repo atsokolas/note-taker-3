@@ -86,7 +86,7 @@ export default function WorkProjects({ records, notes, items, today, onOpen, onA
 
 // One project, laid out the same way every time: what it is, this week's question, its log on the left,
 // and on the right what is next, what is coming, what was decided and what is kept with it.
-export function WorkProject({ record, notes, items, today, onAction, onCapture, onOpenNote, onNewNote, onSave, onEdit, onOpenProject, calendar, onRenameNote, onTrashNote, renaming = false, onRenameSave, onRenameCancel, renameBusy = false }) {
+export function WorkProject({ record, notes, items, today, onAction, onCapture, onOpenNote, onNewNote, onSave, onEdit, onOpenProject, onRenameNote, onTrashNote, renaming = false, onRenameSave, onRenameCancel, renameBusy = false }) {
   const item = project(record, notes, items, today);
   const header = useRef(null);
   const wasRenaming = useRef(renaming);
@@ -120,7 +120,7 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
     {item.state === 'active' ? <form className="work-project-checkin" aria-label="This week’s check-in" onSubmit={answerCheckIn}><small>Monday check-in</small><q>What would move {record.name} this week?</q>
       {answered ? <p>{answered.text}<small>Answered {displayDay(answered.on, { weekday: 'short', day: 'numeric' })}</small></p> : <input aria-label={`What would move ${record.name} this week?`} placeholder="One line, filed in the log" value={answer} onChange={event => setAnswer(event.target.value)} />}</form> : null}
     <div className="work-project-page">
-      <section aria-label="Log"><div className="work-project-log-heading"><h2>Log</h2>{calendar}{item.state === 'done' ? null : <button className="work-project-new-note" aria-label={`New note in ${record.name}`} onClick={onNewNote}><WorkIcon name="plus" />New note</button>}</div>{item.log.map((entry, index) => <div className="work-project-log-row" key={`${entry.note?.clientId || 'check-in'}:${entry.day}:${index}`}><button className="work-log-entry" disabled={!entry.note} onClick={() => onOpenNote(entry.note.clientId)}><small>{displayDay(entry.day, { weekday: 'short', day: 'numeric', month: 'short' })} · {entry.checkIn ? 'Monday check-in' : noteTitle(entry.note)}</small><span>{entry.text}</span></button>{entry.note && onRenameNote ? <WorkNoteActions note={entry.note} onRename={onRenameNote} onOpen={onOpenNote} onTrash={onTrashNote} /> : null}</div>)}
+      <section aria-label="Log"><div className="work-project-log-heading"><h2>Log</h2>{item.state === 'done' ? null : <button className="work-project-new-note" aria-label={`New note in ${record.name}`} onClick={onNewNote}><WorkIcon name="plus" />New note</button>}</div>{item.log.map((entry, index) => <div className="work-project-log-row" key={`${entry.note?.clientId || 'check-in'}:${entry.day}:${index}`}><button className="work-log-entry" disabled={!entry.note} onClick={() => onOpenNote(entry.note.clientId)}><small>{displayDay(entry.day, { weekday: 'short', day: 'numeric', month: 'short' })} · {entry.checkIn ? 'Monday check-in' : noteTitle(entry.note)}</small><span>{entry.text}</span></button>{entry.note && onRenameNote ? <WorkNoteActions note={entry.note} onRename={onRenameNote} onOpen={onOpenNote} onTrash={onTrashNote} /> : null}</div>)}
         {item.log.length ? null : <p className="work-outstanding-line">Nothing written yet. Add a note to {record.name} and it shows up here.</p>}
       </section>
       <div className="work-project-context">

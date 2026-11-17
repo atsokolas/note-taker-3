@@ -11,7 +11,7 @@
 .work-project-studio .work-project-context > section:last-child { border-bottom: 0; }
 .work-project-studio .work-project-checkin { margin-bottom: 0; padding: 20px 0; }
 .work-project-studio .work-project-checkin > small, .work-project-studio .work-log-entry small { font-size: 13px; color: var(--noeis-ink-muted); }
-.work-project-log-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+.work-project-log-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
 .work-project-studio .work-project-log-heading h2 { margin: 0; }
 .work-notes .work-project-new-note { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--noeis-thread-strong); border-radius: 6px; padding: 8px 12px; color: var(--noeis-thread-strong); font: 14px var(--font-sans); white-space: nowrap; }
 .work-project-studio .work-log-entry span { display: block; font: 16px/1.6 var(--font-sans); overflow-wrap: anywhere; }
@@ -35,7 +35,4 @@
 .work-project-log-row { display: flex; align-items: start; border-bottom: 1px solid var(--noeis-rule); }
 .work-project-log-row .work-log-entry { flex: 1; min-width: 0; border: 0; }
 .work-project-log-row > .work-menu { flex: 0 0 44px; }
-.work-project-log-heading { flex-wrap: wrap; }
-.work-project-log-heading > .work-calendar { flex: 1; min-width: 0; margin: 0; }
-.work-project-log-heading .work-calendar-picker { margin: 0; }
 @media (max-width: 1100px) { .work-project-studio { display: block; } .work-project-studio .work-project-page { display: block; } .work-project-context { margin-top: 24px; } }

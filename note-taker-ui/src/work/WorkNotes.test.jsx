@@ -32,6 +32,11 @@ test('opens Work without personal rooms; search and inbox are scoped', async () 
   expect(within(screen.getByRole('complementary')).queryByRole('button', { name: /Charging windows/ })).toBeNull(); expect(screen.getByRole('button', { name: /Smaller depot/ })).toBeInTheDocument();
   expect(api.get.mock.calls.every(([path]) => path.startsWith('/api/work-notes'))).toBe(true);
 });
+test('the day picker lives on Today only', async () => {
+  await open(); expect(screen.getByText('Choose a day')).toBeInTheDocument();
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Inbox' }));
+  expect(screen.queryByText('Choose a day')).toBeNull();
+});
 test('new note is untitled and untouched capture closes without creating anything', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: 'New note' }));
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveFocus();
@@ -40,7 +45,7 @@ test('new note is untitled and untouched capture closes without creating anythin
 test('source confirmation names exact title, date, with text and line; Escape cancels', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note/ }));
   const sheet = await screen.findByRole('dialog', { name: 'Continue from this note' });
-  expect(within(sheet).getByText('Charging windows')).toBeInTheDocument(); expect(within(sheet).getByText(/Monday 26 Oct/)).toHaveTextContent('Mira');
+  expect(within(sheet).getByText('Charging windows')).toBeInTheDocument(); expect(within(sheet).getByText(/Mon 26 Oct/)).toHaveTextContent('Mira');
   expect(sheet.querySelector('blockquote').textContent).toBe(source.workingState.nextTimeLine.text);
   fireEvent.keyDown(document, { key: 'Escape' }); expect(screen.queryByRole('dialog')).toBeNull(); expect(api.post).not.toHaveBeenCalled();
 });
@@ -73,7 +78,7 @@ test('filing from the place line changes only metadata, and the rail follows the
   fireEvent.click(within(place).getByRole('button', { name: 'Pilot' })); fireEvent.click(within(place).getByRole('button', { name: 'Inbox' }));
   await waitFor(() => expect(api.put).toHaveBeenCalled()); expect(api.put.mock.calls[0][1]).toMatchObject({ folder: null, occurredOn: '2026-10-26', content: 'Original account' });
   expect(await screen.findByText('Filed in the inbox.')).toBeInTheDocument();
-  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^In your Inbox, written Monday 26 Oct, with Mira\. File in Pilot or a new folder\./);
+  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^In your Inbox, written Mon 26 Oct, with Mira\. File in Pilot or a new folder\./);
   const rail = screen.getByRole('complementary');
   expect(within(rail).getByRole('button', { name: /Charging windows/ })).toHaveAttribute('aria-current', 'page');
   expect(within(rail).getByLabelText('1 unfiled')).toBeInTheDocument();
