@@ -191,10 +191,12 @@ const run = async () => {
   assert.strictEqual(fs.statSync(path.join(tempDir, 'config.json')).mode & 0o777, 0o600);
 
   const connectSeen = [];
+  let issued = ['read'];
   const connectFetch = async (url, init = {}) => {
     connectSeen.push({ url: String(url), init });
     const requestUrl = new URL(String(url));
     if (requestUrl.pathname.endsWith('/api/agent-connect/sessions')) {
+      issued = JSON.parse(init.body).scopes;
       return jsonResponse({
         session: {
           sessionId: 'nac_123',
@@ -219,7 +221,7 @@ const run = async () => {
       return jsonResponse({
         format: 'noeis.agent-connection',
         workspace: { id: 'workspace-1', label: 'NOEIS workspace' },
-        grant: { id: 'token-1', label: 'Hermes local', scopes: ['read'] },
+        grant: { id: 'token-1', label: 'Hermes local', scopes: issued },
         capabilities: { read: true, agentWrite: false },
         contentRead: false,
         contentWritten: false
@@ -445,6 +447,33 @@ const run = async () => {
   assert.strictEqual(asked[0], 'mcp remove --scope user noeis-wiki');
   assert.match(asked[1], /^mcp add-json --scope user noeis-wiki \{"type":"stdio","command":"noeis","args":\["mcp"\]/);
   assert(!asked[1].includes('ntk_at_connected'));
+  assert(!fs.existsSync(path.join(agentHome, '.claude', 'settings.json')), 'a read-only connection saves nothing');
+
+  /* Read-write, what Claude Code fetches lands in the Library by a hook,
+     beside the person's own settings and hooks, once however often. */
+  fs.mkdirSync(path.join(agentHome, '.claude'));
+  const settingsFile = path.join(agentHome, '.claude', 'settings.json');
+  fs.writeFileSync(settingsFile, JSON.stringify({ model: 'opus', hooks: { PostToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'say done' }] }] } }));
+  const connectWriter = () => runCli(['connect', 'claude-code', '--scope', 'read-write', '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
+    env: { HOME: agentHome, XDG_CONFIG_HOME: path.join(agentHome, '.config'), NOEIS_CONFIG_DIR: agentHome, PATH: path.join(agentHome, 'bin') },
+    fetchImpl: connectFetch,
+    io: makeIo().io,
+    sleep: async () => {}
+  });
+  await connectWriter();
+  await connectWriter();
+  const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+  assert.strictEqual(settings.model, 'opus');
+  assert.deepStrictEqual(settings.hooks.PostToolUse.map(entry => [entry.matcher, entry.hooks[0].command]), [['Bash', 'say done'], ['WebFetch', 'noeis save --hook']]);
+
+  /* The hook hands the fetched URL to a save of its own and returns; what it
+     cannot read it lets go. */
+  const spawned = [];
+  const spawnSpy = (command, args) => { spawned.push(args.slice(1)); return { unref: () => {} }; };
+  await runCli(['save', '--hook'], { env: {}, io: makeIo().io, spawn: spawnSpy, readStdin: () => JSON.stringify({ tool_name: 'WebFetch', tool_input: { url: 'https://example.com/docs', prompt: 'read' } }) });
+  await runCli(['save', '--hook'], { env: {}, io: makeIo().io, spawn: spawnSpy, readStdin: () => 'not json' });
+  await runCli(['save', '--hook'], { env: {}, io: makeIo().io, spawn: spawnSpy, readStdin: () => JSON.stringify({ tool_input: { url: 'file:///etc/passwd' } }) });
+  assert.deepStrictEqual(spawned, [['save', 'https://example.com/docs']]);
 };
 
 run().catch((error) => {

@@ -56,6 +56,7 @@ Usage:
   noeis search "what you want to find" [--limit n] [--json]
   noeis read <id> [--json]
   noeis save <url|file|-> [--later] [--title title] [--json]
+  noeis save --hook    (an agent hook: saves the URL it just fetched)
   noeis note "text"|- [--title title] [--json]
   noeis login [--token ntk_at_...] [--api-url https://note-taker-3-unrg.onrender.com]
   noeis pages list [--query text] [--status draft|published|archived] [--page-type type] [--limit n] [--json]
@@ -103,7 +104,7 @@ const optionValue = (args, name, fallback = '') => {
 
 const hasFlag = (args, name) => args.includes(name);
 // Flags that take no value, so the word after one is still a positional.
-const SWITCHES = new Set(['--json', '--work', '--no-browser', '--no-config', '--print-token', '--later']);
+const SWITCHES = new Set(['--json', '--work', '--no-browser', '--no-config', '--print-token', '--later', '--hook']);
 
 // A lone `-` is standard input, a positional like any other.
 const isFlag = arg => arg?.startsWith('-') && arg !== '-';
@@ -246,6 +247,20 @@ const addClaudeCodeServer = ({ server, env, io }) => {
   if (run(['add-json', '--scope', 'user', 'noeis-wiki', json]).status === 0) return 'Claude Code user settings (claude mcp add-json)';
   io.stdout.write(`Could not reach the claude CLI. Run this once:\n  claude mcp add-json --scope user noeis-wiki '${json}'\n`);
   return [];
+};
+
+/* What Claude Code fetches from the web lands in the reader's Library, in
+   pencil on the "Read by agents" shelf, by a hook after each fetch. The hook
+   hands the save off and returns at once, so a slow save never holds the
+   agent up. */
+const READING_HOOK = 'noeis save --hook';
+const addClaudeCodeReadingHook = ({ env }) => {
+  const filePath = path.join(env.CLAUDE_CONFIG_DIR || path.join(env.HOME || os.homedir(), '.claude'), 'settings.json');
+  const settings = safeReadJson(filePath);
+  const others = (settings.hooks?.PostToolUse || []).filter(entry => !entry.hooks?.some(hook => hook.command === READING_HOOK));
+  settings.hooks = { ...settings.hooks, PostToolUse: [...others, { matcher: 'WebFetch', hooks: [{ type: 'command', command: READING_HOOK }] }] };
+  writeJsonFile(filePath, settings);
+  return filePath;
 };
 
 const writeRuntimeMcpConfig = ({ runtime, apiUrl, configDir, env = process.env, platform = process.platform, io } = {}) => {
@@ -461,6 +476,10 @@ const runConnect = async (args, context) => {
     });
   }
 
+  const readingHook = runtime === 'claude-code' && requestedScopes.includes('agent-write') && !hasFlag(args, '--no-config')
+    ? addClaudeCodeReadingHook({ env: context.env || process.env })
+    : '';
+
   const scopeLabel = requestedScopes.includes('agent-write') ? 'read/write' : 'read-only';
   io.stdout.write(`Connected ${runtimeLabel(runtime)} with ${scopeLabel} Noeis access${requestedScopes.includes('work') ? ', Work included' : ''}.\n`);
   io.stdout.write(`Verified workspace ${connectionInfo?.workspace?.label || connectionInfo?.workspace?.id || 'identity unavailable'}.\n`);
@@ -471,6 +490,7 @@ const runConnect = async (args, context) => {
   });
   if (runtimeConfigPaths.length) io.stdout.write(`Runtime config reads the token from ${configPath}; no raw token was copied into MCP config.\n`);
   if (runtimeConfigPaths.length) io.stdout.write(`Reload ${runtimeLabel(runtime)}, then call connection_info there to confirm the runtime loaded its tools.\n`);
+  if (readingHook) io.stdout.write(`What Claude Code reads on the web now lands on your "Read by agents" shelf (hook in ${readingHook}).\n`);
   if (hasFlag(args, '--print-token')) io.stdout.write(`${approved.secret}\n`);
 };
 
@@ -575,6 +595,17 @@ export const runCli = async (argv = [], context = {}) => {
     const source = await client.read(positional[1]);
     if (json) printJson(source, io);
     else io.stdout.write(`${source.title}\n\n${source.text}\n`);
+    return;
+  } else if (command === 'save' && hasFlag(args, '--hook')) {
+    /* Called by an agent's hook with what it just fetched on standard input.
+       It never fails the agent: anything unreadable is let go. */
+    let url = '';
+    try {
+      url = JSON.parse((context.readStdin || (() => fs.readFileSync(0, 'utf8')))()).tool_input?.url || '';
+    } catch {
+      return;
+    }
+    if (isUrl(url)) (context.spawn || spawn)(process.execPath, [CLI_BIN, 'save', url], { detached: true, stdio: 'ignore', env }).unref();
     return;
   } else if (command === 'save') {
     if (!positional[1]) throw new NoeisCliError('Usage: noeis save <url|file|->');

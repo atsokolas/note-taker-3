@@ -28,7 +28,8 @@ export const SERVER_INSTRUCTIONS = `This is the reader's own library in Noeis: w
 - Start a session with brief, naming the topic if you know it: it says what the reader holds, wrote, marked and is still asking about it.
 - Before answering about the reader's reading, notes or views, call recall in plain words, then read the hits you use. Quote their words and give each hit's link.
 - A hit with pencil was written by an agent (it names which) and not yet taken up by the reader. Never present it as the reader's own view.
-- What you write lands in pencil, marked as yours, until the reader inks it. Write notes with create_notebook_entry, save what you read with create_article (full text when you have it), and keep a paper with file_edition_items.
+- What you write lands in pencil, marked as yours, until the reader inks it. Write notes with create_notebook_entry and keep a paper with file_edition_items.
+- Save every page you read for the reader with create_article as you go, full text when you have it: it waits on their "Read by agents" shelf, so your reading compounds with theirs.
 - If recall finds nothing, say the library has nothing on it rather than filling in.`;
 
 const profileTool = {
