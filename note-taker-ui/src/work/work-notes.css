@@ -608,9 +608,8 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-priority-slots label:has(:disabled) span { cursor: not-allowed; opacity: .55; }
 .work-priority-slots label:has(:checked) span { background: var(--noeis-thread-strong); border-color: var(--noeis-thread-strong); color: var(--noeis-paper); opacity: 1; }
 .work-priority-slots small { margin-left: 4px; font-size: 12px; color: var(--noeis-ink-subtle); }
-.work-item-path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; font-size: 13.5px; }
-.work-item-path select { appearance: none; max-width: 100%; border: 0; border-bottom: 1px solid var(--noeis-rule-strong); border-radius: 0; background: transparent; padding: 2px 0; color: var(--noeis-ink); font: inherit; text-overflow: ellipsis; cursor: pointer; }
-.work-item-path > span { padding: 0 8px; color: var(--noeis-ink-subtle); }
+.work-item-path { display: flex; align-items: center; gap: 12px; font-size: 13.5px; }
+.work-item-path select { flex: 1 1 0; min-width: 0; appearance: none; max-width: 100%; border: 0; border-bottom: 1px solid var(--noeis-rule-strong); border-radius: 0; background: transparent; padding: 2px 0; color: var(--noeis-ink); font: inherit; text-overflow: ellipsis; cursor: pointer; }
 .work-item-path select:disabled { border-bottom-style: dashed; color: var(--noeis-ink-muted); cursor: default; }
 .work-item-form .work-actions { position: sticky; bottom: -28px; background: var(--noeis-paper); border-top: 1px solid var(--noeis-rule); margin-top: 28px; padding: 16px 0; }
 .work-inspector button[type=submit] { border: 1px solid var(--noeis-thread-strong); border-radius: var(--noeis-radius-sm); background: var(--noeis-active); }
