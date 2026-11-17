@@ -1,4 +1,5 @@
 const { escapeRegExp } = require('../utils/searchSnippet');
+const { parseMarkdownNote } = require('../services/import/exportFiles');
 const { pencilOf } = require('../services/agentTokenService');
 const { plainNotebookText } = require('../services/authoredWorkDiscovery');
 const { recordRevision, snapshotOf } = require('../services/entryHistory');
@@ -25,6 +26,14 @@ const {
 } = require('../services/authoredSourceCorrection');
 
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
+
+// A note may arrive as Markdown, from a synced folder: its title, blocks and
+// page are read from it, the way a Markdown import reads a note.
+const fromMarkdown = (body = {}) => {
+  if (typeof body.markdown !== 'string') return body;
+  const { title, blocks, content } = parseMarkdownNote({ text: body.markdown });
+  return { ...body, title, blocks, content };
+};
 
 const buildNotebookRouter = ({
   authenticateToken,
@@ -218,7 +227,7 @@ const buildNotebookRouter = ({
   router.post('/api/notebook', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
-      const { title, content, blocks, asidePieces, folder, tags, linkedArticleId, type, claimId, source, importMeta } = req.body;
+      const { title, content, blocks, asidePieces, folder, tags, linkedArticleId, type, claimId, source, importMeta } = fromMarkdown(req.body);
       const nextBlocks = sanitizeNotebookBlocks(Array.isArray(blocks)
         ? blocks
         : (stripHtml(content || '') ? [{ id: createBlockId(), type: 'paragraph', text: stripHtml(content || '') }] : []));
@@ -774,10 +783,14 @@ const buildNotebookRouter = ({
     try {
       const userId = req.user.id;
       const { id } = req.params;
-      const { title, content, blocks, asidePieces, folder, tags, linkedArticleId, type, claimId, importMeta } = req.body;
+      const { title, content, blocks, asidePieces, folder, tags, linkedArticleId, type, claimId, importMeta, ifUnmodifiedSince } = fromMarkdown(req.body);
       const existing = await NotebookEntry.findOne({ _id: id, userId });
       if (!existing) {
         return res.status(404).json({ error: "Notebook entry not found." });
+      }
+      // A copy edited away from Noeis does not overwrite words written since.
+      if (ifUnmodifiedSince && existing.updatedAt > new Date(ifUnmodifiedSince)) {
+        return res.status(409).json({ error: 'This note changed in Noeis since your copy.', updatedAt: existing.updatedAt });
       }
       const updates = {};
       if (title !== undefined) updates.title = String(title || '').trim();

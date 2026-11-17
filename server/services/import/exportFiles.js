@@ -430,6 +430,8 @@ const renderInline = (source = '') => {
   return { plain, html };
 };
 
+const CITED_MARK = /^— \[(.+)\]\((\/library\?articleId=([a-f0-9]{24})(?:&highlightId=([a-f0-9]{24}))?)\)$/;
+
 const parseMarkdownNote = ({ name = '', path = '', text = '' }) => {
   const relative = clean(path || name).replace(/\\/g, '/');
   const { body, tags, title: metaTitle } = readFrontMatter(String(text).replace(/^﻿/, ''));
@@ -444,6 +446,7 @@ const parseMarkdownNote = ({ name = '', path = '', text = '' }) => {
   const html = [];
   let paragraph = [];
   let list = [];
+  let quote = [];
   let fence = null;
   const flushParagraph = () => {
     if (!paragraph.length) return;
@@ -459,8 +462,32 @@ const parseMarkdownNote = ({ name = '', path = '', text = '' }) => {
     html.push(`<ul>${list.map(item => `<li>${item.html}</li>`).join('')}</ul>`);
     list = [];
   };
+  /* A passage quoted with the line Noeis writes under it, "— [Title](/library?…)",
+     is that highlight again, so a note read back from its Markdown keeps its
+     marks. Any other quote is read as text. */
+  const flushQuote = () => {
+    if (!quote.length) return;
+    const cited = quote[quote.length - 1].match(CITED_MARK);
+    const words = (cited ? quote.slice(0, -1) : quote).join('\n').trim();
+    if (cited && words) {
+      blocks.push({ type: 'highlight-ref', text: words, articleTitle: cited[1], sourcePath: cited[2], articleId: cited[3], highlightId: cited[4] || null });
+      html.push(`<blockquote>${escapeHtml(words)}</blockquote>`);
+    } else {
+      paragraph.push(...quote.filter(Boolean));
+    }
+    quote = [];
+  };
 
   lines.forEach((line) => {
+    if (!fence && /^\s*>/.test(line)) {
+      if (!quote.length) {
+        flushParagraph();
+        flushList();
+      }
+      quote.push(line.replace(/^\s*>\s?/, '').trim());
+      return;
+    }
+    flushQuote();
     if (fence) {
       if (/^\s*(```|~~~)/.test(line)) {
         blocks.push({ type: 'paragraph', text: fence.join('\n') });
@@ -500,10 +527,11 @@ const parseMarkdownNote = ({ name = '', path = '', text = '' }) => {
       }
     } else {
       flushList();
-      paragraph.push(line.replace(/^\s*>\s?/, '').trim());
+      paragraph.push(line.trim());
     }
   });
   if (fence) blocks.push({ type: 'paragraph', text: fence.join('\n') });
+  flushQuote();
   flushParagraph();
   flushList();
 

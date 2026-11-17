@@ -61,11 +61,12 @@ const withoutDimmed = (blocks, dimmed = []) => {
   return blocks.map((block, index) => (texts[index] === String(block.text || '') ? block : { ...block, text: texts[index] }));
 };
 
-const buildNotebookMarkdown = (entry) => {
+// An export is the piece; the synced folder keeps the whole working page.
+const buildNotebookMarkdown = (entry, { keepDimmed = false } = {}) => {
   const title = String(entry?.title || 'Untitled').trim() || 'Untitled';
   const blocks = withoutDimmed(Array.isArray(entry?.blocks) && entry.blocks.length > 0
     ? entry.blocks
-    : [{ type: 'paragraph', text: stripTags(entry?.content || '') }], entry?.workingState?.dimmed);
+    : [{ type: 'paragraph', text: stripTags(entry?.content || '') }], keepDimmed ? [] : entry?.workingState?.dimmed);
   const lines = [`# ${title}`, ''];
 
   blocks.forEach((block) => {

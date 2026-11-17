@@ -4,6 +4,17 @@ Releases of `@noeis/wiki-mcp` on npm. The hosted endpoint at `<api>/mcp` runs
 the source in this folder and updates when the API redeploys; this file tracks
 what reaches `noeis mcp` and `noeis-wiki-mcp` through npm.
 
+## 0.5.2 (unreleased)
+
+### Added
+
+- `brief`, listed with the core tools: where the reader stands, in one call at
+  the start of a session, on a topic or none, pencil kept apart.
+- `recall` finds the reader's open questions, and the reading that bears on
+  their own notes and views (`bearsOn`).
+- Instructions tell an agent to start with `brief` and to save every page it
+  reads with `create_article`.
+
 ## 0.5.1 (2026-11-15)
 
 ### Added

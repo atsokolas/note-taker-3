@@ -13,6 +13,7 @@ This installs the `noeis` command.
 ## Work from a shell
 
 ```bash
+noeis brief "hiring"                               # where you stand: views, notes, marks, questions, pencil
 noeis search "what have I written about hiring"   # your notes, highlights, views and pages
 noeis read <id>                                    # the whole of any hit
 noeis save https://example.com/essay               # into your Library (--later: the nightstand)
@@ -21,6 +22,23 @@ noeis note "Hiring is a bet on slope."              # a note in Think
 ```
 
 `save` and `note` need a read-write connection.
+
+## Your Noeis as a folder
+
+```bash
+noeis sync              # ~/Noeis, once
+noeis sync ~/Noeis --watch   # and every minute after
+```
+
+`Think/` holds your notes: edit one and it goes back, add a file for a new
+note. `Library/` holds what you saved and marked: add a file to save something
+there; the rest is kept by Noeis. `Wiki/` is read-only. `AGENTS.md` tells any
+agent that opens the folder how it works. What the folder writes lands in
+pencil until you ink it. A note changed in both places keeps Noeis's version
+and adds yours beside it; nothing in Noeis is deleted from the folder.
+
+Connected read-write, `noeis connect claude-code` also adds a hook so every
+page Claude Code fetches lands on your "Read by agents" shelf.
 
 ## Connect an agent
 

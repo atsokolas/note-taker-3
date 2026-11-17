@@ -590,6 +590,7 @@ const { buildMarketingFunnelRouter } = require('./routes/marketingFunnelRoutes')
 const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes');
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildRecallRouter } = require('./routes/recallRoutes');
+const { buildSyncRouter } = require('./routes/syncRoutes');
 const { buildPencilRouter } = require('./routes/pencilRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
@@ -5323,6 +5324,11 @@ app.use(buildRecallRouter({
   WikiPage,
   Question,
   semanticSearch
+}));
+
+app.use(buildSyncRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  models: { Article, NotebookEntry, WikiPage }
 }));
 
 app.use(buildSemanticSearchRouter({

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { NoeisCliClient, NoeisCliError } from './client.js';
 import { DEFAULT_API_URL, DEFAULT_APP_URL, readConfig, resolveAuth, writeConfig } from './config.js';
+import { syncFolder } from './sync.js';
 
 const xdgConfig = ({ env, home }) => env.XDG_CONFIG_HOME || path.join(home, '.config');
 
@@ -58,6 +59,7 @@ Usage:
   noeis save <url|file|-> [--later] [--title title] [--json]
   noeis save --hook    (an agent hook: saves the URL it just fetched)
   noeis note "text"|- [--title title] [--json]
+  noeis sync [folder] [--watch]   (your Noeis as Markdown, both ways; ~/Noeis by default)
   noeis login [--token ntk_at_...] [--api-url https://note-taker-3-unrg.onrender.com]
   noeis pages list [--query text] [--status draft|published|archived] [--page-type type] [--limit n] [--json]
   noeis pages get <id> [--json]
@@ -104,7 +106,7 @@ const optionValue = (args, name, fallback = '') => {
 
 const hasFlag = (args, name) => args.includes(name);
 // Flags that take no value, so the word after one is still a positional.
-const SWITCHES = new Set(['--json', '--work', '--no-browser', '--no-config', '--print-token', '--later', '--hook']);
+const SWITCHES = new Set(['--json', '--work', '--no-browser', '--no-config', '--print-token', '--later', '--hook', '--watch']);
 
 // A lone `-` is standard input, a positional like any other.
 const isFlag = arg => arg?.startsWith('-') && arg !== '-';
@@ -142,6 +144,7 @@ const openBrowser = (url, { platform = process.platform } = {}) => {
 };
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const SYNC_EVERY_MS = 60 * 1000;
 
 
 const resolveConnectScopes = (value = 'read', work = false) => {
@@ -622,6 +625,15 @@ export const runCli = async (argv = [], context = {}) => {
     const note = await client.createNote({ title: optionValue(args, '--title') || firstLine(content), content });
     if (json) printJson(note, io);
     else io.stdout.write(`Noted in Think: ${note.title || 'Untitled'} (${note._id})\n`);
+    return;
+  } else if (command === 'sync') {
+    const dir = path.resolve(positional[1] || path.join(env.HOME || os.homedir(), 'Noeis'));
+    const log = line => io.stdout.write(`${line}\n`);
+    do {
+      const done = await syncFolder({ dir, client, log });
+      log(`Synced ${dir}: ${done.sent} sent, ${done.created} new, ${done.written} written, ${done.removed} removed${done.kept ? `, ${done.kept} kept both ways` : ''}.`);
+      if (hasFlag(args, '--watch')) await (context.sleep || sleep)(SYNC_EVERY_MS);
+    } while (hasFlag(args, '--watch'));
     return;
   } else if (command === 'draft') {
     if (!positional[1]) throw new NoeisCliError('Usage: noeis draft <pageId>');
