@@ -1170,6 +1170,11 @@ export class NoeisClient {
       .then(handoff => ({ ...handoff, link: this.linkFor(handoff), wrote: handoff.wrote.map(item => ({ ...item, link: this.linkFor(item) })) }));
   }
 
+  // Where the agent put something of the reader's to work.
+  cite({ id, where } = {}) {
+    return this.request('/api/cite', { method: 'POST', body: { id, where } });
+  }
+
   /* Anything recall returned, in full: an article with its highlights and
      margin notes, a Think note, or a wiki page. */
   read({ id }) {

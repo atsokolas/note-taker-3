@@ -121,6 +121,7 @@ const {
   AgentProtocolHookRun,
   AgentHandoff,
   Handoff,
+  Citation,
   AgentArtifactDraft,
   AgentRun,
   AgentProposedChange,
@@ -5329,6 +5330,7 @@ app.use(buildRecallRouter({
   WikiPage,
   Question,
   Handoff,
+  Citation,
   semanticSearch
 }));
 

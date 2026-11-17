@@ -32,6 +32,7 @@ export const SERVER_INSTRUCTIONS = `This is the reader's own library in Noeis: w
 - A hit with pencil was written by an agent (it names which) and not yet taken up by the reader. Never present it as the reader's own view.
 - What you write lands in pencil, marked as yours, until the reader inks it. Write notes with create_notebook_entry and keep a paper with file_edition_items.
 - Save every page you read for the reader with create_article as you go, full text when you have it: it waits on their "Read by agents" shelf, so your reading compounds with theirs.
+- When you use the reader's notes or reading outside Noeis (a pull request, a doc, a reply), call cite with its id and where it went.
 - If recall finds nothing, say the library has nothing on it rather than filling in.`;
 
 const profileTool = {

@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { retrieveWithBearing, readSource } = require('../services/agentRetrieval');
 const { waitingFor } = require('./handoffRoutes');
+const { pencilOf } = require('../services/agentTokenService');
 
 const MAX_LIMIT = 25;
 const BRIEF_LIMIT = 16;
@@ -67,7 +68,7 @@ const standing = async ({ userId, models: { Article, NotebookEntry, WikiPage, Qu
   };
 };
 
-const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, semanticSearch = null }) => {
+const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, Citation = null, semanticSearch = null }) => {
   const router = express.Router();
   const models = { Article, NotebookEntry, TagMeta, WikiPage, Question };
   // Aggregations do not cast ids the way finds do.
@@ -112,6 +113,30 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
       console.error('[recall] read failed', error.message);
       res.status(500).json({ error: 'Read failed.' });
     }
+  });
+
+  /* An agent says where it put something of the reader's to work; the reader
+     sees, on the thing itself, where their thinking went. */
+  router.post('/api/cite', authenticateToken, async (req, res) => {
+    const by = pencilOf(req);
+    if (!by || !Citation) return res.status(403).json({ error: 'An agent connection with write access says where it used something.' });
+    const where = String(req.body?.where || '').trim().slice(0, 500);
+    if (!where) return res.status(400).json({ error: 'Say where you used it: a link, or a few words.' });
+    try {
+      const source = await readSource({ userId: userOf(req), id: String(req.body?.id || ''), models });
+      if (!source) return res.status(404).json({ error: 'Nothing of yours has that id.' });
+      await Citation.create({ userId: req.user.id, sourceId: source.id, where, by });
+      return res.status(201).json({ id: source.id, title: source.title, where });
+    } catch (error) {
+      console.error('[cite] failed', error.message);
+      return res.status(500).json({ error: 'That could not be recorded.' });
+    }
+  });
+
+  router.get('/api/cite/:id', authenticateToken, async (req, res) => {
+    if (!Citation) return res.json({ usedIn: [] });
+    const rows = await Citation.find({ userId: req.user.id, sourceId: String(req.params.id) }).sort({ createdAt: -1 }).limit(20).lean();
+    return res.json({ usedIn: rows.map(row => ({ where: row.where, agent: row.by.agent, at: row.createdAt })) });
   });
 
   return router;

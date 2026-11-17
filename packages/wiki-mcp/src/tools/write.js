@@ -515,6 +515,15 @@ export const writeTools = [
     handler: (client, args) => client.finishHandoff(args)
   },
   {
+    name: 'cite',
+    description: 'Say where you put something of the reader\'s to work: a note, a passage or a page you drew on, and where it went (a pull request, a doc, an email, a reply). The reader sees it on that note, so they know which of their thinking is pulling weight. Call it whenever you use their words or ideas outside Noeis.',
+    inputSchema: {
+      id: z.string().min(1).describe('The id of what you used, as recall or read gave it.'),
+      where: z.string().min(1).max(500).describe('Where it went: a link, or a few plain words.')
+    },
+    handler: (client, args) => client.cite(args)
+  },
+  {
     name: 'hand_off',
     description: 'Hand work on to the next agent, the way the reader hands work to you: one line of what to do, and where. The next agent session sees it first in its brief.',
     inputSchema: {

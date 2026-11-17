@@ -8,6 +8,7 @@ import { inkPencil, listPencil } from '../../api/pencil';
 
 jest.mock('../../api/handoffs', () => ({ handOff: jest.fn(), listHandoffs: jest.fn(), getHandoff: jest.fn(), cancelHandoff: jest.fn() }));
 jest.mock('../../api/pencil', () => ({ inkPencil: jest.fn(), listPencil: jest.fn() }));
+jest.mock('../../api/citations', () => ({ usedIn: jest.fn() }));
 
 const at = '2026-11-17T01:41:00Z';
 
@@ -42,4 +43,12 @@ test('coming back: what the agent did, what is open, what is next, and what it w
   // What agents left outside any handoff follows, by agent, once.
   expect(screen.getByRole('heading', { level: 2, name: 'Also in pencil, by Claude Code' })).toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: 'Hiring' })).toHaveLength(2);
+});
+
+test('a note says where agents put it to work, once one has said so', async () => {
+  const { default: UsedIn } = await import('../pencil/UsedIn');
+  const { usedIn } = await import('../../api/citations');
+  usedIn.mockResolvedValue([{ where: 'PR #12: hiring rubric', agent: 'Claude Code', at }]);
+  render(<UsedIn id="n1" />);
+  expect(await screen.findByText(/Put to work: PR #12: hiring rubric \(Claude Code,/)).toBeInTheDocument();
 });

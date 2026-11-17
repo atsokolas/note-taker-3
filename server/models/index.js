@@ -3578,9 +3578,24 @@ handoffSchema.index({ userId: 1, takenAt: 1, cancelledAt: 1, createdAt: -1 });
 
 const Handoff = mongoose.model('Handoff', handoffSchema);
 
+/* Where an agent put the reader's thinking to work: a note or a source it
+   drew on, and where it went (a pull request, a doc, a reply). Told by the
+   agent, so it is only as complete as the agents that say so. */
+const citationSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  sourceId: { type: String, required: true },
+  where: { type: String, required: true, trim: true, maxlength: 500 },
+  by: { type: pencilSchema, required: true }
+}, { timestamps: true });
+
+citationSchema.index({ userId: 1, sourceId: 1, createdAt: -1 });
+
+const Citation = mongoose.model('Citation', citationSchema);
+
 module.exports = {
   User,
   Handoff,
+  Citation,
   Feedback,
   Recommendation,
   Folder,

@@ -222,9 +222,9 @@ Both lists below are the complete tool surface, checked against `toolDefinitions
 by `test/server.test.js` — a tool added without a line here fails the suite.
 
 An agent is shown the **core** tools unless its runtime asks for more, because
-every listed tool costs context on each turn. Core is sixteen tools:
+every listed tool costs context on each turn. Core is seventeen tools:
 `connection_info`, `brief`, `recall`, `read`, `take_handoff`,
-`finish_handoff`, `hand_off`, `list_pages`, `get_page_markdown`,
+`finish_handoff`, `hand_off`, `cite`, `list_pages`, `get_page_markdown`,
 `create_page`, `create_article`, `create_highlight`, `create_notebook_entry`,
 `update_notebook_entry`, `list_edition_profiles` and `file_edition_items`.
 Every other tool below stays callable and is listed when you ask for its
@@ -302,6 +302,7 @@ Write tools require a token with the `agent-write` scope. Read-only tokens recei
 - `take_handoff`
 - `finish_handoff`
 - `hand_off`
+- `cite`
 - `create_page`
 - `update_page`
 - `create_judgment_page`

@@ -11,7 +11,7 @@
    all       everything */
 export const CORE_TOOLS = Object.freeze([
   'connection_info', 'brief', 'recall', 'read',
-  'take_handoff', 'finish_handoff', 'hand_off',
+  'take_handoff', 'finish_handoff', 'hand_off', 'cite',
   'list_pages', 'get_page_markdown', 'create_page',
   'create_article', 'create_highlight',
   'create_notebook_entry', 'update_notebook_entry',

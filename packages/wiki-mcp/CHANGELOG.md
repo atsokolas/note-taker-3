@@ -14,6 +14,8 @@ what reaches `noeis mcp` and `noeis-wiki-mcp` through npm.
 - `take_handoff`, `finish_handoff` and `hand_off`, in core: take what the reader
   handed you with the brief on it, finish with what you did, what is open and
   what you would do next, and hand work on to the next agent.
+- `cite`, in core: say where you put the reader's note or reading to work; they
+  see it on the note.
 - `recall` finds the reader's open questions, and the reading that bears on
   their own notes and views (`bearsOn`).
 - Instructions tell an agent to start with `brief` and to save every page it

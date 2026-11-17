@@ -17,7 +17,7 @@ noeis connect claude-code --scope read   # or claude-desktop, codex, cursor, vsc
 Approve in the browser, reload the runtime, call `connection_info`. Start a
 session with `brief` (on a topic, or none) for where the reader stands, then ask
 `recall` in plain words ("what have I written about hiring?") and open any hit
-with `read`. Sixteen core tools are listed; add more with
+with `read`. Seventeen core tools are listed; add more with
 `noeis mcp --toolsets=wiki,library,think,editions` or `all`.
 
 If `brief` lists anything under `handedToYou`, the reader handed it to you before
