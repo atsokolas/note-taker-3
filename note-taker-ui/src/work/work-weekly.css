@@ -57,8 +57,8 @@
 .work-weekly-receipt[role=alert] { border-left: 2px solid var(--noeis-action); padding-left: 12px; }
 .work-weekly-receipt pre { white-space: pre-wrap; font: inherit; }
 .work-weekly-missing { color: var(--noeis-ink-muted); font: 14px/1.5 var(--font-sans); padding: 12px 32px; }
-@media (max-width: 1200px) { .work-weekly { gap: 24px; grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); } .work-weekly-tray { padding-left: 20px; } }
-@media (max-width: 900px) {
+@container work-page (max-width: 880px) { .work-weekly { gap: 24px; grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); } .work-weekly-tray { padding-left: 20px; } }
+@container work-page (max-width: 720px) {
   .work-weekly { display: flex; flex-direction: column; gap: 28px; }
   .work-weekly-tray { border-left: 0; border-top: 1px solid var(--noeis-rule); padding: 24px 0 0; }
   .work-weekly h2 { font-size: 23px; }
@@ -87,7 +87,7 @@
 .work-weekly [draggable=true] { cursor: grab; }
 .work-weekly [draggable=true]:active { cursor: grabbing; }
 
-@media (max-width: 900px) { .work-weekly-task-new, .work-weekly-task-add { margin-left: 0; } }
+@container work-page (max-width: 720px) { .work-weekly-task-new, .work-weekly-task-add { margin-left: 0; } }
 
 .work-weekly .work-priority-toggle { display: flex; align-items: baseline; gap: 8px; padding: 0; text-align: left; font: inherit; letter-spacing: inherit; color: inherit; width: 100%; }
 .work-priority-toggle > .work-icon { align-self: center; width: 16px; height: 16px; flex-basis: 16px; color: var(--noeis-ink-muted); }
@@ -112,7 +112,7 @@
   .work-priority-progress.is-settled { animation: work-priority-settle 280ms ease-out; }
   @keyframes work-priority-settle { from { opacity: .5; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 }
-@media (max-width: 900px) {
+@container work-page (max-width: 720px) {
   .work-weekly-heading { gap: 8px; padding-bottom: 16px; }
   .work-weekly-dateline { flex-basis: 100%; }
   .work-weekly-dateline p { flex: 1; font-size: 16px; }
