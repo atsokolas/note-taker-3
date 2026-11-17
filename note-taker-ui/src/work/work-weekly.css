@@ -139,4 +139,3 @@
 .work-rail-composer > div { display: flex; gap: 4px; flex-wrap: wrap; }
 .work-weekly .work-earlier, .work-rail-next, .work-done-today { margin-top: 20px; }
 @media (pointer: coarse) { .work-task-menu > summary { min-height: 44px; } }
-.work-rail-hint { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--noeis-ink-muted); font: 12px/1.5 var(--font-sans); margin: 28px 0 0; }
