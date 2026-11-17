@@ -80,7 +80,7 @@ test('dragging a note onto a place in the rail shows it arriving there, and the 
 test('completing a follow-up produces one dated top record and Undo restores the same item without changing prose', async () => {
   await open(); const section = screen.getByRole('region', { name: 'Open' });
   fireEvent.click(within(section).getByRole('checkbox', { name: 'Confirm service-training dates' }));
-  const completed = await screen.findByRole('region', { name: 'Completed follow-ups' }); expect(completed).toHaveTextContent('Confirm service-training dates');
+  const completed = await screen.findByRole('region', { name: 'Completed to-dos' }); expect(completed).toHaveTextContent('Confirm service-training dates');
   await waitFor(() => expect(records.find(x => x._id === 'task').workItem.history).toHaveLength(1));
   expect(records.find(x => x._id === 'note').content).toBe(original);
   fireEvent.click(within(completed).getByRole('button', { name: 'Undo', exact: true }));
@@ -109,7 +109,7 @@ test('a new folder from the place line is where the open note goes', async () =>
   expect(records.find(x => x.content?.includes('Placed writing')).folder).not.toBe('f');
 });
 test('planning a new note question is explicit and retains its note identity in the day', async () => {
-  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
   expect(screen.queryByRole('dialog')).toBeNull(); fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Which site is ready first?' } });
   fireEvent.change(screen.getByLabelText('Open item kind'), { target: { value: 'question' } }); fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   await waitFor(() => expect(records.some(x => x.title === 'Which site is ready first?')).toBe(true));
@@ -138,7 +138,7 @@ test.each(['task', 'appointment'])('standalone %s conflicts open both versions r
   today(); fireEvent.click(await screen.findByRole('button', { name: 'Week', exact: true }));
   if (kind !== 'appointment') fireEvent.click(screen.getByLabelText('Actions for Standalone work'));
   fireEvent.click(kind === 'appointment' ? screen.getByRole('button', { name: 'Edit appointment Standalone work', exact: true }) : within(screen.getByLabelText('Actions for Standalone work').closest('details')).getByRole('button', { name: 'Edit to-do' }));
-  const form = await screen.findByRole('dialog', { name: kind === 'appointment' ? 'Edit appointment' : 'Edit follow-up' });
+  const form = await screen.findByRole('dialog', { name: kind === 'appointment' ? 'Edit appointment' : 'Edit to-do' });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'standalone'), revision: 1, title: 'Other device version' } } } });
   fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My version' } }); fireEvent.click(within(form).getByRole('button', { name: 'Save', exact: true }));
   const review = await screen.findByRole('dialog', { name: 'Two versions' }); expect(review).toHaveTextContent('Other device version'); expect(review).toHaveTextContent('My version');
@@ -159,7 +159,7 @@ test('concurrent day margins remain discoverable, and a conflicting margin offer
 test('a semantically rejected action stays in review and can use the saved version', async () => {
   await open(); const section = screen.getByRole('region', { name: 'Open' });
   fireEvent.click(within(section).getByRole('checkbox', { name: 'Confirm service-training dates' }));
-  const complete = await screen.findByRole('region', { name: 'Completed follow-ups' });
+  const complete = await screen.findByRole('region', { name: 'Completed to-dos' });
   await waitFor(() => expect(records.find(x => x._id === 'task').revision).toBe(1));
   const remote = { ...records.find(x => x._id === 'task'), revision: 2 };
   api.put.mockRejectedValue({ response: { status: 409, data: { error: 'This item changed. Review its latest history before undoing.', current: remote } } });
@@ -169,12 +169,12 @@ test('a semantically rejected action stays in review and can use the saved versi
   fireEvent.click(within(review).getByRole('button', { name: 'Use mine' }));
   await waitFor(() => expect(within(review).getByRole('alert')).toHaveTextContent('Review its latest history'));
   fireEvent.click(within(review).getByRole('button', { name: 'Use the other one' })); expect(screen.queryByRole('dialog')).toBeNull();
-  expect(screen.getByRole('region', { name: 'Completed follow-ups' })).toHaveTextContent('Confirm service-training dates');
+  expect(screen.getByRole('region', { name: 'Completed to-dos' })).toHaveTextContent('Confirm service-training dates');
 });
 test('review resolution stays locked while its accepted change is being acknowledged', async () => {
   await open(); const current = records.find(x => x._id === 'task'), remote = { ...current, revision: 1, title: 'Other device wording' };
   fireEvent.click(within(screen.getByRole('region', { name: 'Open' })).getByRole('button', { name: 'Edit Confirm service-training dates', exact: true }));
-  const form = await screen.findByRole('dialog', { name: 'Edit follow-up' });
+  const form = await screen.findByRole('dialog', { name: 'Edit to-do' });
   fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My reviewed wording' } });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: remote } } });
   fireEvent.click(within(form).getByRole('button', { name: 'Save', exact: true }));

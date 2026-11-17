@@ -15,7 +15,7 @@ jest.mock('react-router-dom', () => {
   } };
 });
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn(() => global.localStorage.removeItem('token')) }));
-jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh, heading, tools }) => <>{heading}<textarea aria-label="Work note writing" autoFocus={fresh} value={note.content || ''} onChange={e => onChange({ content: e.target.value })} />{tools}</>);
+jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh, heading, footer, onRename, onTrash }) => <>{heading}<button onClick={onRename}>Rename</button><button onClick={onTrash}>Delete note</button><textarea aria-label="Work note writing" autoFocus={fresh} value={note.content || ''} onChange={e => onChange({ content: e.target.value })} />{footer}</>);
 const deviceWords = () => JSON.stringify(Object.entries(localStorage).filter(([key]) => key.startsWith(draftKey('owner'))));
 const source = { _id: 'a', title: 'Charging windows', content: 'Original account', folder: 'f', revision: 2, occurredOn: '2026-10-26', withText: 'Mira', workingState: { revision: 2, nextTimeLine: { text: '  Check the window.\n', target: null } } };
 const older = { ...source, _id: 'b', title: 'Smaller depot', occurredOn: '2026-10-12', workingState: { revision: 1, nextTimeLine: { text: '' } } };
@@ -272,7 +272,7 @@ test('leaving under storage failure offers a copy before anything is discarded',
 test.each(['task', 'question'])('inline Open %s keeps the note visible and uses its folder in Today scope', async kind => {
   window.history.replaceState({}, '', '/think?context=work&view=today&date=2026-10-26&note=a');
   render(<WorkNotes />); const writing = await screen.findByRole('textbox', { name: 'Work note writing' });
-  fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
   expect(screen.queryByRole('dialog')).toBeNull();
   fireEvent.change(screen.getByRole('textbox', { name: 'Open item title' }), { target: { value: 'Review tomorrow 2pm' } });
   fireEvent.change(screen.getByLabelText('Open item kind'), { target: { value: kind } });
@@ -284,22 +284,22 @@ test.each(['task', 'question'])('inline Open %s keeps the note visible and uses 
 });
 test('inline draft survives Escape, note switching and remount; explicit Cancel discards it without saving', async () => {
   const mounted = render(<WorkNotes />); fireEvent.click(await screen.findByRole('button', { name: /Charging windows/ }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
   const input = screen.getByLabelText('Open item title'); fireEvent.change(input, { target: { value: 'Keep me' } });
   fireEvent.keyDown(input, { key: 'Escape' }); expect(screen.queryByLabelText('Open item title')).toBeNull();
   const rail = screen.getByRole('complementary'); fireEvent.click(within(rail).getByRole('button', { name: /Smaller depot/ }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' })); expect(screen.getByLabelText('Open item title')).toHaveValue('');
+  fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' })); expect(screen.getByLabelText('Open item title')).toHaveValue('');
   fireEvent.click(within(rail).getByRole('button', { name: /Charging windows/ }));
   expect(screen.getByLabelText('Open item title')).toHaveValue('Keep me');
   mounted.unmount(); forgetWorkSession('owner');
   window.history.replaceState({}, '', '/think?context=work&note=a'); render(<WorkNotes />);
   expect(await screen.findByLabelText('Open item title')).toHaveValue('Keep me');
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' })); expect(screen.getByLabelText('Open item title')).toHaveValue('');
+  fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' })); expect(screen.getByLabelText('Open item title')).toHaveValue('');
   expect(api.post).not.toHaveBeenCalled();
 });
 test('inline composer ignores empty title, blur and IME Enter but submits deliberate Enter', async () => {
-  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
   const title = screen.getByLabelText('Open item title'); expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
   fireEvent.change(title, { target: { value: '日本語' } }); fireEvent.blur(title);
   fireEvent.keyDown(title, { key: 'Enter', keyCode: 229, isComposing: true });
@@ -307,7 +307,7 @@ test('inline composer ignores empty title, blur and IME Enter but submits delibe
   fireEvent.keyDown(title, { key: 'Enter' }); await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
 });
 test('offline inline Add closes only after durable handoff and the row exposes truthful retry status', async () => {
-  api.post.mockRejectedValue(new Error('offline')); await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  api.post.mockRejectedValue(new Error('offline')); await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
   fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Offline follow-up' } }); fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   expect(await screen.findByText('Offline follow-up')).toBeInTheDocument(); expect(screen.queryByLabelText('Open item title')).toBeNull();
   expect(await within(screen.getByRole('region', { name: 'Open' })).findByText(/Sync paused.*On this device/)).toBeInTheDocument();
@@ -315,7 +315,7 @@ test('offline inline Add closes only after durable handoff and the row exposes t
   expect(api.post.mock.calls[1][1]).toEqual(api.post.mock.calls[0][1]);
 });
 test('unsafe inline draft is retained through departure protection and original account recovery', async () => {
-  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
   const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
   fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Keep in this page' } });
   expect(screen.getByRole('alert')).toHaveTextContent(/not saved on this device/);
@@ -327,7 +327,7 @@ test('unsafe inline draft is retained through departure protection and original 
 });
 
 test('recovery Copy includes unsafe Open writing and Discard and leave actually leaves', async () => {
-  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
   const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
   fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Recover this question' } });
   fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
@@ -339,7 +339,7 @@ test('recovery Copy includes unsafe Open writing and Discard and leave actually 
 });
 
 test('competing Open drafts remain selectable and submitting one preserves the other', async () => {
-  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
   fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'First tab title' } });
   const second = createWorkSession({ token: localStorage.getItem('token'), api }); await second.load();
   second.open.draft('a'); second.open.change('a', { title: 'Second tab title' });

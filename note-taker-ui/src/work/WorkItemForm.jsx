@@ -30,8 +30,7 @@ export default function WorkItemForm({ item, defaults = {}, today, notes, folder
     <fieldset><legend>Lives in</legend>
       <div className="work-item-path">
         <select aria-label="Item folder" value={value.folder} onChange={event => change('folder', event.target.value)}><option value="">Work inbox</option>{folders.filter(folder => !folder.archivedAt || folder._id === value.folder).map(folder => <option value={folder._id} key={folder._id}>{folder.name}{folder.archivedAt ? ' · archived' : ''}</option>)}</select>
-        {projects.length ? <><span aria-hidden="true">›</span><select aria-label="Item project" value={value.project} onChange={event => change('project', event.target.value)}><option value="">No project</option>{projects.filter(project => !project.archivedAt || project._id === value.project).map(project => <option value={project._id} key={project._id}>{project.name}{project.archivedAt ? ' · done' : ''}</option>)}</select></> : null}
-        <span aria-hidden="true">›</span>
+        {projects.length ? <select aria-label="Item project" value={value.project} onChange={event => change('project', event.target.value)}><option value="">No project</option>{projects.filter(project => !project.archivedAt || project._id === value.project).map(project => <option value={project._id} key={project._id}>{project.name}{project.archivedAt ? ' · done' : ''}</option>)}</select> : null}
         <select disabled={Boolean(item?.origin)} aria-label="Link to note" value={value.noteId} onChange={event => change('noteId', event.target.value)}><option value="">No linked note</option>{notes.map(note => <option value={note._id || note.clientId} key={note.clientId}>{noteTitle(note)}{note.trashedAt ? ' (in Trash)' : ''}</option>)}</select>
       </div>
       <WorkItemSource origin={item?.origin} quote />

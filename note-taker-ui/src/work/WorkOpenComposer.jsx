@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
+import { KIND_LABEL } from './workPlannerModel';
 
 export default function WorkOpenComposer({ noteId, session, timeZone, request, onFinish, folders = [] }) {
   const draft = session.open.draft(noteId), error = session.open.status(noteId);
@@ -21,7 +22,7 @@ export default function WorkOpenComposer({ noteId, session, timeZone, request, o
     const id = session.open.submit(noteId, timeZone);
     if (id) { collapse(); session.flush(id); }
   };
-  if (!expanded) return <button ref={trigger} className="work-add-followup is-quiet" onClick={() => { focus.current = true; setExpanded(true); }}>{draft.title ? 'Continue Open draft' : 'Add a follow-up'}</button>;
+  if (!expanded) return <button ref={trigger} className="work-add-followup is-quiet" onClick={() => { focus.current = true; setExpanded(true); }}>{draft.title ? 'Continue Open draft' : 'Add a to-do'}</button>;
   return <form className="work-open-composer" aria-label="Add an Open item" onSubmit={event => { event.preventDefault(); submit(); }} onKeyDown={event => {
     if (event.key === 'Escape' && !composing.current && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); collapse(); }
   }}>
@@ -32,8 +33,8 @@ export default function WorkOpenComposer({ noteId, session, timeZone, request, o
       if (!composing.current && !event.nativeEvent.isComposing && event.keyCode !== 229) submit();
     }} />
     <div className="work-open-controls">
-      <select aria-label="Open item kind" disabled={Boolean(draft.submission)} value={draft.kind} onChange={event => session.open.change(noteId, { kind: event.target.value })}><option value="task">Follow-up</option><option value="question">Open question</option></select>
-      <label className="work-open-destination">Notebook<select aria-label="Follow-up notebook" disabled={Boolean(draft.submission)} value={draft.folder !== undefined ? draft.folder : session.entry(noteId)?.folder?._id || session.entry(noteId)?.folder || ''} onChange={event => session.open.change(noteId, { folder: event.target.value })}><option value="">Work inbox</option>{folders.filter(folder => !folder.archivedAt).map(folder => <option key={folder._id} value={folder._id}>{folder.name}</option>)}</select></label>
+      <select aria-label="Open item kind" disabled={Boolean(draft.submission)} value={draft.kind} onChange={event => session.open.change(noteId, { kind: event.target.value })}><option value="task">{KIND_LABEL.task}</option><option value="question">{KIND_LABEL.question}</option></select>
+      <label className="work-open-destination">Notebook<select aria-label="To-do notebook" disabled={Boolean(draft.submission)} value={draft.folder !== undefined ? draft.folder : session.entry(noteId)?.folder?._id || session.entry(noteId)?.folder || ''} onChange={event => session.open.change(noteId, { folder: event.target.value })}><option value="">Work inbox</option>{folders.filter(folder => !folder.archivedAt).map(folder => <option key={folder._id} value={folder._id}>{folder.name}</option>)}</select></label>
       <div className="work-open-actions"><button type="button" onClick={() => { if (draft.submission || session.open.cancel(noteId)) collapse(); }}>{draft.submission ? 'Close' : 'Cancel'}</button><button className="work-open-add" type="submit" disabled={!draft.title.trim()}>{draft.submission ? 'Retry' : 'Add'}</button></div>
     </div>
     <small className="work-open-link">Source words stay in this note</small>

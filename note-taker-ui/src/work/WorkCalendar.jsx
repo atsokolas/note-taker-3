@@ -7,7 +7,7 @@ import { deviceTimeZone, displayDay, shiftDay, weekDays, writtenDay } from './wo
 import WorkDayTasks, { dayTasks } from './WorkDayTasks';
 
 // The week line sits over every Work page. On Today it is followed by the day itself, read top to bottom like a page in a day book:
-// its appointments and follow-ups, what is carried from earlier, what was written, the margin.
+// its appointments and to-dos, what is carried from earlier, what was written, the margin.
 export default function WorkCalendar({ day, today, mode, onMode, onDay, items, notes, query, folders, projects = [], timeZone = deviceTimeZone(), page, mark, drag, onOpen, onRenameNote, onTrashNote, onStart, onEdit, onAction, onNew, onPlan, margin, oneThing, sense, showTasks = true }) {
   const frame = useRef(null), contents = useRef(null), animation = useRef(null), origin = useRef(null);
   const [now, setNow] = useState(() => new Date());
@@ -63,7 +63,7 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, n
   const taskRow = (item, aside = null) => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} onAction={onAction} onEdit={onEdit} aside={aside} />;
   const appointmentRow = item => <WorkAppointmentRow key={item.id} item={item} folders={folders} projects={projects} onStart={onStart} onEdit={onEdit} status={when(item)} />;
   const counted = (n, one, many = `${one}s`) => n ? `${n} ${n === 1 ? one : many}` : '';
-  const parts = [counted(selectedAppointments.length, 'appointment'), counted(plan(day).filter(item => !item.completed).length, 'follow-up'), carried.length ? `${carried.length} carried from earlier` : ''].filter(Boolean);
+  const parts = [counted(selectedAppointments.length, 'appointment'), counted(plan(day).filter(item => !item.completed).length, 'to-do'), carried.length ? `${carried.length} carried from earlier` : ''].filter(Boolean);
   const daySentence = parts.length ? `${parts.join(', ').replace(/, ([^,]*)$/, ' and $1').replace(/^./, c => c.toUpperCase())}.` : 'A clear day.';
   return <section className={`work-calendar mode-${mode}`} aria-label="Work planner">
     {page ? <header className="work-day-header"><h1 className="work-page-title">{day === today ? 'Today' : displayDay(day)}</h1>{day === today ? <p><time dateTime={day}>{displayDay(day)}</time></p> : null}</header> : null}

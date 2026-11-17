@@ -514,6 +514,9 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-menu > summary::-webkit-details-marker { display: none; }
 .work-menu-body { position: absolute; top: 100%; right: 0; width: min(360px, calc(100vw - 40px)); max-height: min(65svh, 600px); overflow: auto; padding: 16px; background: var(--noeis-paper); color: var(--noeis-ink); border: 1px solid var(--noeis-rule); box-shadow: var(--noeis-shadow-soft); font: 13px/1.6 var(--font-sans); }
 .work-note-information .work-menu-body { left: 0; right: auto; }
+/* The note's one ··· menu reads in groups, Note, Paragraph and Link, with Delete last. */
+.work-menu-group { margin: 12px 0 4px; color: var(--noeis-ink-subtle); font: 500 11px/1.4 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; }
+.work-menu-group:first-child { margin-top: 0; }
 .work-menu-body :is(input,select,textarea) { max-width: 100%; min-width: 0; min-height: 44px; border: 0; border-bottom: 1px solid var(--noeis-rule); background: transparent; color: var(--noeis-ink); font: inherit; }
 .work-menu-body :is(form,label) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .work-menu-body > :is(button,nav,label,form) { margin-bottom: 8px; }
@@ -524,12 +527,10 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-menu-body .work-week-step:not(:first-child) { grid-column: 3; grid-row: 1; }
 .work-menu-body .work-day-heading { padding-inline: 2px; font: 12px/1.4 var(--font-sans); }
 .work-menu-body .work-week-toggle { grid-column: 1 / -1; }
-.work-menu-body .work-return { width: 100%; }
-.work-notes .work-menu-body .work-return textarea { font: inherit; }
 .work-save-state { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font: 13px var(--font-sans); color: var(--noeis-ink-muted); }
 .work-note-location { margin-right: auto; }
-/* Each dated entry opens under its date, set a step above the writing and scaled from it. The entry's chevron, like Open's, hangs in the margin so dates and writing share one edge. */
-.work-writing .ProseMirror > h2.work-entry-date { margin: 48px 0 12px calc(-1 * var(--work-entry-toggle)); color: var(--noeis-ink); font: 600 1.2em/1.3 var(--font-sans); letter-spacing: -.01em; overflow-wrap: normal; }
+/* Each dated entry opens under a quiet date line, so the writing stays the loudest thing on the page. The entry's chevron, like Open's, hangs in the margin so dates and writing share one edge. */
+.work-writing .ProseMirror > h2.work-entry-date { margin: 40px 0 8px calc(-1 * var(--work-entry-toggle)); color: var(--noeis-ink-muted); font: 500 13px/1.3 var(--font-sans); letter-spacing: .02em; overflow-wrap: normal; }
 .work-writing .ProseMirror > h2.work-entry-date:first-child { margin-top: 0; }
 .work-writing .ProseMirror > h2.work-entry-date + * { margin-top: 0; }
 .work-notes .work-entry-toggle { position: relative; display: inline-grid; place-items: center; width: var(--work-entry-toggle); height: 1.3em; min-height: 0; padding: 0; vertical-align: top; color: var(--noeis-ink-subtle); }
@@ -571,7 +572,6 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-shelf-note-row .work-menu-body { position: fixed; top: auto; left: 24px; right: auto; width: 216px; z-index: 30; }
 .work-note-header { border-bottom: 1px solid var(--noeis-rule); margin-bottom: 28px; flex-wrap: wrap; }
 .work-note-heading { flex-wrap: wrap; }
-.work-note-heading .work-delete-note { margin-left: auto; font: 13px var(--font-sans); color: var(--noeis-ink-muted); }
 .work-dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
 .work-dialog-heading > button { font-size: 24px; line-height: 1; }
 .work-inspector { position: fixed; inset: var(--noeis-topbar-height, 64px) 0 0 auto; margin: 0; width: 410px; max-width: 100%; height: calc(100svh - var(--noeis-topbar-height, 64px)); max-height: none; padding: 28px; border-width: 0 0 0 1px; box-shadow: none; }
@@ -608,9 +608,8 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-priority-slots label:has(:disabled) span { cursor: not-allowed; opacity: .55; }
 .work-priority-slots label:has(:checked) span { background: var(--noeis-thread-strong); border-color: var(--noeis-thread-strong); color: var(--noeis-paper); opacity: 1; }
 .work-priority-slots small { margin-left: 4px; font-size: 12px; color: var(--noeis-ink-subtle); }
-.work-item-path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; font-size: 13.5px; }
-.work-item-path select { appearance: none; max-width: 100%; border: 0; border-bottom: 1px solid var(--noeis-rule-strong); border-radius: 0; background: transparent; padding: 2px 0; color: var(--noeis-ink); font: inherit; text-overflow: ellipsis; cursor: pointer; }
-.work-item-path > span { padding: 0 8px; color: var(--noeis-ink-subtle); }
+.work-item-path { display: flex; align-items: center; gap: 12px; font-size: 13.5px; }
+.work-item-path select { flex: 1 1 0; min-width: 0; appearance: none; max-width: 100%; border: 0; border-bottom: 1px solid var(--noeis-rule-strong); border-radius: 0; background: transparent; padding: 2px 0; color: var(--noeis-ink); font: inherit; text-overflow: ellipsis; cursor: pointer; }
 .work-item-path select:disabled { border-bottom-style: dashed; color: var(--noeis-ink-muted); cursor: default; }
 .work-item-form .work-actions { position: sticky; bottom: -28px; background: var(--noeis-paper); border-top: 1px solid var(--noeis-rule); margin-top: 28px; padding: 16px 0; }
 .work-inspector button[type=submit] { border: 1px solid var(--noeis-thread-strong); border-radius: var(--noeis-radius-sm); background: var(--noeis-active); }
