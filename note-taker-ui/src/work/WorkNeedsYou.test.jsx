@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import WorkNotes from './WorkNotes';
 import { WorkDayClose, morning } from './WorkNeedsYou.jsx';
 import WorkCalendar from './WorkCalendar';
+import { weekDays } from './workPlannerModel';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn() }));
@@ -201,4 +202,18 @@ test('the dashboard opens Next, Someday and Done without extra clicks, including
   work('today');
   await within(await screen.findByRole('region', { name: 'Needs you' })).findByText('Next visible task');
   sections().forEach(section => expect(section.open).toBe(true));
+});
+
+test('a task linked to a weekly priority shows under that priority, not again in Next', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  records.push(
+    { _id: 'linked', revision: 0, title: 'Linked task', takenOn: today, workItem: { kind: 'task', list: 'next', sortedOn: today, history: [] } },
+    { _id: 'loose', revision: 0, title: 'Loose task', takenOn: today, workItem: { kind: 'task', list: 'next', sortedOn: today, history: [] } },
+    { _id: 'week', revision: 0, title: 'Week', takenOn: today, workItem: { kind: 'week', plannedOn: weekDays(today)[0], priorities: [{ id: 'p', title: 'Ship the pilot', taskIds: ['linked'], status: 'active', reviewed: true, carriedFrom: null }], history: [] } }
+  );
+  work('today');
+  const needs = within(await screen.findByRole('region', { name: 'Needs you' }));
+  await needs.findByText('Loose task');
+  expect(needs.queryByText('Linked task')).toBeNull();
+  expect(within(screen.getByRole('region', { name: 'Ship the pilot' })).getByText('Linked task')).toBeInTheDocument();
 });
