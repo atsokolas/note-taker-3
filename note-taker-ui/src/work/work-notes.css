@@ -514,6 +514,9 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-menu > summary::-webkit-details-marker { display: none; }
 .work-menu-body { position: absolute; top: 100%; right: 0; width: min(360px, calc(100vw - 40px)); max-height: min(65svh, 600px); overflow: auto; padding: 16px; background: var(--noeis-paper); color: var(--noeis-ink); border: 1px solid var(--noeis-rule); box-shadow: var(--noeis-shadow-soft); font: 13px/1.6 var(--font-sans); }
 .work-note-information .work-menu-body { left: 0; right: auto; }
+/* The note's one ··· menu reads in groups, Note, Paragraph and Link, with Delete last. */
+.work-menu-group { margin: 12px 0 4px; color: var(--noeis-ink-subtle); font: 500 11px/1.4 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; }
+.work-menu-group:first-child { margin-top: 0; }
 .work-menu-body :is(input,select,textarea) { max-width: 100%; min-width: 0; min-height: 44px; border: 0; border-bottom: 1px solid var(--noeis-rule); background: transparent; color: var(--noeis-ink); font: inherit; }
 .work-menu-body :is(form,label) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .work-menu-body > :is(button,nav,label,form) { margin-bottom: 8px; }
@@ -524,8 +527,6 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-menu-body .work-week-step:not(:first-child) { grid-column: 3; grid-row: 1; }
 .work-menu-body .work-day-heading { padding-inline: 2px; font: 12px/1.4 var(--font-sans); }
 .work-menu-body .work-week-toggle { grid-column: 1 / -1; }
-.work-menu-body .work-return { width: 100%; }
-.work-notes .work-menu-body .work-return textarea { font: inherit; }
 .work-save-state { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font: 13px var(--font-sans); color: var(--noeis-ink-muted); }
 .work-note-location { margin-right: auto; }
 /* Each dated entry opens under its date, set a step above the writing and scaled from it. The entry's chevron, like Open's, hangs in the margin so dates and writing share one edge. */
@@ -571,7 +572,6 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-shelf-note-row .work-menu-body { position: fixed; top: auto; left: 24px; right: auto; width: 216px; z-index: 30; }
 .work-note-header { border-bottom: 1px solid var(--noeis-rule); margin-bottom: 28px; flex-wrap: wrap; }
 .work-note-heading { flex-wrap: wrap; }
-.work-note-heading .work-delete-note { margin-left: auto; font: 13px var(--font-sans); color: var(--noeis-ink-muted); }
 .work-dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
 .work-dialog-heading > button { font-size: 24px; line-height: 1; }
 .work-inspector { position: fixed; inset: var(--noeis-topbar-height, 64px) 0 0 auto; margin: 0; width: 410px; max-width: 100%; height: calc(100svh - var(--noeis-topbar-height, 64px)); max-height: none; padding: 28px; border-width: 0 0 0 1px; box-shadow: none; }

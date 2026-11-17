@@ -15,7 +15,7 @@ jest.mock('react-router-dom', () => {
   } };
 });
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn(() => global.localStorage.removeItem('token')) }));
-jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh, heading, tools }) => <>{heading}<textarea aria-label="Work note writing" autoFocus={fresh} value={note.content || ''} onChange={e => onChange({ content: e.target.value })} />{tools}</>);
+jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh, heading, footer, onRename, onTrash }) => <>{heading}<button onClick={onRename}>Rename</button><button onClick={onTrash}>Delete note</button><textarea aria-label="Work note writing" autoFocus={fresh} value={note.content || ''} onChange={e => onChange({ content: e.target.value })} />{footer}</>);
 const deviceWords = () => JSON.stringify(Object.entries(localStorage).filter(([key]) => key.startsWith(draftKey('owner'))));
 const source = { _id: 'a', title: 'Charging windows', content: 'Original account', folder: 'f', revision: 2, occurredOn: '2026-10-26', withText: 'Mira', workingState: { revision: 2, nextTimeLine: { text: '  Check the window.\n', target: null } } };
 const older = { ...source, _id: 'b', title: 'Smaller depot', occurredOn: '2026-10-12', workingState: { revision: 1, nextTimeLine: { text: '' } } };
