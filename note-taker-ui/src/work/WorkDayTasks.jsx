@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { WorkTaskRow } from './WorkPlanItem';
+import React, { useContext, useRef, useState } from 'react';
+import { WorkTaskAssignment, WorkTaskRow } from './WorkPlanItem';
 import { displayDay, writtenDay } from './workPlannerModel';
 import WorkIcon from './WorkIcon';
 import { listOf } from './workOutstanding';
@@ -37,7 +37,9 @@ export default function WorkDayTasks({ day, today, items, notes, folders, onActi
       } else finish(result);
     } catch (failure) { failed(failure); }
   };
-  const { planned, carried } = dayTasks(items, notes, day, today);
+  // A to-do linked to a weekly priority is already listed under it, so Earlier leaves it out.
+  const linked = new Set((useContext(WorkTaskAssignment)?.priorities || []).flatMap(priority => priority.taskIds));
+  const { planned, carried: unplaced } = dayTasks(items, notes, day, today), carried = unplaced.filter(item => !linked.has(item.id));
   const row = (item, aside = null) => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} notes={notes} onOpen={onOpen} onAction={onAction} onEdit={onEdit} aside={aside} actions={day !== today && item.plannedOn !== day ? <button onClick={() => onAction(item.clientId, { type: 'plan', plannedOn: day })}>Move to {displayDay(day, { weekday: 'long' })}</button> : null} />;
   const label = day === today ? 'Today’s to-dos' : `${displayDay(day, { weekday: 'long' })}’s to-dos`;
   return <details className="work-day-tasks" open>
