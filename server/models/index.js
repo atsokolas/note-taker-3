@@ -3592,10 +3592,22 @@ citationSchema.index({ userId: 1, sourceId: 1, createdAt: -1 });
 
 const Citation = mongoose.model('Citation', citationSchema);
 
+/* A question the reader expects their library to answer, and the sources
+   that answer it. Whether recall still finds them is worked out each time
+   it is asked, never stored. */
+const recallCheckSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  question: { type: String, required: true, trim: true, maxlength: 500 },
+  expects: { type: [String], default: [] }
+}, { timestamps: true });
+
+const RecallCheck = mongoose.model('RecallCheck', recallCheckSchema);
+
 module.exports = {
   User,
   Handoff,
   Citation,
+  RecallCheck,
   Feedback,
   Recommendation,
   Folder,

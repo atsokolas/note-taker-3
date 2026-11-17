@@ -7,6 +7,8 @@ const { pencilOf } = require('../services/agentTokenService');
 const MAX_LIMIT = 25;
 const BRIEF_LIMIT = 16;
 const STANDING = 8;
+// How far down recall's answers a named source may sit and still count as found.
+const KNOWS_TOP = 8;
 
 // The kind an outside agent opens a hit as: a marked passage is a highlight,
 // a wiki page carrying a held view is that view.
@@ -68,7 +70,7 @@ const standing = async ({ userId, models: { Article, NotebookEntry, WikiPage, Qu
   };
 };
 
-const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, Citation = null, semanticSearch = null }) => {
+const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, Citation = null, RecallCheck = null, humanOnly = (_req, _res, next) => next(), semanticSearch = null }) => {
   const router = express.Router();
   const models = { Article, NotebookEntry, TagMeta, WikiPage, Question };
   // Aggregations do not cast ids the way finds do.
@@ -137,6 +139,39 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
     if (!Citation) return res.json({ usedIn: [] });
     const rows = await Citation.find({ userId: req.user.id, sourceId: String(req.params.id) }).sort({ createdAt: -1 }).limit(20).lean();
     return res.json({ usedIn: rows.map(row => ({ where: row.where, agent: row.by.agent, at: row.createdAt })) });
+  });
+
+  /* "Does Noeis know me?": the questions the reader expects their library to
+     answer, each asked of recall now, and whether the sources they named come
+     back among the first few. */
+  const knows = async (userId, check) => {
+    const hits = await recall({ userId, query: check.question, limit: KNOWS_TOP, models, semanticSearch });
+    const rank = hits.findIndex(hit => check.expects.includes(hit.id));
+    return { id: String(check._id), question: check.question, expects: check.expects, found: rank >= 0, ...(rank >= 0 ? { rank: rank + 1 } : {}) };
+  };
+
+  router.get('/api/knows', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      const checks = await Promise.all((await RecallCheck.find({ userId: req.user.id }).sort({ createdAt: 1 }).lean()).map(check => knows(userOf(req), check)));
+      return res.json({ found: checks.filter(check => check.found).length, of: checks.length, checks });
+    } catch (error) {
+      console.error('[knows] failed', error.message);
+      return res.status(500).json({ error: 'Your questions could not be asked.' });
+    }
+  });
+
+  router.post('/api/knows', authenticateToken, humanOnly, async (req, res) => {
+    const question = String(req.body?.question || '').trim().slice(0, 500);
+    const expects = (Array.isArray(req.body?.expects) ? req.body.expects : []).map(String).filter(id => mongoose.isValidObjectId(id));
+    if (!question || !expects.length) return res.status(400).json({ error: 'Ask a question and name what answers it.' });
+    const check = await RecallCheck.create({ userId: req.user.id, question, expects });
+    return res.status(201).json(await knows(userOf(req), check));
+  });
+
+  router.delete('/api/knows/:id', authenticateToken, humanOnly, async (req, res) => {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).end();
+    await RecallCheck.deleteOne({ _id: req.params.id, userId: req.user.id });
+    return res.status(204).end();
   });
 
   return router;

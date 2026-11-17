@@ -152,6 +152,13 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     route: '/away',
     navigationGroup: 'secondary'
   }),
+  // Whether recall still finds what answers the reader's own questions.
+  surface({
+    id: 'surface.knows',
+    name: 'What Noeis knows',
+    route: '/knows',
+    navigationGroup: 'secondary'
+  }),
   surface({
     id: 'surface.how-to-use',
     name: 'Help',

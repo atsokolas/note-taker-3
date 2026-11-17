@@ -122,6 +122,7 @@ const {
   AgentHandoff,
   Handoff,
   Citation,
+  RecallCheck,
   AgentArtifactDraft,
   AgentRun,
   AgentProposedChange,
@@ -5331,6 +5332,8 @@ app.use(buildRecallRouter({
   Question,
   Handoff,
   Citation,
+  RecallCheck,
+  humanOnly: requireHumanReader,
   semanticSearch
 }));
 

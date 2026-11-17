@@ -29,6 +29,15 @@ const Citation = {
   })
 };
 
+const checks = [{ _id: 'c1', question: 'What have I written about hiring?', expects: [NOTE] }, { _id: 'c2', question: 'What did I save about sourdough?', expects: [ARTICLE] }];
+const RecallCheck = {
+  find: jest.fn(() => {
+    const query = { sort: () => query, lean: async () => checks };
+    return query;
+  }),
+  create: jest.fn(async row => ({ _id: 'c3', ...row }))
+};
+
 const start = async () => {
   const app = express();
   app.use(express.json());
@@ -39,6 +48,7 @@ const start = async () => {
       next();
     },
     Citation,
+    RecallCheck,
     Article: model([{ _id: ARTICLE, title: 'Base rates', content: 'Start from the base rate before the story.', highlights: [{ _id: 'h1', text: 'Interviews predict little about hiring.', note: 'Remember for the hiring loop.' }, { _id: 'h2', text: 'The story comes after the rate.', note: 'A guess of mine.', pencil: { agent: 'Codex' } }], updatedAt: new Date() }]),
     NotebookEntry: model([{ _id: NOTE, title: 'Hiring', content: 'Hire for slope, not intercept, when hiring engineers.', pencil: { agent: 'Claude Code' }, updatedAt: new Date() }]),
     TagMeta: model([{ _id: CONCEPT, name: 'Base rates', description: 'Start from how often things like this usually go.', updatedAt: new Date() }]),
@@ -54,6 +64,16 @@ describe('recall routes', () => {
   let server; let url;
   beforeAll(async () => { ({ server, url } = await start()); });
   afterAll(() => server.close());
+
+  it('asks recall the reader\'s own questions and says which it still answers with the source they named', async () => {
+    const body = await fetch(`${url}/api/knows`).then(res => res.json());
+    expect([body.found, body.of]).toEqual([1, 2]);
+    expect(body.checks[0]).toMatchObject({ question: 'What have I written about hiring?', found: true });
+    expect(body.checks[1]).toMatchObject({ found: false });
+    const added = await fetch(`${url}/api/knows`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: 'Where did I read about base rates?', expects: [ARTICLE] }) });
+    expect(await added.json()).toMatchObject({ found: true, rank: 1 });
+    expect((await fetch(`${url}/api/knows`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: 'x' }) })).status).toBe(400);
+  });
 
   it('records where an agent put the reader\'s note to work, and shows it on the note', async () => {
     const cite = (body, agent) => fetch(`${url}/api/cite`, { method: 'POST', headers: { 'content-type': 'application/json', ...(agent ? { 'x-agent': agent } : {}) }, body: JSON.stringify(body) });
