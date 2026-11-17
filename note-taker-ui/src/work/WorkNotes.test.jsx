@@ -32,6 +32,11 @@ test('opens Work without personal rooms; search and inbox are scoped', async () 
   expect(within(screen.getByRole('complementary')).queryByRole('button', { name: /Charging windows/ })).toBeNull(); expect(screen.getByRole('button', { name: /Smaller depot/ })).toBeInTheDocument();
   expect(api.get.mock.calls.every(([path]) => path.startsWith('/api/work-notes'))).toBe(true);
 });
+test('the day picker lives on Today only', async () => {
+  await open(); expect(screen.getByText('Choose a day')).toBeInTheDocument();
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Inbox' }));
+  expect(screen.queryByText('Choose a day')).toBeNull();
+});
 test('new note is untitled and untouched capture closes without creating anything', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: 'New note' }));
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveFocus();

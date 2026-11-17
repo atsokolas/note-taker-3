@@ -36,6 +36,4 @@
 .work-project-log-row .work-log-entry { flex: 1; min-width: 0; border: 0; }
 .work-project-log-row > .work-menu { flex: 0 0 44px; }
 .work-project-log-heading { flex-wrap: wrap; }
-.work-project-log-heading > .work-calendar { flex: 1; min-width: 0; margin: 0; }
-.work-project-log-heading .work-calendar-picker { margin: 0; }
 @media (max-width: 1100px) { .work-project-studio { display: block; } .work-project-studio .work-project-page { display: block; } .work-project-context { margin-top: 24px; } }
