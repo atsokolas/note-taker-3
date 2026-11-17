@@ -9,6 +9,12 @@ export const validDay = day => typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.
 export const shiftDay = (day, count) => { const date = new Date(`${day}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + count); return date.toISOString().slice(0, 10); };
 export const weekDays = day => { const weekday = new Date(`${day}T12:00:00Z`).getUTCDay(); const monday = shiftDay(day, -(weekday || 7) + 1); return Array.from({ length: 7 }, (_, index) => shiftDay(monday, index)); };
 export const displayDay = (day, options = { weekday: 'long', day: 'numeric', month: 'short' }) => day ? new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...options }).format(new Date(`${day}T12:00:00Z`)).replace(',', '') : '';
+// 16–22 Nov, or 30 Nov – 6 Dec: a shared month is written once, as the weekly edition writes it.
+export const displayRange = (from, to, options = {}) => {
+  const end = displayDay(to, { day: 'numeric', month: 'short', ...options });
+  if (from.slice(0, 7) === to.slice(0, 7)) return `${Number(from.slice(8))}–${end}`;
+  return `${displayDay(from, { day: 'numeric', month: 'short', ...(from.slice(0, 4) === to.slice(0, 4) ? {} : options) })} – ${end}`;
+};
 export const KIND_LABEL = { task: 'Follow-up', question: 'Open question', appointment: 'Appointment' };
 export const itemMetadata = item => Object.fromEntries(['kind', 'noteId', 'plannedOn', 'dueOn', 'priority', 'startTime', 'endTime', 'list', 'waitingOn', 'sortedOn', 'returnOn', 'oneThingOn', 'origin'].filter(key => item?.[key] !== undefined).map(key => [key, item[key]]));
 
