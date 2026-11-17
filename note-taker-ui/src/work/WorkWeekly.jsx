@@ -75,6 +75,8 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
     if (!busy) session.setWeeklyDraft?.(pending || newTitle.trim() || editing || taskDraft ? { week, newTitle, editing, editTitle, pending, taskDraft } : null);
   }, [session, week, newTitle, editing, editTitle, pending, busy, taskDraft]);
   const navigate = next => { if (disabled || newTitle.trim() || editing || taskDraft) { setMessage('Finish or cancel your edit before changing weeks.'); return; } setWeek(next); setAdding(false); setReview(false); setEditing(''); setMessage(''); };
+  // While one priority's title is being edited or a to-do is being added, the other priorities' menus wait, so no save drops that draft.
+  const held = priority => disabled || Boolean(taskDraft) || Boolean(editing && editing !== priority.id);
   const changePriority = (id, patch) => save(priorities.map(priority => priority.id === id ? { ...priority, ...patch } : priority), week, record?.revision ?? null);
   const link = (taskId, priorityId, beforeId) => {
     if (editing) { setMessage('Save or cancel the priority title before moving tasks.'); return; }
@@ -146,10 +148,10 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
         const settled = linked.length > 0 && done === linked.length && linked.every(task => !task.pending);
         return <li key={priority.id}><section aria-label={priority.title} className={`work-weekly-priority ${dropTarget === priority.id ? 'is-drop-target' : ''}`} onDragOver={event => { if (!past && !disabled && acceptsTask(event)) { event.preventDefault(); setDropTarget(priority.id); } }} onDrop={event => drop(event, priority.id)}>
         <header><h2><button className="work-priority-toggle" aria-expanded={!collapsed[`${week}:${priority.id}`]} aria-controls={`${disclosureId}-${priority.id}`} onClick={() => setCollapsed(value => ({ ...value, [`${week}:${priority.id}`]: !value[`${week}:${priority.id}`] }))}><WorkIcon name={collapsed[`${week}:${priority.id}`] ? 'right' : 'down'} /><span className="work-weekly-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>{priority.title}</button></h2>{!past ? <WorkMenu actions label={`Manage ${priority.title}`} icon="more" className="work-weekly-manage">
-          <button disabled={disabled || Boolean(taskDraft) || Boolean(editing && editing !== priority.id)} onClick={() => { setCollapsed(value => ({ ...value, [`${week}:${priority.id}`]: false })); setEditing(priority.id); setEditTitle(priority.title); }}>Rename</button>
-          <button disabled={disabled} onClick={() => changePriority(priority.id, { status: 'complete', reviewed: true })}>Complete priority</button>
-          <button disabled={disabled} onClick={() => changePriority(priority.id, { status: 'deferred', reviewed: true })}>Move to next week</button>
-          <hr /><button className="work-destructive" disabled={disabled} onClick={() => changePriority(priority.id, { status: 'dropped', reviewed: true })}>Remove priority</button>
+          <button disabled={held(priority)} onClick={() => { setCollapsed(value => ({ ...value, [`${week}:${priority.id}`]: false })); setEditing(priority.id); setEditTitle(priority.title); }}>Rename</button>
+          <button disabled={held(priority)} onClick={() => changePriority(priority.id, { status: 'complete', reviewed: true })}>Complete priority</button>
+          <button disabled={held(priority)} onClick={() => changePriority(priority.id, { status: 'deferred', reviewed: true })}>Move to next week</button>
+          <hr /><button className="work-destructive" disabled={held(priority)} onClick={() => changePriority(priority.id, { status: 'dropped', reviewed: true })}>Remove priority</button>
         </WorkMenu> : null}</header>
         <div id={`${disclosureId}-${priority.id}`} hidden={Boolean(collapsed[`${week}:${priority.id}`])}>
         {priority.carriedFrom ? <p className="work-weekly-carried">Carried from week of {shortDate(priority.carriedFrom)}{!priority.reviewed && !past ? ' · ready to review' : ''}</p> : null}

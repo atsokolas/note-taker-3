@@ -254,3 +254,11 @@ test('a priority keeps its actions in one ··· menu with Remove priority last'
   fireEvent.click(within(menu).getByRole('button', { name: 'Remove priority' }));
   await waitFor(() => expect(session.saveWeek.mock.calls.at(-1)[1][0]).toMatchObject({ id: 'p', status: 'dropped' }));
 });
+test('another priority waits while one title is being edited', () => {
+  records[0].workItem.priorities = [priority, { ...priority, id: 'q', title: 'Ship the landing page', taskIds: [] }];
+  render(<WorkWeekly {...props} />);
+  const menu = title => screen.getByLabelText(`Manage ${title}`).closest('details');
+  fireEvent.click(within(menu('Apply to accelerators')).getByRole('button', { name: 'Rename' }));
+  fireEvent.change(screen.getByLabelText('Rename Apply to accelerators'), { target: { value: 'Unsaved title' } });
+  within(menu('Ship the landing page')).getAllByRole('button').forEach(button => expect(button).toBeDisabled());
+});
