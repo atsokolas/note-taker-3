@@ -17,7 +17,8 @@ describe('public NOEIS agent discovery', () => {
       args: ['mcp']
     })]);
     expect(JSON.stringify(contract)).not.toMatch(/https:\/\/www\.noeis\.io\/mcp/i);
-    expect(contract.authorization.supportedScopes).toEqual(['read', 'agent-write']);
+    expect(contract.authorization.supportedScopes).toEqual(['read', 'agent-write', 'work']);
+    expect(contract.authorization.scopeRules['agent-write']).toMatch(/pencil/);
     expect(contract.authorization.defaultScope).toBe('read');
     expect(contract.verification.tool).toBe('connection_info');
     expect(contract.verification.contentRead).toBe(false);

@@ -6,7 +6,7 @@ import { NoeisClient } from '../src/client.js';
 import policy from '../src/chatgptAccessPolicy.cjs';
 const connect = async (accessProfile, grantedScopes, overrides = {}) => {
   let writes = 0;
-  const server = createMcpServer({ accessProfile, grantedScopes, client: {
+  const server = createMcpServer({ accessProfile, grantedScopes, toolsets: 'all', client: {
     getConnectionInfo: async () => ({ workspace: { id: 'owner' } }),
     fileEditionItems: async () => { writes++; return { added: 1 }; },
     ...overrides

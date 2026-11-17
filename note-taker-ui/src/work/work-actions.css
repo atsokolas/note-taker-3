@@ -1,0 +1,16 @@
+.work-notes .work-action-menu[open] { z-index: 40; }
+.work-notes .work-action-menu .work-menu-body { position: fixed; inset: auto; z-index: 40; width: 220px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 6px; border-radius: 10px; background: var(--noeis-paper); border: 1px solid var(--noeis-rule); box-shadow: var(--noeis-shadow-soft); }
+.work-notes .work-action-menu .work-menu-body > button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 40px; margin: 0; padding: 8px 10px; border-radius: 5px; color: var(--noeis-ink); font: 14px/1.4 var(--font-sans); text-align: left; }
+.work-notes .work-action-menu .work-icon { width: 18px; height: 18px; flex-basis: 18px; }
+.work-notes .work-menu-body hr { margin: 5px 4px; border: 0; border-top: 1px solid var(--noeis-rule); }
+.work-notes .work-menu-body > button.work-destructive { color: var(--noeis-danger, var(--danger, #c45043)); }
+.work-inline-rename { min-width: 0; max-width: 100%; }
+.work-inline-rename > div { display: flex; align-items: center; border: 1px solid var(--noeis-action); border-radius: 6px; padding: 2px 4px; }
+.work-inline-rename:focus-within > div { outline: 1px solid var(--noeis-action); }
+.work-notes .work-inline-rename input { min-width: 0; width: 100%; flex: 1; border: 0; background: transparent; color: var(--noeis-ink); font: inherit; padding: 6px; outline: none; }
+.work-notes .work-inline-rename button { flex: 0 0 40px; padding: 8px; min-height: 40px; }
+.work-inline-rename small { display: block; margin-top: 7px; color: var(--noeis-ink-muted); font: 12px/1.4 var(--font-sans); }
+@media (pointer: coarse) { .work-notes .work-action-menu .work-menu-body > button { min-height: 44px; } }
+
+.work-project-title { min-width: 0; }
+.work-project-title .work-inline-rename { font: 32px/1.25 var(--font-serif); width: min(32rem, 100%); }

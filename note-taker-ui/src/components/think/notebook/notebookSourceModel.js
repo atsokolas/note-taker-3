@@ -23,7 +23,7 @@ export const resolveNotebookSource = (entry) => {
       highlightId,
       label: clean(sourceBlock?.articleTitle) || 'the saved source',
       href: buildCanonicalHighlightPath({ articleId, highlightId }),
-      eyebrow: 'Ariadne thread · Library',
+      eyebrow: 'From your Library',
       action: 'Return to source'
     };
   }

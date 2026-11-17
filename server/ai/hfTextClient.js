@@ -1097,9 +1097,12 @@ const chatCompleteWithConfig = async ({
   });
 };
 
+// onlyClaude keeps a request off every other upstream, for writing that must not leave Claude.
+const isClaudeConfigured = () => Boolean(getAnthropicConfig());
 const chatComplete = async (input = {}) => {
   const allowUpstreamFallback = !Array.isArray(input.modelRoutes) || input.modelRoutes.length === 0;
-  const configs = getConfigChain({ allowFallback: allowUpstreamFallback });
+  const configs = input.onlyClaude ? [getAnthropicConfig()].filter(Boolean) : getConfigChain({ allowFallback: allowUpstreamFallback });
+  if (!configs.length) throw buildError({ status: 503, message: 'Claude is not configured.', detail: 'ANTHROPIC_API_KEY not configured', upstream: 'anthropic' });
   const attempts = [];
   let lastError = null;
 
@@ -1397,6 +1400,7 @@ module.exports = {
   chatComplete,
   chatCompleteStream,
   getConfig,
+  isClaudeConfigured,
   isTextGenerationConfigured,
   parseStructuredText,
   __testables: {

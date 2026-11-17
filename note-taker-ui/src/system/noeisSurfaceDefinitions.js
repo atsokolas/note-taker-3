@@ -47,7 +47,7 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     route: '/library',
     navigationGroup: 'primary',
     verb: 'Read',
-    orientation: 'Recover source material and understand where it came from.',
+    orientation: 'Everything you have saved, and where each line came from.',
     authenticatedPrefixes: ['/library', '/articles', '/all-highlights', '/tags', '/collections', '/views', '/search', '/export']
   }),
   /* The books you read with the desk open beside them. Every mark made there
@@ -68,7 +68,7 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     route: '/think',
     navigationGroup: 'primary',
     verb: 'Develop',
-    orientation: 'Work an unfinished idea without pretending it is settled.',
+    orientation: 'Notes on ideas that are not settled yet.',
     authenticatedPrefixes: ['/think', '/concepts', '/concept', '/notebook', '/questions', '/question', '/board', '/boards', '/studio-board', '/map', '/review', '/return-queue']
   }),
   surface({
@@ -78,7 +78,7 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     route: '/wiki',
     navigationGroup: 'primary',
     verb: 'Keep',
-    orientation: 'Read and maintain knowledge you have chosen to keep.',
+    orientation: 'Pages on what you know, built from what you read.',
     activePrefixes: ['/', '/wiki', '/paper'],
     authenticatedPrefixes: ['/wiki', '/paper', '/today'],
     match: ({ pathname = '' } = {}) => pathname === '/' || prefixMatch(pathname, ['/wiki', '/paper'])
@@ -96,7 +96,7 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     route: '/editions',
     navigationGroup: 'primary',
     verb: 'Read',
-    orientation: 'Papers your agents keep for you, filed through the wiki MCP.',
+    orientation: 'Papers your agents write and keep up to date.',
     activePrefixes: ['/editions'],
     authenticatedPrefixes: ['/editions']
   }),
@@ -107,7 +107,7 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     route: '/judgment',
     navigationGroup: 'primary',
     verb: 'Decide',
-    orientation: 'Make and revisit consequential calls against their evidence.',
+    orientation: 'Calls you have made, with the evidence, to check later.',
     authenticatedPrefixes: ['/judgment', '/mirror', '/welcome']
   }),
   /* Private writing for your job: meetings, follow-ups, the week. It is a
@@ -125,14 +125,18 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     name: 'Connections',
     route: '/connections#sources',
     navigationGroup: 'utility',
-    activePrefixes: ['/connections', '/integrations', '/data-integrations'],
+    activePrefixes: ['/connections', '/integrations', '/data-integrations', '/settings/connected-agents'],
     authenticatedPrefixes: ['/connections', '/integrations', '/data-integrations']
   }),
+  /* Approving an agent lives under /settings for old links, but it is
+     Connections work, so Connections is the place the masthead marks. */
   surface({
     id: 'surface.settings',
     name: 'Settings',
     route: '/settings',
-    navigationGroup: 'utility'
+    navigationGroup: 'utility',
+    match: (location = {}) => prefixMatch(location.pathname, ['/settings'])
+      && !prefixMatch(location.pathname, ['/settings/connected-agents'])
   }),
   surface({
     id: 'surface.growth',
@@ -143,7 +147,7 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
   }),
   surface({
     id: 'surface.how-to-use',
-    name: 'How To Use',
+    name: 'Help',
     route: '/how-to-use',
     navigationGroup: 'secondary'
   })

@@ -1,35 +1,21 @@
 import {
   buildFailure,
-  extraSentenceNotice,
   linkLabel,
-  markMatches,
   passageTitle,
   pageLede,
   pageState,
-  passagesHeadline,
   readPastedReading,
+  readingList,
   readwiseReceipt,
   savedOn,
+  sourceTopics,
   topicProblem,
-  viewProblem,
   tookPath,
   tookReceipt,
   writtenFrom
 } from './welcomeModel';
 
 describe('welcomeModel', () => {
-  it('asks for a sentence, not a topic', () => {
-    expect(viewProblem('Costco')).toMatch(/sentence someone could disagree with/);
-    expect(viewProblem('Costco is hard to compete with.')).toBe('');
-    expect(viewProblem('')).toBe('');
-  });
-
-  it('says so when only the first of several sentences will be held', () => {
-    expect(extraSentenceNotice('Costco is hard to beat. Its fees prove it.')).toMatch(/first sentence/);
-    expect(extraSentenceNotice('Costco is hard to beat.')).toBe('');
-    expect(extraSentenceNotice('Costco is hard to beat')).toBe('');
-  });
-
   it('reads links out of whatever was pasted, once each', () => {
     const { urls } = readPastedReading('Read https://a.com/x, then https://b.com/y.\nhttps://a.com/x');
     expect(urls).toEqual(['https://a.com/x', 'https://b.com/y']);
@@ -53,17 +39,16 @@ describe('welcomeModel', () => {
       .toBe('Remote teams that write things down make better decisions…');
   });
 
-  it('counts passages in words', () => {
-    expect(passagesHeadline(1)).toBe('One passage you saved bears on this.');
-    expect(passagesHeadline(3)).toBe('Three passages you saved bear on this.');
-    expect(passagesHeadline(12)).toBe('12 passages you saved bear on this.');
+  it('names what is being read, three at most', () => {
+    expect(readingList([])).toBe('your sources');
+    expect(readingList(['A'])).toBe('“A”');
+    expect(readingList(['A | Site', 'B'])).toBe('“A” and “B”');
+    expect(readingList(['A', 'B', 'C', 'D', 'E'])).toBe('“A”, “B”, “C” and two more');
   });
 
-  it('marks the words that brought a passage here, and nothing else', () => {
-    const segments = markMatches('Written decisions outlast meetings.', ['written', 'meeting']);
-    expect(segments.filter(segment => segment.match).map(segment => segment.text)).toEqual(['Written', 'meetings.']);
-    expect(segments.map(segment => segment.text).join('')).toBe('Written decisions outlast meetings.');
-    expect(markMatches('Nothing here.', [])).toEqual([{ text: 'Nothing here.', match: false }]);
+  it('turns source titles into topics, without the site name', () => {
+    expect(sourceTopics(['The Psychology of Money | Collab Fund', 'Loss aversion - Wikipedia', 'Loss aversion'])).toEqual(['The Psychology of Money', 'Loss aversion']);
+    expect(sourceTopics(['A title far too long to stand as the name of one wiki page at all'])).toEqual([]);
   });
 
   it('says what came in from Readwise in plain numbers', () => {

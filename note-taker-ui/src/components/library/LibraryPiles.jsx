@@ -263,7 +263,7 @@ const SetAsidePile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
               className="library-pile__sheet-dismiss"
               onClick={() => setOpen(false)}
             >
-              Close the stack
+              Close
             </button>
             <ul ref={listRef} className="library-pile__list">
               {articles.map((article) => (
@@ -285,7 +285,7 @@ const SetAsidePile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
             ))}
             {overflowed ? <span className="library-pile__more">5+</span> : null}
           </span>
-          <span>Open the stack</span>
+          <span>Show all</span>
         </button>
       )}
     </section>

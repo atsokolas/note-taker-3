@@ -8,7 +8,7 @@
   --reading-paper: var(--noeis-paper, #fffdf8);
   --reading-panel: var(--noeis-paper-muted, #f4eee2);
   --reading-thread: var(--noeis-thread-strong, #8b5f1d);
-  --reading-serif: var(--noeis-font-editorial, 'Newsreader', Georgia, serif);
+  --reading-serif: var(--noeis-font-editorial, var(--noeis-font-reading));
   --reading-sans: var(--noeis-font-ui, system-ui);
   display: grid;
   grid-template-columns: 148px minmax(0, 1fr);

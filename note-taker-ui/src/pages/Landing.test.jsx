@@ -1,50 +1,16 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import * as router from 'react-router-dom';
+import { fireEvent, render, screen } from '@testing-library/react';
 import Landing from './Landing';
-import { getPublicProofRegistry } from '../api/wiki';
 import { trackMarketingCta } from '../utils/marketingAnalytics';
 import HOME from '../seo/homeCopy.json';
-
-jest.mock('../api/wiki', () => ({
-  getPublicProofRegistry: jest.fn()
-}));
 
 jest.mock('../utils/marketingAnalytics', () => ({
   trackMarketingCta: jest.fn()
 }));
 
 describe('Landing', () => {
-  let navigate;
-
-  beforeEach(() => {
-    jest.restoreAllMocks();
-    localStorage.clear();
-    navigate = jest.fn();
-    jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
-    getPublicProofRegistry.mockResolvedValue({
-      homepageCta: {
-        href: '/share/wiki/alphabet-berkshire-2-0',
-        title: 'Alphabet is Berkshire Hathaway 2.0'
-      },
-      items: [{
-        publicUrl: '/share/wiki/alphabet-berkshire-2-0',
-        page: { title: 'Alphabet is Berkshire Hathaway 2.0' },
-        proofGrade: {
-          grade: 'proven',
-          acceptedAt: '2026-07-16T00:00:00.000Z',
-          criteria: {
-            explicitlyAccepted: true,
-            acceptedVersion: true,
-            materialEvent: true,
-            sourceGrounded: true,
-            acceptanceBound: true
-          }
-        }
-      }]
-    });
-  });
+  beforeEach(() => jest.clearAllMocks());
 
   const open = () => render(
     <MemoryRouter initialEntries={['/']}>
@@ -52,34 +18,24 @@ describe('Landing', () => {
     </MemoryRouter>
   );
 
-  it('says what Noeis helps a newcomer do', async () => {
+  it('says what Noeis is, shows a page of it, and offers one way in', () => {
     open();
-    expect(screen.getByRole('heading', { name: HOME.headline })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: HOME.headline })).toBeInTheDocument();
     expect(screen.getByText(HOME.lede)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: HOME.specimen.title })).toBeInTheDocument();
     HOME.statements.forEach(({ title, copy }) => {
       expect(screen.getByText(title)).toBeInTheDocument();
       expect(screen.getByText(copy)).toBeInTheDocument();
     });
-    expect(screen.getByText(/Connect Claude Code, Codex and other agents/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '#how-it-works');
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login');
-    expect(screen.queryByText(/Nothing is written until you accept it/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/An agent brings evidence overnight/)).not.toBeInTheDocument();
-    await screen.findByRole('button', { name: 'Open a living dossier' });
   });
 
-  it('links the living dossier as a supporting action, not a hero CTA', async () => {
+  it('opens account setup straight from Get started', () => {
     open();
-    const cta = await screen.findByRole('button', { name: 'Open a living dossier' });
-    await waitFor(() => expect(cta).toHaveAttribute('data-target', '/share/wiki/alphabet-berkshire-2-0'));
-
-    fireEvent.click(cta);
-
-    expect(trackMarketingCta).toHaveBeenCalledWith(expect.objectContaining({
-      page: 'home',
-      cta: 'living-dossier',
-      target: '/share/wiki/alphabet-berkshire-2-0'
-    }));
-    expect(navigate).toHaveBeenCalledWith('/share/wiki/alphabet-berkshire-2-0');
+    const start = screen.getByRole('link', { name: HOME.primaryCta.label });
+    expect(start.getAttribute('href')).toMatch(/^\/register\?via=marketing&entry=home&cta=hero/);
+    fireEvent.click(start);
+    expect(trackMarketingCta).toHaveBeenCalledWith(expect.objectContaining({ page: 'home', cta: 'hero' }));
   });
 });

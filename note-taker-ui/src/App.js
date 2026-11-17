@@ -23,7 +23,6 @@ import {
   persistUiSettingsToStorage
 } from './settings/uiPreferences';
 import { formatAppearanceValue } from './settings/appearanceFieldModel';
-import { TemporaryAppearanceProvider, TemporaryAppearanceBar } from './settings/TemporaryAppearanceContext';
 import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
@@ -265,7 +264,7 @@ export const isPublicPage = (pathname = '') => (
   isPublicSharePath(pathname) || isDesignPreviewPath(pathname) || PUBLIC_PAGES.has(pathname)
 );
 
-const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
+const PublicRoutes = ({ handleLoginSuccess }) => {
   const location = useLocation();
   const isShareRoute = isPublicSharePath(location.pathname);
   const isLongformRoute = (
@@ -312,6 +311,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
           <Route path="/share/notebooks/:slug" element={<RetiredShare kind="notebooks" />} />
           <Route path="/share/volumes/:slug" element={<RetiredShare kind="volumes" />} />
           <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
+          <Route path="/share/wiki/collection/:idOrSlug/:entryId" element={<SharedWikiCollectionPage />} />
           <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
           <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
           <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
@@ -321,7 +321,6 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
             path="/register"
             element={(
               <Register
-                chromeStoreLink={chromeStoreLink}
                 onLoginSuccess={handleLoginSuccess}
               />
             )}
@@ -331,7 +330,6 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
             element={(
               <Login
                 onLoginSuccess={handleLoginSuccess}
-                chromeStoreLink={chromeStoreLink}
               />
             )}
           />
@@ -767,16 +765,16 @@ function App() {
         onClick: () => setProductFeedbackOpen(true)
       },
       {
-        label: 'Chrome Extension',
+        label: 'Chrome extension',
         href: chromeStoreLink,
         external: true
       },
       {
-        label: 'Logout',
+        label: 'Log out',
         onClick: handleLogout
       }
     ];
-    const moreNavItems = secondaryNavItems.filter((item) => item.label !== 'Connections');
+    
     const utilityNavItems = getTopBarUtilityNavItems();
 
     const routes = (
@@ -849,6 +847,7 @@ function App() {
                   onAppearanceCommit={handleAppearanceCommit}
                   onAppearanceUndo={handleAppearanceUndo}
                   onOpenThemePicker={openThemePicker}
+                  onLogout={handleLogout}
                 />
               )}
             />
@@ -892,15 +891,6 @@ function App() {
     );
 
     return (
-      <TemporaryAppearanceProvider
-        committedSettings={uiSettings}
-        onKeepTemporary={(draft) => handleAppearanceCommit(
-          Object.fromEntries(
-            Object.entries(draft).filter(([key, value]) => uiSettings[key] !== value)
-          ),
-          draft
-        )}
-      >
       <AppShell
         surface={surface}
         /* One Partner, the same in every room: ⌘J or its button opens it. */
@@ -911,7 +901,7 @@ function App() {
             routeLocation={shellLocation}
             primaryNav={primaryNavItems}
             utilityNav={utilityNavItems}
-            secondaryNav={moreNavItems}
+            secondaryNav={secondaryNavItems}
             searchMode="field"
             onSearchOpen={openPalette}
             accountMenuItems={topBarAccountMenuItems}
@@ -939,9 +929,7 @@ function App() {
         )}
       >
         {routes}
-        <TemporaryAppearanceBar />
       </AppShell>
-      </TemporaryAppearanceProvider>
     );
   };
 
@@ -952,7 +940,7 @@ function App() {
         <Analytics />
         <AppRouterContent
           isAuthenticated={isAuthenticated}
-          publicRouteProps={{ chromeStoreLink, handleLoginSuccess }}
+          publicRouteProps={{ handleLoginSuccess }}
           renderLayout={renderAppLayout}
           openPalette={openPalette}
           setShortcutOverlayOpen={setShortcutOverlayOpen}

@@ -46,7 +46,7 @@ const LibraryClaimModal = ({ open, highlight, onClose, onCreate }) => {
     try {
       await onCreate({ claim: sentence, resolutionCriteria: criteria.trim(), highlight });
     } catch (holdError) {
-      setError(holdError?.response?.data?.error || 'That claim did not save.');
+      setError(holdError?.response?.data?.error || 'That view didn’t save. Try again.');
       setSaving(false);
     }
   };
@@ -56,8 +56,8 @@ const LibraryClaimModal = ({ open, highlight, onClose, onCreate }) => {
       <div className="modal-content library-claim-modal" style={{ maxWidth: 560 }}>
         <div className="modal-header">
           <div>
-            <h3>Hold this as a belief</h3>
-            <p className="muted small">It joins the ledger, dated today.</p>
+            <h3>Save as a view</h3>
+            <p className="muted small">Saved with today’s date.</p>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="Close">×</button>
         </div>
@@ -95,7 +95,7 @@ const LibraryClaimModal = ({ open, highlight, onClose, onCreate }) => {
           />
           {/* The reason this field is worth filling, said once. */}
           <small className="muted">
-            Named here, your watchers look for it. Left empty, nothing is watching.
+            Name it and Noeis watches your reading for it.
           </small>
         </label>
 

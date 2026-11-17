@@ -199,7 +199,7 @@ export const buildMarketingFunnelViewModel = (snapshot = {}) => {
       key: 'wiki_source_attached',
       label: 'Sources attached',
       value: totals.wikiSourceAttached,
-      context: 'Evidence provenance added'
+      context: 'Sources added to a claim'
     },
     {
       key: 'wiki_draft_generated',

@@ -141,7 +141,7 @@ const requireReceipt = (receipt, { kind, action, pageId, decisionId, acceptedRev
     || (acceptedRevisionId && provenance.acceptedRevisionId !== acceptedRevisionId)
     || (requestId && provenance.requestId !== requestId)
   ) {
-    throw new Error('Decision receipt is malformed or mismatched.');
+    throw new Error('Decision response is malformed or mismatched.');
   }
 };
 

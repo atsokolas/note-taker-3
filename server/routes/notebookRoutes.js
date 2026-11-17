@@ -1,6 +1,8 @@
+const { escapeRegExp } = require('../utils/searchSnippet');
+const { pencilOf } = require('../services/agentTokenService');
 const { plainNotebookText } = require('../services/authoredWorkDiscovery');
 const { recordRevision, snapshotOf } = require('../services/entryHistory');
-const { sanitizeNotebookWorkbench, sanitizeNotebookTarget } = require('../utils/notebookWorkbench');
+const { notebookCuttings, sanitizeNotebookWorkbench, sanitizeNotebookTarget } = require('../utils/notebookWorkbench');
 const { passageFromTarget } = require('../utils/notebookWordingOptions');
 const { generateNotebookWordingOptions } = require('../services/notebookWordingOptionsService');
 const express = require('express');
@@ -165,6 +167,7 @@ const buildNotebookRouter = ({
               folder: 1,
               type: 1,
               board: 1,
+              pencil: 1,
               'workingState.nextTimeLine.text': 1,
               ...(compact ? {} : {
                 claimId: 1, tags: 1, linkedArticleId: 1, linkedHighlightIds: 1, importMeta: 1,
@@ -232,6 +235,7 @@ const buildNotebookRouter = ({
       }
       const newEntry = new NotebookEntry({
         title: String(title || '').trim(),
+        pencil: pencilOf(req),
         content: content || '',
         blocks: nextBlocks,
         asidePieces: sanitizeAsidePieces(Array.isArray(asidePieces) ? asidePieces : []),
@@ -296,7 +300,7 @@ const buildNotebookRouter = ({
       const queryText = String(req.query.q || '').trim();
       const query = { userId, type: 'claim' };
       if (queryText) {
-        const regex = new RegExp(queryText, 'i');
+        const regex = new RegExp(escapeRegExp(queryText), 'i');
         query.$or = [
           { title: regex },
           { content: regex },
@@ -311,6 +315,22 @@ const buildNotebookRouter = ({
     } catch (error) {
       console.error("❌ Error fetching notebook claims:", error);
       res.status(500).json({ error: 'Failed to fetch claims.' });
+    }
+  });
+
+  /* Cuttings: every passage dimmed or set aside, across every piece. Read from
+     each note's working state; nothing is stored twice. */
+  router.get('/api/notebook/cuttings', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      const entries = await NotebookEntry.find(
+        { userId: req.user.id, $or: [{ 'workingState.dimmed.0': { $exists: true } }, { 'workingState.looseThoughts.0': { $exists: true } }] },
+        { title: 1, 'workingState.dimmed': 1, 'workingState.looseThoughts': 1 }
+      ).lean();
+      noStore(res);
+      return res.status(200).json(notebookCuttings(entries));
+    } catch (error) {
+      console.error('❌ Error gathering notebook cuttings:', error);
+      return res.status(500).json({ error: 'Your cuttings could not be gathered.' });
     }
   });
 
@@ -472,9 +492,12 @@ const buildNotebookRouter = ({
      moved and leaves updatedAt, revisions and the wiki alone. */
   router.patch('/api/notebook/:id/board', authenticateToken, async (req, res) => {
     try {
-      const { stage, archived } = req.body || {};
+      const { stage, archived, became } = req.body || {};
       if (stage !== undefined && !['idea', 'in_progress', 'done'].includes(stage)) {
         return res.status(400).json({ error: 'stage must be one of idea, in_progress, done.' });
+      }
+      if (became !== undefined && (typeof became !== 'string' || stage !== 'done')) {
+        return res.status(400).json({ error: 'became is a line of words, sent when closing a piece.' });
       }
       if (archived !== undefined && typeof archived !== 'boolean') {
         return res.status(400).json({ error: 'archived must be true or false.' });
@@ -488,6 +511,7 @@ const buildNotebookRouter = ({
       const now = new Date();
       const $set = {};
       if (stage !== undefined) Object.assign($set, { 'board.stage': stage, 'board.movedAt': now });
+      if (became !== undefined) $set['board.became'] = became.replace(/\s+/g, ' ').trim().slice(0, 200);
       if (archived !== undefined) $set['board.archivedAt'] = archived ? now : null;
       const entry = await NotebookEntry.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.id },
@@ -767,6 +791,8 @@ const buildNotebookRouter = ({
       if (asidePieces !== undefined) {
         updates.asidePieces = sanitizeAsidePieces(Array.isArray(asidePieces) ? asidePieces : []);
       }
+      // The words are in the hand that last wrote them: an agent's in pencil, yours in ink.
+      if ([title, content, blocks].some(value => value !== undefined)) updates.pencil = pencilOf(req);
       if (folder !== undefined) updates.folder = asObjectIdOrNull(folder);
       if (tags !== undefined) updates.tags = normalizeTags(tags);
       if (linkedArticleId !== undefined) updates.linkedArticleId = asObjectIdOrNull(linkedArticleId);

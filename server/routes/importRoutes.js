@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { encryptSecret, decryptSecret } = require('../utils/integrationSecrets');
 const { absorbPassage, isUnfinished, passageIn } = require('../utils/passages');
+const { pencilOf } = require('../services/agentTokenService');
 const {
   blockToPlainText,
   buildNotionPropertyLines,
@@ -193,7 +194,8 @@ const buildImportRouter = ({
     provider = 'manual',
     sourceType = 'text',
     sourceLabel = 'Pasted source',
-    externalId = ''
+    externalId = '',
+    pencil = null
   } = {}) => {
     const safeContent = normalizeIngestText(content);
     if (!safeContent) {
@@ -225,6 +227,7 @@ const buildImportRouter = ({
         content: safeContent,
         userId,
         ...byline,
+        pencil,
         importMeta: {
           provider,
           sourceType,
@@ -293,7 +296,8 @@ const buildImportRouter = ({
         author: req.body?.author,
         provider: 'manual',
         sourceType: 'text',
-        sourceLabel: 'Pasted text'
+        sourceLabel: 'Pasted text',
+        pencil: pencilOf(req)
       });
       res.status(result.isNew ? 201 : 200).json({
         article: {
@@ -316,7 +320,7 @@ const buildImportRouter = ({
      Library when it is already read. Only those two trade places; a piece on
      the desk stays on the desk, nearer to hand. A folder files it, new or
      already held, and a reason says why it waits. */
-  const saveLink = async ({ userId, url: raw, placement: destination = '', folder = null, reason = '', title = '', author = '' }) => {
+  const saveLink = async ({ userId, url: raw, placement: destination = '', folder = null, reason = '', title = '', author = '', pencil = null }) => {
     const land = async (article, existing, extra = {}) => {
       const current = article.placement || 'stream';
       const placement = destination && current !== 'setAside' ? destination : current;
@@ -377,7 +381,8 @@ const buildImportRouter = ({
       provider: 'url',
       sourceType: 'url',
       sourceLabel: 'Pasted URL',
-      externalId: fetched.url
+      externalId: fetched.url,
+      pencil
     });
     return land(result.article, !result.isNew, {
       sourceEventId: result.sourceEvent?._id || null,
@@ -399,7 +404,8 @@ const buildImportRouter = ({
         placement: ['later', 'stream'].includes(req.body?.placement) ? req.body.placement : '',
         folder,
         title: req.body?.title,
-        author: req.body?.author
+        author: req.body?.author,
+        pencil: pencilOf(req)
       });
       return res.status(saved.existing ? 200 : 201).json(saved);
     } catch (error) {

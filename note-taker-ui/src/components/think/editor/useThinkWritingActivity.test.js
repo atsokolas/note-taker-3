@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import useThinkWritingActivity, { THINK_WRITING_IDLE_MS } from './useThinkWritingActivity';
+import useThinkWritingActivity, { THINK_WRITING_REACH_PX } from './useThinkWritingActivity';
 
 const WRITING_CLASS = 'think-rails-away';
 
@@ -58,36 +58,48 @@ describe('useThinkWritingActivity', () => {
     expect(document.body.classList.contains(WRITING_CLASS)).toBe(false);
   });
 
-  it('restores rails after typing goes idle', () => {
+  const pointer = (props) => document.dispatchEvent(Object.assign(new Event('pointermove'), { pointerType: 'mouse', ...props }));
+
+  it('keeps the page down through a pause', () => {
     const editor = createEditor();
     renderHook(() => useThinkWritingActivity(editor, { enabled: true }));
 
     act(() => editor.emit('update', { transaction: { docChanged: true } }));
-    act(() => {
-      jest.advanceTimersByTime(THINK_WRITING_IDLE_MS - 1);
-    });
+    act(() => { jest.advanceTimersByTime(60000); });
+
+    expect(document.body.classList.contains(WRITING_CLASS)).toBe(true);
+  });
+
+  it('brings the room back when the mouse travels, not when it trembles', () => {
+    const editor = createEditor();
+    renderHook(() => useThinkWritingActivity(editor, { enabled: true }));
+
+    act(() => editor.emit('update', { transaction: { docChanged: true } }));
+    act(() => pointer({ movementX: THINK_WRITING_REACH_PX / 2 }));
     expect(document.body.classList.contains(WRITING_CLASS)).toBe(true);
 
-    act(() => {
-      jest.advanceTimersByTime(1);
-    });
+    act(() => pointer({ movementY: THINK_WRITING_REACH_PX }));
     expect(document.body.classList.contains(WRITING_CLASS)).toBe(false);
   });
 
-  it('keeps rails retreated if typing resumes before idle', () => {
+  it('ignores touch and pen movement', () => {
     const editor = createEditor();
     renderHook(() => useThinkWritingActivity(editor, { enabled: true }));
 
     act(() => editor.emit('update', { transaction: { docChanged: true } }));
-    act(() => {
-      jest.advanceTimersByTime(THINK_WRITING_IDLE_MS - 200);
-    });
-    act(() => editor.emit('update', { transaction: { docChanged: true } }));
-    act(() => {
-      jest.advanceTimersByTime(THINK_WRITING_IDLE_MS - 1);
-    });
+    act(() => pointer({ pointerType: 'touch', movementX: 400 }));
 
     expect(document.body.classList.contains(WRITING_CLASS)).toBe(true);
+  });
+
+  it('brings the room back on Escape', () => {
+    const editor = createEditor();
+    renderHook(() => useThinkWritingActivity(editor, { enabled: true }));
+
+    act(() => editor.emit('update', { transaction: { docChanged: true } }));
+    act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+
+    expect(document.body.classList.contains(WRITING_CLASS)).toBe(false);
   });
 
   it('restores rails immediately on blur', () => {

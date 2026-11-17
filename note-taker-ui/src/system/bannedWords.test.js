@@ -4,7 +4,7 @@ const path = require('path');
 /**
  * The voice, enforced.
  *
- * Five words the product does not say. Each one is a place where software
+ * Eleven words the product does not say. Each one is a place where software
  * names its own plumbing instead of the reader's things:
  *
  *   items          — a source, a note, a page, a belief. Say which.
@@ -12,6 +12,12 @@ const path = require('path');
  *   content        — what you saved. "Content" is what a CMS calls it.
  *   notifications  — this product prints a paper; it does not notify.
  *   dashboard      — there is no dashboard here, and never should be.
+ *   receipt        — what a database keeps. Say saved, or not saved yet.
+ *   durable        — every note is kept; saying so makes it sound fragile.
+ *   provenance     — where it came from. Say that.
+ *   metadata       — the date, the folder, the people. Name them.
+ *   artifact       — a note, a page, a draft. Say which.
+ *   epistemic      — how sure. Say that.
  *
  * The scan reads user-facing copy only. A class name is not a sentence, a
  * path is not a sentence, and `article.content` is a field rather than a word
@@ -20,7 +26,7 @@ const path = require('path');
  */
 
 const SRC = path.join(__dirname, '..');
-const BANNED = ['items', 'entries', 'content', 'notifications', 'dashboard'];
+const BANNED = ['items', 'entries', 'content', 'notifications', 'dashboard', 'receipt', 'durable', 'provenance', 'metadata', 'artifact', 'epistemic'];
 
 /* The one exemption, and its reason.
 

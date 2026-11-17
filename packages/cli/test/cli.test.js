@@ -60,6 +60,22 @@ const run = async () => {
     if (requestUrl.pathname.endsWith('/api/wiki/schema') && init.method === 'GET') {
       return jsonResponse({ content: '# Wiki Schema' });
     }
+    if (requestUrl.pathname === '/api/recall') {
+      return jsonResponse({ query: requestUrl.searchParams.get('q'), results: [{ kind: 'note', id: 'n1', title: 'Hiring notes', passage: 'Hire for slope,\n not intercept.' }] });
+    }
+    if (requestUrl.pathname === '/api/recall/read/n1') {
+      return jsonResponse({ kind: 'note', id: 'n1', title: 'Hiring notes', text: 'Hire for slope, not intercept.' });
+    }
+    if (requestUrl.pathname === '/api/import/url') {
+      const { placement } = JSON.parse(init.body);
+      return jsonResponse({ article: { _id: 'a1', title: 'An essay', placement: placement || 'stream' }, existing: false });
+    }
+    if (requestUrl.pathname === '/api/import/text') {
+      return jsonResponse({ article: { _id: 'a2', title: JSON.parse(init.body).title } });
+    }
+    if (requestUrl.pathname === '/api/notebook') {
+      return jsonResponse({ _id: 'n2', ...JSON.parse(init.body) });
+    }
     if (requestUrl.pathname.endsWith('/api/wiki/activity')) {
       return jsonResponse({ events: [{ id: 'event-1', title: 'Ingested source', at: '2026-05-16T12:00:00.000Z' }] });
     }
@@ -94,6 +110,39 @@ const run = async () => {
 
   await runCli(['log', '--since', '1d'], { env, fetchImpl, io: makeIo().io });
   assert(seen.some(request => request.url.includes('/api/wiki/activity?limit=50&since=')));
+
+  const bodyOf = pathname => JSON.parse(seen.filter(request => new URL(request.url).pathname === pathname).pop().init.body);
+
+  /* search asks recall in the reader's own words and prints one hit a line. */
+  const searchIo = makeIo();
+  await runCli(['search', 'what', 'have', 'I', 'written', 'about', 'hiring', '--limit', '5'], { env, fetchImpl, io: searchIo.io });
+  const recalled = new URL(seen.find(request => request.url.includes('/api/recall?')).url);
+  assert.strictEqual(recalled.searchParams.get('q'), 'what have I written about hiring');
+  assert.strictEqual(recalled.searchParams.get('limit'), '5');
+  assert.strictEqual(searchIo.stdout, 'note\tn1\tHiring notes\n    Hire for slope, not intercept.\n');
+
+  const readIo = makeIo();
+  await runCli(['read', 'n1'], { env, fetchImpl, io: readIo.io });
+  assert.strictEqual(readIo.stdout, 'Hiring notes\n\nHire for slope, not intercept.\n');
+
+  /* save takes a link to the Library, or to the nightstand with --later,
+     and a file or standard input as text. */
+  const saveIo = makeIo();
+  await runCli(['save', '--later', 'https://example.com/essay'], { env, fetchImpl, io: saveIo.io });
+  assert.deepStrictEqual(bodyOf('/api/import/url'), { url: 'https://example.com/essay', placement: 'later' });
+  assert.strictEqual(saveIo.stdout, 'Saved to your nightstand: An essay (a1)\n');
+  await runCli(['save', 'https://example.com/essay'], { env, fetchImpl, io: makeIo().io });
+  assert.deepStrictEqual(bodyOf('/api/import/url'), { url: 'https://example.com/essay' });
+  await runCli(['save', '-', '--title', 'Transcript'], { env, fetchImpl, io: makeIo().io, readStdin: () => 'What the agent read.' });
+  assert.deepStrictEqual(bodyOf('/api/import/text'), { text: 'What the agent read.', title: 'Transcript' });
+
+  /* note writes to Think, titled by its first line unless told. */
+  const noteIo = makeIo();
+  await runCli(['note', 'Hiring is a bet on slope.'], { env, fetchImpl, io: noteIo.io });
+  assert.deepStrictEqual(bodyOf('/api/notebook'), { title: 'Hiring is a bet on slope.', content: 'Hiring is a bet on slope.', blocks: [{ type: 'paragraph', text: 'Hiring is a bet on slope.' }] });
+  assert.strictEqual(noteIo.stdout, 'Noted in Think: Hiring is a bet on slope. (n2)\n');
+  await runCli(['note', '-', '--title', 'Session'], { env, fetchImpl, io: makeIo().io, readStdin: () => 'Use <widget> here\n\nKeep this line.' });
+  assert.deepStrictEqual(bodyOf('/api/notebook').blocks, [{ type: 'paragraph', text: 'Use <widget> here' }, { type: 'paragraph', text: 'Keep this line.' }]);
 
   assert.strictEqual(DEFAULT_API_URL, 'https://note-taker-3-unrg.onrender.com');
 
@@ -194,7 +243,6 @@ const run = async () => {
   assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_CONFIG_DIR, connectConfigDir);
   assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
   assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_API_URL, 'https://api.test');
-  assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_MCP_TOOLSET, 'library-think-v1');
   assert.strictEqual(hermesConfig['noeis-wiki'], undefined);
   assert(connectIo.stdout.includes('Approve Hermes in your browser.'));
   assert(connectIo.stdout.includes('Connected Hermes with read-only Noeis access.'));
@@ -242,6 +290,27 @@ const run = async () => {
   );
   assert.strictEqual(fs.existsSync(path.join(mismatchDir, 'config.json')), false);
 
+  // --work asks for Work by name; a switch before the runtime still leaves the runtime named.
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-work-test-'));
+  const workSeen = [];
+  const workIo = makeIo();
+  await runCli(['connect', '--work', 'hermes', '--scope', 'read-write', '--no-browser', '--no-config', '--api-url', 'https://api.test'], {
+    env: { NOEIS_CONFIG_DIR: workDir },
+    fetchImpl: async (url, init = {}) => {
+      workSeen.push({ url: String(url), init });
+      const { pathname } = new URL(String(url));
+      if (pathname.endsWith('/api/agent-connect/sessions')) return jsonResponse({ session: { sessionId: 'nac_work', status: 'pending' }, pollSecret: 'p', authorizeUrl: 'https://noeis.example/a', pollIntervalSec: 1 });
+      if (pathname.endsWith('/poll')) return jsonResponse({ session: { status: 'approved' }, secret: 'ntk_at_work' });
+      return jsonResponse({ workspace: { label: 'NOEIS workspace' }, grant: { scopes: ['read', 'agent-write', 'work'] } });
+    },
+    io: workIo.io,
+    sleep: async () => {}
+  });
+  const workRequest = JSON.parse(workSeen.find(request => request.url.endsWith('/api/agent-connect/sessions')).init.body);
+  assert.deepStrictEqual(workRequest.scopes, ['read', 'agent-write', 'work']);
+  assert.strictEqual(workRequest.runtime, 'hermes');
+  assert(workIo.stdout.includes('Connected Hermes with read/write Noeis access, Work included.'));
+
   const openClawConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-openclaw-test-'));
   const openClawHome = path.join(openClawConfigDir, 'home');
   const openClawXdg = path.join(openClawConfigDir, 'xdg');
@@ -271,7 +340,6 @@ const run = async () => {
   const openClawXdgConfig = JSON.parse(fs.readFileSync(path.join(openClawXdg, 'openclaw', 'mcp.json'), 'utf8'));
   assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].command, 'noeis');
   assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
-  assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].env.NOEIS_MCP_TOOLSET, 'library-think-v1');
   const openClawRootConfig = JSON.parse(fs.readFileSync(path.join(openClawHome, '.openclaw', 'openclaw.json'), 'utf8'));
   assert.deepStrictEqual(openClawRootConfig.meta, {
     note: 'Old Noeis installer note that current OpenClaw rejects.'
@@ -282,7 +350,6 @@ const run = async () => {
   assert.deepStrictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].args, ['mcp']);
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_CONFIG_DIR, openClawConfigDir);
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
-  assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_MCP_TOOLSET, 'library-think-v1');
   assert.strictEqual(fs.statSync(path.join(openClawHome, '.openclaw', 'openclaw.json')).mode & 0o777, 0o600);
   assert(openClawIo.stdout.includes(path.join(openClawHome, '.openclaw', 'openclaw.json')));
 
@@ -302,11 +369,74 @@ const run = async () => {
     assert(codexToml.includes('command = "noeis"'));
     assert(codexToml.includes('args = ["mcp"]'));
     assert(codexToml.includes(`NOEIS_CONFIG_DIR = ${JSON.stringify(codexConfigDir)}`));
-    assert(codexToml.includes('NOEIS_MCP_TOOLSET = "library-think-v1"'));
     assert(!codexToml.includes('ntk_at_connected'));
   } finally {
     process.env.HOME = originalHome;
   }
+
+  /* Muse Code reads mcpServers in its settings; Grok Build reads the same
+     TOML table Codex does; neither copies the token. */
+  const agentHome = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-agents-test-'));
+  const connectAs = runtime => runCli(['connect', runtime, '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
+    env: { HOME: agentHome, XDG_CONFIG_HOME: path.join(agentHome, '.config'), NOEIS_CONFIG_DIR: agentHome, PATH: path.join(agentHome, 'bin') },
+    fetchImpl: connectFetch,
+    io: makeIo().io,
+    sleep: async () => {}
+  });
+  fs.mkdirSync(path.join(agentHome, '.config', 'muse'), { recursive: true });
+  fs.writeFileSync(path.join(agentHome, '.config', 'muse', 'settings.json'), JSON.stringify({ theme: 'dark', mcpServers: { other: { command: 'x' } } }));
+  await connectAs('muse');
+  const muse = JSON.parse(fs.readFileSync(path.join(agentHome, '.config', 'muse', 'settings.json'), 'utf8'));
+  assert.strictEqual(muse.theme, 'dark');
+  assert.deepStrictEqual(muse.mcpServers.other, { command: 'x' });
+  assert.deepStrictEqual([muse.mcpServers['noeis-wiki'].type, muse.mcpServers['noeis-wiki'].command, muse.mcpServers['noeis-wiki'].args], ['stdio', 'noeis', ['mcp']]);
+  assert(!JSON.stringify(muse).includes('ntk_at_connected'));
+
+  await connectAs('grok');
+  const grokToml = fs.readFileSync(path.join(agentHome, '.grok', 'config.toml'), 'utf8');
+  assert(grokToml.includes('[mcp_servers.noeis-wiki]') && grokToml.includes('args = ["mcp"]'));
+  assert(!grokToml.includes('ntk_at_connected'));
+
+  /* Desktop apps never see the shell's PATH, so they get absolute paths,
+     each in the file and shape that app reads. */
+  const appServer = { command: process.execPath, args: [new URL('../bin/noeis', import.meta.url).pathname, 'mcp'] };
+  const connectApp = (runtime, platform) => runCli(['connect', runtime, '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
+    env: { HOME: agentHome, XDG_CONFIG_HOME: path.join(agentHome, '.config'), NOEIS_CONFIG_DIR: agentHome, APPDATA: path.join(agentHome, 'Roaming') },
+    platform,
+    fetchImpl: connectFetch,
+    io: makeIo().io,
+    sleep: async () => {}
+  });
+  const readServer = (file, key) => JSON.parse(fs.readFileSync(path.join(agentHome, file), 'utf8'))[key]['noeis-wiki'];
+  await connectApp('claude-desktop', 'darwin');
+  assert.deepStrictEqual(readServer('Library/Application Support/Claude/claude_desktop_config.json', 'mcpServers'), { ...appServer, env: { NOEIS_CONFIG_DIR: agentHome, NOEIS_API_URL: 'https://api.test' } });
+  await connectApp('cursor', 'darwin');
+  assert.strictEqual(readServer('.cursor/mcp.json', 'mcpServers').command, process.execPath);
+  await connectApp('vscode', 'win32');
+  const vscode = readServer('Roaming/Code/User/mcp.json', 'servers');
+  assert.deepStrictEqual([vscode.type, vscode.command, vscode.args], ['stdio', process.execPath, appServer.args]);
+  assert(!fs.readFileSync(path.join(agentHome, 'Roaming/Code/User/mcp.json'), 'utf8').includes('ntk_at_connected'));
+
+  /* Without the claude CLI, the printed command carries the same server,
+     config directory included. */
+  const noClaude = makeIo();
+  await runCli(['connect', 'claude-code', '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
+    env: { HOME: agentHome, XDG_CONFIG_HOME: path.join(agentHome, '.config'), NOEIS_CONFIG_DIR: agentHome, PATH: path.join(agentHome, 'nowhere') },
+    fetchImpl: connectFetch,
+    io: noClaude.io,
+    sleep: async () => {}
+  });
+  assert(noClaude.stdout.includes(`claude mcp add-json --scope user noeis-wiki '{"type":"stdio","command":"noeis","args":["mcp"],"env":{"NOEIS_CONFIG_DIR":${JSON.stringify(agentHome)}`));
+
+  /* Claude Code is registered through its own CLI, at user scope. */
+  fs.mkdirSync(path.join(agentHome, 'bin'));
+  const claudeLog = path.join(agentHome, 'claude.log');
+  fs.writeFileSync(path.join(agentHome, 'bin', 'claude'), `#!/bin/sh\necho "$@" >> ${claudeLog}\n`, { mode: 0o755 });
+  await connectAs('claude-code');
+  const asked = fs.readFileSync(claudeLog, 'utf8').trim().split('\n');
+  assert.strictEqual(asked[0], 'mcp remove --scope user noeis-wiki');
+  assert.match(asked[1], /^mcp add-json --scope user noeis-wiki \{"type":"stdio","command":"noeis","args":\["mcp"\]/);
+  assert(!asked[1].includes('ntk_at_connected'));
 };
 
 run().catch((error) => {

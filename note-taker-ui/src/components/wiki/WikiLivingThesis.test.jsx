@@ -132,7 +132,7 @@ describe('WikiLivingThesis', () => {
     const editTrigger = screen.getByRole('button', { name: 'Edit thesis' });
     fireEvent.click(editTrigger);
 
-    const questionEditor = await screen.findByLabelText('Governing question');
+    const questionEditor = await screen.findByLabelText('The question');
     await waitFor(() => expect(questionEditor).toHaveFocus());
     expect(screen.queryByRole('heading', { name: thesisPage.judgment.governingQuestion })).not.toBeInTheDocument();
     expect(screen.queryByText('No current judgment recorded.')).not.toBeInTheDocument();

@@ -8,9 +8,16 @@ export const writtenDay = note => note?.takenOn || ((note?.capturedAt || note?.c
 export const validDay = day => typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) && !Number.isNaN(Date.parse(day)) && new Date(day).toISOString().slice(0, 10) === day;
 export const shiftDay = (day, count) => { const date = new Date(`${day}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + count); return date.toISOString().slice(0, 10); };
 export const weekDays = day => { const weekday = new Date(`${day}T12:00:00Z`).getUTCDay(); const monday = shiftDay(day, -(weekday || 7) + 1); return Array.from({ length: 7 }, (_, index) => shiftDay(monday, index)); };
-export const displayDay = (day, options = { weekday: 'long', day: 'numeric', month: 'short' }) => day ? new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...options }).format(new Date(`${day}T12:00:00Z`)).replace(',', '') : '';
-export const KIND_LABEL = { task: 'Follow-up', question: 'Open question', appointment: 'Appointment' };
-export const itemMetadata = item => Object.fromEntries(['kind', 'noteId', 'plannedOn', 'dueOn', 'priority', 'startTime', 'endTime'].filter(key => item?.[key] !== undefined).map(key => [key, item[key]]));
+// One way to say a day across Work: Mon 16 Nov.
+export const displayDay = (day, options = { weekday: 'short', day: 'numeric', month: 'short' }) => day ? new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...options }).format(new Date(`${day}T12:00:00Z`)).replace(',', '') : '';
+// 16–22 Nov, or 30 Nov – 6 Dec: a shared month is written once, as the weekly edition writes it.
+export const displayRange = (from, to, options = {}) => {
+  const end = displayDay(to, { day: 'numeric', month: 'short', ...options });
+  if (from.slice(0, 7) === to.slice(0, 7)) return `${Number(from.slice(8))}–${end}`;
+  return `${displayDay(from, { day: 'numeric', month: 'short', ...(from.slice(0, 4) === to.slice(0, 4) ? {} : options) })} – ${end}`;
+};
+export const KIND_LABEL = { task: 'To-do', question: 'Open question', appointment: 'Appointment' };
+export const itemMetadata = item => Object.fromEntries(['kind', 'noteId', 'plannedOn', 'dueOn', 'priority', 'startTime', 'endTime', 'list', 'waitingOn', 'sortedOn', 'returnOn', 'oneThingOn', 'origin'].filter(key => item?.[key] !== undefined).map(key => [key, item[key]]));
 
 // The same record is projected into its note, day and history. Pending actions
 // carry their original identity and action time until the server acknowledges them.
@@ -22,10 +29,10 @@ export function projectItem(note) {
   const undone = new Set();
   for (const event of [...history].reverse()) if (event.type === 'undo' && !undone.has(event.operationId)) undone.add(event.undoOf);
   const effective = history.filter(event => event.type !== 'undo' && !undone.has(event.operationId));
-  const status = effective.filter(event => ['complete', 'reopen'].includes(event.type)).at(-1);
+  const completions = effective.filter(event => ['complete', 'reopen'].includes(event.type)), status = completions.at(-1);
   const plans = effective.filter(event => event.type === 'plan'), plan = plans.at(-1);
   const previousPlannedOn = plan ? plans.at(-2)?.plannedOn || item.plannedOn : null;
-  return { ...note, ...item, id: note._id || note.clientId, history, pending: pending.length > 0, completed: status?.type === 'complete', completedAt: status?.type === 'complete' ? status.actionAt : null, completedTimeZone: status?.type === 'complete' ? status.timeZone : null, completion: status, previousPlannedOn, plannedOn: plan ? plan.plannedOn : item.plannedOn || null };
+  return { ...note, ...item, id: note._id || note.clientId, history, pending: pending.length > 0, completed: status?.type === 'complete', completedAt: status?.type === 'complete' ? status.actionAt : null, completedTimeZone: status?.type === 'complete' ? status.timeZone : null, completion: status, completions, previousPlannedOn, plannedOn: plan ? plan.plannedOn : item.plannedOn || null };
 }
 
 // "send comp bands fri", "IC meeting thu 2pm": a trailing day and time, read the way people say them.

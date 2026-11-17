@@ -30,21 +30,40 @@ const open = async (scope = '') => {
   render(<MemoryRouter initialEntries={['/think?context=work&date=2026-10-26&note=note' + scope]}><WorkNotes /></MemoryRouter>);
   const shelf = await screen.findByRole('complementary');
   fireEvent.click(await within(shelf).findByRole('button', { name: /Fieldwell · pilot follow-up/ }));
-  return screen.findByRole('textbox', { name: 'Work note writing' });
+  const writing = await screen.findByRole('textbox', { name: 'Work note writing' });
+  fireEvent.click(screen.getByLabelText('Note information'));
+  fireEvent.click(screen.getByRole('region', { name: 'Open' }).querySelector('summary'));
+  return writing;
 };
 const today = () => render(<MemoryRouter initialEntries={['/work?date=2026-10-26']}><WorkNotes /></MemoryRouter>);
 test('an open note keeps the week line with its written day marked, and its meeting date stays distinct', async () => {
   await open();
-  expect(screen.getByRole('button', { name: 'Monday 26 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent('In Customer discovery, written Monday 26 Oct, with Mira Chen.'); expect(screen.getByLabelText('Occurred on')).toHaveValue('2026-10-23');
-  fireEvent.click(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true }));
-  expect(await screen.findByRole('heading', { name: 'Tuesday 27 October' })).toBeInTheDocument(); expect(screen.queryByRole('textbox', { name: 'Work note writing' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Mon 26 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent('In Customer discovery, written Mon 26 Oct, with Mira Chen.'); expect(screen.getByLabelText('Occurred on')).toHaveValue('2026-10-23');
+  fireEvent.click(screen.getByRole('button', { name: 'Tue 27 Oct', exact: true }));
+  expect(await screen.findByRole('heading', { name: 'Tue 27 Oct' })).toBeInTheDocument(); expect(screen.queryByRole('textbox', { name: 'Work note writing' })).toBeNull();
 });
 test('a note written in another week brings its own week onto the line', async () => {
   render(<MemoryRouter initialEntries={['/work?date=2026-11-09']}><WorkNotes /></MemoryRouter>);
   const shelf = within(await screen.findByRole('complementary')); fireEvent.click(await shelf.findByRole('button', { name: 'Customer discovery' }));
   fireEvent.click(await shelf.findByRole('button', { name: /Fieldwell · pilot follow-up/ }));
-  expect(await screen.findByRole('button', { name: 'Monday 26 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(await screen.findByLabelText('Note information'));
+  expect(await screen.findByRole('button', { name: 'Mon 26 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true');
+});
+test('the note information calendar still opens a full week without replacing the writing', async () => {
+  const writing = await open();
+  fireEvent.click(screen.getByText('Choose a day'));
+  const week = screen.getByRole('button', { name: 'Week', exact: true }); week.focus(); fireEvent.click(week);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Week', exact: true })).toHaveFocus());
+  expect(document.querySelector('.work-page > .work-calendar.mode-week')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Week', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(writing).toHaveTextContent('Keep these authored words.');
+  fireEvent.click(screen.getByLabelText('Note information'));
+  const closeWeek = screen.getByRole('button', { name: 'Close week' }); closeWeek.focus(); fireEvent.click(closeWeek);
+  await waitFor(() => expect(screen.getByLabelText('Note information')).toHaveFocus());
+  expect(document.querySelector('.work-page > .work-calendar')).toBeNull();
+  expect(writing).toHaveTextContent('Keep these authored words.');
+  expect(api.put).not.toHaveBeenCalled();
 });
 test('dragging a note onto a place in the rail shows it arriving there, and the drop files it like the place line', async () => {
   today(); const written = within(await screen.findByRole('region', { name: 'Written Monday' })).getByRole('button', { name: /Fieldwell/ });
@@ -61,7 +80,7 @@ test('dragging a note onto a place in the rail shows it arriving there, and the 
 test('completing a follow-up produces one dated top record and Undo restores the same item without changing prose', async () => {
   await open(); const section = screen.getByRole('region', { name: 'Open' });
   fireEvent.click(within(section).getByRole('checkbox', { name: 'Confirm service-training dates' }));
-  const completed = await screen.findByRole('region', { name: 'Completed follow-ups' }); expect(completed).toHaveTextContent('Confirm service-training dates');
+  const completed = await screen.findByRole('region', { name: 'Completed to-dos' }); expect(completed).toHaveTextContent('Confirm service-training dates');
   await waitFor(() => expect(records.find(x => x._id === 'task').workItem.history).toHaveLength(1));
   expect(records.find(x => x._id === 'note').content).toBe(original);
   fireEvent.click(within(completed).getByRole('button', { name: 'Undo', exact: true }));
@@ -90,9 +109,9 @@ test('a new folder from the place line is where the open note goes', async () =>
   expect(records.find(x => x.content?.includes('Placed writing')).folder).not.toBe('f');
 });
 test('planning a new note question is explicit and retains its note identity in the day', async () => {
-  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
-  const dialog = await screen.findByRole('dialog', { name: 'New Work item' }); fireEvent.change(within(dialog).getByLabelText('Item'), { target: { value: 'Which site is ready first?' } });
-  fireEvent.change(within(dialog).getByLabelText('Kind'), { target: { value: 'question' } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Save item' }));
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
+  expect(screen.queryByRole('dialog')).toBeNull(); fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Which site is ready first?' } });
+  fireEvent.change(screen.getByLabelText('Open item kind'), { target: { value: 'question' } }); fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   await waitFor(() => expect(records.some(x => x.title === 'Which site is ready first?')).toBe(true));
   const saved = records.find(x => x.title === 'Which site is ready first?'); expect(saved.workItem.noteId).toBe('note'); expect(saved.workItem.plannedOn || null).toBe(null);
 });
@@ -103,26 +122,27 @@ test('filing linked items reports a partial failure honestly and Undo restores e
   fireEvent.click(within(place).getByRole('button', { name: 'Customer discovery' })); fireEvent.click(within(place).getByRole('button', { name: 'Launch planning' }));
   const dialog = await screen.findByRole('dialog', { name: 'Move note' }); fireEvent.click(within(dialog).getByRole('checkbox'));
   fireEvent.click(within(dialog).getByRole('button', { name: 'Move note', exact: true }));
-  await waitFor(() => expect(screen.getByText(/Some filing changes need sync or review/)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/A few moves didn’t save/)).toBeInTheDocument());
   expect(screen.queryByText('Filed in Launch planning.')).toBeNull(); expect(records.find(x => x._id === 'note').content).toBe(original);
   fireEvent.click(screen.getByRole('button', { name: 'Undo', exact: true }));
   await waitFor(() => expect(records.find(x => x._id === 'note').folder).toBe('f'));
   expect(records.find(x => x._id === 'task').folder).toBe('f');
 });
 test('arrow keys move between days in the week', async () => {
-  today(); const monday = await screen.findByRole('button', { name: 'Monday 26 Oct', exact: true });
+  today(); const monday = await screen.findByRole('button', { name: 'Mon 26 Oct', exact: true });
   fireEvent.keyDown(monday, { key: 'ArrowRight' });
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true'));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Tue 27 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true'));
 });
 test.each(['task', 'appointment'])('standalone %s conflicts open both versions rather than a save dead end', async kind => {
   records.push({ _id: 'standalone', revision: 0, title: 'Standalone work', content: '', workItem: { kind, plannedOn: '2026-10-26', startTime: '15:00', endTime: '15:30', history: [] } });
   today(); fireEvent.click(await screen.findByRole('button', { name: 'Week', exact: true }));
-  fireEvent.click(screen.getByRole('button', { name: kind === 'appointment' ? 'Edit appointment Standalone work' : 'Edit Standalone work', exact: true }));
-  const form = await screen.findByRole('dialog', { name: kind === 'appointment' ? 'Edit appointment' : 'Edit follow-up' });
+  if (kind !== 'appointment') fireEvent.click(screen.getByLabelText('Actions for Standalone work'));
+  fireEvent.click(kind === 'appointment' ? screen.getByRole('button', { name: 'Edit appointment Standalone work', exact: true }) : within(screen.getByLabelText('Actions for Standalone work').closest('details')).getByRole('button', { name: 'Edit to-do' }));
+  const form = await screen.findByRole('dialog', { name: kind === 'appointment' ? 'Edit appointment' : 'Edit to-do' });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'standalone'), revision: 1, title: 'Other device version' } } } });
-  fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My version' } }); fireEvent.click(within(form).getByRole('button', { name: 'Save item' }));
-  const review = await screen.findByRole('dialog', { name: 'Review both item versions' }); expect(review).toHaveTextContent('Other device version'); expect(review).toHaveTextContent('My version');
-  fireEvent.click(within(review).getByRole('button', { name: 'Use saved version' }));
+  fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My version' } }); fireEvent.click(within(form).getByRole('button', { name: 'Save', exact: true }));
+  const review = await screen.findByRole('dialog', { name: 'Two versions' }); expect(review).toHaveTextContent('Other device version'); expect(review).toHaveTextContent('My version');
+  fireEvent.click(within(review).getByRole('button', { name: 'Use the other one' }));
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 test('concurrent day margins remain discoverable, and a conflicting margin offers both versions', async () => {
@@ -134,35 +154,35 @@ test('concurrent day margins remain discoverable, and a conflicting margin offer
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'margin-1'), revision: 1, content: 'Remote margin version' } } } });
   fireEvent.change(within(margin).getByLabelText('Notes for this day'), { target: { value: 'Local margin version' } }); fireEvent.click(within(margin).getByRole('button', { name: 'Sync margin', exact: true }));
   fireEvent.click(await within(margin).findByRole('button', { name: 'Review both versions' }));
-  const review = await screen.findByRole('dialog', { name: 'Review both item versions' }); expect(review).toHaveTextContent('Remote margin version'); expect(review).toHaveTextContent('Local margin version');
+  const review = await screen.findByRole('dialog', { name: 'Two versions' }); expect(review).toHaveTextContent('Remote margin version'); expect(review).toHaveTextContent('Local margin version');
 });
 test('a semantically rejected action stays in review and can use the saved version', async () => {
   await open(); const section = screen.getByRole('region', { name: 'Open' });
   fireEvent.click(within(section).getByRole('checkbox', { name: 'Confirm service-training dates' }));
-  const complete = await screen.findByRole('region', { name: 'Completed follow-ups' });
+  const complete = await screen.findByRole('region', { name: 'Completed to-dos' });
   await waitFor(() => expect(records.find(x => x._id === 'task').revision).toBe(1));
   const remote = { ...records.find(x => x._id === 'task'), revision: 2 };
   api.put.mockRejectedValue({ response: { status: 409, data: { error: 'This item changed. Review its latest history before undoing.', current: remote } } });
   fireEvent.click(within(complete).getByRole('button', { name: 'Undo', exact: true }));
   fireEvent.click(await within(section).findByRole('button', { name: 'Review both versions' }));
-  const review = await screen.findByRole('dialog', { name: 'Review both item versions' });
-  fireEvent.click(within(review).getByRole('button', { name: 'Apply my changes after review' }));
+  const review = await screen.findByRole('dialog', { name: 'Two versions' });
+  fireEvent.click(within(review).getByRole('button', { name: 'Use mine' }));
   await waitFor(() => expect(within(review).getByRole('alert')).toHaveTextContent('Review its latest history'));
-  fireEvent.click(within(review).getByRole('button', { name: 'Use saved version' })); expect(screen.queryByRole('dialog')).toBeNull();
-  expect(screen.getByRole('region', { name: 'Completed follow-ups' })).toHaveTextContent('Confirm service-training dates');
+  fireEvent.click(within(review).getByRole('button', { name: 'Use the other one' })); expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.getByRole('region', { name: 'Completed to-dos' })).toHaveTextContent('Confirm service-training dates');
 });
 test('review resolution stays locked while its accepted change is being acknowledged', async () => {
   await open(); const current = records.find(x => x._id === 'task'), remote = { ...current, revision: 1, title: 'Other device wording' };
   fireEvent.click(within(screen.getByRole('region', { name: 'Open' })).getByRole('button', { name: 'Edit Confirm service-training dates', exact: true }));
-  const form = await screen.findByRole('dialog', { name: 'Edit follow-up' });
+  const form = await screen.findByRole('dialog', { name: 'Edit to-do' });
   fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My reviewed wording' } });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: remote } } });
-  fireEvent.click(within(form).getByRole('button', { name: 'Save item', exact: true }));
-  const review = await screen.findByRole('dialog', { name: 'Review both item versions' });
+  fireEvent.click(within(form).getByRole('button', { name: 'Save', exact: true }));
+  const review = await screen.findByRole('dialog', { name: 'Two versions' });
   let acknowledge; api.put.mockImplementationOnce((_, body) => new Promise(resolve => { acknowledge = () => { const data = { ...current, revision: 2, workItem: { ...current.workItem, history: (body.workActions || []).map(action => ({ ...action, recordedAt: new Date().toISOString() })) } }; records[records.findIndex(x => x._id === 'task')] = data; resolve({ data }); }; }));
-  fireEvent.click(within(review).getByRole('button', { name: 'Apply my changes after review' }));
-  expect(within(review).getByRole('button', { name: 'Use saved version' })).toBeDisabled();
-  expect(within(review).getByRole('button', { name: 'Keep both for now' })).toBeDisabled();
+  fireEvent.click(within(review).getByRole('button', { name: 'Use mine' }));
+  expect(within(review).getByRole('button', { name: 'Use the other one' })).toBeDisabled();
+  expect(within(review).getByRole('button', { name: 'Decide later' })).toBeDisabled();
   fireEvent.keyDown(document, { key: 'Escape' }); expect(review).toBeInTheDocument();
   await waitFor(() => expect(acknowledge).toEqual(expect.any(Function)));
   await act(async () => acknowledge());
@@ -183,45 +203,56 @@ test('authentication recovery remains available if the matching server arrives a
   await screen.findByRole('heading', { name: 'Work is updating', exact: true });
   api.get.mockRejectedValueOnce({ response: { status: 401, data: { error: 'Token expired' } } });
   fireEvent.click(screen.getByRole('button', { name: 'Retry Work', exact: true }));
-  const signIn = await screen.findByRole('button', { name: 'Sign in to sync', exact: true });
+  const signIn = await screen.findByRole('button', { name: 'Log in to sync', exact: true });
   expect(screen.getByRole('button', { name: 'Retry Work', exact: true })).toBeDisabled();
   fireEvent.click(signIn); expect(await screen.findByRole('textbox', { name: /username/i })).toBeVisible();
 });
 test('a day reads as one page: its follow-ups, what it was written, and earlier open work that can move to it', async () => {
   render(<MemoryRouter initialEntries={['/work?date=2026-10-26']}><WorkNotes /></MemoryRouter>);
-  expect(await screen.findByRole('heading', { name: 'Monday 26 October' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Mon 26 Oct' })).toBeInTheDocument();
   const page = () => document.querySelector('.work-day-page');
   expect(await within(page()).findByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
   expect(within(screen.getByRole('region', { name: 'Written Monday' })).getByRole('button', { name: /Fieldwell · pilot follow-up.*Customer discovery/ })).toBeInTheDocument();
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'depot' } }); expect(screen.queryByRole('region', { name: 'Written Monday' })).toBeNull();
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
   expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Tue 27 Oct', exact: true }));
+  fireEvent.click(await screen.findByText('Earlier'));
   const carried = await screen.findByRole('region', { name: 'Carried from earlier' });
   expect(within(carried).getByRole('button', { name: 'Fieldwell · pilot follow-up' })).toBeInTheDocument();
+  fireEvent.click(within(carried).getByLabelText('Actions for Confirm service-training dates'));
   fireEvent.click(within(carried).getByRole('button', { name: 'Move to Tuesday' }));
   await waitFor(() => expect(records.find(x => x._id === 'task').workItem.history.at(-1)).toMatchObject({ type: 'plan', plannedOn: '2026-10-27' }));
   expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
-  expect(await within(page()).findByRole('checkbox', { name: 'Confirm service-training dates From Mon 26' })).toBeInTheDocument();
+  expect(await within(page()).findByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
 });
-test('one typed line plans an appointment, and a [] line in a note becomes its follow-up', async () => {
+test('day planning reads time, while note words become Open only after explicit selection and Add', async () => {
   today();
-  fireEvent.change(await screen.findByLabelText('Plan something'), { target: { value: 'IC meeting 2pm' } });
-  fireEvent.submit(screen.getByLabelText('Plan something').form);
+  fireEvent.click(await screen.findByRole('button', { name: 'Add to-do' }));
+  fireEvent.change(await screen.findByLabelText('Add a line'), { target: { value: 'IC meeting 2pm' } });
+  fireEvent.submit(screen.getByLabelText('Add a line').form);
   await waitFor(() => expect(records.find(x => x.title === 'IC meeting')?.workItem).toMatchObject({ kind: 'appointment', plannedOn: '2026-10-26', startTime: '14:00', endTime: '14:30' }));
   const rail = screen.getByRole('complementary'); fireEvent.click(within(rail).getByRole('button', { name: 'Customer discovery' })); fireEvent.click(within(rail).getByRole('button', { name: /Fieldwell · pilot follow-up/ }));
   const writing = await screen.findByRole('textbox', { name: 'Work note writing' });
   act(() => { writing.editor.commands.focus('end'); writing.editor.commands.splitBlock(); writing.editor.commands.insertContent('[] Call Mira about training'); });
   fireEvent.keyDown(writing.editor.view.dom, { key: 'Enter' });
+  expect(writing).toHaveTextContent('[] Call Mira about training');
+  expect(records.some(x => x.title === 'Call Mira about training')).toBe(false);
+  let at; writing.editor.state.doc.descendants((node, pos) => { if (node.isText && node.text.includes('Call Mira')) at = pos + node.text.indexOf('Call Mira'); });
+  act(() => writing.editor.commands.setTextSelection({ from: at, to: at + 'Call Mira about training'.length }));
+  const doc = writing.editor.getJSON();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Make Open', hidden: true }).at(-1));
+  expect(screen.getByLabelText('Open item title')).toHaveValue('Call Mira about training');
+  fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
   expect(within(screen.getByRole('region', { name: 'Open' })).getByText('Call Mira about training')).toBeInTheDocument();
   await waitFor(() => expect(records.find(x => x.title === 'Call Mira about training')?.workItem).toMatchObject({ kind: 'task', noteId: 'note' }));
-  expect(writing).not.toHaveTextContent('Call Mira');
+  expect(writing).toHaveTextContent('[] Call Mira about training'); expect(writing.editor.getJSON()).toEqual(doc);
 });
 test('a meeting starts its note, continuing last time’s note of the same name, dated the meeting’s day, with what is still open', async () => {
   records.push({ _id: 'meeting', revision: 0, title: 'Fieldwell · pilot follow-up', folder: 'f', withText: 'Mira Chen', workItem: { kind: 'appointment', plannedOn: '2026-10-29', startTime: '10:00', endTime: '10:30', history: [] } });
   api.post.mockImplementationOnce(async (path, body) => { const record = { _id: 'next', revision: 0, title: '', content: '', folder: 'f', occurredOn: body.occurredOn, continuesFromEntryId: 'note', continuationBridge: { entryId: 'note', title: 'Fieldwell · pilot follow-up', text: 'Ask about the second site' } }; records.push(record); return { data: record }; });
   render(<MemoryRouter initialEntries={['/work?date=2026-10-29']}><WorkNotes /></MemoryRouter>);
-  fireEvent.click(await screen.findByRole('button', { name: /10:00 Fieldwell · pilot follow-up · Start the note/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /10:00–10:30.*Fieldwell · pilot follow-up.*Start the note/ }));
   await waitFor(() => expect(api.post).toHaveBeenCalledWith('/api/work-notes/note/continue', expect.objectContaining({ expectedRevision: 0 }), expect.anything()));
   expect(await screen.findByLabelText('Note title')).toHaveValue('Fieldwell · pilot follow-up');
   expect(screen.getByText('Ask about the second site')).toBeInTheDocument();

@@ -344,7 +344,7 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?view=graph');
     await screen.findByRole('heading', { name: /start the wiki with one page or one source/i });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Feed a source' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add an article' }));
 
     expect(window.localStorage.getItem('noeis.wiki.first_visit_seen')).toBe('true');
     expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?view=sources');
@@ -369,7 +369,7 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?view=sources');
     await settleWorkspaceEffects();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Feed to wiki' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to Wiki' }));
     const build = await screen.findByRole('button', { name: 'Build page from source' });
     fireEvent.click(build);
     fireEvent.click(build);
@@ -400,9 +400,9 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?view=sources');
     await settleWorkspaceEffects();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Feed to wiki' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to Wiki' }));
 
-    expect(await screen.findByLabelText('Source ripple result')).toHaveTextContent('Still reading this source.');
+    expect(await screen.findByLabelText('What this changes result')).toHaveTextContent('Still reading this source.');
     expect(screen.queryByText(/No existing page matched/)).not.toBeInTheDocument();
   });
 
@@ -410,7 +410,7 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?view=sources');
     await settleWorkspaceEffects();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Feed to wiki' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to Wiki' }));
 
     expect(await screen.findByLabelText('Review ingest plan')).toHaveTextContent('Plan status: pending review');
     fireEvent.click(screen.getByLabelText('Select update for What should update?'));
@@ -697,12 +697,12 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
 
     expect(await screen.findByText('Source memo')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Feed to wiki' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to Wiki' }));
 
     await waitFor(() => expect(ingestWikiSource).toHaveBeenCalledWith(expect.objectContaining({
       type: 'article',
       objectId: 'article-1'
     })));
-    expect(await screen.findByLabelText('Source ripple result')).toBeInTheDocument();
+    expect(await screen.findByLabelText('What this changes result')).toBeInTheDocument();
   });
 });

@@ -71,8 +71,13 @@ const buildHostedMcpRouter = ({
     const token = getBearerToken(req);
     let server;
     try {
+      // `/mcp?toolsets=wiki,library` lists more than core; tools/list says which.
       const { createMcpServer } = await loadServer();
-      server = createMcpServer({ token, apiUrl: internalApiUrl, appUrl, grantedScopes: req.agentToken?.scopes, accessProfile: req.agentToken?.accessProfile, resourceMetadataUrl });
+      try {
+        server = createMcpServer({ token, apiUrl: internalApiUrl, appUrl, grantedScopes: req.agentToken?.scopes, accessProfile: req.agentToken?.accessProfile, resourceMetadataUrl, toolsets: String(req.query.toolsets || '') });
+      } catch (error) {
+        return res.status(400).json({ error: error.message });
+      }
       const transport = new Transport({ sessionIdGenerator: undefined, enableJsonResponse, maxRequestBodySize: MCP_BODY_LIMIT });
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);

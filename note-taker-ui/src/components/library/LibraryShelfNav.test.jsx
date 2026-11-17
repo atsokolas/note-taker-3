@@ -115,7 +115,7 @@ describe('LibraryShelfNav', () => {
       expect(screen.getByRole('button', { name: 'Investing' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Close the cabinet' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
       expect(screen.queryByRole('button', { name: 'Investing' })).not.toBeInTheDocument();
     });
 
@@ -157,7 +157,7 @@ describe('LibraryShelfNav', () => {
     it('offers collection scopes only once', () => {
       renderNav({});
       const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
-      expect(labels).toEqual(['All sources', 'On the desk', 'Nightstand', 'Keepers', 'Unfiled6', 'Passages']);
+      expect(labels).toEqual(['All sources', 'On the desk', 'Nightstand', 'Keepers', 'Read by agents', 'Unfiled6', 'Passages']);
     });
 
     it('leaves the cabinet to the shelves and the ways of narrowing', () => {

@@ -119,7 +119,7 @@ export class NoeisSystemRegistry {
 
 const capabilityManifests = [
   ['capability.library.retrieve', 'Retrieve source evidence', 'Library and contextual-agent retrieval.', []],
-  ['capability.knowledge.connect', 'Connect knowledge objects', 'Durable relationships across Library, Think, Wiki, and Judgment.', []],
+  ['capability.knowledge.connect', 'Connect knowledge objects', 'Links between Library, Think, Wiki and your views.', []],
   ['capability.wiki.build', 'Build grounded Wiki pages', 'Create ordinary Wiki knowledge from owned evidence.', ['capability.library.retrieve']],
   ['capability.wiki.maintain', 'Maintain accepted Wiki knowledge', 'Propose evidence-bound changes without silently replacing accepted knowledge.', ['capability.wiki.build']],
   ['capability.judgment.review', 'Review consequential claims', 'Move accepted claims through explicit judgment and outcome review.', ['capability.knowledge.connect']]
@@ -212,7 +212,7 @@ export const createNoeisSystemInventory = ({ pathname = '/', theme = 'auto', con
     } else if (manifest.kind === 'loop') {
       const runtime = loopRuntime[manifest.id];
       status = runtime?.status || 'checking';
-      activeBecause = [runtime?.reason || 'Durable loop status is being checked.'];
+      activeBecause = [runtime?.reason || 'Checking background work…'];
     }
 
     return {

@@ -679,11 +679,9 @@ body.noeis-editorial .library-collection-search input {
   color: var(--text-secondary);
 }
 .save-link__ways h2 {
-  margin: 32px 0 8px;
-  font: 11px/1.6 var(--noeis-ui-font, sans-serif);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  margin: 32px 0 6px;
+  font: 400 19px/1.3 var(--font-serif);
+  color: var(--text-primary);
 }
 .save-link__ways ol {
   margin: 0 0 10px;
@@ -699,9 +697,7 @@ body.noeis-editorial .library-collection-search input {
 }
 .save-link__bookmarklet {
   display: inline-block;
-  padding: 2px 12px;
-  border: 1px solid var(--library-accent);
-  border-radius: 999px;
+  border-bottom: 1px solid var(--library-accent);
   font: 14px/1.6 var(--noeis-ui-font, sans-serif);
   color: var(--library-accent);
   text-decoration: none;

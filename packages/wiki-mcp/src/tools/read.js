@@ -17,6 +17,23 @@ export const readTools = [
     handler: (client) => client.getConnectionInfo()
   },
   {
+    name: 'recall',
+    description: 'Ask everything the reader keeps: saved articles and their highlights with margin notes, Think notes, concepts, the views they hold, wiki pages and filed Editions. Ask in plain words, the way you would ask the reader; results are the passages that answer it, best first, each with its source id and a link. Start here for any question about what the reader has read, written or believes. Open a hit with the tool in its `open` field. A hit with `pencil` was written by the agent it names and not yet taken up by the reader: never present it as their view. Nothing returned means nothing they keep bears on it.',
+    inputSchema: {
+      query: z.string().trim().min(1).max(500).describe('The question, in plain words.'),
+      limit: z.number().int().min(1).max(25).optional().default(8).describe('Most passages to return.')
+    },
+    handler: (client, args) => client.recall(args)
+  },
+  {
+    name: 'read',
+    description: 'Read one thing recall found, in full: an article with all its highlights and margin notes, a Think note, or a wiki page. Pass the `id` of a recall hit.',
+    inputSchema: {
+      id: z.string().min(1).describe('The id of a recall hit.')
+    },
+    handler: (client, args) => client.read(args)
+  },
+  {
     name: 'list_edition_profiles',
     description: 'List the reader\'s edition topics: what each paper is called, its sections, and how often it comes out (daily, weekly, monthly). Call this before filing so you use a topic that exists and a section it actually has.',
     inputSchema: {},
@@ -295,5 +312,19 @@ export const readTools = [
     description: 'List the Notebook\'s folders. Notebook folders are their own cabinet, separate from Library folders.',
     inputSchema: {},
     handler: (client) => client.listNotebookFolders()
+  },
+  {
+    name: 'list_work',
+    description: 'Everything in Work, the reader\'s private work notebook: notes (meeting notes and the like, with an opening snippet), lines (follow-ups, questions, appointments and jots, each on Next, Waiting on or Someday, and whether it is done), folders and projects. Needs a connection approved with --work. Read a note in full with get_work_note.',
+    inputSchema: {},
+    handler: (client) => client.listWork()
+  },
+  {
+    name: 'get_work_note',
+    description: 'Read one Work note or line in full, with its revision. Pass that revision back to update_work_note.',
+    inputSchema: {
+      noteId: z.string().describe('Work note or line id, from list_work.')
+    },
+    handler: (client, args) => client.getWorkNote(args)
   }
 ];

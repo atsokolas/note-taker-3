@@ -50,13 +50,13 @@ const WikiMcpConnectCard = () => (
   <Card className="settings-card wiki-mcp-connect-card">
     <div className="settings-appearance-header">
       <div>
-        <h2>One-command agent connect</h2>
+        <h2>Connect from the terminal</h2>
         <p className="muted">Connect Claude Code, Codex, OpenCode, Hermes, OpenClaw, or scripted jobs through browser approval.</p>
       </div>
       <p className="muted-label">noeis mcp · connected-agent token</p>
     </div>
     <p className="muted small">
-      Run one command, approve in Noeis, and the CLI writes one token source plus runtime MCP config that calls `noeis mcp`.
+      Run one command, approve it here, and you’re connected.
     </p>
     <div className="wiki-mcp-connect-card__panel">
       <p><strong>Recommended setup</strong></p>

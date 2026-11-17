@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { createRequire } from 'node:module';
 import { z } from 'zod';
 import { ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js';
@@ -11,11 +12,23 @@ import { writeTools } from './tools/write.js';
 import chatgptAccessPolicy from './chatgptAccessPolicy.cjs';
 const { CHATGPT_ACCESS_PROFILE, isChatgptToolAllowed } = chatgptAccessPolicy;
 import { renderWikiSchemaPrompt, wikiSchemaPrompt } from './prompts/wiki_schema.js';
+import { listedTools, parseToolsets } from './toolsets.js';
+
+// Report the published package version, so a client can tell which release it reached.
+const { version: packageVersion } = createRequire(import.meta.url)('../package.json');
 
 export const SERVER_INFO = {
   name: 'noeis-wiki',
-  version: '0.3.0'
+  version: packageVersion
 };
+
+/* What every agent is told on connecting, before it calls anything. */
+export const SERVER_INSTRUCTIONS = `This is the reader's own library in Noeis: what they read, marked and wrote, and the wiki that grows from it.
+
+- Before answering about the reader's reading, notes or views, call recall in plain words, then read the hits you use. Quote their words and give each hit's link.
+- A hit with pencil was written by an agent (it names which) and not yet taken up by the reader. Never present it as the reader's own view.
+- What you write lands in pencil, marked as yours, until the reader inks it. Write notes with create_notebook_entry, save what you read with create_article (full text when you have it), and keep a paper with file_edition_items.
+- If recall finds nothing, say the library has nothing on it rather than filling in.`;
 
 const profileTool = {
   name: 'get_profile',
@@ -40,7 +53,7 @@ const nonDestructiveWrites = new Set([
   'save_source_thought',
   'create_folder', 'create_highlight', 'write_concept_note', 'create_notebook_entry',
   'add_highlight_to_notebook_entry', 'create_notebook_folder', 'create_question',
-  'pin_highlight_to_concept', 'create_page', 'create_judgment_page'
+  'pin_highlight_to_concept', 'create_page', 'create_judgment_page', 'create_work_note', 'create_work_folder'
 ]);
 const externalTools = new Set(['create_article', 'ingest_source', 'draft_page', 'add_source']);
 
@@ -112,10 +125,28 @@ const errorContent = (error) => ({
   ]
 });
 
-export const createMcpServer = ({ client, token, apiUrl, appUrl, grantedScopes, accessProfile, resourceMetadataUrl } = {}) => {
+const WORK_LOOKUP_MS = 3000;
+
+/* Work tools are listed for a connection approved for Work. The hosted
+   endpoint knows the grant; a local server asks once, briefly, and lists
+   without them if the API is slow to answer. */
+const grantsWork = (client, grantedScopes) => {
+  if (grantedScopes) return Promise.resolve(grantedScopes.includes('work'));
+  let timer;
+  const timeout = new Promise(resolve => { timer = setTimeout(() => resolve(false), WORK_LOOKUP_MS); });
+  const asked = Promise.resolve()
+    .then(() => client.getConnectionInfo())
+    .then(info => (info?.grant?.scopes || []).includes('work'))
+    .catch(() => false);
+  return Promise.race([asked, timeout]).finally(() => clearTimeout(timer));
+};
+
+export const createMcpServer = ({ client, token, apiUrl, appUrl, grantedScopes, accessProfile, resourceMetadataUrl, toolsets = process.env.NOEIS_TOOLSETS } = {}) => {
   const resolvedClient = client || new NoeisClient({ token, apiUrl, appUrl });
+  const requestedSets = parseToolsets(toolsets);
+  let listing;
   // Bound validation work before Zod expands untrusted arrays and records.
-  const server = new McpServer(SERVER_INFO, { maxToolInputElements: 10_000 });
+  const server = new McpServer(SERVER_INFO, { instructions: SERVER_INSTRUCTIONS, maxToolInputElements: 10_000 });
 
   const exposedTools = accessProfile === CHATGPT_ACCESS_PROFILE
     ? toolDefinitions.filter(tool => isChatgptToolAllowed(tool.name))
@@ -160,8 +191,18 @@ export const createMcpServer = ({ client, token, apiUrl, appUrl, grantedScopes, 
 
   // SDK 1.29 retains OAuth schemes only inside _meta. Publish both placements
   // required by the host, while keeping SDK validation and dispatch unchanged.
+  // ChatGPT keeps its reviewed list whole; everyone else sees the toolsets asked for.
+  const listable = () => {
+    if (accessProfile === CHATGPT_ACCESS_PROFILE) return Promise.resolve(exposedTools);
+    listing ||= (requestedSets.has('work') || requestedSets.has('all')
+      ? Promise.resolve(requestedSets)
+      : grantsWork(resolvedClient, grantedScopes).then(work => (work ? new Set([...requestedSets, 'work']) : requestedSets))
+    ).then(sets => listedTools(exposedTools, sets));
+    return listing;
+  };
+
   server.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: exposedTools.map(tool => {
+    tools: (await listable()).map(tool => {
       const metadata = toolMetadata(tool, accessProfile);
       return {
         name: tool.name,
@@ -184,7 +225,8 @@ const printHelp = () => {
   process.stdout.write(`Environment:\n`);
   process.stdout.write(`  NOEIS_TOKEN       Agent token from Noeis Settings -> Connected agents\n`);
   process.stdout.write(`  NOEIS_API_URL     Optional API URL, defaults to ${DEFAULT_API_URL}\n`);
-  process.stdout.write(`  NOEIS_CONFIG_DIR  Optional config directory, defaults to ~/.config/noeis\n\n`);
+  process.stdout.write(`  NOEIS_CONFIG_DIR  Optional config directory, defaults to ~/.config/noeis\n`);
+  process.stdout.write(`  NOEIS_TOOLSETS    Tools to list besides core: library, think, wiki, editions, work, all\n\n`);
   process.stdout.write(`Without NOEIS_TOKEN, both are read from ${resolveConfigPath()},\n`);
   process.stdout.write(`which \`noeis login --token ntk_at_...\` writes.\n\n`);
 };
@@ -194,7 +236,8 @@ export const main = async (argv = []) => {
     printHelp();
     return;
   }
-  const server = createMcpServer();
+  const flag = argv.find(arg => arg.startsWith('--toolsets='));
+  const server = createMcpServer(flag ? { toolsets: flag.slice('--toolsets='.length) } : {});
   const transport = new StdioServerTransport();
   await server.connect(transport);
 };

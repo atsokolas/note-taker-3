@@ -1,6 +1,7 @@
 const express = require('express');
 const { serializeHighlightWithArticle } = require('../utils/highlightUtils');
 const { deriveImportedTitle } = require('../services/importTitleService');
+const { pencilOf } = require('../services/agentTokenService');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { isProceduralShelf } = require('../lib/proceduralShelf');
@@ -262,6 +263,7 @@ const buildLegacyContentRouter = ({
            path with no schema default, so it says its own empty. */
         $setOnInsert: {
           highlights: [],
+          pencil: pencilOf(req),
           ...(resolvedContent ? {} : { content: '' })
         }
       };

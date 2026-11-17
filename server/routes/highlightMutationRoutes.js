@@ -11,6 +11,7 @@ const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { recordSourceCorrection } = require('../services/authoredSourceCorrection');
 const { absorbPassage } = require('../utils/passages');
+const { pencilOf } = require('../services/agentTokenService');
 const { marksOfReading } = require('../services/closedBooks');
 
 const buildHighlightMutationRouter = ({
@@ -112,21 +113,18 @@ const buildHighlightMutationRouter = ({
       if (held) {
         held.page = held.page || page;
         held.tags = normalizeTags([...(held.tags || []), ...normalizeTags(tags)]);
+        // An agent's note joining a mark puts the mark in pencil.
+        if (thought) held.pencil = pencilOf(req) || held.pencil;
         await article.save();
         return res.status(200).json({
           article,
           highlight: serializeHighlightWithArticle(article, held, { includeAnchor: true, normalizeItemType })
         });
       }
-      article.highlights.push(buildHighlightDocument({
-        text: typed,
-        note: thought,
-        tags,
-        color,
-        anchor,
-        page,
-        normalizeTags
-      }));
+      article.highlights.push({
+        ...buildHighlightDocument({ text: typed, note: thought, tags, color, anchor, page, normalizeTags }),
+        pencil: pencilOf(req)
+      });
       const updatedArticle = await article.save();
 
       const createdHighlight = updatedArticle.highlights?.[updatedArticle.highlights.length - 1];

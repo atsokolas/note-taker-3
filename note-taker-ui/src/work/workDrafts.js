@@ -47,7 +47,7 @@ export function workDraftStorage(account, storage) {
       const value = { ...writing, clientId, writerId, draftId: own ? draft.draftId : operationId(), generation: own ? (draft.generation || 0) + 1 : 1 };
       const nextKey = `${prefix}${operationId()}`, nextValue = JSON.stringify(value);
       storage.setItem(nextKey, nextValue);
-      if (storage.getItem(nextKey) !== nextValue) throw new Error('Device draft receipt was not retained.');
+      if (storage.getItem(nextKey) !== nextValue) throw new Error('This draft couldn’t be kept on this device.');
       if (own && recordKey && !legacyId) {
         try { storage.removeItem(recordKey); } catch (_) { /* The newer durable generation wins on reload. */ }
       }
@@ -77,7 +77,7 @@ export function workContinuationStorage(account, storage) {
     write(pending) {
       const key = `${prefix}${pending.operationId}`, value = JSON.stringify(pending);
       storage.setItem(key, value);
-      if (storage.getItem(key) !== value) throw new Error('Device continuation receipt was not retained.');
+      if (storage.getItem(key) !== value) throw new Error('This “Continue” couldn’t be kept on this device.');
     },
     remove(pending) {
       storage.removeItem(`${prefix}${pending.operationId}`);

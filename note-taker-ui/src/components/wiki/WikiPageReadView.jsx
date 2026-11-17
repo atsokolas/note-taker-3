@@ -115,6 +115,7 @@ import { buildWikiSurfaceDescriptor, wikiAllowsOpenSentence } from './wikiSurfac
 import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
 import { docText, wordBoundaryTrim } from '../../utils/editorialText';
 import { humanizeLabel } from '../../utils/humanizeLabel';
+import AddToProject from '../../work/AddToProject';
 
 const WikiChangesSinceLastVisit = lazy(() => import('./WikiChangesSinceLastVisit'));
 
@@ -890,10 +891,10 @@ const WikiConnectionTraces = ({ pageId }) => {
     <section
       ref={traceRef}
       className="wiki-read__infobox wiki-read__connections"
-      aria-label="Graph traces"
+      aria-label="Connections"
       tabIndex="-1"
     >
-      <h2>Graph traces</h2>
+      <h2>Connections</h2>
       {state.loading ? <p>Loading connections...</p> : (
         <>
           <WikiConnectionTraceList title="Related to" items={grouped.relatedTo} />
@@ -2990,8 +2991,6 @@ const WikiPageReadView = ({
               <summary className="wiki-read__page-status-summary">
                 <span className="wiki-read__page-status-label">Decisions &amp; outcomes</span>
                 <span className="wiki-read__page-status-facts">
-                  <span>Accepted-revision grounded</span>
-                  <span>Outcomes never inferred</span>
                 </span>
                 <span className="wiki-read__page-status-action" aria-hidden="true">Open</span>
               </summary>
@@ -3093,6 +3092,7 @@ const WikiPageReadView = ({
                 {typeof onEdit === 'function' ? <button type="button" onClick={onEdit}>Edit</button> : null}
                 <button type="button" onClick={handleOpenHistoryPanel}>History</button>
                 <button type="button" aria-expanded={shareOpen} onClick={() => setShareOpen(open => !open)}>Share</button>
+                <AddToProject kind="wiki" id={pageId} title={page?.title} />
               </nav>
             )}
             {shareOpen ? shareCard : null}
@@ -3232,7 +3232,6 @@ const WikiPageReadView = ({
                   <summary className="wiki-read__page-status-summary">
                     <span className="wiki-read__page-status-label">Research and valuation review</span>
                     <span className="wiki-read__page-status-facts">
-                      <span>Candidate → accepted research → optional Judgment revision</span>
                     </span>
                     <span className="wiki-read__page-status-action" aria-hidden="true">Open</span>
                   </summary>
@@ -3268,7 +3267,7 @@ const WikiPageReadView = ({
                     />
                     {page?.judgment?.kind ? (
                       <p className="wiki-read__dossier-judgment-link">
-                        Research acceptance never rewrites your belief. <Link to={`/judgment/${pageId}`}>Review the company case in Judgment →</Link>
+                        Accepting this won’t change your view. <Link to={`/judgment/${pageId}`}>Review the company case in Judgment →</Link>
                       </p>
                     ) : null}
                   </div>
@@ -3465,7 +3464,7 @@ const WikiPageReadView = ({
                     <WikiConnectionTraces pageId={pageId} />
                     {retiredClaims.length || restoreClaimStatus ? (
                       <section className="wiki-read__infobox wiki-read__retired-claims">
-                        <h2>Retired claims</h2>
+                        <h2>Dropped</h2>
                         {retiredClaims.length ? <ul>
                           {retiredClaims.map(claim => (
                             <li key={claim.claimId}>

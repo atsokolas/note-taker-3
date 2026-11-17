@@ -510,7 +510,7 @@ const ReferencePullIn = ({
           ? (isSourceReference
             ? 'Use this source in an existing Think or Wiki object.'
             : 'Pull Library, Think, and Wiki material into this surface.')
-          : 'Open an item to reference durable knowledge.'}
+          : 'Open a note or page to link to it.'}
       />
       {targetTitle && (
         <p className="reference-pull-in__target muted small">

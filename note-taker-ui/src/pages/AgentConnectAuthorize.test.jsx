@@ -43,18 +43,16 @@ describe('AgentConnectAuthorize', () => {
       </BrowserRouter>
     );
 
-    expect(await screen.findByText(/Hermes · self-reported/)).toBeInTheDocument();
+    expect(await screen.findByText('Hermes, as it describes itself')).toBeInTheDocument();
     expect(screen.getByText('ABCD-1234')).toBeInTheDocument();
-    expect(screen.getByText('Read, search, and retrieve your Noeis workspace')).toBeInTheDocument();
-    expect(screen.getByText('Read only')).toBeInTheDocument();
+    expect(screen.getByText('Read and search everything you have saved and written')).toBeInTheDocument();
     expect(screen.getByText('https://api.noeis.example')).toBeInTheDocument();
-    expect(screen.getByText(/runtime and connection name are self-reported/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Approve read access' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
 
     await waitFor(() => {
       expect(approveAgentConnectSession).toHaveBeenCalledWith('nac_123', { deviceCode: 'ABCD-1234' });
     });
-    expect(await screen.findByText('Access approved.')).toBeInTheDocument();
+    expect(await screen.findByText('Approved.')).toBeInTheDocument();
   });
 });

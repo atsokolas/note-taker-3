@@ -64,8 +64,8 @@ const SharedEdition = () => {
       <EditionPaper edition={edition} />
       <footer className="edition__colophon">
         <p>
-          Every item here carries what would limit it. That is the whole
-          standard, and it is why this is not a list of links.
+          Every finding says what it doesn’t show. That’s the difference
+          between this and a list of links.
         </p>
         <Link className="edition__colophon-cta" to="/register">Keep your own →</Link>
       </footer>

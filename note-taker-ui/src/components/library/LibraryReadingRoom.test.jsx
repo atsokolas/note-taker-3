@@ -51,7 +51,7 @@ describe('LibraryReadingRoom', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'The oldest unread' }));
     expect(onOpen).toHaveBeenCalledWith('p1', undefined);
     expect(screen.getByText(/Not yet opened\. · Aeon/)).toBeInTheDocument();
-    expect(screen.getByText(/oldest pieces you saved yourself/)).toBeInTheDocument();
+    expect(screen.getByText(/One a day, from the oldest things you saved/)).toBeInTheDocument();
     expect(screen.queryByText('Still reading')).not.toBeInTheDocument();
     expect(screen.queryByText('New from your sources')).not.toBeInTheDocument();
   });

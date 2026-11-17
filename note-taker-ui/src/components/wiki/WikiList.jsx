@@ -410,7 +410,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
           {needsReviewFilter ? (
             <>
               <h2>No pages need review</h2>
-              <p>Every visible page passed the current quality bar.</p>
+              <p>Nothing needs a look.</p>
             </>
           ) : (
             <>
@@ -479,8 +479,8 @@ const WikiList = ({ compact = false, onOpenPage }) => {
           <section className="wiki-index__header">
             <div className="wiki-index__title-block">
               <p className="wiki-index__eyebrow">Wiki list</p>
-              <h1>Editable knowledge pages</h1>
-              <p>Finished thinking, settled from Think, kept beside its sources.</p>
+              <h1>Pages</h1>
+              <p>Finished ideas from Think, with where each line came from.</p>
             </div>
           </section>
         </>

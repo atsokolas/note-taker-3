@@ -150,8 +150,8 @@ export default function Editions() {
           <section className="editions__empty">
             <h1>No paper yet.</h1>
             <p>
-              A paper is a short weekly issue that an agent you connect, such as Claude Code or Codex, files for you:
-              what it found, each finding with its source and how sure to be.
+              A short weekly paper, written for you by Claude Code or another agent you connect.
+              Every finding links to its source and says how sure to be.
             </p>
             {/* An example, said to be one, so the first visit shows the thing
                 and not only a sentence about it. */}

@@ -26,9 +26,9 @@ export default function AuthoredRecovery({ workId }) {
   return <article className="noeis-editorial authored-recovery">
     <p><Link to="/think">Back to your writing</Link></p>
     <h1>{record?.draft.title || 'Your saved writing'}</h1>
-    <p>This is your recorded work. Its original source may have moved or become unavailable. The quotation here is the copy you wrote against.</p>
+    <p>Your writing is safe. The article it quoted is gone, so this is the copy you saved.</p>
     {error ? <p role="alert">{error} <button onClick={() => setAttempt(value => value + 1)}>Try again</button></p> : !work ? <p role="status">Opening your writing…</p> : null}
-    {work && !record ? <p role="status">Exploration discarded. Your kept copies remain independent.</p> : null}
+    {work && !record ? <p role="status">Discarded. Anything you kept is still kept.</p> : null}
     {record ? <>
       <AuthoredWorkList records={{ [itemId]: record }} openedId={itemId}
         missingMessage="Your words and recorded source context are preserved. This does not restore access to the original source."

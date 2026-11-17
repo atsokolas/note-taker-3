@@ -1220,9 +1220,9 @@ describe('the masthead and the record under the piece', () => {
     );
     const record = await screen.findByRole('list', { name: 'Where this piece went' });
     expect(getPushesAgainst).toHaveBeenCalledWith('a1');
-    expect(record).toHaveTextContent('This pushes against your view that Costco’s membership model makes it recession-resistant. File it?');
-    fireEvent.click(within(record).getByRole('button', { name: 'File against' }));
+    expect(record).toHaveTextContent('This pushes against your view that Costco’s membership model makes it recession-resistant.');
+    fireEvent.click(within(record).getByRole('button', { name: 'Add as “against”' }));
     expect(fileReadingProposal).toHaveBeenCalledWith({ pageId: 'view-1', proposalId: 'judgment-change-proposal:view-1:r1', field: 'against' });
-    expect(await within(record).findByText(/Filed against/)).toBeInTheDocument();
+    expect(await within(record).findByText(/Added against/)).toBeInTheDocument();
   });
 });

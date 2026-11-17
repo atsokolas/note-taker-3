@@ -9,6 +9,7 @@ import {
   roomShelfItemClass
 } from '../collection/RoomShelf';
 import { flySentenceInto } from '../../motion/columnMotion';
+import { SHELVES } from './libraryColumnModel';
 import { buildFolderTree, flattenFolderTree, folderCountPhrase, isFolderDescendant } from '../../pages/folderTreeModel';
 import { isProceduralShelf } from '../../pages/readingDriftModel';
 import { carriesArticleDrag, DROP_KINDS, dropIntent, readArticleDragId } from '../../pages/dragGrammar';
@@ -297,7 +298,7 @@ const LibraryShelfNav = ({
             {Number.isFinite(count) ? <RoomShelfMeta>{count}</RoomShelfMeta> : null}
           </RoomShelfButton>
         </li>
-        {[['set-aside', 'On the desk'], ['later', 'Nightstand'], ['kept', 'Keepers']].map(([value, label]) => (
+        {SHELVES.map(([value, label]) => (
           <li key={value}><RoomShelfButton active={scope === value} onClick={() => onSelectScope?.(value)}>{label}</RoomShelfButton></li>
         ))}
         {topics.map((topic) => (
@@ -455,7 +456,7 @@ const LibraryShelfNav = ({
               aria-expanded="true"
               onClick={() => setCabinetOpen(false)}
             >
-              Close the cabinet
+              Close
             </button>
           ) : null}
         </RoomShelfSection>

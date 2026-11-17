@@ -91,18 +91,17 @@ const WikiFirstHeadReview = ({
   if (!awaiting) {
     if (accepted) return (
       <section className="wiki-first-head is-accepted" aria-label="First trusted head">
-        <p className="wiki-first-head__eyebrow">Research head</p>
+        <p className="wiki-first-head__eyebrow">Current page</p>
         <p><strong>You accepted this page.</strong> New reading arrives as a proposed change you can accept or set aside.</p>
       </section>
     );
     if (!legacyHeadAvailable) return null;
     return (
       <section className="wiki-first-head is-adoption" aria-labelledby="wiki-legacy-head-title">
-        <p className="wiki-first-head__eyebrow">Legacy research head</p>
+        <p className="wiki-first-head__eyebrow">Older page</p>
         <h2 id="wiki-legacy-head-title">Keep this article as the page</h2>
         <p>
-          This dossier predates explicit first-head acceptance. Adoption records your approval of the current private
-          article without changing its claims, sources, valuation, or evidence clock.
+          Approve this page to keep it as it is.
         </p>
         <dl className="wiki-first-head__facts">
           <div><dt>Words</dt><dd>{Number(page?.wordCount || 0).toLocaleString()}</dd></div>
@@ -118,7 +117,7 @@ const WikiFirstHeadReview = ({
                 onChange={event => setConfirmed(event.target.checked)}
                 disabled={Boolean(busy)}
               />
-              I reviewed this exact article and want it to become the trusted private research head.
+              I’ve read it. Keep this as the page.
             </label>
             <div className="wiki-first-head__actions">
               <Button type="button" onClick={adoptCurrentHead} disabled={!confirmed || Boolean(busy)}>
@@ -183,15 +182,15 @@ const WikiFirstHeadReview = ({
     <section className="wiki-first-head is-review" aria-labelledby="wiki-first-head-title">
       <div className="wiki-first-head__heading">
         <div>
-          <p className="wiki-first-head__eyebrow">Owner acceptance required</p>
+          <p className="wiki-first-head__eyebrow">Needs your OK</p>
           <h2 id="wiki-first-head-title">
             {firstHeadReview ? 'Read the first version' : 'Read the proposed change'}
           </h2>
         </div>
-        <span>Private candidate</span>
+        <span>New version</span>
       </div>
       <p>
-        The generated research has not replaced your trusted private page. Read the whole candidate, then accept it, keep the current version, or leave it for later.
+        Here’s a new version. Nothing changes until you choose: use it, keep yours, or decide later.
       </p>
       <dl className="wiki-first-head__facts">
         <div><dt>Words</dt><dd>{Number(summary.wordCount || 0).toLocaleString()}</dd></div>

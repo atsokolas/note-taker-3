@@ -126,7 +126,7 @@ describe('WikiBuildPageComposer', () => {
     renderComposer({}, { systemStatusControls });
     fireEvent.click(screen.getByRole('button', { name: 'Living thesis' }));
     fireEvent.change(screen.getByLabelText('Living thesis title'), { target: { value: 'QA Demo — Electrification Thesis' } });
-    fireEvent.change(screen.getByLabelText('Governing question'), { target: { value: 'What evidence would change this QA-only view?' } });
+    fireEvent.change(screen.getByLabelText('The question'), { target: { value: 'What evidence would change this QA-only view?' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create thesis' }));
 
     await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
@@ -138,7 +138,7 @@ describe('WikiBuildPageComposer', () => {
     expect(createRepoWikiFromGitHub).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-new', { replace: false });
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('build=1'), expect.anything());
-    expect(screen.getByText('No conclusion or claims will be drafted for you.')).toBeInTheDocument();
+    expect(screen.getByText('Noeis won’t write the answer for you.')).toBeInTheDocument();
   });
 
   it('parses GitHub repo URLs and owner/repo shorthand', () => {

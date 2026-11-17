@@ -94,12 +94,12 @@ describe('ThinkEntryEditor', () => {
     getConceptIdeaWorkbench.mockResolvedValue({ revision: 1, ideaWorkbench: { hypothesis: { html: '<p>Three plain words</p>' } } });
     settleIntoWiki.mockResolvedValueOnce({ page: { _id: 'page-1', title: 'Moats', sourceRefs: [{}] }, resettled: false });
     render(<ThinkEntryEditor target={{ kind: 'concept', id: 'Moats' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Settle into Wiki' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Make a Wiki page' }));
     expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Moats' })).toHaveAttribute('href', '/wiki/read/page-1');
     expect(settleIntoWiki).toHaveBeenCalledWith('concepts', 'c1');
     expect(screen.getByText(/Share it from there/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Settle again' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Update the Wiki page' })).toBeInTheDocument();
   });
 
   it('says in one line what to fix when Wiki refuses a concept, and a question has no settle', async () => {
@@ -107,13 +107,13 @@ describe('ThinkEntryEditor', () => {
     getConceptIdeaWorkbench.mockResolvedValue({ revision: 1, ideaWorkbench: null });
     settleIntoWiki.mockRejectedValueOnce({ response: { data: { error: 'Nothing is written here yet. Write the thought, then settle it.' } } });
     const { unmount } = render(<ThinkEntryEditor target={{ kind: 'concept', id: 'Moats' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Settle into Wiki' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Make a Wiki page' }));
     expect(await screen.findByText('Nothing is written here yet. Write the thought, then settle it.')).toBeInTheDocument();
     unmount();
     getQuestion.mockResolvedValue({ _id: 'q1', text: 'Q', status: 'open', blocks: [] });
     render(<ThinkEntryEditor target={{ kind: 'question', id: 'q1' }} />);
     await screen.findByRole('button', { name: 'Mark settled' });
-    expect(screen.queryByRole('button', { name: 'Settle into Wiki' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Make a Wiki page' })).not.toBeInTheDocument();
   });
 
   it('hands a selection to the partner and opens passages when pulled from elsewhere', async () => {

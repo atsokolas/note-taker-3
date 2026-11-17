@@ -132,7 +132,7 @@ describe('LibraryArticleList', () => {
   it('shows the first-run empty state with connect CTA when scope=all and corpus is empty', () => {
     const { container } = renderList({ articles: [], scope: 'all', corpusTotal: 0 });
     expect(container.querySelector('[data-testid="library-empty-first-run"]')).not.toBeNull();
-    expect(screen.getByText('Save your first source')).toBeInTheDocument();
+    expect(screen.getByText('Save your first article')).toBeInTheDocument();
     expect(screen.getByText('Connect a source')).toBeInTheDocument();
     expect(screen.queryByText('Show all sources')).not.toBeInTheDocument();
   });
@@ -148,7 +148,7 @@ describe('LibraryArticleList', () => {
     expect(screen.getByText('No sources in Unfiled.')).toBeInTheDocument();
     expect(screen.getByText(/253 sources are in Library/i)).toBeInTheDocument();
     expect(screen.getByTestId('library-empty-show-all')).toHaveAttribute('href', '/library?scope=all');
-    expect(screen.queryByText('Save your first source')).not.toBeInTheDocument();
+    expect(screen.queryByText('Save your first article')).not.toBeInTheDocument();
   });
 
   it('shows search recovery copy when a query matches nothing', () => {
@@ -181,7 +181,7 @@ describe('LibraryArticleList', () => {
       'href',
       '/library?scope=all&showSuppressed=1'
     );
-    expect(screen.queryByText('Save your first source')).not.toBeInTheDocument();
+    expect(screen.queryByText('Save your first article')).not.toBeInTheDocument();
   });
 
   it('clears search from the empty state action', () => {
@@ -202,7 +202,7 @@ describe('LibraryArticleList', () => {
     renderList({ articles: [], scope: 'folder', corpusTotal: 12, emptyLabel: 'No articles in Research yet.' });
     expect(screen.getByTestId('library-empty-scoped')).toBeInTheDocument();
     expect(screen.getByText('Show all sources')).toBeInTheDocument();
-    expect(screen.queryByText('Save your first source')).not.toBeInTheDocument();
+    expect(screen.queryByText('Save your first article')).not.toBeInTheDocument();
   });
 
   it('shows import receipt hint on first-run when latestReceipt is present', () => {

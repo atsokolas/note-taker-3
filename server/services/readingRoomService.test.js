@@ -103,6 +103,12 @@ test('the pick passes over feeds, parked, finished, marked, stub and still-readi
   assert.equal(pickForToday([halfRead], { now: NOW, exclude: [halfRead._id] }), null);
 });
 
+test('the pick waits a week: a piece saved today is not the back of the shelf', () => {
+  assert.equal(pickForToday([article({ createdAt: ago(0) }), article({ createdAt: ago(6) })], { now: NOW }), null);
+  const lastWeek = article({ createdAt: ago(8) });
+  assert.equal(pickForToday([article({ createdAt: ago(0) }), lastWeek], { now: NOW }).articleId, lastWeek._id);
+});
+
 test('the pick lets a piece left unopened for a season go, unless you marked it as keeping', () => {
   const lastWinter = article({ title: 'NFL Week 17 odds', createdAt: ago(290) });
   assert.equal(pickForToday([lastWinter], { now: NOW }), null);

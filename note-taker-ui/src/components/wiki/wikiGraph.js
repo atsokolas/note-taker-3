@@ -237,37 +237,6 @@ export const summarizeWikiGraph = (graph = {}) => {
   };
 };
 
-export const summarizeCorpusShape = (mapGraph = {}) => {
-  const nodes = Array.isArray(mapGraph.nodes) ? mapGraph.nodes : [];
-  const edges = Array.isArray(mapGraph.edges) ? mapGraph.edges : Array.isArray(mapGraph.links) ? mapGraph.links : [];
-  const countsByType = nodes.reduce((counts, node) => {
-    const type = String(node?.itemType || node?.type || '').trim() || 'item';
-    counts[type] = (counts[type] || 0) + 1;
-    return counts;
-  }, {});
-  const workingThoughts = ['concept', 'question', 'notebook']
-    .reduce((total, type) => total + (countsByType[type] || 0), 0);
-  const libraryAtoms = ['article', 'highlight']
-    .reduce((total, type) => total + (countsByType[type] || 0), 0);
-  const wikiBridges = edges.filter((edge) => {
-    const source = String(edge?.source || '');
-    const target = String(edge?.target || '');
-    const sourceIsWiki = source.startsWith('wiki_page:');
-    const targetIsWiki = target.startsWith('wiki_page:');
-    return sourceIsWiki !== targetIsWiki;
-  }).length;
-  return {
-    totalNodes: nodes.length,
-    totalEdges: edges.length,
-    countsByType,
-    workingThoughts,
-    libraryAtoms,
-    wikiPages: countsByType.wiki_page || 0,
-    wikiClaims: countsByType.wiki_claim || 0,
-    wikiBridges
-  };
-};
-
 const CORPUS_KIND_LABELS = {
   article: 'Library source',
   highlight: 'Source highlight',
@@ -353,16 +322,6 @@ export const buildCorpusConstellation = (mapGraph = {}, wikiPageId = '') => {
         || a.title.localeCompare(b.title);
     })
     .slice(0, 8);
-};
-
-export const formatCorpusShapeSummary = (shape = {}) => {
-  if (!shape.totalNodes) return 'No cross-surface graph edges yet.';
-  const parts = [
-    `${shape.wikiPages || 0} wiki`,
-    `${shape.workingThoughts || 0} working thoughts`,
-    `${shape.libraryAtoms || 0} library atoms`
-  ];
-  return `${parts.join(' · ')} · ${shape.totalEdges || 0} live edge${shape.totalEdges === 1 ? '' : 's'}`;
 };
 
 const countDriftSignals = (page = {}) => {

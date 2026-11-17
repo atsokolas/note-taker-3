@@ -4,7 +4,6 @@ import { adoptPublicWikiCollection, getPublicWikiCollection } from '../api/wiki'
 import renderTiptapDoc, { firstParagraphText } from '../components/wiki/renderTiptapDoc';
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
-import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';
 import { normalizeSpaces } from '../utils/editorialText';
@@ -97,8 +96,37 @@ export const buildSharedWikiCollectionSchema = ({
   };
 };
 
+const CollectionEntryBody = ({ page, className = '' }) => (
+  <div className={className} onClick={(event) => {
+    const citation = event.target.closest?.('.wiki-claim-citation');
+    const target = citation?.getAttribute('data-footnote-target');
+    if (!/^wiki-ref-\d+$/.test(target || '')) return;
+    const reference = event.currentTarget.querySelector(`[data-reference="${target}"]`);
+    reference?.scrollIntoView?.({ block: 'center' });
+  }}>
+    <div className="shared-wiki-page__body wiki-read">
+      {renderTiptapDoc(page.body, { disableInternalWikiLinks: true })}
+    </div>
+    {Array.isArray(page.sourceRefs) && page.sourceRefs.length > 0 ? (
+      <section className="shared-wiki-page__sources" aria-label="References">
+        <h2>References</h2>
+        <ol>
+          {page.sourceRefs.map((source, index) => (
+            <li key={source._id || source.id || index} data-reference={`wiki-ref-${index + 1}`}>
+              {source.url ? (
+                <a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || source.url}</a>
+              ) : <span>{source.title || source.type || 'Source'}</span>}
+              {source.snippet ? <p>{source.snippet}</p> : null}
+            </li>
+          ))}
+        </ol>
+      </section>
+    ) : null}
+  </div>
+);
+
 const SharedWikiCollectionPage = () => {
-  const { idOrSlug = '' } = useParams();
+  const { idOrSlug = '', entryId = '' } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const [collection, setCollection] = useState(null);
@@ -114,6 +142,9 @@ const SharedWikiCollectionPage = () => {
     return params.get('adopt') === '1';
   }, [location.search]);
   usePublicShareScrollSurface();
+  useEffect(() => {
+    if (entryId) window.scrollTo(0, 0);
+  }, [entryId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -181,6 +212,10 @@ const SharedWikiCollectionPage = () => {
     handleAdopt();
   }, [collection, handleAdopt, shouldAutoAdopt]);
 
+  const collectionPath = `/share/wiki/collection/${encodeURIComponent(idOrSlug)}`;
+  const entryPath = (page) => `${collectionPath}/${encodeURIComponent(pageIdFor(page) || page.slug)}`;
+  const entry = entryId ? pages.find(page => String(pageIdFor(page)) === entryId || page.slug === entryId) : null;
+  const entryMissing = Boolean(entryId && !loading && !error && !entry);
   const title = collection?.name || collection?.title || 'Shared wiki';
   const description = collection?.description || 'A shared Noeis wiki you can copy into your own workspace.';
   const totalWords = pages.reduce((sum, page) => sum + countWikiPageWords(page), 0);
@@ -188,7 +223,7 @@ const SharedWikiCollectionPage = () => {
   const totalClaims = pages.reduce((sum, page) => sum + countWikiClaims(page), 0);
   const reviewedAt = formatDate(newestReviewedDate(pages));
   const canonicalPath = location.pathname || `/share/wiki/collection/${idOrSlug}`;
-  const seoTitle = collection ? `${title} · Shared Wiki Collection · Noeis` : 'Shared Wiki Collection · Noeis';
+  const seoTitle = entry ? `${entry.title} · ${title} · Noeis` : collection ? `${title} · Shared Wiki Collection · Noeis` : 'Shared Wiki Collection · Noeis';
   const seoDescription = normalizeSpaces(description).slice(0, 220) || 'A shared Noeis wiki you can copy into your own workspace.';
   const seoSchema = useMemo(
     () => buildSharedWikiCollectionSchema({
@@ -204,9 +239,9 @@ const SharedWikiCollectionPage = () => {
     title: seoTitle,
     description: seoDescription,
     canonicalPath,
-    schema: collection && !error ? seoSchema : null,
+    schema: collection && !error && !entryId ? seoSchema : null,
     ogType: 'article',
-    robots: collection && !error ? 'index,follow' : 'noindex,follow'
+    robots: collection && !error && !entryMissing ? 'index,follow' : 'noindex,follow'
   });
 
   return (
@@ -223,35 +258,49 @@ const SharedWikiCollectionPage = () => {
           <h1>Shared wiki unavailable</h1>
           <p>{error}</p>
         </section>
+      ) : entryMissing ? (
+        <section className="shared-wiki-page__state">
+          <h1>Shared page unavailable</h1>
+          <p>This page is not in this public collection.</p>
+          <Link to={collectionPath}>Back to {title}</Link>
+        </section>
+      ) : entry ? (
+        <article className="shared-wiki-page__article">
+          <header className="shared-wiki-page__hero">
+            <Link to={collectionPath}>Back to {title}</Link>
+            <p className="shared-wiki-page__eyebrow">Shared wiki</p>
+            <h1>{entry.title || 'Untitled page'}</h1>
+          </header>
+          <CollectionEntryBody page={entry} />
+        </article>
       ) : collection ? (
         <article className="shared-wiki-page__article">
           <header className="shared-wiki-page__hero shared-wiki-page__hero--collection">
             <p className="shared-wiki-page__eyebrow">Shared wiki collection</p>
             <h1>{title}</h1>
-            <section className="shared-wiki-page__adopt" aria-label="Adopt shared wiki">
-              <div>
-                <h2>Take this wiki, and its reading.</h2>
-                <p>The pages come into your Wiki and every public source they cite comes into your Library, ready to read. The original stays as it is.</p>
-              </div>
-              <button type="button" onClick={handleAdopt} disabled={adopting}>
+            <p className="shared-wiki-collection__intro">{description}</p>
+            <div className="shared-wiki-collection__metadata" aria-label="Shared wiki metrics">
+              <span>{pages.length} pages</span>
+              <span>{totalSources} sources</span>
+              {reviewedAt ? <span>Reviewed {reviewedAt}</span> : null}
+            </div>
+            <section className="shared-wiki-collection__adopt" aria-label="Adopt shared wiki">
+              <button className="shared-wiki-collection__adopt-button" type="button" onClick={handleAdopt} disabled={adopting}>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <path d="M12 5.5C9 3.5 5.5 3.5 2 5v15c3.5-1.5 7-1.5 10 .5 3-2 6.5-2 10-.5V5c-3.5-1.5-7-1.5-10 .5Zm0 0v15" />
+                </svg>
                 {adopting ? 'Adding…' : 'Add to my library'}
               </button>
+              <p>Keep these pages and their public sources. Original unchanged.</p>
               {adoptionError ? <p className="shared-wiki-page__adopt-error" role="alert">{adoptionError}</p> : null}
             </section>
-            <p className="shared-wiki-page__receipt" role="status">{buildSharePreviewReceipt()}</p>
-            <p className="shared-wiki-page__maintenance-stamp">
-              Maintained by the owner&apos;s agent{reviewedAt ? ` · last reviewed ${reviewedAt}` : ''}
-            </p>
-            <p className="shared-wiki-page__privacy-note">
-              Public pages and references are visible. Backlinks, highlights, source notes, and agent work stay private.
-            </p>
-            <p className="shared-wiki-page__intro">{description}</p>
-            <div className="shared-wiki-page__metrics" aria-label="Shared wiki metrics">
-              <span>{pages.length} pages</span>
-              <span>{totalWords} words</span>
-              <span>{totalSources} sources</span>
-              <span>{totalClaims} claims</span>
-            </div>
+            <details className="shared-wiki-collection__sharing">
+              <summary>Public sharing details</summary>
+              <p>Maintained by the owner&apos;s agent.</p>
+              <p>Public pages and references are visible. Backlinks, highlights, source notes, and agent work stay private.</p>
+              <p>The pages come into your Wiki and every public source they cite comes into your Library, ready to read. The original stays as it is.</p>
+              <p>{totalWords} words · {totalClaims} claims</p>
+            </details>
           </header>
 
           <section className="shared-wiki-collection__pages" aria-label="Shared wiki pages">
@@ -260,13 +309,11 @@ const SharedWikiCollectionPage = () => {
               return (
                 <article className="shared-wiki-collection__page" key={pageIdFor(page) || page.title}>
                   <div className="shared-wiki-collection__page-header">
-                    <h2>{page.title || 'Untitled page'}</h2>
+                    <h2><Link to={entryPath(page)}>{page.title || 'Untitled page'}</Link></h2>
                     <span>{countWikiSources(page)} sources</span>
                   </div>
                   {preview ? <p>{preview}</p> : null}
-                  <div className="shared-wiki-collection__page-preview wiki-read">
-                    {renderTiptapDoc(page.body, { disableInternalWikiLinks: true })}
-                  </div>
+                  <CollectionEntryBody page={page} className="shared-wiki-collection__page-preview" />
                 </article>
               );
             })}

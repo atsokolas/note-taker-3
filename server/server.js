@@ -22,7 +22,7 @@ const {
 } = require('./ai/embeddingJobs');
 const { EVENT_NAMES, trackEvent, trackReturnVisit } = require('./utils/analytics');
 const { EmbeddingError, isEmbeddingConfigured } = require('./ai/embed');
-const { similarToSource } = require('./ai/semanticSearch');
+const { semanticSearch, similarToSource } = require('./ai/semanticSearch');
 const { buildEmbeddingId } = require('./ai/embeddingTypes');
 const { buildConnectionScopeQuery } = require('./utils/connectionScopeQuery');
 const { asObjectIdOrNull } = require('./utils/notebookIdentity');
@@ -571,6 +571,8 @@ if (mongoose.connection.readyState === 1) {
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
 const { buildWorkNoteRouter } = require('./routes/workNoteRoutes');
+const { workProjectDeletion } = require('./routes/workProjectDeletion');
+const { startWorkProjectErasure } = require('./services/workProjectErasure');
 const { buildNotebookRouter } = require('./routes/notebookRoutes');
 const { buildEntryHistoryRouter } = require('./routes/entryHistoryRoutes');
 const { buildRetiredShareRouter } = require('./routes/retiredShareRoutes');
@@ -587,6 +589,8 @@ const { buildMarketingAnalyticsRouter } = require('./routes/marketingAnalyticsRo
 const { buildMarketingFunnelRouter } = require('./routes/marketingFunnelRoutes');
 const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes');
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
+const { buildRecallRouter } = require('./routes/recallRoutes');
+const { buildPencilRouter } = require('./routes/pencilRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
 const { buildWikiClaimDispositionRouter } = require('./routes/wikiClaimDispositionRoutes');
@@ -4832,7 +4836,8 @@ app.use(buildLibraryFilingRouter({
   })
 }));
 app.use(buildEntryHistoryRouter({ authenticateToken, EntryRevision }));
-app.use(buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder }));
+app.use(buildWorkNoteRouter({ authenticateToken: authenticateUserOrAgentToken, NotebookEntry, NotebookFolder }));
+startWorkProjectErasure({ connection: mongoose.connection, eraseDue: workProjectDeletion({ NotebookEntry, NotebookFolder }).eraseDue });
 app.use(buildNotebookRouter({
   authenticateToken: authenticateUserOrAgentToken,
   NotebookEntry,
@@ -5307,6 +5312,17 @@ const filterOutIds = (items, type, ids) => {
     return !ids.has(String(item.objectId));
   });
 };
+
+app.use(buildPencilRouter({ authenticateToken, humanOnly: requireHumanReader, Article, NotebookEntry }));
+
+app.use(buildRecallRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  Article,
+  NotebookEntry,
+  TagMeta,
+  WikiPage,
+  semanticSearch
+}));
 
 app.use(buildSemanticSearchRouter({
   authenticateToken,

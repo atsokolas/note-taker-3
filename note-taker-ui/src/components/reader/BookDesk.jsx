@@ -37,12 +37,12 @@ const receiptFor = (sent, saved, known, earlier) => {
   if (earlier) return `You marked this in ${yearOf(earlier)} too.`;
   if (known) {
     return /\bLocation\b/.test(saved.location || '')
-      ? 'You marked this on your Kindle too. It is one mark now, with your note.'
+      ? 'You marked this on your Kindle too. Now it’s one highlight, with your note.'
       : 'You had marked this already. It is one mark now.';
   }
   if (!sent.text || !isUnfinished(sent.text)) return '';
   return isUnfinished(saved.text)
-    ? 'Kept as you typed it. The middle fills in when the Kindle or the book brings it.'
+    ? 'Saved. The middle fills in from your Kindle, or from a photo of the page.'
     : 'Filled in from the book.';
 };
 
@@ -204,7 +204,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     if (!text && !note) {
       if (tags.length) {
         setLine(line);
-        setReceipt('A #word files the line it is on, or the mark you just made.');
+        setReceipt('A #word tags this line.');
       }
       return;
     }
@@ -229,7 +229,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       if (filled.length) setInked(filled[0]._id);
       setReceipt(filled.length
         ? `Finished ${quotes(filled.length)} from the page.`
-        : 'Nothing on that page finishes a quote you typed by its ends.');
+        : 'Couldn’t find the rest of your quote on that page.');
     } catch (error) {
       setReceipt(error?.response?.data?.error || 'The page could not be read. Try it again in better light.');
     }
@@ -279,7 +279,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
           : unfinished ? <><span className="book-desk__label">You stopped mid-thought{unfinished.mark.page ? `, p. ${unfinished.mark.page}` : ''}</span><q className="book-desk__own">{unfinished.words}</q></>
           : last ? <><span className="book-desk__label">Last time{last.page ? `, p. ${last.page}` : ''}</span><q className={last.own ? 'book-desk__own' : ''}>{last.words}</q></>
             : lastReading?.finishedOn ? <><span className="book-desk__label">Read before, finished {monthOf(dayOf(lastReading.finishedOn))}</span>{lastReading.closingLine ? <q>{lastReading.closingLine}</q> : 'What you marked then is here in faded ink.'}</>
-              : 'Type as you read. A number turns the page, a quote mark makes the line the book’s own words, and a #word files it under that concept.'}
+              : 'Type as you read. A page number sets the page, a quote mark starts a quote, and a #word tags the line.'}
       </p>
 
       <BookPages marks={marks} since={since} inked={inked} doorFor={doorFor} />
@@ -321,7 +321,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       </p>
       {waiting.length ? (
         <label className="book-desk__photo">
-          {waiting.length === 1 ? 'Photograph the page to finish the quote you typed by its ends' : `Photograph the page to finish the ${waiting.length} quotes you typed by their ends`}
+          {waiting.length === 1 ? 'Photograph the page to fill in your quote' : `Photograph the page to fill in your ${waiting.length} quotes`}
           <input type="file" accept="image/*" capture="environment" onChange={photograph} />
         </label>
       ) : null}

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import WorkNotes from './WorkNotes';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
-import { draftKey } from './workSession';
+import { createWorkSession, draftKey } from './workSession';
 
 jest.mock('react-router-dom', () => {
   const React = require('react');
@@ -15,11 +15,11 @@ jest.mock('react-router-dom', () => {
   } };
 });
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn(() => global.localStorage.removeItem('token')) }));
-jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh }) => <textarea aria-label="Work note writing" autoFocus={fresh} value={note.content || ''} onChange={e => onChange({ content: e.target.value })} />);
+jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh, heading, footer, onRename, onTrash }) => <>{heading}<button onClick={onRename}>Rename</button><button onClick={onTrash}>Delete note</button><textarea aria-label="Work note writing" autoFocus={fresh} value={note.content || ''} onChange={e => onChange({ content: e.target.value })} />{footer}</>);
 const deviceWords = () => JSON.stringify(Object.entries(localStorage).filter(([key]) => key.startsWith(draftKey('owner'))));
 const source = { _id: 'a', title: 'Charging windows', content: 'Original account', folder: 'f', revision: 2, occurredOn: '2026-10-26', withText: 'Mira', workingState: { revision: 2, nextTimeLine: { text: '  Check the window.\n', target: null } } };
 const older = { ...source, _id: 'b', title: 'Smaller depot', occurredOn: '2026-10-12', workingState: { revision: 1, nextTimeLine: { text: '' } } };
-const open = async () => { render(<WorkNotes />); const rail = screen.getByRole('complementary'); fireEvent.click(await within(rail).findByRole('button', { name: 'Pilot' })); fireEvent.click(within(rail).getByRole('button', { name: /Charging windows/ })); };
+const open = async () => { render(<WorkNotes />); const rail = screen.getByRole('complementary'); fireEvent.click(await within(rail).findByRole('button', { name: 'Pilot' })); fireEvent.click(within(rail).getByRole('button', { name: /Charging windows/ })); fireEvent.click(screen.getByLabelText('Note information')); fireEvent.click(screen.getByRole('region', { name: 'Open' }).querySelector('summary')); };
 beforeEach(() => {
   forgetWorkSession('owner'); forgetWorkSession('other'); jest.clearAllMocks(); window.history.replaceState({}, '', '/think?context=work&date=2026-10-26'); localStorage.clear(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.x`);
   api.get.mockResolvedValue({ data: { entries: [source, older], items: [], folders: [{ _id: 'f', name: 'Pilot' }] } });
@@ -32,6 +32,11 @@ test('opens Work without personal rooms; search and inbox are scoped', async () 
   expect(within(screen.getByRole('complementary')).queryByRole('button', { name: /Charging windows/ })).toBeNull(); expect(screen.getByRole('button', { name: /Smaller depot/ })).toBeInTheDocument();
   expect(api.get.mock.calls.every(([path]) => path.startsWith('/api/work-notes'))).toBe(true);
 });
+test('the day picker lives on Today only', async () => {
+  await open(); expect(screen.getByText('Choose a day')).toBeInTheDocument();
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Inbox' }));
+  expect(screen.queryByText('Choose a day')).toBeNull();
+});
 test('new note is untitled and untouched capture closes without creating anything', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: 'New note' }));
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveFocus();
@@ -40,7 +45,7 @@ test('new note is untitled and untouched capture closes without creating anythin
 test('source confirmation names exact title, date, with text and line; Escape cancels', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note/ }));
   const sheet = await screen.findByRole('dialog', { name: 'Continue from this note' });
-  expect(within(sheet).getByText('Charging windows')).toBeInTheDocument(); expect(within(sheet).getByText(/Monday 26 Oct/)).toHaveTextContent('Mira');
+  expect(within(sheet).getByText('Charging windows')).toBeInTheDocument(); expect(within(sheet).getByText(/Mon 26 Oct/)).toHaveTextContent('Mira');
   expect(sheet.querySelector('blockquote').textContent).toBe(source.workingState.nextTimeLine.text);
   fireEvent.keyDown(document, { key: 'Escape' }); expect(screen.queryByRole('dialog')).toBeNull(); expect(api.post).not.toHaveBeenCalled();
 });
@@ -64,7 +69,7 @@ test('confirm creates one fresh page with immutable line outside editable prose 
 test('changed source asks for re-review and a new explicit confirmation', async () => {
   api.post.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...source, revision: 3, workingState: { revision: 3, nextTimeLine: { text: 'Changed line' } } } } } });
   await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note/ })); fireEvent.click(await screen.findByRole('button', { name: 'Continue →' }));
-  expect(await screen.findByText(/source changed/i)).toBeInTheDocument(); expect(within(screen.getByRole('dialog')).getByText('Changed line')).toBeInTheDocument(); expect(api.post).toHaveBeenCalledTimes(1);
+  expect(await screen.findByText(/original changed/i)).toBeInTheDocument(); expect(within(screen.getByRole('dialog')).getByText('Changed line')).toBeInTheDocument(); expect(api.post).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole('button', { name: 'Continue →' })); await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
   expect(api.post.mock.calls[1][1].expectedRevision).toBe(3); expect(api.post.mock.calls[1][1].operationId).not.toBe(api.post.mock.calls[0][1].operationId);
 });
@@ -73,7 +78,7 @@ test('filing from the place line changes only metadata, and the rail follows the
   fireEvent.click(within(place).getByRole('button', { name: 'Pilot' })); fireEvent.click(within(place).getByRole('button', { name: 'Inbox' }));
   await waitFor(() => expect(api.put).toHaveBeenCalled()); expect(api.put.mock.calls[0][1]).toMatchObject({ folder: null, occurredOn: '2026-10-26', content: 'Original account' });
   expect(await screen.findByText('Filed in the inbox.')).toBeInTheDocument();
-  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^In your Inbox, written Monday 26 Oct, with Mira\. File in Pilot or a new folder\./);
+  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^In your Inbox, written Mon 26 Oct, with Mira\. File in Pilot or a new folder\./);
   const rail = screen.getByRole('complementary');
   expect(within(rail).getByRole('button', { name: /Charging windows/ })).toHaveAttribute('aria-current', 'page');
   expect(within(rail).getByLabelText('1 unfiled')).toBeInTheDocument();
@@ -83,7 +88,7 @@ test('storage failure keeps page open with copy and recovery choices', async () 
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Unsaved' } });
   fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /^Today/ }));
   expect(screen.getByRole('dialog', { name: 'Keep your writing' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Download recovery' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Download a copy' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Stay' })); set.mockRestore();
 });
 
@@ -95,7 +100,7 @@ test('development StrictMode remount still loads and edits Work notes', async ()
 test('cancelling changed-source review does not rebase an unseen body onto a newer revision', async () => {
   api.post.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...source, revision: 3, content: 'Other device body', workingState: { revision: 3, nextTimeLine: { text: 'New return line' } } } } } });
   await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note/ })); fireEvent.click(await screen.findByRole('button', { name: 'Continue →' }));
-  await screen.findByText(/source changed/i); fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  await screen.findByText(/original changed/i); fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('Original account');
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Still my version' } }); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
   await waitFor(() => expect(api.put).toHaveBeenCalled()); expect(api.put.mock.calls[0][1].expectedRevision).toBe(2);
@@ -103,9 +108,9 @@ test('cancelling changed-source review does not rebase an unseen body onto a new
 test('conflict review presents server prose without exposing stored HTML markup', async () => {
   await open(); api.put.mockRejectedValue({ response: { status: 409, data: { current: { ...source, revision: 3, content: '<p>Other device <strong>words</strong>.</p>' } } } });
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Local version' } }); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
-  await screen.findByText('Both versions are kept. Your version remains in the editor.');
-  fireEvent.click(screen.getByText('Review the server version'));
-  const details = screen.getByText('Review the server version').closest('details');
+  await screen.findByText('This note was changed somewhere else. Both versions are kept.');
+  fireEvent.click(screen.getByText('See the other version'));
+  const details = screen.getByText('See the other version').closest('details');
   expect(details.textContent).toContain('Other device words'); expect(details.textContent).not.toContain('<p>'); expect(details.textContent).not.toContain('<strong>');
 });
 
@@ -143,7 +148,7 @@ test('account lock truthfully retains memory-only writing and unlocks when its o
   fireEvent(window, new StorageEvent('storage', { key: 'token' }));
   expect(screen.getByText(/not saved on this device/i)).toBeInTheDocument();
   expect(screen.queryByDisplayValue('Only in this page')).toBeNull();
-  expect(screen.getByRole('button', { name: 'Sign in to the original account' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Log in to that account' })).toBeInTheDocument();
   set.mockRestore(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.renewed`);
   fireEvent(window, new StorageEvent('storage', { key: 'token' }));
   expect(await screen.findByDisplayValue('Only in this page')).toBeInTheDocument();
@@ -157,13 +162,13 @@ test('existing inline login restores original-owner memory with refreshed captur
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Recover these words' } });
   localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'other' }))}.x`);
   fireEvent(window, new StorageEvent('storage', { key: 'token' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Sign in to the original account' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in to that account' }));
   expect(screen.queryByDisplayValue('Recover these words')).toBeNull(); expect(screen.queryByText('Register here')).toBeNull();
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-test-password' } });
   const renewed = `x.${btoa(JSON.stringify({ id: 'owner', exp: 9999999999 }))}.renewed`;
   api.post.mockResolvedValueOnce({ data: { token: renewed } });
-  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
   expect(await screen.findByDisplayValue('Recover these words')).toBeInTheDocument();
   set.mockRestore(); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
   await waitFor(() => expect(api.put).toHaveBeenCalled());
@@ -176,7 +181,7 @@ const login = async (response = { data: { token: renewedToken } }) => {
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-password' } });
   api.post.mockResolvedValueOnce(response);
-  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
 };
 test.each([false, true])('same-owner expiry offers existing login and preserves exact writing (storage failure: %s)', async failedStorage => {
   await open(); const originalSet = Storage.prototype.setItem;
@@ -187,7 +192,7 @@ test.each([false, true])('same-owner expiry offers existing login and preserves 
     const words = '  Exact writing.\nAnother line.  ';
     fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: words } });
     api.put.mockRejectedValueOnce(expired); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Log in to sync' }));
     expect(screen.queryByDisplayValue(words)).toBeNull();
     await login(); expect(await screen.findByLabelText('Work note writing')).toHaveValue(words);
     fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
@@ -200,14 +205,14 @@ test.each([false, true])('same-owner expiry offers existing login and preserves 
 test('failed and wrong-owner expiry logins hide retained writing until the original owner returns', async () => {
   await open(); fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Private retained words' } });
   api.put.mockRejectedValueOnce(expired); fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Log in to sync' }));
   api.post.mockRejectedValueOnce({ response: { data: { error: 'Incorrect password' } } });
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'fictional-owner' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'fictional-password' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Login' })); await screen.findByText('Incorrect password');
+  fireEvent.click(screen.getByRole('button', { name: 'Log in' })); await screen.findByText('Incorrect password');
   expect(screen.queryByDisplayValue('Private retained words')).toBeNull();
   await login({ data: { token: `x.${btoa(JSON.stringify({ id: 'other' }))}.other` } });
-  await screen.findByText(/That is a different account/); expect(screen.queryByDisplayValue('Private retained words')).toBeNull();
+  await screen.findByText(/That’s a different account/); expect(screen.queryByDisplayValue('Private retained words')).toBeNull();
   expect(api.put).toHaveBeenCalledTimes(1);
   await login(); expect(await screen.findByDisplayValue('Private retained words')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Sync now' })); await waitFor(() => expect(api.put).toHaveBeenCalledTimes(2));
@@ -215,14 +220,14 @@ test('failed and wrong-owner expiry logins hide retained writing until the origi
 });
 test('initial-load expiry has an actionable login and reloads the shelf after authentication', async () => {
   api.get.mockRejectedValueOnce(expired); render(<WorkNotes />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' })); await login();
+  fireEvent.click(await screen.findByRole('button', { name: 'Log in to sync' })); await login();
   expect(await screen.findByRole('button', { name: /Charging windows/ })).toBeInTheDocument();
   expect(api.get.mock.calls[1][1].headers.Authorization).toBe(`Bearer ${renewedToken}`);
 });
 test('Continue expiry opens login without a second dialog and retains the operation for retry', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: /Continue this note:/ }));
   api.post.mockRejectedValueOnce(expired); fireEvent.click(await screen.findByRole('button', { name: 'Continue →' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' })); expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.click(await screen.findByRole('button', { name: 'Log in to sync' })); expect(screen.queryByRole('dialog')).toBeNull();
   await login(); const dialog = await screen.findByRole('dialog', { name: 'Continue from this note' });
   expect(screen.getAllByRole('dialog')).toHaveLength(1); fireEvent.click(within(dialog).getByRole('button', { name: 'Continue →' }));
   await screen.findByText(/you left yourself/);
@@ -241,7 +246,7 @@ test('quick-capture create expiry recovers through one surface with the same wri
   await screen.findByRole('dialog', { name: 'Work inbox · private' });
   fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: 'Quick exact words' } });
   api.post.mockRejectedValueOnce(expired);
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to sync' }, { timeout: 2000 }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Log in to sync' }, { timeout: 2000 }));
   expect(screen.queryByRole('dialog')).toBeNull(); await login();
   const dialog = await screen.findByRole('dialog', { name: 'Work inbox · private' });
   expect(screen.getAllByRole('dialog')).toHaveLength(1); expect(screen.getByLabelText('Work note writing')).toHaveValue('Quick exact words');
@@ -262,4 +267,290 @@ test('leaving under storage failure offers a copy before anything is discarded',
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Only memory words'));
     fireEvent.click(screen.getByRole('button', { name: 'Stay' })); expect(screen.getByLabelText('Work note writing')).toHaveValue('Only memory words');
   } finally { set.mockRestore(); }
+});
+
+test.each(['task', 'question'])('inline Open %s keeps the note visible and uses its folder in Today scope', async kind => {
+  window.history.replaceState({}, '', '/think?context=work&view=today&date=2026-10-26&note=a');
+  render(<WorkNotes />); const writing = await screen.findByRole('textbox', { name: 'Work note writing' });
+  fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Open item title' }), { target: { value: 'Review tomorrow 2pm' } });
+  fireEvent.change(screen.getByLabelText('Open item kind'), { target: { value: kind } });
+  const add = screen.getByRole('button', { name: 'Add' }); fireEvent.click(add); fireEvent.click(add);
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+  expect(api.post.mock.calls[0][1]).toMatchObject({ title: 'Review tomorrow 2pm', folder: 'f', workItem: { kind, noteId: 'a', plannedOn: null, dueOn: null, priority: 0 } });
+  expect(screen.getByRole('textbox', { name: 'Work note writing' })).toBe(writing);
+  expect(writing).toHaveValue(source.content); expect(api.put.mock.calls.every(([path]) => path !== '/api/work-notes/a')).toBe(true);
+});
+test('inline draft survives Escape, note switching and remount; explicit Cancel discards it without saving', async () => {
+  const mounted = render(<WorkNotes />); fireEvent.click(await screen.findByRole('button', { name: /Charging windows/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
+  const input = screen.getByLabelText('Open item title'); fireEvent.change(input, { target: { value: 'Keep me' } });
+  fireEvent.keyDown(input, { key: 'Escape' }); expect(screen.queryByLabelText('Open item title')).toBeNull();
+  const rail = screen.getByRole('complementary'); fireEvent.click(within(rail).getByRole('button', { name: /Smaller depot/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' })); expect(screen.getByLabelText('Open item title')).toHaveValue('');
+  fireEvent.click(within(rail).getByRole('button', { name: /Charging windows/ }));
+  expect(screen.getByLabelText('Open item title')).toHaveValue('Keep me');
+  mounted.unmount(); forgetWorkSession('owner');
+  window.history.replaceState({}, '', '/think?context=work&note=a'); render(<WorkNotes />);
+  expect(await screen.findByLabelText('Open item title')).toHaveValue('Keep me');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' })); expect(screen.getByLabelText('Open item title')).toHaveValue('');
+  expect(api.post).not.toHaveBeenCalled();
+});
+test('inline composer ignores empty title, blur and IME Enter but submits deliberate Enter', async () => {
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
+  const title = screen.getByLabelText('Open item title'); expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+  fireEvent.change(title, { target: { value: '日本語' } }); fireEvent.blur(title);
+  fireEvent.keyDown(title, { key: 'Enter', keyCode: 229, isComposing: true });
+  expect(api.post).not.toHaveBeenCalled();
+  fireEvent.keyDown(title, { key: 'Enter' }); await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+});
+test('offline inline Add closes only after durable handoff and the row exposes truthful retry status', async () => {
+  api.post.mockRejectedValue(new Error('offline')); await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
+  fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Offline follow-up' } }); fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  expect(await screen.findByText('Offline follow-up')).toBeInTheDocument(); expect(screen.queryByLabelText('Open item title')).toBeNull();
+  expect(await within(screen.getByRole('region', { name: 'Open' })).findByText(/Sync paused.*On this device/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Sync now' })); await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
+  expect(api.post.mock.calls[1][1]).toEqual(api.post.mock.calls[0][1]);
+});
+test('unsafe inline draft is retained through departure protection and original account recovery', async () => {
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
+  const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Keep in this page' } });
+  expect(screen.getByRole('alert')).toHaveTextContent(/not saved on this device/);
+  fireEvent.click(screen.getByRole('button', { name: 'Add' })); expect(api.post).not.toHaveBeenCalled();
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  expect(screen.getByRole('dialog', { name: 'Keep your writing' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Stay' })); set.mockRestore();
+  expect(screen.getByLabelText('Open item title')).toHaveValue('Keep in this page');
+});
+
+test('recovery Copy includes unsafe Open writing and Discard and leave actually leaves', async () => {
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
+  const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+  fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Recover this question' } });
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  const writeText = jest.fn().mockResolvedValue(); Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  fireEvent.click(screen.getByRole('button', { name: 'Copy writing' }));
+  await screen.findByText('Writing copied.'); expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Recover this question'));
+  set.mockRestore(); fireEvent.click(screen.getByRole('button', { name: 'Discard and leave' }));
+  expect(screen.queryByRole('dialog')).toBeNull(); expect(screen.getByLabelText('Note title')).toHaveValue('Smaller depot');
+});
+
+test('competing Open drafts remain selectable and submitting one preserves the other', async () => {
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
+  fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'First tab title' } });
+  const second = createWorkSession({ token: localStorage.getItem('token'), api }); await second.load();
+  second.open.draft('a'); second.open.change('a', { title: 'Second tab title' });
+  fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Third title' } });
+  const choices = screen.getByLabelText('Open drafts');
+  expect(within(choices).getByRole('option', { name: 'Second tab title' })).toBeInTheDocument();
+  fireEvent.change(choices, { target: { value: within(choices).getByRole('option', { name: 'Second tab title' }).value } });
+  expect(screen.getByLabelText('Open item title')).toHaveValue('Second tab title');
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  await waitFor(() => expect(api.post).toHaveBeenCalled()); expect(api.post.mock.calls[0][1].title).toBe('Second tab title');
+  fireEvent.click(screen.getByRole('button', { name: 'Continue Open draft' }));
+  expect(screen.getByLabelText('Open item title')).toHaveValue('Third title'); second.dispose();
+});
+
+test('a new page shows one original written date through save, edits and reload without changing prose', async () => {
+  localStorage.setItem('noeis:work-view:owner', JSON.stringify({ timeZone: 'America/Los_Angeles' }));
+  api.put.mockImplementation(async (_, body) => ({ data: { ...api.post.mock.calls[0][1], ...body, _id: 'new', revision: body.expectedRevision + 1 } }));
+  const mounted = render(<WorkNotes />);
+  await screen.findByRole('button', { name: 'Pilot' });
+  fireEvent.click(screen.getByRole('button', { name: 'New note' }));
+  const day = screen.getByLabelText(/^Written on/).getAttribute('datetime');
+  fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: 'Only my words' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
+  await waitFor(() => expect(api.post).toHaveBeenCalled());
+  expect(api.post.mock.calls[0][1].content).toBe('Only my words');
+  expect(screen.getAllByLabelText(/^Written on/)).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText('Occurred on'), { target: { value: '2020-01-01' } });
+  expect(screen.getByLabelText(/^Written on/)).toHaveAttribute('datetime', day);
+  const saved = { _id: 'new', revision: 0, ...api.post.mock.calls[0][1] };
+  mounted.unmount(); forgetWorkSession('owner');
+  api.get.mockResolvedValue({ data: { entries: [saved], items: [], folders: [{ _id: 'f', name: 'Pilot' }] } });
+  window.history.replaceState({}, '', '/work?note=new');
+  render(<WorkNotes />);
+  expect(await screen.findByLabelText(/^Written on/)).toHaveAttribute('datetime', day);
+  expect(screen.getAllByLabelText(/^Written on/)).toHaveLength(1);
+  expect(screen.getByLabelText('Work note writing')).toHaveValue('Only my words');
+});
+
+test('home puts today and Next together in the right rail, not twice on the daily page', async () => {
+  window.history.replaceState({}, '', '/work');
+  render(<WorkNotes />);
+  await screen.findByRole('heading', { name: 'This week' });
+  const rail = screen.getByRole('complementary', { name: 'Open to-dos' });
+  const todaySummary = within(rail).getByText('Today’s to-dos');
+  const nextSummary = within(rail).getByText('Next', { selector: 'summary' });
+  expect(todaySummary.closest('details')).toHaveAttribute('open');
+  expect(nextSummary.closest('details')).toHaveAttribute('open');
+  expect(todaySummary.closest('details').nextElementSibling).toBe(nextSummary.closest('details'));
+  expect(screen.getAllByText('Today’s to-dos')).toHaveLength(1);
+  fireEvent.click(todaySummary); fireEvent.click(nextSummary);
+  expect(todaySummary.closest('details')).not.toHaveAttribute('open');
+  expect(nextSummary.closest('details')).not.toHaveAttribute('open');
+});
+
+test('note deletion is recoverable from editor and sidebar without deleting linked tasks', async () => {
+  await open();
+  fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete note?' })).getByRole('button', { name: 'Delete note' }));
+  await screen.findByText(/moved to Deleted/);
+  expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/a', expect.objectContaining({ content: 'Original account', trashedAt: expect.any(String) }), expect.anything());
+  fireEvent.click(screen.getByRole('button', { name: 'Deleted (1)' }));
+  expect(screen.getByRole('region', { name: 'Deleted' })).toHaveTextContent('Original account');
+  fireEvent.click(screen.getByRole('button', { name: 'Restore Charging windows' }));
+  await screen.findByText('Note restored.');
+  expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/a', expect.objectContaining({ content: 'Original account', trashedAt: null }), expect.anything());
+  const menu = screen.getByLabelText('Actions for Charging windows');
+  fireEvent.click(menu);
+  fireEvent.click(within(menu.closest('details')).getByRole('button', { name: 'Delete note' }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete note?' })).getByRole('button', { name: 'Delete note' }));
+  await screen.findByText(/moved to Deleted/);
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+  await screen.findByText('Note restored.');
+});
+
+test('opening a note from Trash returns to writing', async () => {
+  await open();
+  fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete note?' })).getByRole('button', { name: 'Delete note' }));
+  await screen.findByText(/moved to Deleted/);
+  fireEvent.click(screen.getByRole('button', { name: 'Deleted (1)' }));
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('Original account');
+  expect(screen.queryByRole('region', { name: 'Deleted' })).not.toBeInTheDocument();
+});
+
+test('a slow deletion never dismisses a newer opened note', async () => {
+  await open(); let finish;
+  api.put.mockImplementationOnce((_, body) => new Promise(resolve => { finish = () => resolve({ data: { ...source, ...body, revision: 3 } }); }));
+  fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete note?' })).getByRole('button', { name: 'Delete note' }));
+  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  await waitFor(() => expect(finish).toEqual(expect.any(Function)));
+  await act(async () => finish());
+  expect(screen.getByRole('textbox', { name: 'Note title' })).toHaveValue('Smaller depot');
+});
+
+test('note menus rename through the revisioned save path and preserve writing', async () => {
+  await open();
+  fireEvent.click(screen.getByLabelText('Actions for Charging windows'));
+  fireEvent.click(within(screen.getByLabelText('Actions for Charging windows').closest('details')).getByRole('button', { name: 'Rename', exact: true }));
+  const dialog = screen.getByRole('dialog', { name: 'Rename note' });
+  fireEvent.change(within(dialog).getByLabelText('Note name'), { target: { value: 'Charging plan' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+  await screen.findByText('Note renamed.');
+  expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/a', expect.objectContaining({ title: 'Charging plan', content: 'Original account', expectedRevision: 2 }), expect.anything());
+  expect(screen.getByLabelText('Note title')).toHaveValue('Charging plan');
+});
+
+test('project ellipses in sidebar and page share the same safe edit action', async () => {
+  const project = { _id: 'p', kind: 'project', name: 'Launch', brief: 'Original purpose', revision: 4 };
+  api.get.mockResolvedValue({ data: { entries: [source], items: [], folders: [project, { _id: 'f', name: 'Pilot' }] } });
+  api.put.mockImplementation(async (_, body) => ({ data: { ...project, ...body, revision: body.expectedRevision + 1 } }));
+  render(<WorkNotes />);
+  fireEvent.click(await screen.findByLabelText('Actions for project Launch'));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit description' }));
+  const dialog = screen.getByRole('dialog', { name: 'Edit project' });
+  fireEvent.change(within(dialog).getByLabelText('Project name'), { target: { value: 'Launch plan' } });
+  fireEvent.change(within(dialog).getByLabelText('Project description'), { target: { value: 'Clarified purpose' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+  await screen.findByText('Project updated.');
+  expect(api.put).toHaveBeenLastCalledWith('/api/work-notes/folders/p', expect.objectContaining({ name: 'Launch plan', brief: 'Clarified purpose', expectedRevision: 4 }), expect.anything());
+  fireEvent.click(screen.getByRole('button', { name: 'Launch plan', exact: true }));
+  const page = screen.getByRole('main');
+  fireEvent.click(within(page).getByLabelText('Actions for project Launch plan'));
+  fireEvent.click(within(page).getByRole('button', { name: 'Edit description' }));
+  expect(screen.getByLabelText('Project description')).toHaveValue('Clarified purpose');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(api.put).toHaveBeenCalledTimes(1);
+});
+
+test('rename-only project edit cannot overwrite an inline description save in flight', async () => {
+  const project = { _id: 'p', kind: 'project', name: 'Launch', brief: 'Original purpose', revision: 4 };
+  api.get.mockResolvedValue({ data: { entries: [], items: [], folders: [project] } });
+  let finish;
+  api.put.mockImplementationOnce((_, body) => new Promise(resolve => { finish = () => resolve({ data: { ...project, ...body, revision: 5 } }); }));
+  api.put.mockImplementation(async (_, body) => ({ data: { ...project, brief: 'New purpose', ...body, revision: 6 } }));
+  render(<WorkNotes />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Launch', exact: true }));
+  fireEvent.change(screen.getByLabelText('What Launch is'), { target: { value: 'New purpose' } });
+  fireEvent.blur(screen.getByLabelText('What Launch is'));
+  await waitFor(() => expect(finish).toEqual(expect.any(Function)));
+  const page = screen.getByRole('main');
+  fireEvent.click(within(page).getByLabelText('Actions for project Launch'));
+  fireEvent.click(within(page).getByRole('button', { name: 'Rename', exact: true }));
+  fireEvent.change(screen.getByLabelText('Project name'), { target: { value: 'Renamed launch' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
+  await act(async () => finish());
+  await screen.findByRole('heading', { name: 'Renamed launch', exact: true });
+  expect(api.put.mock.calls[1][1]).toMatchObject({ name: 'Renamed launch', expectedRevision: 5 });
+  expect(api.put.mock.calls[1][1]).not.toHaveProperty('brief');
+  expect(screen.getByLabelText('What Renamed launch is')).toHaveValue('New purpose');
+});
+
+test('a note opened from its project keeps the expanded week planner reachable', async () => {
+  const project = { _id: 'p', kind: 'project', name: 'Launch', revision: 0 };
+  api.get.mockResolvedValue({ data: { entries: [{ ...source, project: 'p' }], items: [], folders: [project, { _id: 'f', name: 'Pilot' }] } });
+  render(<WorkNotes />);
+  fireEvent.click(await within(screen.getByRole('complementary')).findByRole('button', { name: 'Launch', exact: true }));
+  fireEvent.click(within(screen.getByRole('region', { name: 'Log' })).getByRole('button', { name: /Charging windows/ }));
+  expect(screen.getByLabelText('Work note writing')).toHaveValue(source.content);
+  fireEvent.click(screen.getByLabelText('Note information'));
+  fireEvent.click(screen.getByText('Choose a day').closest('summary'));
+  fireEvent.click(screen.getByRole('button', { name: 'Week', exact: true }));
+  const planner = screen.getByRole('region', { name: 'Work planner' });
+  expect(planner).toHaveClass('mode-week');
+  expect(within(planner).getAllByRole('button', { name: /Plan work for/ })).toHaveLength(7);
+  expect(screen.getByLabelText('Work note writing')).toHaveValue(source.content);
+});
+
+test('project deletion requires reviewed confirmation and restores the whole batch from Deleted', async () => {
+  const project = { _id: 'p', kind: 'project', name: 'Launch', revision: 4 };
+  const entry = { ...source, project: 'p' };
+  const task = { _id: 't', title: 'Ship', revision: 1, project: 'p', workItem: { kind: 'task', list: 'next' } };
+  const preview = { projectId: 'p', revision: 4, reviewToken: 'review-1', entryIds: ['a', 't'], counts: { notes: 1, tasks: 1, excludedTasks: 2, alreadyDeleted: 1 }, retentionDays: 14 };
+  api.get.mockImplementation(async path => ({ data: path.endsWith('/delete-preview') ? preview : { entries: [entry], items: [task], folders: [project] } }));
+  const deleted = { ...project, revision: 5, deleted: { batchId: 'batch', deletedAt: '2026-11-16T12:00:00Z', expiresAt: '2026-11-30T12:00:00Z', autoErase: true, consentVersion: 1, restoredAt: null } };
+  api.post.mockImplementation(async path => ({ data: path.endsWith('/restore') ? { project: { ...deleted, revision: 6, deleted: { ...deleted.deleted, restoredAt: '2026-11-17T12:00:00Z' } }, entries: [entry, task].map(record => ({ ...record, revision: 7, trashedAt: null, deletionBatchId: null })) } : { project: deleted, entries: [entry, task].map(record => ({ ...record, revision: 6, trashedAt: deleted.deleted.deletedAt, deletionBatchId: 'batch' })) } }));
+  render(<WorkNotes />);
+  const openDelete = async () => {
+    fireEvent.click(await screen.findByLabelText('Actions for project Launch'));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete project', exact: true }));
+    const dialog = await screen.findByRole('dialog', { name: 'Delete Launch?' });
+    await within(dialog).findByText(/1 notes and 1 tasks/); return dialog;
+  };
+  let dialog = await openDelete();
+  expect(dialog).toHaveTextContent('2 linked tasks belong to other projects');
+  expect(dialog).toHaveTextContent('1 already-deleted items');
+  expect(dialog).toHaveTextContent('permanently erased on or after 14 days after deletion');
+  expect(dialog).toHaveTextContent('This cannot be undone');
+  expect(within(dialog).getAllByRole('button')[0]).toHaveTextContent('Cancel');
+  expect(api.post).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+  expect(api.post).not.toHaveBeenCalled();
+  dialog = await openDelete();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete project', exact: true }));
+  const deletedPage = await screen.findByRole('region', { name: 'Deleted' });
+  expect(deletedPage).toHaveTextContent('Permanently erased on or after');
+  expect(deletedPage.querySelector('time')).toHaveAttribute('dateTime', '2026-11-30T12:00:00Z');
+  expect(api.post).toHaveBeenCalledWith('/api/work-notes/projects/p/delete', expect.objectContaining({ expectedRevision: 4, reviewToken: 'review-1', operationId: expect.any(String), autoErase: true }), expect.anything());
+  expect(screen.queryByLabelText('Actions for project Launch')).not.toBeInTheDocument();
+  fireEvent.click(within(deletedPage).getByRole('button', { name: 'Restore Launch' }));
+  await screen.findByText('“Launch” and its deleted notes and tasks restored.');
+  expect(screen.getByLabelText('Actions for project Launch')).toBeInTheDocument();
+});
+
+test('canceling note deletion leaves original writing untouched', async () => {
+  await open();
+  fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
+  const dialog = await screen.findByRole('dialog', { name: 'Delete note?' });
+  expect(api.put).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByLabelText('Work note writing')).toHaveValue('Original account');
+  expect(api.put).not.toHaveBeenCalled();
 });

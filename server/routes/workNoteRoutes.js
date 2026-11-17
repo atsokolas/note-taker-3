@@ -1,4 +1,7 @@
+const { workProjectDeletion, deleted } = require('./workProjectDeletion');
 const { createWorkNoteReadiness } = require('../services/workNoteReadiness');
+const { EDITION_TAG, draftWeekEdition } = require('../services/workWeekEdition');
+const { saveWorkWeek } = require('../services/workWeek');
 const express = require('express');
 const mongoose = require('mongoose');
 const { inWork, workOperationIndex } = require('../models/knowledgeContext');
@@ -18,11 +21,22 @@ function validateReferences(value, inBlocks = false) {
     validateReferences(child, inBlocks || key === 'blocks');
   }
 }
-function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder, readiness = createWorkNoteReadiness({ NotebookEntry }) }) {
+// What a project keeps from elsewhere in Noeis: a kind, an id and the title it had. Nothing is fetched or followed.
+function projectLinks(links) {
+  if (!Array.isArray(links) || links.length > 100 || links.some(link => !['article', 'wiki', 'book'].includes(link?.kind) || typeof link.id !== 'string' || !/^[\w-]{1,64}$/.test(link.id) || typeof (link.title ?? '') !== 'string')) throw fail(400, 'Choose things from your Library, Wiki or Books.');
+  return links.map(({ kind, id, title = '' }) => ({ kind, id, title: title.slice(0, 300) }));
+}
+// A project's Monday answers: a day and one line each, the newest year of them kept.
+function checkIns(answers) {
+  if (!Array.isArray(answers) || answers.some(answer => !date(answer?.on) || typeof answer.text !== 'string' || !answer.text.trim())) throw fail(400, 'Each check-in needs a day and a line.');
+  return answers.slice(-52).map(({ on, text }) => ({ on, text: text.trim().slice(0, 500) }));
+}
+function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder, readiness = createWorkNoteReadiness({ NotebookEntry }), draftWeek = draftWeekEdition }) {
   const router = express.Router();
+  const deletion = workProjectDeletion({ NotebookEntry, NotebookFolder });
   router.use('/api/work-notes', authenticateToken, (req, res, next) => {
     res.set('Cache-Control', 'no-store, private');
-    if (req.agentToken || req.personalAgent || req.authInfo?.tokenSource === 'agent-token') return res.status(403).json({ error: 'Only the human owner can do this.' });
+    if (req.agentToken && !req.agentToken.scopes.includes('work')) return res.status(403).json({ error: 'This connection has no Work access. Reconnect it with --work to let it into Work.' });
     if (!readiness.isReady()) return res.status(503).json({ code: 'work_unavailable', error: 'Work notes are not ready. Please retry shortly.' });
     next();
   });
@@ -31,7 +45,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       res.status(error.status || (error.name === 'ValidationError' || error.name === 'CastError' ? 400 : 500)).json({ error: error.status ? error.message : 'Unable to save or load this Work note.', ...(error.current ? { current: error.current } : {}) });
     }
   };
-  const find = (req, extra = {}) => inWork(NotebookEntry.findOne({ _id: req.params.id, userId: req.user.id, ...extra }));
+  const find = (req, extra = {}) => inWork(NotebookEntry.findOne({ _id: req.params.id, userId: req.user.id, erasedAt: null, ...extra }));
   async function fields(req, current) {
     const body = req.body || {}; validateReferences(body);
     const result = {};
@@ -39,12 +53,17 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (!current) Object.assign(result, captureFields(body));
     if (body.workItem !== undefined) {
       if (current && !current.workItem) throw fail(400, 'A note cannot become a planner item.');
-      result.workItem = await workItemFields(body.workItem, current?.workItem, id => mongoose.isValidObjectId(id) && inWork(NotebookEntry.findOne({ _id: id, userId: req.user.id, workItem: { $exists: false } })));
+      result.workItem = await workItemFields(body.workItem, current?.workItem, id => mongoose.isValidObjectId(id) && inWork(NotebookEntry.findOne({ _id: id, userId: req.user.id, workItem: { $exists: false } })), id => inWork(NotebookFolder.findOne({ _id: id, userId: req.user.id })));
     }
     if (body.workActions?.length) result.workItem = applyWorkActions(result.workItem || current?.workItem, body.workActions);
     for (const key of ['title', 'content', 'withText']) if (body[key] !== undefined) {
       if (typeof body[key] !== 'string') throw fail(400, `${key} must be text.`);
       result[key] = body[key];
+    }
+    if (body.trashedAt !== undefined) {
+      if (current?.workItem || body.workItem) throw fail(400, 'Only authored notes can move to Trash.');
+      if (body.trashedAt !== null && (typeof body.trashedAt !== 'string' || !Number.isFinite(Date.parse(body.trashedAt)))) throw fail(400, 'Choose a valid Trash date.');
+      result.trashedAt = body.trashedAt === null ? null : new Date(body.trashedAt);
     }
     if (body.blocks !== undefined) {
       if (!Array.isArray(body.blocks)) throw fail(400, 'blocks must be a list.');
@@ -54,19 +73,21 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       if (!date(body.occurredOn)) throw fail(400, 'occurredOn must be a calendar date.');
       result.occurredOn = body.occurredOn;
     }
-    if (body.folder !== undefined) {
-      if (body.folder && (!mongoose.isValidObjectId(body.folder) || !await inWork(NotebookFolder.exists({ _id: body.folder, userId: req.user.id, ...((current?.folder && String(current.folder) === body.folder) ? {} : { archivedAt: null }) })))) throw fail(400, 'Choose one of your Work notebooks.');
-      result.folder = body.folder || null;
+    for (const [key, kind, error] of [['folder', { $ne: 'project' }, 'Choose one of your Work notebooks.'], ['project', 'project', 'Choose one of your projects.']]) if (body[key] !== undefined) {
+      if (body[key] && (!mongoose.isValidObjectId(body[key]) || !await inWork(NotebookFolder.exists({ _id: body[key], userId: req.user.id, kind, ...((current?.[key] && String(current[key]) === body[key]) ? {} : { archivedAt: null }) })))) throw fail(400, error);
+      result[key] = body[key] || null;
     }
     return result;
   }
   function operation(req) {
     const id = req.body?.operationId;
     if (typeof id !== 'string' || !id.trim() || id.length > 160) throw fail(400, 'A stable operationId is required.');
+    if (id.startsWith('work-week:')) throw fail(400, 'Save weekly priorities through the weekly planner.');
     return id;
   }
   async function duplicate(req, operationId, source) {
     const existing = await inWork(NotebookEntry.findOne({ userId: req.user.id, operationId }));
+    if (existing?.erasedAt) throw fail(410, 'This writing was permanently erased.');
     if (existing && existing.operationSource !== source) throw fail(409, 'This operationId was used for another action.');
     return existing;
   }
@@ -74,7 +95,23 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     const [entries, folders] = await Promise.all([
       inWork(NotebookEntry.find({ userId: req.user.id })).sort({ updatedAt: -1 }),
       inWork(NotebookFolder.find({ userId: req.user.id })).sort({ sortOrder: 1, name: 1 })
-    ]); res.json({ entries: entries.filter(entry => !entry.workItem), items: entries.filter(entry => entry.workItem), folders });
+    ]); res.json({ entries: entries.filter(entry => !entry.erasedAt && !entry.workItem), items: entries.filter(entry => !entry.erasedAt && entry.workItem), folders: folders.filter(folder => !folder.deleted?.erasedAt), erasedEntries: entries.filter(entry => entry.erasedAt).map(entry => ({ _id: entry._id, erasedAt: entry.erasedAt, revision: entry.revision })), erasedProjects: folders.filter(folder => folder.deleted?.erasedAt).map(folder => ({ _id: folder._id, erasedAt: folder.deleted.erasedAt, revision: folder.revision })) });
+  }));
+  router.get('/api/work-notes/projects/:id/delete-preview', handle(async (req, res) => {
+    const project = await deletion.projectFor(req.user.id, req.params.id);
+    if (deleted(project)) throw fail(409, 'This project is already deleted.');
+    res.json(await deletion.preview(req.user.id, project));
+  }));
+  router.post('/api/work-notes/projects/:id/delete', handle(async (req, res) => {
+    const operationId = operation(req);
+    res.json(await deletion.remove(req.user.id, req.params.id, { ...req.body, operationId }));
+  }));
+  router.post('/api/work-notes/projects/:id/restore', handle(async (req, res) => {
+    res.json(await deletion.restore(req.user.id, req.params.id, operation(req)));
+  }));
+  // The other rooms ask only for the projects, to offer "Add to project".
+  router.get('/api/work-notes/projects', handle(async (req, res) => {
+    res.json(await inWork(NotebookFolder.find({ userId: req.user.id, kind: 'project', archivedAt: null, $or: [{ deleted: null }, { 'deleted.restoredAt': { $ne: null } }] })).sort({ sortOrder: 1, name: 1 }));
   }));
   let folderIndex;
   const ensureFolderIndex = () => folderIndex ||= NotebookFolder.collection.createIndex(workOperationIndex.keys, workOperationIndex.options).catch(() => { folderIndex = null; throw fail(503, 'Folder saving is not ready. Retry shortly.'); });
@@ -85,7 +122,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     await ensureFolderIndex();
     let folder = operationId && await inWork(NotebookFolder.findOne({ userId: req.user.id, operationId }));
     if (!folder) {
-      try { folder = await NotebookFolder.create({ name: req.body.name, userId: req.user.id, knowledgeContext: 'work', ...(operationId ? { operationId } : {}) }); }
+      try { folder = await NotebookFolder.create({ name: req.body.name, userId: req.user.id, knowledgeContext: 'work', kind: req.body.kind === 'project' ? 'project' : 'folder', ...(operationId ? { operationId } : {}) }); }
       catch (error) { if (error.code !== 11000 || !operationId) throw error; folder = await inWork(NotebookFolder.findOne({ userId: req.user.id, operationId })); }
     }
     res.status(201).json(folder);
@@ -94,15 +131,20 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (!revision(req.body.expectedRevision)) throw fail(400, 'Confirm the folder revision.');
     const current = await inWork(NotebookFolder.findOne({ _id: req.params.id, userId: req.user.id }));
     if (!current) throw fail(404, 'Work folder not found.');
+    if (deleted(current)) throw fail(409, 'Restore the deleted project before changing it.');
     if (req.body.operationId && current.lastMutationId === req.body.operationId) {
       if ((req.body.name !== undefined && req.body.name !== current.name) || (req.body.archived !== undefined && req.body.archived !== Boolean(current.archivedAt))) throw fail(409, 'This request was used for a different folder change.', current);
       return res.json(current);
     }
     const values = {};
     if (req.body.name !== undefined) { if (typeof req.body.name !== 'string' || !req.body.name.trim()) throw fail(400, 'Folder name is required.'); values.name = req.body.name; }
-    if (req.body.archived !== undefined) { if (typeof req.body.archived !== 'boolean') throw fail(400, 'Choose archive or restore.'); values.archivedAt = req.body.archived ? new Date() : null; }
+    if (req.body.archived !== undefined) { if (typeof req.body.archived !== 'boolean') throw fail(400, 'Choose done or reopen.'); values.archivedAt = req.body.archived ? new Date() : null; }
+    if (req.body.paused !== undefined) { if (typeof req.body.paused !== 'boolean') throw fail(400, 'Choose pause or resume.'); values.pausedAt = req.body.paused ? new Date() : null; }
+    for (const key of ['brief', 'closingLine']) if (req.body[key] !== undefined) { if (typeof req.body[key] !== 'string') throw fail(400, `${key} must be text.`); values[key] = req.body[key]; }
+    if (req.body.links !== undefined) values.links = projectLinks(req.body.links);
+    if (req.body.checkIns !== undefined) values.checkIns = checkIns(req.body.checkIns);
     if (req.body.operationId) values.lastMutationId = req.body.operationId;
-    const folder = await inWork(NotebookFolder.findOneAndUpdate({ _id: current._id, userId: req.user.id, ...folderRevision(req.body.expectedRevision) }, { $set: values, $inc: { revision: 1 } }, { new: true, runValidators: true }));
+    const folder = await inWork(NotebookFolder.findOneAndUpdate({ _id: current._id, userId: req.user.id, $and: [{ $or: [{ deleted: null }, { 'deleted.restoredAt': { $ne: null } }] }, folderRevision(req.body.expectedRevision)] }, { $set: values, $inc: { revision: 1 } }, { new: true, runValidators: true }));
     if (!folder) throw fail(409, 'This folder changed. Reload it before trying again.', current);
     res.json(folder);
   }));
@@ -111,7 +153,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (!Array.isArray(order) || !order.length || new Set(order.map(row => row.id)).size !== order.length || order.some(row => !mongoose.isValidObjectId(row.id) || !revision(row.revision))) throw fail(400, 'Confirm the folders and their revisions.');
     const session = await NotebookFolder.db.startSession(); let folders;
     try { await session.withTransaction(async () => {
-      const current = await inWork(NotebookFolder.find({ userId: req.user.id, archivedAt: null })).session(session);
+      const current = await inWork(NotebookFolder.find({ userId: req.user.id, kind: { $ne: 'project' }, archivedAt: null })).session(session);
       if (current.length !== order.length || current.some(folder => !order.some(row => row.id === String(folder._id)))) throw fail(409, 'The active folders changed. Reload before reordering.');
       if (current.every(folder => folder.lastMutationId === operationId)) { folders = current.sort((a, b) => a.sortOrder - b.sortOrder); if (folders.some((folder, index) => String(folder._id) !== order[index].id)) throw fail(409, 'This request was used for a different order.'); return; }
       folders = [];
@@ -127,10 +169,35 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     let entry = await duplicate(req, operationId, 'create');
     if (!entry) {
       const values = await fields(req);
-      try { entry = await NotebookEntry.create({ ...values, occurredOn: values.occurredOn || new Date().toISOString().slice(0, 10), userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: 'create' }); }
+      try { entry = await deletion.transaction(async session => {
+        await deletion.fenceEntries(req.user.id, [values], session);
+        const [created] = await NotebookEntry.create([{ ...values, occurredOn: values.occurredOn || new Date().toISOString().slice(0, 10), userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: 'create' }], { session });
+        return created;
+      }); }
       catch (error) { if (error.code !== 11000) throw error; entry = await duplicate(req, operationId, 'create'); }
     }
     res.status(201).json(entry);
+  }));
+  // The last seven days read back as an Edition. The draft is a new Work note, so it is edited, filed and kept like any other.
+  router.post('/api/work-notes/week-edition', handle(async (req, res) => {
+    if (req.agentToken) throw fail(403, 'Only you can draft the week from your Work notes.');
+    const operationId = operation(req), source = 'week-edition';
+    let note = await duplicate(req, operationId, source);
+    if (note) return res.status(201).json({ note });
+    if (!date(req.body.through)) throw fail(400, 'Choose the last day of the week.');
+    const capture = captureFields({ timeZone: req.body.timeZone });
+    const notes = await inWork(NotebookEntry.find({ userId: req.user.id, workItem: { $exists: false }, trashedAt: null })).lean();
+    let result;
+    try { result = await draftWeek({ notes, through: req.body.through }); }
+    catch (error) { throw fail(error.status === 503 ? 503 : 502, error.status === 503 ? 'Week Editions need Claude, and Claude is not connected right now.' : 'Claude could not draft the week just now. Your notes are unchanged. Try again.'); }
+    if (!result.draft) return res.json({ silence: result.silence });
+    try { note = await NotebookEntry.create({ ...result.draft, ...capture, occurredOn: req.body.through, tags: [EDITION_TAG], userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: source }); }
+    catch (error) { if (error.code !== 11000) throw error; note = await duplicate(req, operationId, source); }
+    res.status(201).json({ note });
+  }));
+  router.put('/api/work-notes/weeks/:week', handle(async (req, res) => {
+    const { entry, created } = await saveWorkWeek({ NotebookEntry, userId: req.user.id, week: req.params.week, input: req.body });
+    res.status(created ? 201 : 200).json(entry);
   }));
   router.get('/api/work-notes/:id', handle(async (req, res) => {
     const entry = await find(req); if (!entry) throw fail(404, 'Work note not found.'); res.json(entry);
@@ -139,6 +206,8 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     const expected = req.body?.expectedRevision;
     if (!revision(expected)) throw fail(400, 'expectedRevision is required.');
     const current = await find(req); if (!current) throw fail(404, 'Work note not found.');
+    if (current.deletionBatchId) throw fail(409, 'Restore the deleted project before changing its writing.', current);
+    if (current.workItem?.kind === 'week') throw fail(400, 'Edit this plan through the weekly planner.');
     if (replayedActions(current.workItem, req.body.workActions)) return res.json({ ...current.toObject(), _actionReplay: true });
     if (current.revision !== expected) throw fail(409, 'This note changed elsewhere.', current);
     let values;
@@ -150,7 +219,10 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       // Personal workbench normalization trims text; Work preserves the accepted words exactly.
       values.workingState.nextTimeLine.text = text;
     }
-    const entry = await inWork(NotebookEntry.findOneAndUpdate({ _id: req.params.id, userId: req.user.id, revision: expected }, { $set: values, $inc: { revision: 1 } }, { new: true, runValidators: true }));
+    const entry = await deletion.transaction(async session => {
+      await deletion.fenceEntries(req.user.id, [current, { ...current.toObject(), ...values }], session);
+      return inWork(NotebookEntry.findOneAndUpdate({ _id: req.params.id, userId: req.user.id, revision: expected }, { $set: values, $inc: { revision: 1 } }, { new: true, runValidators: true, session }));
+    });
     if (!entry) { const current = await find(req); if (current && replayedActions(current.workItem, req.body.workActions)) return res.json({ ...current.toObject(), _actionReplay: true }); throw fail(current ? 409 : 404, current ? 'This note changed elsewhere.' : 'Work note not found.', current); }
     res.json(entry);
   }));
@@ -167,9 +239,10 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
         const source = await inWork(NotebookEntry.findOneAndUpdate({ _id: req.params.id, userId: req.user.id, revision: expectedRevision, ...(expectedWorkbenchRevision === undefined ? {} : { 'workingState.revision': expectedWorkbenchRevision }) }, { $inc: { continuationFence: 1 } }, { new: true, timestamps: false, session }));
         if (!source) { const current = await find(req).session(session); throw fail(current ? 409 : 404, 'The source changed. Review it before continuing.', current); }
         if (source.workItem) throw fail(400, 'Continue an authored note, not a planner item.');
+        await deletion.fenceEntries(req.user.id, [source], session);
         const line = source.workingState?.nextTimeLine;
         const continuationBridge = line?.text?.trim() ? { entryId: String(source._id), title: source.title, occurredOn: source.occurredOn, text: line.text, target: line.target?.toObject ? line.target.toObject() : line.target, revision: source.revision, workbenchRevision: source.workingState.revision } : null;
-        [entry] = await NotebookEntry.create([{ ...captureFields(req.body), userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: sourceKey, occurredOn, folder: source.folder, continuesFromEntryId: source._id, continuationBridge }], { session });
+        [entry] = await NotebookEntry.create([{ ...captureFields(req.body), userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: sourceKey, occurredOn, folder: source.folder, project: source.project, continuesFromEntryId: source._id, continuationBridge }], { session });
       });
     } catch (error) { if (error.code !== 11000) throw error; entry = await duplicate(req, operationId, sourceKey); }
     finally { await session.endSession(); }

@@ -1,6 +1,6 @@
 {
   "name": "@noeis/wiki-mcp",
-  "version": "0.4.5",
+  "version": "0.5.1",
   "mcpName": "io.github.atsokolas/noeis",
   "description": "MCP server for driving a Noeis wiki from external agents.",
   "repository": {
@@ -20,10 +20,11 @@
     "bin",
     "src",
     "README.md",
+    "CHANGELOG.md",
     "server.json"
   ],
   "scripts": {
-    "test": "node test/server.test.js && node test/config.test.js && node test/ingest.test.js && node test/library.test.js && node test/think.test.js && node test/editions.test.js && node test/chatgpt.test.js && node test/chatgpt-access.test.js && node test/security.test.js",
+    "test": "node test/server.test.js && node test/config.test.js && node test/ingest.test.js && node test/library.test.js && node test/think.test.js && node test/editions.test.js && node test/chatgpt.test.js && node test/chatgpt-access.test.js && node test/security.test.js && node test/work.test.js && node test/recall.test.js && node test/toolsets.test.js",
     "smoke": "node bin/noeis-wiki-mcp --help"
   },
   "keywords": [

@@ -55,13 +55,13 @@ const LibraryNotebookModal = ({ open, highlight, onClose, onSend }) => {
     <div className="modal-overlay">
       <div className="modal-content" style={{ maxWidth: 520 }}>
         <div className="modal-header">
-          <h3>Send to Notebook</h3>
+          <h3>Add to a note</h3>
           <button className="icon-button" onClick={onClose}>×</button>
         </div>
         {loading && <p className="muted small">Loading notebook…</p>}
         {error && <p className="status-message error-message">{error}</p>}
         {!loading && entries.length === 0 && (
-          <p className="muted small">No notebook entries yet.</p>
+          <p className="muted small">No notes yet.</p>
         )}
         <label className="feedback-field">
           <span>Search or name a new entry</span>

@@ -248,11 +248,11 @@
       on: {
         click: () => {
           begin.replaceWith(h('label', { class: 'hold' }, h('span', {}, 'In your words, what do you now think?'), words),
-            choices(row, [['Hold this view', async () => {
+            choices(row, [['Save as my view', async () => {
               const claim = words.value.trim();
               if (!claim) throw new Error('A view needs a sentence of your own.');
               const held = await api('/api/judgment/from-highlight', { method: 'POST', body: { claim, highlightId: passage.id } });
-              settle(row, 'You hold this now. ', link(`${APP}${held.href}`, 'See the view'), '.');
+              settle(row, 'Saved as your view. ', link(`${APP}${held.href}`, 'See the view'), '.');
             }]]));
           words.focus();
         }
@@ -271,7 +271,7 @@
       });
       settle(bears, `Filed ${field === 'why' ? 'for' : 'against'} `, link(href, 'your view'), '.');
     };
-    const bears = h('div', { class: 'row' }, h('p', {}, 'This bears on your view that ', link(href, sentence(view.view)), '.'));
+    const bears = h('div', { class: 'row' }, h('p', {}, 'This is about your view that ', link(href, sentence(view.view)), '.'));
     const notAbout = async () => {
       await api(`/api/judgment/pages/${encodeURIComponent(view.pageId)}/not-about`, {
         method: 'POST',
@@ -279,7 +279,7 @@
       });
       bears.remove();
     };
-    bears.append(choices(bears, [['File for', file('why')], ['File against', file('against')], ['Not about this', notAbout, true]]));
+    bears.append(choices(bears, [['For', file('why')], ['Against', file('against')], ['Not about this', notAbout, true]]));
     if (!view.dueBy) return [bears];
 
     const due = h('div', { class: 'row' }, h('p', {}, `You said you’d know by ${onDay(view.dueBy)}. Did it hold up?`));
@@ -301,12 +301,12 @@
     h('blockquote', {}, before.text));
 
   const openPassage = async (passage) => {
-    const reading = h('p', { class: 'hush' }, 'Reading it against what you hold…');
+    const reading = h('p', { class: 'hush' }, 'Comparing with your views…');
     const ask = `${APP}/library?articleId=${encodeURIComponent(article.id)}&highlightId=${encodeURIComponent(passage.id)}&ask=1`;
     showCard(passage.marks, [
       kicker('Marked'),
       await notebookRow(passage),
-      h('div', { class: 'row' }, link(ask, 'Ask the Partner about this')),
+      h('div', { class: 'row' }, link(ask, 'Ask Partner about this')),
       holdRow(passage),
       reading
     ]);
@@ -346,7 +346,7 @@
       }, true]] : []),
       ['Not now', async () => close(), true]
     ]));
-    showCard(null, [kicker('Pushes against what you hold'), row]);
+    showCard(null, [kicker('Argues with your view'), row]);
   };
 
   /* Talking to the save card */

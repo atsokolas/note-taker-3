@@ -7,6 +7,22 @@ contains no account identity, credential, or private workspace content. Public
 capabilities are also available at
 `https://www.noeis.io/.well-known/noeis-agent.json`.
 
+## Quick start
+
+```bash
+npm install -g @noeis/noeis-cli
+noeis connect claude-code --scope read   # or claude-desktop, codex, cursor, vscode, grok, muse, hermes, openclaw, opencode
+```
+
+Approve in the browser, reload the runtime, call `connection_info`. Then ask
+`recall` in plain words ("what have I written about hiring?") and open any hit
+with `read`. Twelve core tools are listed; add more with
+`noeis mcp --toolsets=wiki,library,think,editions` or `all`.
+
+What an agent writes (notes, saved articles, highlights) lands in pencil,
+marked with the connection that wrote it, until the reader inks it. A recall
+hit with `pencil` names that agent: never present it as the reader's view.
+
 ## Finish line
 
 Connect and verify the intended runtime, workspace, and exact grant. Then stop.

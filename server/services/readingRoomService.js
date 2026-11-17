@@ -19,6 +19,8 @@ const NEW_FROM_SOURCES_WINDOW = 7 * DAY;
 const READABLE_LENGTH = 1200;
 const PICK_SHELF = 7;
 const PICK_SEASON = 90 * DAY;
+/* Nothing is at the back of the shelf until it has sat there a week. */
+const PICK_SETTLED = 7 * DAY;
 const WEATHER_MIN_SOURCES = 3;
 const QUOTE_MIN = 30;
 const QUOTE_MAX = 320;
@@ -107,10 +109,11 @@ const halfRead = (article) => Number(article.readingState?.ratio) > STARTED && !
 /* A piece left unopened for a season has had its moment (last winter's odds,
    last year's launch), unless you said it keeps. */
 const inSeason = (article, now) => article.evergreen === true || now.getTime() - time(article.createdAt) <= PICK_SEASON;
+const settled = (article, now) => now.getTime() - time(article.createdAt) >= PICK_SETTLED;
 
 /*
- * One piece for today: of the seven oldest pieces you saved yourself this
- * season or marked as keeping (not a feed, not parked), with a readable body,
+ * One piece for today: of the seven oldest pieces you saved yourself at
+ * least a week ago, this season or marked as keeping (not a feed, not parked), with a readable body,
  * unopened or half-read and not already in "Still reading", the one whose
  * turn it is. The turn moves one place a day, so the back of the shelf comes
  * round in a week.
@@ -123,6 +126,7 @@ const pickForToday = (articles = [], { now = new Date(), offset = 0, exclude = [
       && Number(article.contentLength) >= READABLE_LENGTH
       && (unopened(article) || halfRead(article))
       && inSeason(article, now)
+      && settled(article, now)
       && !skip.has(idOf(article)))
     .sort((left, right) => time(left.createdAt) - time(right.createdAt) || idOf(left).localeCompare(idOf(right)))
     .slice(0, PICK_SHELF);

@@ -15,9 +15,9 @@ const projectAgentActivity = (tokens = []) => (
     if (token.createdAt) {
       rows.push({
         id: `${id}-approved`,
-        title: `${token.label || 'Agent'} authorized`,
-        outcome: token.status === 'revoked' || token.revokedAt ? 'Historical approval' : 'Access approved',
-        detail: `${(token.scopes || []).includes('agent-write') ? 'Read and write' : 'Read-only'} grant issued. This does not prove the runtime loaded it.`,
+        title: `${token.label || 'Agent'} approved`,
+        outcome: (token.scopes || []).includes('agent-write') ? 'Read and write' : 'Read only',
+        detail: 'You approved it. It shows as working once it reaches Noeis.',
         tone: 'quiet',
         at: token.createdAt
       });
@@ -25,9 +25,9 @@ const projectAgentActivity = (tokens = []) => (
     if (token.lastUsedAt) {
       rows.push({
         id: `${id}-used`,
-        title: `${token.label || 'Agent'} used NOEIS`,
-        outcome: 'Request received',
-        detail: 'A successful request was received. This proves that request, not continuous agent presence.',
+        title: `${token.label || 'Agent'} used Noeis`,
+        outcome: 'Last request',
+        detail: 'The most recent time it read or saved something.',
         tone: 'connected',
         at: token.lastUsedAt
       });
@@ -35,9 +35,9 @@ const projectAgentActivity = (tokens = []) => (
     if (token.revokedAt || token.status === 'revoked') {
       rows.push({
         id: `${id}-revoked`,
-        title: `${token.label || 'Agent'} access revoked`,
-        outcome: 'Future access stopped',
-        detail: 'Completed work and previously retrieved data remain. This grant cannot be restored with Undo.',
+        title: `${token.label || 'Agent'} revoked`,
+        outcome: 'Stopped',
+        detail: 'What it saved stays. To use it again, connect it again.',
         tone: 'warning',
         at: token.revokedAt || token.updatedAt
       });
@@ -85,17 +85,17 @@ export default function ConnectionsActivity({ tokens = [] }) {
     <section className="connections-activity" aria-labelledby="connections-activity-title">
       <div className="connections-section-heading">
         <div>
-          <h2 id="connections-activity-title">A record you can come back to</h2>
-          <p>Imports, repairs, approvals, and observed requests stay distinct.</p>
+          <h2 id="connections-activity-title">Activity</h2>
+          <p>Imports and agents, newest first.</p>
         </div>
       </div>
 
-      {loading ? <p className="connections-empty">Loading durable receipts…</p> : null}
+      {loading ? <p className="connections-empty">Loading…</p> : null}
       {!loading && error ? <p className="form-error">{error}</p> : null}
       {!loading && !error && activity.length === 0 ? (
         <div className="connections-empty">
-          <h3>No connection activity yet.</h3>
-          <p>Completed imports and agent access checks will leave a receipt here.</p>
+          <h3>Nothing yet.</h3>
+          <p>Each import and each agent you approve is listed here.</p>
         </div>
       ) : null}
 
@@ -109,7 +109,7 @@ export default function ConnectionsActivity({ tokens = [] }) {
               <p>{item.detail}</p>
               {item.receipt ? (
                 <details className="connections-fold">
-                  <summary>Technical receipt</summary>
+                  <summary>Details</summary>
                   <dl className="connections-receipt-facts">
                     <div><dt>Receipt</dt><dd>{item.receipt.id || item.id}</dd></div>
                     <div><dt>Status</dt><dd>{item.receipt.status || item.outcome}</dd></div>

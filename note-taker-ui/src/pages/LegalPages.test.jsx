@@ -6,7 +6,7 @@ import legalContent from './legalContent.json';
 
 const plain = (text) => text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
 
-describe('published NOEIS information', () => {
+describe('published Noeis information', () => {
   it.each(Object.keys(legalContent))('renders every approved paragraph and link on /%s', (page) => {
     render(<MemoryRouter><LegalDocument page={page} /></MemoryRouter>);
     const content = legalContent[page];
@@ -22,7 +22,7 @@ describe('published NOEIS information', () => {
         });
       });
     });
-    const nav = screen.getByRole('navigation', { name: 'NOEIS information' });
+    const nav = screen.getByRole('navigation', { name: 'Noeis information' });
     Object.entries(legalContent).filter(([key]) => key !== page).forEach(([key, other]) => {
       expect(within(nav).getByRole('link', { name: other.title })).toHaveAttribute('href', `/${key}`);
     });

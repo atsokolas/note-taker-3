@@ -536,7 +536,7 @@ describe('WikiOpenSentence', () => {
     fireEvent.change(screen.getByLabelText('A provisional conclusion'), {
       target: { value: 'A later pass has to be able to find the first.' }
     });
-    expect(screen.getByText('A snapshot. It is not a publication.')).toBeInTheDocument();
+    expect(screen.getByText('A copy. Not published.')).toBeInTheDocument();
     expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(
       'What still compounds when review is only a pile?'
     );
@@ -564,7 +564,7 @@ describe('WikiOpenSentence', () => {
     fireEvent.change(screen.getByLabelText('What Letter to a young investor still disputes'), {
       target: { value: 'A loss you cannot survive is not a review you get to keep.' }
     });
-    expect(screen.getByText('Two contributions. Not a consensus.', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('Two views, side by side.', { exact: true })).toBeInTheDocument();
     expect(screen.getByText('Different values', { selector: 'p' })).toBeInTheDocument();
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent(
       'Memory compounds with review.'
@@ -612,12 +612,12 @@ describe('WikiOpenSentence', () => {
     fireEvent.change(screen.getByLabelText('Try saying it'), {
       target: { value: 'Review works when a later pass can still find the first.' }
     });
-    expect(screen.getByText('A rehearsal, not a grade.')).toBeInTheDocument();
+    expect(screen.getByText('Practice. Nothing is scored.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Keep this as unwritten work' }));
     fireEvent.change(screen.getByLabelText('What this collection could become'), {
       target: { value: 'Who does the reviewing, and who only stores the notes?' }
     });
-    expect(screen.getByText('Unwritten work, not the article.')).toBeInTheDocument();
+    expect(screen.getByText('Notes for later, not the article.')).toBeInTheDocument();
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
     expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();

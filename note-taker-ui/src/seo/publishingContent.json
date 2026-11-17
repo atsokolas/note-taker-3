@@ -11,6 +11,20 @@
     ],
     "description": "Save what you read, write down what you believe, and Noeis checks one against the other: every passage for or against your view, quoted, and a wiki that cites its sources and shows where they disagree."
   },
+  "hubs": {
+    "guides": {
+      "title": "Noeis guides to reading, remembering and writing",
+      "description": "Guides to remembering what you read and writing from it: keeping highlights worth keeping, finding them again, and turning them into drafts.",
+      "headline": "Guides to remembering what you read, and writing from it",
+      "lede": "How to keep highlights worth keeping, find them again when you need them, and turn them into writing."
+    },
+    "examples": {
+      "title": "Wiki examples | Noeis",
+      "description": "Wikis built from books and articles. Every line links to where it came from.",
+      "headline": "Wiki examples",
+      "lede": "Wikis built from books and articles. Every line links to where it came from."
+    }
+  },
   "examples": [
     {
       "title": "Mental Models",

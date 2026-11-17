@@ -624,11 +624,11 @@ const DataIntegrations = () => {
     systemStatus.setLatestReceipt(normalized || fallback);
   }, [systemStatus]);
   const explicitSourceSelectionRef = useRef(Boolean(getRequestedSourceFromLocation()));
-  const [selectedSource, setSelectedSource] = useState(() => getRequestedSourceFromLocation() || 'readwise');
+  const [chosenSource, setChosenSource] = useState(getRequestedSourceFromLocation);
   const selectSource = useCallback((source) => {
     if (SOURCE_OPTIONS.some(option => option.key === source)) {
       explicitSourceSelectionRef.current = true;
-      setSelectedSource(source);
+      setChosenSource(source);
       setPreviewPassageOpen(false);
     }
   }, []);
@@ -662,6 +662,10 @@ const DataIntegrations = () => {
   const [readwiseChecking, setReadwiseChecking] = useState(false);
   const [readwiseSyncing, setReadwiseSyncing] = useState(false);
   const [notionConnection, setNotionConnection] = useState(null);
+  /* Nothing opens until asked, except a source already connected: its sync is
+     what a returning reader came for. */
+  const selectedSource = chosenSource
+    || (readwiseConnection?.id || readwiseConnections.length ? 'readwise' : notionConnection?.id ? 'notion' : '');
   const [notionSetupMissingEnv, setNotionSetupMissingEnv] = useState([]);
   const [notionChecking, setNotionChecking] = useState(false);
   const [notionConnecting, setNotionConnecting] = useState(false);
@@ -701,7 +705,7 @@ const DataIntegrations = () => {
         if (cancelled) return;
         setCurrentSession(session);
         if (!explicitSourceSelectionRef.current && session?.provider && SOURCE_OPTIONS.some(option => option.key === session.provider)) {
-          setSelectedSource(session.provider);
+          setChosenSource(session.provider);
         }
       } catch (error) {
         console.error('Failed to load active import session:', error);
@@ -777,7 +781,7 @@ const DataIntegrations = () => {
         if (cancelled) return;
         setCurrentSession(session);
         if (!explicitSourceSelectionRef.current && session?.provider && SOURCE_OPTIONS.some(option => option.key === session.provider)) {
-          setSelectedSource(session.provider);
+          setChosenSource(session.provider);
         }
       } catch (error) {
         if (!cancelled) {
@@ -1004,7 +1008,7 @@ const DataIntegrations = () => {
 
   useEffect(() => {
     const hashSource = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
-    if (!['readwise', 'notion', 'evernote'].includes(hashSource) || hashSource !== selectedSource) return;
+    if (!hashSource || hashSource !== selectedSource) return;
     window.requestAnimationFrame?.(() => {
       const target = document.getElementById(hashSource);
       if (target?.scrollIntoView) {
@@ -2558,8 +2562,8 @@ const DataIntegrations = () => {
       <section className="connections-source-group" aria-label="Your sources">
         <div className="connections-section-heading">
           <div>
-            <h2>Your sources</h2>
-            <p>Authorization, import, and search readiness are shown separately.</p>
+            <h2>Connected</h2>
+            <p>These keep bringing new reading in.</p>
           </div>
         </div>
         {connectedSourceRows.length ? (
@@ -2577,7 +2581,6 @@ const DataIntegrations = () => {
                     : undefined}
                   onClick={() => selectSourceFromAction(source.provider)}
                 >
-                  <span className="connections-sigil" aria-hidden="true">{source.providerLabel.slice(0, 1)}</span>
                   <span className="connections-row-title">
                     <strong>{source.label}</strong>
                     <small>
@@ -2600,8 +2603,7 @@ const DataIntegrations = () => {
           </div>
         ) : (
           <div className="connections-empty">
-            <h3>No live source accounts yet.</h3>
-            <p>One-time imports remain available below without pretending to stay connected.</p>
+            <p>Nothing is connected yet. Readwise and Notion stay connected once you add them; files come in once.</p>
           </div>
         )}
       </section>
@@ -2609,8 +2611,7 @@ const DataIntegrations = () => {
       <section className="connections-source-group connections-add-source" aria-label="Add a source">
         <div className="connections-section-heading">
           <div>
-            <h2>Add a source</h2>
-            <p>One-time imports do not stay connected.</p>
+            <h2>Bring reading in</h2>
           </div>
         </div>
         <div className="connections-rows connections-available-rows">
@@ -2626,13 +2627,11 @@ const DataIntegrations = () => {
                 data-testid={`import-source-card-${option.key}`}
                 onClick={() => selectSourceFromAction(option.key)}
               >
-                <span className="connections-sigil" aria-hidden="true">{option.title.slice(0, 1)}</span>
                 <span className="connections-row-title">
                   <strong>{option.title}</strong>
                   <small>{option.subtitle}</small>
                 </span>
                 <span className="connections-row-state">
-                  <strong>{isOneTime ? 'One-time operation' : 'Not connected'}</strong>
                   <small>{option.helper}</small>
                 </span>
                 <span className="connections-text-button connections-row-action">{isOneTime ? 'Import' : 'Connect'} →</span>
@@ -2642,6 +2641,7 @@ const DataIntegrations = () => {
         </div>
       </section>
 
+      {connectedLoopCount || indexingWarning || embeddingJobWarning || indexRetryStatus ? (
       <details
         className="connections-fold connections-return-loop"
         data-testid="connections-return-loop"
@@ -2649,12 +2649,12 @@ const DataIntegrations = () => {
       >
         <summary>
           <span>
-            <strong>What is feeding Morning Paper?</strong>
-            <small>{connectedLoopCount} active handoffs · inspect downstream consequences</small>
+            <strong>What keeps coming in</strong>
+            <small>{connectedLoopCount ? `${connectedLoopCount} connected` : 'Nothing connected yet'}</small>
           </span>
         </summary>
         <p className="muted">
-          Connected sources add fresh material; scheduled wiki maintenance checks due pages about every six hours.
+          Connected sources bring new reading in, and your wiki pages are brought up to date about every six hours.
         </p>
         <div className="connections-return-loop__grid">
           <div className={`connections-return-loop__feed connections-return-loop__feed--${readwiseLoopTone}`}>
@@ -2693,12 +2693,13 @@ const DataIntegrations = () => {
         ) : null}
         {indexRetryStatus ? <p className="connections-copy-status" role="status">{indexRetryStatus}</p> : null}
       </details>
+      ) : null}
 
       {(sessionMessage || importStatus.message || importStats || currentSession) && (
         <Card className="settings-card">
           <div className="import-session-header">
             <div>
-              <h2>Current import state</h2>
+              <h2>Importing now</h2>
               <p className="muted">
                 {sessionLoading ? 'Loading current session…' : (currentSession?.sourceLabel || 'No active session')}
               </p>
@@ -2874,12 +2875,10 @@ const DataIntegrations = () => {
 
       {selectedSource === 'readwise' && (
         <Card className="settings-card" id="readwise">
-          <h2>Readwise connection</h2>
-          <p className="muted">Connect through the browser. Noeis sends you to Readwise, you log in, and the connection comes back ready for agent access.</p>
+          <h2>Readwise</h2>
+          <p className="muted">Connect in the browser: Noeis sends you to Readwise, you approve it, and your highlights come into your Library. New ones keep coming in.</p>
           <div className="import-callout">
-            <p className="muted-label">Recommended: browser approval</p>
-            <p className="muted small">Use this path first. It opens Readwise in your browser for approval, then stores the connection for Noeis and MCP-capable agents. You do not need to paste an API token.</p>
-            <p className="muted small">MCP server: <code>{READWISE_MCP_SERVER_URL}</code></p>
+            <p className="muted small">You do not need to paste an API token. Agents you connect can also search Readwise through its MCP server, <code>{READWISE_MCP_SERVER_URL}</code>.</p>
             <div className="capture-actions">
               <Button
                 type="button"
@@ -2903,13 +2902,10 @@ const DataIntegrations = () => {
             />
           )}
           <details className="import-callout" style={{ marginBottom: 18 }}>
-            <summary className="muted-label">Advanced: direct sync with API token</summary>
-            <p className="muted small">Use this only when you want Noeis to run the legacy Readwise export sync itself. Browser approval is the default connection path for agents.</p>
-            {readwiseAgentConnection?.id && !readwiseDirectConnection?.id ? (
-              <p className="muted small">Browser access is connected. Direct Library import is intentionally paused until you add an API token or upload a Readwise CSV.</p>
-            ) : null}
+            <summary className="muted-label">Or use an access token</summary>
+            <p className="muted small">An access token from Readwise works too, if you would rather not connect in the browser.</p>
             <div className="capture-form">
-              <label className="capture-label" htmlFor="readwise-account-label">Connection label</label>
+              <label className="capture-label" htmlFor="readwise-account-label">Name for this connection</label>
               <input
                 id="readwise-account-label"
                 className="capture-input"
@@ -2920,7 +2916,7 @@ const DataIntegrations = () => {
                 disabled={busy || readwiseConnecting || readwiseSyncing}
               />
               <a href={READWISE_TOKEN_HELP_URL} target="_blank" rel="noopener noreferrer">Get Readwise token</a>
-              <label className="capture-label" htmlFor="readwise-token-input">Readwise API token</label>
+              <label className="capture-label" htmlFor="readwise-token-input">Readwise access token</label>
               <input
                 id="readwise-token-input"
                 className="capture-input"
@@ -2957,7 +2953,7 @@ const DataIntegrations = () => {
                   onClick={handleReadwisePreview}
                   disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseSyncConnection?.id}
                 >
-                  {previewing.readwise ? 'Previewing…' : 'Preview scope'}
+                  {previewing.readwise ? 'Looking…' : 'See what would come in'}
                 </Button>
               </div>
             </div>
@@ -2966,20 +2962,7 @@ const DataIntegrations = () => {
             <div className="import-summary" style={{ marginBottom: 16 }}>
               <p className="muted-label">Connected account</p>
               <p>Label: {readwiseConnection.accountLabel || 'Readwise'}</p>
-              <p>Mode: {readwiseConnection.mode === 'mcp_remote' ? 'Readwise MCP / OAuth' : readwiseConnection.mode || 'manual'}</p>
-              {readwiseAgentConnection?.id && !readwiseDirectConnection?.id ? (
-                <div className="capture-actions">
-                  <Button
-                    type="button"
-                    onClick={() => csvInputRef.current?.click()}
-                    disabled={busy}
-                  >
-                    Upload Readwise CSV
-                  </Button>
-                  <a href={READWISE_TOKEN_HELP_URL} target="_blank" rel="noopener noreferrer">Add API token</a>
-                </div>
-              ) : null}
-              {readwiseConnection.mode === 'mcp_remote' && readwiseConnection.externalAccountId ? <p className="muted small">MCP server: {readwiseConnection.externalAccountId}</p> : null}
+              <p>{readwiseConnection.mode === 'mcp_remote' ? 'Connected in the browser.' : 'Connected with an access token.'}</p>
               {readwiseConnection.status === 'connected' ? (
                 <button
                   type="button"
@@ -2989,7 +2972,7 @@ const DataIntegrations = () => {
                     provider: 'readwise'
                   })}
                 >
-                  Disconnect import access
+                  Disconnect Readwise
                 </button>
               ) : null}
             </div>
@@ -3032,7 +3015,7 @@ const DataIntegrations = () => {
             />
           )}
           {notionConnection?.lastSyncAt ? (
-            <p className="muted small">Where it lands: Library search, Think retrieval, and Morning Paper source maintenance.</p>
+            <p className="muted small">They show up in Library search, in Think and in your Morning Paper.</p>
           ) : null}
           <div className="import-callout">
             <p className="muted-label">Live flow</p>
@@ -3127,7 +3110,7 @@ const DataIntegrations = () => {
                     provider: 'notion'
                   })}
                 >
-                  Disconnect import access
+                  Disconnect Readwise
                 </button>
               ) : null}
             </div>
@@ -3254,7 +3237,7 @@ const DataIntegrations = () => {
           </Card>
 
           <Card className="settings-card">
-            <h2>Manual note entry</h2>
+            <h2>Type a note</h2>
             <p className="muted">Create notebook entries directly in the web UI while still recording import/session metadata for activation.</p>
             <form className="capture-form" onSubmit={handleManualCreate}>
               <label className="capture-label" htmlFor="manual-note-title">Title</label>
@@ -3296,7 +3279,7 @@ const DataIntegrations = () => {
           </Card>
 
           <Card className="settings-card">
-            <h2>Direct paste import</h2>
+            <h2>Paste text</h2>
             <p className="muted">Paste plain text, markdown, or Readwise CSV and run it through the same session + activation pipeline.</p>
             <form className="capture-form" onSubmit={handlePasteImport}>
               <label className="capture-label" htmlFor="paste-note-title">Title (optional)</label>
@@ -3498,10 +3481,6 @@ const DataIntegrations = () => {
         </Card>
       )}
 
-      <Card className="settings-card">
-        <h2>Import rules</h2>
-        <p className="muted">Import success should never depend on perfect semantic readiness. Persist the text first, then make indexing state explicit and resumable.</p>
-      </Card>
     </>
   );
 

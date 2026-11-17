@@ -226,13 +226,13 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose, on
           ) : null}
           {claim.epistemicStatus ? (
             <div>
-              <dt>Epistemic status</dt>
+              <dt>How sure</dt>
               <dd>{String(claim.epistemicStatus).replace(/_/g, ' ')}</dd>
             </div>
           ) : null}
           {claim.materiality ? (
             <div>
-              <dt>Materiality</dt>
+              <dt>How much it matters</dt>
               <dd>{claim.materiality}</dd>
             </div>
           ) : null}
@@ -245,7 +245,7 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose, on
         </dl>
       ) : null}
       {claim?.epistemicStatus === 'established_fact' && ['unsupported', 'conflicted'].includes(claim?.support) ? (
-        <p className="wiki-claim-popover__empty">Inconsistent: this is labeled an established fact without supporting evidence.</p>
+        <p className="wiki-claim-popover__empty">This is marked as fact but nothing backs it up.</p>
       ) : null}
       {sources.length > 0 ? (
         <div className="wiki-claim-popover__evidence-groups">
@@ -254,7 +254,7 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose, on
         </div>
       ) : (
         <p className="wiki-claim-popover__empty">
-          No source attached. Add one from the panel to ground this claim.
+          No source yet. Add one.
         </p>
       )}
       {/* Where the library disagrees with itself, the only useful next move is

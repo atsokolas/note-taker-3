@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { NOEIS_GO_TO_SHORTCUTS, NOEIS_MOVES } from '../navigation/appNavigation';
+import { WRITE_ON_KEYS } from './think/notebook/writeOn';
 
 /**
  * KeyboardShortcutOverlay — modal that lists every global shortcut.
@@ -11,7 +12,7 @@ import { NOEIS_GO_TO_SHORTCUTS, NOEIS_MOVES } from '../navigation/appNavigation'
 const CAPS = { ArrowLeft: '←', ArrowRight: '→' };
 const capOf = key => CAPS[key] || (key.length === 1 ? key.toUpperCase() : key);
 
-const SECTIONS = [
+export const SHORTCUT_SECTIONS = [
   {
     title: 'Anywhere',
     items: [
@@ -35,6 +36,10 @@ const SECTIONS = [
       keys: [...(item.alt ? ['Alt'] : []), capOf(item.key)],
       label: item.label
     }))
+  },
+  {
+    title: 'Writing in Think',
+    items: WRITE_ON_KEYS
   },
   {
     title: 'Reading & highlights',
@@ -88,7 +93,7 @@ const KeyboardShortcutOverlay = ({ open, onClose }) => {
         </div>
 
         <div className="kbd-overlay__sections">
-          {SECTIONS.map((section) => (
+          {SHORTCUT_SECTIONS.map((section) => (
             <section key={section.title} className="kbd-overlay__section">
               <h4 className="kbd-overlay__section-title">{section.title}</h4>
               <ul className="kbd-overlay__list">

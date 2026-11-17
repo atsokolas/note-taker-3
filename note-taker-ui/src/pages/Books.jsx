@@ -6,7 +6,7 @@ import {
 } from '../api/imports';
 import { ArticleMargins } from '../components/margins/LibraryMargins';
 import { useSettleIntoWiki } from '../components/think/settleIntoWiki';
-import BookDesk from '../components/reader/BookDesk';
+import BookDesk from '../components/reader/BookDesk.jsx';
 import PassageDoor from '../components/reader/PassageDoorView';
 import useSourceWhereabouts from '../components/reader/useSourceWhereabouts';
 import {
@@ -18,6 +18,7 @@ import useArticleDetail from '../hooks/useArticleDetail';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import { buildPassagePath } from '../utils/sourceRoutes';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
+import AddToProject from '../work/AddToProject';
 import '../styles/books.css';
 
 // A book's paragraphs are what you marked in it and wrote beside it.
@@ -150,7 +151,6 @@ const Shelf = () => {
 
   return (
     <main className="books" aria-labelledby="books-title" aria-busy={!books && !error}>
-      <nav className="books__tools" aria-label="Books"><Link to="/library">← Library</Link></nav>
       <h1 id="books-title">Books</h1>
       <form className="books__start" onSubmit={start}>
         <input
@@ -266,7 +266,7 @@ const Closing = ({ book, marks, saved, writeUp, onChange, children }) => {
       setAsking(false);
       setSaid(closed.closingLine
         ? `It comes back to you on ${longDate(dayOf(closed.finishedOn, 1))}.`
-        : 'Closed without a sentence, so nothing comes back. You can still write one.');
+        : 'No sentence, so nothing will come back to you. You can still write one.');
       return true;
     } catch (_) {
       setSaid('The book did not close. Try it again.');
@@ -586,7 +586,7 @@ const Book = ({ id }) => {
     objectType: 'article',
     objectId: id,
     title: article?.title || 'A book',
-    orientation: 'Think with this book from what you marked in it and wrote beside it.'
+    orientation: 'Ask the book, using what you marked and wrote.'
   });
 
   useEffect(() => {
@@ -598,6 +598,7 @@ const Book = ({ id }) => {
       <nav className="books__tools" aria-label="Book">
         <Link to="/books">← Books</Link>
         {book ? <Lend book={book} onChange={change} /> : null}
+        {book ? <AddToProject kind="book" id={id} title={book.title} className="books__quiet-button" /> : null}
         {highlights.some(mark => mark.text) ? <button type="button" className="books__quiet-button" onClick={() => window.print()}>Print as cards</button> : null}
       </nav>
       {error ? <p className="books__quiet" role="alert">{error}</p> : null}

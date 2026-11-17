@@ -1,8 +1,4 @@
-import {
-  appearanceDiffKeys,
-  mergeRemoteIntoDraft,
-  pickAppearancePatch
-} from './appearanceFieldModel';
+import { pickAppearancePatch } from './appearanceFieldModel';
 
 describe('appearanceFieldModel', () => {
   const base = {
@@ -13,23 +9,11 @@ describe('appearanceFieldModel', () => {
   };
 
   it('patches only changed appearance fields', () => {
-    const draft = { ...base, typographyScale: 'large', theme: 'dark' };
-    expect(pickAppearancePatch(base, draft)).toEqual({
+    const next = { ...base, typographyScale: 'large', theme: 'dark' };
+    expect(pickAppearancePatch(base, next)).toEqual({
       typographyScale: 'large',
       theme: 'dark'
     });
-  });
-
-  it('merges non-overlapping remote changes into a draft', () => {
-    const editStart = { ...base };
-    const draft = { ...base, typographyScale: 'large' };
-    const remote = { ...base, density: 'compact' };
-    const merged = mergeRemoteIntoDraft(draft, editStart, remote);
-    expect(merged.typographyScale).toBe('large');
-    expect(merged.density).toBe('compact');
-  });
-
-  it('lists keys that differ between snapshots', () => {
-    expect(appearanceDiffKeys(base, { ...base, motion: 'reduced' })).toEqual(['motion']);
+    expect(pickAppearancePatch(base, base)).toEqual({});
   });
 });

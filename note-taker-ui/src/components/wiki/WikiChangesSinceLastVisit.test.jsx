@@ -42,7 +42,7 @@ describe('WikiChangesSinceLastVisit', () => {
     );
     expect(screen.getByText(/1 evidence update claim/)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('wiki-changes-banner-toggle'));
-    expect(screen.getByText('Evidence updates')).toBeInTheDocument();
+    expect(screen.getByText('New sources')).toBeInTheDocument();
     expect(screen.getByText('evidence changed')).toBeInTheDocument();
     expect(screen.getByText(/supported · 83%/)).toBeInTheDocument();
   });
@@ -119,7 +119,7 @@ describe('WikiChangesSinceLastVisit', () => {
       />
     );
     fireEvent.click(screen.getByTestId('wiki-changes-banner-toggle'));
-    expect(screen.getByText('New claims')).toBeInTheDocument();
-    expect(screen.queryByText('Removed claims')).toBeNull();
+    expect(screen.getByText('Added')).toBeInTheDocument();
+    expect(screen.queryByText('Removed')).toBeNull();
   });
 });

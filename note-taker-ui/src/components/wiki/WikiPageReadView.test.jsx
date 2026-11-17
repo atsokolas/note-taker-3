@@ -926,7 +926,7 @@ describe('WikiPageReadView', () => {
     const cover = screen.getByRole('region', { name: 'Research in progress' });
     expect(within(cover).getByText('Tracked as an active case')).toBeInTheDocument();
     expect(within(cover).getByRole('link', { name: 'Open company case →' })).toHaveAttribute('href', '/judgment/wiki-1');
-    expect(screen.getByText('Research acceptance never rewrites your belief.')).toBeInTheDocument();
+    expect(screen.getByText('Accepting this won’t change your view.')).toBeInTheDocument();
     expect(screen.queryByText('Can Costco compound owner value above the hurdle?')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Open', exact: true })).not.toBeInTheDocument();
   });
@@ -1132,7 +1132,7 @@ describe('WikiPageReadView', () => {
     const showContextBtn = within(railEl).queryByRole('button', { name: /show context/i });
     if (showContextBtn) await act(async () => { fireEvent.click(showContextBtn); });
 
-    const traces = await screen.findByLabelText('Graph traces');
+    const traces = await screen.findByLabelText('Connections');
     expect(within(traces).getByRole('heading', { name: 'Related to' })).toBeInTheDocument();
     expect(within(traces).getByRole('link', { name: /Compounding Interest/ })).toHaveAttribute('href', '/wiki/workspace?page=wiki-related');
     expect(within(traces).getByRole('heading', { name: 'Mentioned by' })).toBeInTheDocument();
@@ -1185,7 +1185,7 @@ describe('WikiPageReadView', () => {
 
     const rail = await screen.findByRole('complementary', { name: 'Page context' });
     await waitFor(() => expect(rail).not.toHaveClass('wiki-read__rail--collapsed'));
-    const traces = await screen.findByLabelText('Graph traces');
+    const traces = await screen.findByLabelText('Connections');
     expect(traces).toHaveAttribute('tabindex', '-1');
     expect(within(traces).getByRole('link', { name: /Compounding Interest/ })).toBeInTheDocument();
   });
@@ -1518,7 +1518,7 @@ describe('WikiPageReadView', () => {
     expect(mentionedRegion.textContent).not.toContain(']]');
   });
 
-  it('keeps three page actions and mentioned-in backlinks in the workspace reader', async () => {
+  it('keeps four page actions and mentioned-in backlinks in the workspace reader', async () => {
 
     render(
       <MemoryRouter>
@@ -1528,7 +1528,7 @@ describe('WikiPageReadView', () => {
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     const actions = screen.getByRole('navigation', { name: 'Page actions' });
-    expect(within(actions).getAllByRole('button').map(button => button.textContent)).toEqual(['Edit', 'History', 'Share']);
+    expect(within(actions).getAllByRole('button').map(button => button.textContent)).toEqual(['Edit', 'History', 'Share', 'Add to project']);
     expect(screen.queryByRole('tab', { name: 'Talk' })).not.toBeInTheDocument();
     expect(screen.queryByText('Claim health')).not.toBeInTheDocument();
     expect(await screen.findByText('Mentioned in')).toBeInTheDocument();

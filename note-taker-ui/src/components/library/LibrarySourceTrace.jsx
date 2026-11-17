@@ -24,15 +24,15 @@ export const authorLine = (author, pieces) => {
 const LibrarySourceTrace = ({ source, loading = false, error = '' }) => {
   if (loading) {
     return (
-      <section className="library-source-trace" aria-label="Source record" aria-live="polite" data-testid="library-source-trace">
-        <p className="library-source-trace__status">Finding where this piece went…</p>
+      <section className="library-source-trace" aria-label="Details" aria-live="polite" data-testid="library-source-trace">
+        <p className="library-source-trace__status">Finding where you’ve used it…</p>
       </section>
     );
   }
   if (!source || typeof source !== 'object') {
     return error ? (
-      <section className="library-source-trace" aria-label="Source record" aria-live="polite" data-testid="library-source-trace">
-        <p className="library-source-trace__status">The piece is here, but where it is used could not be loaded.</p>
+      <section className="library-source-trace" aria-label="Details" aria-live="polite" data-testid="library-source-trace">
+        <p className="library-source-trace__status">Couldn’t load where you’ve used it.</p>
       </section>
     ) : null;
   }
@@ -53,7 +53,7 @@ const LibrarySourceTrace = ({ source, loading = false, error = '' }) => {
   return (
     <section className="library-source-trace" aria-labelledby="library-source-trace-title" data-testid="library-source-trace">
       <header className="library-source-trace__header">
-        <p id="library-source-trace-title">Source record</p>
+        <p id="library-source-trace-title">Details</p>
       </header>
       {facts ? <p className="library-source-trace__facts">{facts}</p> : null}
       {returning ? (

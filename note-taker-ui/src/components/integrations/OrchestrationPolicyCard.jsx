@@ -88,7 +88,7 @@ const OrchestrationPolicyCard = ({
           <div className="settings-import-row" style={{ marginTop: 10, alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
               <p className="muted-label">Hook phases</p>
-              <p className="muted small">Built-in before/after protocol hooks record durable activity without adding a separate scripting system.</p>
+              <p className="muted small">Every agent action is logged before and after it runs.</p>
             </div>
           </div>
           <div className="settings-import-row" style={{ marginTop: 4, flexWrap: 'wrap' }}>
