@@ -236,14 +236,19 @@ https://<api>/mcp?toolsets=wiki        # hosted
 
 Work tools are listed by themselves for a connection approved with `--work`.
 
-Start with `recall`. It asks everything the reader keeps (saved articles and
-their highlights with margin notes, Think notes, concepts, held views, wiki
-pages and Editions) with the same retrieval the in-app partner uses, so a plain
-question like "what have I written about hiring" finds the reader's own notes.
+Start a session with `brief`: one call, on a topic or none, returns the views
+the reader holds, their notes and marks, the questions they are still asking,
+and what agents left in pencil, kept apart. Then `recall`. It asks everything
+the reader keeps (saved articles and their highlights with margin notes, Think
+notes, open questions, concepts, held views, wiki pages and Editions) with the
+same retrieval the in-app partner uses, so a plain question like "what have I
+written about hiring" finds the reader's own notes, and the reading that bears
+on them.
 Each hit carries a passage, an id, a link and the tool that opens it, usually
 `read`. Read tools return normalized JSON:
 
 - `connection_info`
+- `brief`
 - `recall`
 - `read`
 - `get_profile`

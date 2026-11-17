@@ -1100,6 +1100,7 @@ export class NoeisClient {
       article: `${app}/articles/${id}`,
       note: `${app}/think?tab=notebook&entryId=${id}`,
       concept: `${app}/think?tab=concepts&conceptId=${id}`,
+      question: `${app}/think?tab=questions&questionId=${id}`,
       view: `${app}/wiki/workspace?page=${id}`,
       wiki_page: `${app}/wiki/workspace?page=${id}`,
       edition: `${app}/editions/${id}`
@@ -1137,6 +1138,16 @@ export class NoeisClient {
       else unavailable.push({ kind: kinds[index], error: String(entry.reason?.message || entry.reason) });
     });
     return { query: q, results, ...(unavailable.length ? { unavailable } : {}) };
+  }
+
+  /* Where the reader stands, on a topic or in general, each item linked:
+     the views they hold, their notes and marks, the questions they are
+     asking, and what agents left in pencil, kept apart. */
+  brief({ topic = '' } = {}) {
+    return this.request('/api/brief', { query: { topic: cleanText(topic) } }).then(({ topic: asked, ...groups }) => ({
+      topic: asked,
+      ...Object.fromEntries(Object.entries(groups).map(([kind, hits]) => [kind, hits.map(hit => ({ ...hit, link: this.linkFor(hit) }))]))
+    }));
   }
 
   /* Anything recall returned, in full: an article with its highlights and

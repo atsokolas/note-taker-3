@@ -52,6 +52,7 @@ const HELP = `Noeis CLI
 Usage:
   noeis connect [${RUNTIME_NAMES}] [--scope read|read-write] [--work] [--label name] [--no-browser]
   noeis mcp [--help]
+  noeis brief ["topic"] [--json]
   noeis search "what you want to find" [--limit n] [--json]
   noeis read <id> [--json]
   noeis save <url|file|-> [--later] [--title title] [--json]
@@ -337,9 +338,20 @@ const sourceFromInput = (value, title = '', context = {}) => {
 
 const firstLine = text => String(text).trim().split('\n')[0].slice(0, 80);
 
+const printHit = io => hit => io.stdout.write(`${hit.kind}\t${hit.id}\t${hit.title || 'Untitled'}${hit.pencil ? `\t(in pencil: ${hit.pencil})` : ''}${hit.passage ? `\n    ${String(hit.passage).replace(/\s+/g, ' ').slice(0, 200)}` : ''}\n`);
+
 const printRecall = ({ results = [] }, io) => {
   if (!results.length) io.stdout.write('Nothing of yours bears on that.\n');
-  results.forEach(hit => io.stdout.write(`${hit.kind}\t${hit.id}\t${hit.title || 'Untitled'}${hit.pencil ? `\t(in pencil: ${hit.pencil})` : ''}\n    ${String(hit.passage || '').replace(/\s+/g, ' ').slice(0, 200)}\n`));
+  results.forEach(printHit(io));
+};
+
+const printBrief = ({ topic, ...groups }, io) => {
+  const kinds = Object.entries(groups).filter(([, hits]) => hits.length);
+  if (!kinds.length) io.stdout.write(topic ? 'Nothing of yours bears on that.\n' : 'Nothing kept yet.\n');
+  kinds.forEach(([kind, hits]) => {
+    io.stdout.write(`\n${kind}\n`);
+    hits.forEach(printHit(io));
+  });
 };
 
 const runLogin = async (args, context) => {
@@ -547,6 +559,11 @@ export const runCli = async (argv = [], context = {}) => {
   } else if (command === 'ingest') {
     if (!positional[1]) throw new NoeisCliError('Usage: noeis ingest <url|file>');
     result = await client.ingestSource(sourceFromInput(positional[1], optionValue(args, '--title'), context));
+  } else if (command === 'brief') {
+    const brief = await client.brief(positional.slice(1).join(' '));
+    if (json) printJson(brief, io);
+    else printBrief(brief, io);
+    return;
   } else if (command === 'search') {
     if (!positional[1]) throw new NoeisCliError('Usage: noeis search "what you want to find"');
     const found = await client.recall({ query: positional.slice(1).join(' '), limit: optionValue(args, '--limit') });

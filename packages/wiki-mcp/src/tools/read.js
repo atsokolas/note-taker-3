@@ -17,8 +17,16 @@ export const readTools = [
     handler: (client) => client.getConnectionInfo()
   },
   {
+    name: 'brief',
+    description: 'Call this first in a session. Where the reader stands, in one call. Name a topic and get everything of theirs that bears on it, by kind: the views they hold (with their reasons for and against), their notes, the passages they marked, what they saved, the questions they are still asking, and, kept apart under `pencil`, what agents wrote that they have not taken up. With no topic: the views they hold, their open questions, what agents left in pencil, and what they saved last. Each item has a link.',
+    inputSchema: {
+      topic: z.string().trim().max(500).optional().describe('What the session is about, in plain words. Omit for where the reader stands in general.')
+    },
+    handler: (client, args) => client.brief(args)
+  },
+  {
     name: 'recall',
-    description: 'Ask everything the reader keeps: saved articles and their highlights with margin notes, Think notes, concepts, the views they hold, wiki pages and filed Editions. Ask in plain words, the way you would ask the reader; results are the passages that answer it, best first, each with its source id and a link. Start here for any question about what the reader has read, written or believes. Open a hit with the tool in its `open` field. A hit with `pencil` was written by the agent it names and not yet taken up by the reader: never present it as their view. Nothing returned means nothing they keep bears on it.',
+    description: 'Ask everything the reader keeps: saved articles and their highlights with margin notes, Think notes, the questions they are asking, concepts, the views they hold, wiki pages and filed Editions. Ask in plain words, the way you would ask the reader; results are the passages that answer it, best first, each with its source id and a link. Start here for any question about what the reader has read, written or believes. Open a hit with the tool in its `open` field. A hit with `bearsOn` is reading that bears on the reader\'s own note or view of that id. A hit with `pencil` was written by the agent it names and not yet taken up by the reader: never present it as their view. Nothing returned means nothing they keep bears on it.',
     inputSchema: {
       query: z.string().trim().min(1).max(500).describe('The question, in plain words.'),
       limit: z.number().int().min(1).max(25).optional().default(8).describe('Most passages to return.')

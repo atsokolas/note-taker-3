@@ -63,6 +63,9 @@ const run = async () => {
     if (requestUrl.pathname === '/api/recall') {
       return jsonResponse({ query: requestUrl.searchParams.get('q'), results: [{ kind: 'note', id: 'n1', title: 'Hiring notes', passage: 'Hire for slope,\n not intercept.' }] });
     }
+    if (requestUrl.pathname === '/api/brief') {
+      return jsonResponse({ topic: requestUrl.searchParams.get('topic'), question: [{ kind: 'question', id: 'q1', title: 'Do work samples beat interviews?' }], pencil: [] });
+    }
     if (requestUrl.pathname === '/api/recall/read/n1') {
       return jsonResponse({ kind: 'note', id: 'n1', title: 'Hiring notes', text: 'Hire for slope, not intercept.' });
     }
@@ -120,6 +123,11 @@ const run = async () => {
   assert.strictEqual(recalled.searchParams.get('q'), 'what have I written about hiring');
   assert.strictEqual(recalled.searchParams.get('limit'), '5');
   assert.strictEqual(searchIo.stdout, 'note\tn1\tHiring notes\n    Hire for slope, not intercept.\n');
+
+  /* brief prints where the reader stands, kind by kind, leaving out what is empty. */
+  const briefIo = makeIo();
+  await runCli(['brief', 'hiring'], { env, fetchImpl, io: briefIo.io });
+  assert.strictEqual(briefIo.stdout, '\nquestion\nquestion\tq1\tDo work samples beat interviews?\n');
 
   const readIo = makeIo();
   await runCli(['read', 'n1'], { env, fetchImpl, io: readIo.io });

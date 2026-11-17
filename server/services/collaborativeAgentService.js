@@ -15,7 +15,7 @@ const { brokerAgentTurn, resolveAgentCapability, isSharedQuestionContext, shared
 const { resolveAgentModelRoute } = require('./agentModelRouter');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { groundedIn, quotedFrom, NOTE_LABEL } = require('./agentGrounding');
-const { retrievePassages, touches, bestPassage, readSource, readStandingContext } = require('./agentRetrieval');
+const { retrievePassages, retrieveWithBearing, touches, bestPassage, readSource, readStandingContext } = require('./agentRetrieval');
 const { runAgentLoop } = require('./agentLoop');
 const { describeRevisions, MAX_TEMPORAL_REVISIONS } = require('./wikiAskService');
 const { semanticSearch } = require('../ai/semanticSearch');
@@ -2357,7 +2357,7 @@ const generateCollaborativeReply = async ({
     semanticSearch
   };
   const searchedItems = shouldSearchWorkspace
-    ? await retrievePassages({
+    ? await retrieveWithBearing({
       ...retrievalScope,
       query: conversationState.retrievalMessage || resolvedMessage,
       about: [contextItem?.title, margin?.paragraph?.fullText || contextItem?.snippet].filter(Boolean).join(' ')

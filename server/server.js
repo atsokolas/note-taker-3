@@ -5321,6 +5321,7 @@ app.use(buildRecallRouter({
   NotebookEntry,
   TagMeta,
   WikiPage,
+  Question,
   semanticSearch
 }));
 
