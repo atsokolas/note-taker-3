@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { pencilOf } = require('../services/agentTokenService');
 const { BUILT_IN } = require('../services/agentRuntime');
+const { pencilled } = require('../services/pencilled');
 
 /* Handing work to an agent. The reader, stepping away, leaves one line and
    where they were; an agent takes it, works in pencil, and finishes with what
@@ -57,24 +58,10 @@ const buildHandoffRouter = ({ authenticateToken, humanOnly, Handoff, Article, No
   const router = express.Router();
   const valid = id => mongoose.isValidObjectId(id);
 
-  const wroteDuring = async ({ userId, takenBy, takenAt, finishedAt }) => {
-    if (!takenBy) return [];
-    const during = { $gte: takenAt, $lte: finishedAt || new Date() };
-    const by = { 'pencil.tokenId': takenBy.tokenId, 'pencil.at': during };
-    const ours = mark => String(mark.pencil?.tokenId) === String(takenBy.tokenId) && mark.pencil.at >= during.$gte && mark.pencil.at <= during.$lte;
-    const [notes, articles, marked] = await Promise.all([
-      NotebookEntry.find({ userId, ...by }).select('_id title').lean(),
-      Article.find({ userId, ...by }).select('_id title').lean(),
-      Article.find({ userId, highlights: { $elemMatch: by } }).select('_id title highlights').lean()
-    ]);
-    return [
-      ...notes.map(note => ({ kind: 'note', id: String(note._id), title: note.title })),
-      ...articles.map(article => ({ kind: 'article', id: String(article._id), title: article.title })),
-      ...marked.flatMap(article => article.highlights.filter(ours).map(mark => ({
-        kind: 'highlight', id: String(article._id), highlightId: String(mark._id), title: article.title, text: mark.text
-      })))
-    ];
-  };
+  // What a handoff wrote: its taker's pencil between taking and finishing.
+  const wroteDuring = ({ userId, takenBy, takenAt, finishedAt }) => (takenBy
+    ? pencilled({ Article, NotebookEntry, userId, tokenId: takenBy.tokenId, during: { $gte: takenAt, $lte: finishedAt || new Date() } })
+    : []);
 
   router.post('/api/handoffs', authenticateToken, async (req, res) => {
     const ask = text(req.body?.ask, 2000);

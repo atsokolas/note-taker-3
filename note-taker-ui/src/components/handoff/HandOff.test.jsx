@@ -4,10 +4,10 @@ import { MemoryRouter } from 'react-router-dom';
 import HandOff from './HandOff';
 import WhileAway from '../../pages/WhileAway';
 import { getHandoff, handOff, listHandoffs } from '../../api/handoffs';
-import { inkPencil } from '../../api/pencil';
+import { inkPencil, listPencil } from '../../api/pencil';
 
 jest.mock('../../api/handoffs', () => ({ handOff: jest.fn(), listHandoffs: jest.fn(), getHandoff: jest.fn(), cancelHandoff: jest.fn() }));
-jest.mock('../../api/pencil', () => ({ inkPencil: jest.fn() }));
+jest.mock('../../api/pencil', () => ({ inkPencil: jest.fn(), listPencil: jest.fn() }));
 
 const at = '2026-11-17T01:41:00Z';
 
@@ -27,6 +27,10 @@ test('coming back: what the agent did, what is open, what is next, and what it w
   listHandoffs.mockResolvedValue([done]);
   getHandoff.mockResolvedValue({ ...done, wrote: [{ kind: 'note', id: 'n1', title: 'Hiring' }, { kind: 'highlight', id: 'a1', highlightId: 'h9', title: 'Panels', text: 'Panels overweight charisma.' }] });
   inkPencil.mockResolvedValue();
+  listPencil.mockResolvedValue([
+    { kind: 'note', id: 'n1', title: 'Hiring', agent: 'Noeis' },
+    { kind: 'article', id: 'a7', title: 'Docs Claude read', agent: 'Claude Code' }
+  ]);
   render(<MemoryRouter><WhileAway /></MemoryRouter>);
   expect(await screen.findByRole('heading', { level: 2, name: 'Finish the base rates section.' })).toBeInTheDocument();
   expect(screen.getByText(/Noeis finished at/)).toBeInTheDocument();
@@ -35,4 +39,7 @@ test('coming back: what the agent did, what is open, what is next, and what it w
   fireEvent.keyDown(window, { key: 'i' });
   expect(inkPencil).toHaveBeenCalledWith(expect.objectContaining({ kind: 'highlight', id: 'a1', highlightId: 'h9' }));
   expect(await screen.findByText('Inked.')).toBeInTheDocument();
+  // What agents left outside any handoff follows, by agent, once.
+  expect(screen.getByRole('heading', { level: 2, name: 'Also in pencil, by Claude Code' })).toBeInTheDocument();
+  expect(screen.getAllByRole('link', { name: 'Hiring' })).toHaveLength(2);
 });

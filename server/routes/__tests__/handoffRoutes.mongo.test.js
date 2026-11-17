@@ -57,10 +57,10 @@ test('real Mongo: the reader hands off, one agent takes it, and what it wrote co
     assert.equal((await call(`/api/handoffs/${handed.id}/finish`, { as: 'codex', body: { did: 'Nothing.' } })).code, 409);
     const done = await call(`/api/handoffs/${handed.id}/finish`, { as: 'claude', body: { did: 'Finished the section.', open: 'Which panel study?', next: 'Read the 2019 meta-analysis.' } });
     assert.deepEqual([done.status, done.did, done.open, done.next], ['done', 'Finished the section.', 'Which panel study?', 'Read the 2019 meta-analysis.']);
-    assert.deepEqual(done.wrote.map(item => [item.kind, item.title]), [
-      ['note', 'Base rates, finished'],
+    assert.deepEqual(done.wrote.map(item => [item.kind, item.title]).sort(), [
       ['article', 'Panels and charisma'],
-      ['highlight', 'Panels and charisma']
+      ['highlight', 'Panels and charisma'],
+      ['note', 'Base rates, finished']
     ]);
 
     // Handed to one connection, the other never sees it; only the reader calls one off.
@@ -71,6 +71,12 @@ test('real Mongo: the reader hands off, one agent takes it, and what it wrote co
     // An agent may hand work on; it says who handed it.
     assert.equal((await call('/api/handoffs', { as: 'claude', body: { ask: 'Check the citations.' } })).from, 'Claude Code');
     assert.equal((await call('/api/handoffs?status=nonsense')).code, 400);
+
+    // Everything in pencil, whoever wrote it, is the reader's to take up.
+    const { pencilled } = require('../../services/pencilled');
+    assert.deepEqual((await pencilled({ Article, NotebookEntry, userId })).map(item => [item.kind, item.agent]).sort(), [
+      ['article', 'Claude Code'], ['highlight', 'Claude Code'], ['note', 'Claude Code'], ['note', 'Codex']
+    ]);
   } finally {
     server?.close();
     await mongoose.disconnect();

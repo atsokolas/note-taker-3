@@ -95,9 +95,21 @@ const passagesOf = (title, content) => {
 
 // Who wrote it, when an agent did and the reader has not inked it.
 const penOf = record => record?.pencil?.agent || undefined;
+const inPencil = record => (penOf(record) ? { pencil: penOf(record), pencilAt: record.pencil.at } : {});
+
+/* Pencil nobody took up fades from recall: after a month it ranks half as
+   high, after three it no longer comes up at all. It stays on its shelf for
+   the reader; it just stops speaking for them. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+const FADING = [[90, 0], [30, 0.5]];
+const weightOf = ({ pencil, pencilAt }, now = Date.now()) => {
+  if (!pencil || !pencilAt) return 1;
+  const days = (now - new Date(pencilAt).getTime()) / DAY_MS;
+  return (FADING.find(([after]) => days > after) || [0, 1])[1];
+};
 
 const articleUnits = article => [
-  ...passagesOf(article.title, stripImportChrome(article.content)).map((text, index) => ({ key: `p${index}`, text, pencil: penOf(article) })),
+  ...passagesOf(article.title, stripImportChrome(article.content)).map((text, index) => ({ key: `p${index}`, text, ...inPencil(article) })),
   ...(Array.isArray(article.highlights) ? article.highlights : [])
     .filter(highlight => highlight?.text || highlight?.note)
     .map(highlight => ({
@@ -105,7 +117,7 @@ const articleUnits = article => [
       // A note keeps its line breaks but no blank line: a blank line ends the
       // passage. An agent's note is labelled as its own, never the reader's.
       text: [highlight.text, highlight.note ? `${penOf(highlight) ? `${penOf(highlight)}'s note:` : NOTE_LABEL} ${String(highlight.note).replace(/\s*\n\s*\n\s*/g, '\n')}` : ''].filter(Boolean).join(' '),
-      pencil: penOf(highlight)
+      ...inPencil(highlight)
     }))
 ].map(unit => ({ ...unit, type: 'article', id: String(article._id), title: article.title || 'Article', updatedAt: article.updatedAt }));
 
@@ -113,7 +125,7 @@ const noteUnits = note => passagesOf(
   note.title,
   [note.content, ...(Array.isArray(note.blocks) ? note.blocks.map(block => block?.text) : [])].filter(Boolean).join('\n')
 ).map((text, index) => ({
-  key: `p${index}`, text, type: 'notebook', id: String(note._id), title: note.title || 'Note', updatedAt: note.updatedAt, pencil: penOf(note)
+  key: `p${index}`, text, type: 'notebook', id: String(note._id), title: note.title || 'Note', updatedAt: note.updatedAt, ...inPencil(note)
 }));
 
 // A wiki page the reader keeps, passage by passage. Outside agents ask about
@@ -324,8 +336,9 @@ const retrievePassages = async ({
     .sort((left, right) => right.score - left.score)
     .map((unit, rank) => ({
       ...unit,
-      fused: 1 / (RRF_K + rank) + (unit.semantic === undefined ? 0 : 1 / (RRF_K + unit.semantic))
+      fused: (1 / (RRF_K + rank) + (unit.semantic === undefined ? 0 : 1 / (RRF_K + unit.semantic))) * weightOf(unit)
     }))
+    .filter(unit => unit.fused > 0)
     .sort((left, right) => right.fused - left.fused);
 
   const seen = new Set();
@@ -469,4 +482,4 @@ const readStandingContext = async ({ userId, models: { Article, WikiPage = null 
   };
 };
 
-module.exports = { retrievePassages, retrieveWithBearing, touches, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, questionUnits, viewUnits, pageUnits } };
+module.exports = { retrievePassages, retrieveWithBearing, touches, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { weightOf, queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, questionUnits, viewUnits, pageUnits } };

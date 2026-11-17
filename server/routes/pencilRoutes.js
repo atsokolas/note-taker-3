@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const { pencilled } = require('../services/pencilled');
 
 /* Inking: the reader takes up what an agent wrote, and it is theirs from
    then on. A note, an article (with every highlight on it), or one
@@ -13,6 +14,16 @@ const buildPencilRouter = ({ authenticateToken, humanOnly, Article, NotebookEntr
     article: ({ userId, id }) => Article.updateOne({ _id: id, userId }, { $set: { pencil: null, 'highlights.$[].pencil': null } }),
     highlight: ({ userId, id, highlightId }) => Article.updateOne({ _id: id, userId, 'highlights._id': highlightId }, { $set: { 'highlights.$.pencil': null } })
   };
+
+  // Everything still in pencil, newest first, for the reader to take up.
+  router.get('/api/pencil', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      return res.json({ pencil: await pencilled({ Article, NotebookEntry, userId: req.user.id }) });
+    } catch (error) {
+      console.error('[pencil] list failed', error.message);
+      return res.status(500).json({ error: 'What is in pencil could not be listed.' });
+    }
+  });
 
   router.post('/api/ink', authenticateToken, humanOnly, async (req, res) => {
     const { kind, id, highlightId } = req.body || {};
