@@ -51,7 +51,7 @@ export default function WorkFollowups({ carried = [], folders = [], note, tomorr
         <WorkItemSource origin={item.origin} /><button className="work-followup-edit" aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}><WorkIcon name="more" /></button>
         {item.pending || pending.has(item.clientId) ? <small className="work-item-save">{session.status(item.clientId)}</small> : null}
       </div>)}
-    {completed.length ? <section className="work-completed" aria-label="Completed follow-ups">{records.map((item, index) => {
+    {completed.length ? <section className="work-completed" aria-label="Completed to-dos">{records.map((item, index) => {
       const date = dayInZone(item.completedAt, item.completedTimeZone);
       const previous = index ? dayInZone(records[index - 1].completedAt, records[index - 1].completedTimeZone) : '';
       return <React.Fragment key={item.id}>{date !== previous ? <h3><WorkIcon name="down" />Completed · {displayDay(date, { day: 'numeric', month: 'short', year: 'numeric' })}</h3> : null}{completedRecord(item)}</React.Fragment>;

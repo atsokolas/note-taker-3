@@ -13,7 +13,7 @@ test('destination notebook selection uses the existing draft and never changes t
   const session = { entry: () => ({ folder: 'customers' }), open: { draft: () => ({ title: 'Follow up', kind: 'task' }), drafts: () => [], status: () => '', change, begin } };
   render(<WorkOpenComposer noteId="source" session={session} request={{ text: 'Six weeks', origin }} folders={[{ _id: 'customers', name: 'Customers' }, { _id: 'software', name: 'Software team' }, { _id: 'archived', name: 'Archived', archivedAt: 'yesterday' }]} onFinish={() => {}} />);
   expect(begin).toHaveBeenCalledWith('source', 'Six weeks', origin);
-  fireEvent.change(screen.getByLabelText('Follow-up notebook'), { target: { value: 'software' } });
+  fireEvent.change(screen.getByLabelText('To-do notebook'), { target: { value: 'software' } });
   expect(change).toHaveBeenCalledWith('source', { folder: 'software' });
   expect(screen.queryByRole('option', { name: 'Archived' })).toBeNull();
 });
