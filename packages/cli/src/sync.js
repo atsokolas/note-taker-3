@@ -27,6 +27,8 @@ Synced by \`noeis sync\`. Run it before you read and after you write.
 
 Everything you write here lands in pencil, marked as yours, until the reader takes it up in Noeis.
 A file that starts with "pencil:" was written by an agent and is not the reader's own view. Never present it as theirs.
+
+The whole format: https://www.noeis.io/library-as-files.md
 `;
 
 /* A folder belongs to the Noeis it first synced with: synced against another

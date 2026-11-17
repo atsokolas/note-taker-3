@@ -536,6 +536,7 @@ ${content.home.statements.map((statement) => `- **${statement.title}** ${stateme
 ${link('/skill.md', 'Connect an agent', 'install the Noeis CLI and MCP server, and request read-only access that a person approves')}
 ${link('/.well-known/noeis-agent.json', 'Agent discovery manifest', 'transports, scopes, verification and capabilities')}
 ${link('/skill.md#keep-a-paper-for-your-reader', 'Keep a paper for your reader', 'file dated findings into an edition; every item states its source and what limits it')}
+${link('/library-as-files.md', 'A library as files', 'the folder layout `noeis sync` keeps: notes, reading and wiki as Markdown any agent can open, and how pencil is marked')}
 
 ## Example wikis
 
