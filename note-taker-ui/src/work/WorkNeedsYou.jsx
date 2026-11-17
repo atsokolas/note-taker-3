@@ -74,17 +74,19 @@ export default function WorkNeedsYou({ needs, notes, folders, items, today, onSo
 
 // The day as one sentence, written from the morning's plan and crossed out in ink as it gets done.
 // Nothing is stored: today's meetings, one thing and lines are read whether done or not, so the sentence keeps its shape all day.
-export function morning(items, needs, today, clock) {
+export function morning(items, notes, needs, today, clock) {
   const todays = items.filter(item => item.plannedOn === today);
   // An open one thing wins over one already done today, so choosing a second after the first names the second.
   const one = needs.oneThing || items.find(item => item.oneThingOn === today && item.completed && ['task', 'question'].includes(item.kind));
   const lines = todays.filter(item => ['task', 'question'].includes(item.kind) && item !== one);
   const owed = [...needs.waiting].sort((a, b) => sortedSince(a).localeCompare(sortedSince(b)))[0], owedDays = owed ? daysBetween(sortedSince(owed), today) : 0;
   const lower = text => text.charAt(0).toLowerCase() + text.slice(1);
+  const { carried } = dayTasks(items, notes, today, today);
   const sentences = [
     ...todays.filter(item => item.kind === 'appointment' && item.startTime).sort((a, b) => a.startTime.localeCompare(b.startTime)).map(item => ({ text: `${item.title} at ${item.startTime}.`, done: item.completed || (item.endTime || item.startTime) <= clock })),
     one && { text: `Your one thing: ${lower(one.title)}.`, done: one.completed },
     lines.length && { text: `${lines.length === 1 ? `One ${one ? 'more ' : ''}line is` : `${lines.length} ${one ? 'more ' : ''}lines are`} planned.`, done: lines.every(item => item.completed) },
+    carried.length && { text: `${carried.length === 1 ? 'One line is' : `${carried.length} lines are`} carried from earlier.` },
     owedDays >= CHASE_DAYS && { text: `${owed.waitingOn} has owed you ${lower(owed.title)} for ${plural(owedDays, 'day')}.` },
     needs.fresh.length && { text: `${needs.fresh.length === 1 ? 'One line' : `${needs.fresh.length} lines`} from your notes ${needs.fresh.length === 1 ? 'needs' : 'need'} a place.` },
     needs.silent[0] && { text: `${needs.silent.map(item => item.name).join(' and ')} ${needs.silent.length === 1 ? 'has' : 'have'} gone quiet.` },
@@ -93,11 +95,11 @@ export function morning(items, needs, today, clock) {
   return sentences.length ? sentences : [{ text: 'A clear day, and nothing needs you.' }];
 }
 
-export function WorkMorning({ items, needs, today, timeZone }) {
+export function WorkMorning({ items, notes, needs, today, timeZone }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const clock = window.setInterval(() => setNow(new Date()), 60000); return () => window.clearInterval(clock); }, []);
   const clock = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now);
-  return <p className="work-page-sense work-morning">{morning(items, needs, today, clock).map(({ text, done }) => <React.Fragment key={text}>{done ? <s>{text}</s> : text} </React.Fragment>)}</p>;
+  return <p className="work-page-sense work-morning">{morning(items, notes, needs, today, clock).map(({ text, done }) => <React.Fragment key={text}>{done ? <s>{text}</s> : text} </React.Fragment>)}</p>;
 }
 
 // At the end of today, what is still open from it goes to tomorrow, Monday or Someday, and one sentence says how tomorrow starts.
