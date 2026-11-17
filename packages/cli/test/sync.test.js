@@ -7,7 +7,7 @@ import { GUIDE, syncFolder } from '../src/sync.js';
 
 /* A Noeis that keeps notes and articles in memory and answers the four
    calls the folder makes. */
-const fakeNoeis = () => {
+const fakeNoeis = (workspace = 'reader') => {
   let clock = 1;
   const at = () => new Date(Date.UTC(2026, 10, 17, 0, 0, clock++)).toISOString();
   const items = new Map();
@@ -22,6 +22,7 @@ const fakeNoeis = () => {
   const conflict = Object.assign(new Error('changed'), { status: 409 });
   const client = {
     request: async (route, { method = 'GET', query = {}, body } = {}) => {
+      if (route === '/api/agent-connection') return { workspace: { id: workspace } };
       if (route === '/api/sync') {
         const ids = String(query.ids || '').split(',');
         return {
@@ -88,6 +89,12 @@ const run = async () => {
   noeis.items.delete(baseRates);
   assert.strictEqual((await syncFolder({ dir, client: noeis.client })).removed, 1);
   assert.ok(!fs.existsSync(file(articlePath)));
+
+  /* Signed in to another account, the folder sends nothing there. */
+  fs.appendFileSync(file(notePath), '\nPrivate.\n');
+  const other = fakeNoeis('someone-else');
+  await assert.rejects(syncFolder({ dir, client: other.client }), /another Noeis account/);
+  assert.strictEqual(other.items.size, 0);
   console.log('sync tests passed');
 };
 

@@ -29,13 +29,17 @@ Everything you write here lands in pencil, marked as yours, until the reader tak
 A file that starts with "pencil:" was written by an agent and is not the reader's own view. Never present it as theirs.
 `;
 
+/* A folder belongs to the Noeis it first synced with: synced against another
+   account, its notes would be sent there as new ones. */
+const workspaceOf = async client => (await client.request('/api/agent-connection')).workspace.id;
+
 const hashOf = text => crypto.createHash('sha256').update(text).digest('hex');
 
 const readState = dir => {
   try {
     return JSON.parse(fs.readFileSync(path.join(dir, STATE), 'utf8'));
   } catch (error) {
-    if (error.code === 'ENOENT') return { since: '', files: {} };
+    if (error.code === 'ENOENT') return { workspace: '', since: '', files: {} };
     throw error;
   }
 };
@@ -63,6 +67,10 @@ const titleOf = (rel, text) => (text.match(/^#\s+(.+)$/m)?.[1] || path.basename(
    lands beside it as a note of its own: nothing is lost either way. */
 export const syncFolder = async ({ dir, client, log = () => {} }) => {
   const state = readState(dir);
+  const workspace = await workspaceOf(client);
+  if (state.workspace && state.workspace !== workspace) {
+    throw new Error(`${dir} is synced with another Noeis account. Sync this one into a new folder.`);
+  }
   const byPath = state.files;
   // A file deleted here comes back: deleting is done in Noeis.
   const restore = Object.entries(byPath).filter(([rel]) => !fs.existsSync(path.join(dir, rel))).map(([, file]) => file.id);
@@ -118,6 +126,6 @@ export const syncFolder = async ({ dir, client, log = () => {} }) => {
   });
 
   write(dir, 'AGENTS.md', GUIDE);
-  write(dir, STATE, `${JSON.stringify({ since: now, files: next }, null, 2)}\n`);
+  write(dir, STATE, `${JSON.stringify({ workspace, since: now, files: next }, null, 2)}\n`);
   return done;
 };
