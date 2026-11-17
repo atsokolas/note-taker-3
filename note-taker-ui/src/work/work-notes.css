@@ -529,8 +529,8 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-menu-body .work-week-toggle { grid-column: 1 / -1; }
 .work-save-state { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font: 13px var(--font-sans); color: var(--noeis-ink-muted); }
 .work-note-location { margin-right: auto; }
-/* Each dated entry opens under its date, set a step above the writing and scaled from it. The entry's chevron, like Open's, hangs in the margin so dates and writing share one edge. */
-.work-writing .ProseMirror > h2.work-entry-date { margin: 48px 0 12px calc(-1 * var(--work-entry-toggle)); color: var(--noeis-ink); font: 600 1.2em/1.3 var(--font-sans); letter-spacing: -.01em; overflow-wrap: normal; }
+/* Each dated entry opens under a quiet date line, so the writing stays the loudest thing on the page. The entry's chevron, like Open's, hangs in the margin so dates and writing share one edge. */
+.work-writing .ProseMirror > h2.work-entry-date { margin: 40px 0 8px calc(-1 * var(--work-entry-toggle)); color: var(--noeis-ink-muted); font: 500 13px/1.3 var(--font-sans); letter-spacing: .02em; overflow-wrap: normal; }
 .work-writing .ProseMirror > h2.work-entry-date:first-child { margin-top: 0; }
 .work-writing .ProseMirror > h2.work-entry-date + * { margin-top: 0; }
 .work-notes .work-entry-toggle { position: relative; display: inline-grid; place-items: center; width: var(--work-entry-toggle); height: 1.3em; min-height: 0; padding: 0; vertical-align: top; color: var(--noeis-ink-subtle); }
