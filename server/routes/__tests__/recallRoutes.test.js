@@ -80,7 +80,7 @@ describe('recall routes', () => {
 
   it('with no topic, briefs an agent on where the reader stands', async () => {
     const brief = await fetch(`${url}/api/brief`).then(res => res.json());
-    expect(Object.keys(brief)).toEqual(['topic', 'view', 'question', 'pencil', 'article']);
+    expect(Object.keys(brief)).toEqual(['topic', 'handedToYou', 'view', 'question', 'pencil', 'article']);
     expect(brief.question[0]).toMatchObject({ kind: 'question', title: 'Do work samples predict hiring better than interviews?' });
     expect(brief.pencil).toContainEqual(expect.objectContaining({ kind: 'note', id: NOTE, pencil: 'Claude Code' }));
   });

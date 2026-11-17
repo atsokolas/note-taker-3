@@ -222,9 +222,10 @@ Both lists below are the complete tool surface, checked against `toolDefinitions
 by `test/server.test.js` — a tool added without a line here fails the suite.
 
 An agent is shown the **core** tools unless its runtime asks for more, because
-every listed tool costs context on each turn. Core is twelve tools: `recall`,
-`read`, `connection_info`, `list_pages`, `get_page_markdown`, `create_page`,
-`create_article`, `create_highlight`, `create_notebook_entry`,
+every listed tool costs context on each turn. Core is sixteen tools:
+`connection_info`, `brief`, `recall`, `read`, `take_handoff`,
+`finish_handoff`, `hand_off`, `list_pages`, `get_page_markdown`,
+`create_page`, `create_article`, `create_highlight`, `create_notebook_entry`,
 `update_notebook_entry`, `list_edition_profiles` and `file_edition_items`.
 Every other tool below stays callable and is listed when you ask for its
 toolset: `library`, `think`, `wiki`, `editions`, `work` or `all`.
@@ -244,6 +245,14 @@ notes, open questions, concepts, held views, wiki pages and Editions) with the
 same retrieval the in-app partner uses, so a plain question like "what have I
 written about hiring" finds the reader's own notes, and the reading that bears
 on them.
+When the reader steps away they can hand work to an agent from any page in
+Noeis. It appears first in `brief`, under `handedToYou`, with the line they
+wrote and where they were. `take_handoff` claims it (only one agent can) and
+returns the brief on it; work in pencil as usual, then `finish_handoff` with
+what you did, what is open and what you would do next, which is what the
+reader reads when they come back. `hand_off` passes work on to the next agent
+the same way.
+
 Each hit carries a passage, an id, a link and the tool that opens it, usually
 `read`. Read tools return normalized JSON:
 
@@ -290,6 +299,9 @@ Each hit carries a passage, an id, a link and the tool that opens it, usually
 
 Write tools require a token with the `agent-write` scope. Read-only tokens receive `403` from the Noeis API on these calls:
 
+- `take_handoff`
+- `finish_handoff`
+- `hand_off`
 - `create_page`
 - `update_page`
 - `create_judgment_page`

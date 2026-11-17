@@ -1,7 +1,11 @@
 /* The runtimes an agent can connect from, and how each is named to a person.
    `agent` is the catch-all for anything we do not recognise. */
+// The agent built into Noeis, which works what the reader hands it on the server.
+const BUILT_IN = 'noeis';
+
 const RUNTIME_LABELS = {
   agent: 'Noeis agent',
+  [BUILT_IN]: 'Noeis',
   'claude-code': 'Claude Code',
   'claude-desktop': 'Claude Desktop',
   codex: 'Codex',
@@ -60,6 +64,7 @@ const agentKeyOf = ({ label = '', runtime = '' } = {}) => {
 const publicAgentName = hand => PUBLIC_NAMES[agentKeyOf(hand)] || '';
 
 module.exports = {
+  BUILT_IN,
   agentKeyOf,
   normalizeRuntime,
   publicAgentName,

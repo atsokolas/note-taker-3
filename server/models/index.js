@@ -3550,8 +3550,37 @@ judgmentResponseDraftSchema.index(
 const JudgmentResponseDraft = mongoose.model('JudgmentResponseDraft', judgmentResponseDraftSchema);
 const AuthoredExploration = buildAuthoredExplorationModel(mongoose);
 
+/* Work the reader (or an agent) hands to an agent: one line, where they were,
+   and what came of it. Its status is read from when it was taken, finished or
+   called off, and what it wrote is the taker's pencil in between. */
+const handoffSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  ask: { type: String, required: true, trim: true, maxlength: 2000 },
+  context: {
+    kind: { type: String, default: '' },
+    id: { type: String, default: '' },
+    title: { type: String, default: '' },
+    excerpt: { type: String, default: '', maxlength: 4000 }
+  },
+  // '' for any agent, 'noeis' for the built-in agent, else one connection's id.
+  to: { type: String, default: '' },
+  from: { type: pencilSchema, default: null },
+  takenBy: { type: pencilSchema, default: null },
+  takenAt: { type: Date, default: null },
+  finishedAt: { type: Date, default: null },
+  cancelledAt: { type: Date, default: null },
+  did: { type: String, default: '', trim: true, maxlength: 4000 },
+  open: { type: String, default: '', trim: true, maxlength: 4000 },
+  next: { type: String, default: '', trim: true, maxlength: 4000 }
+}, { timestamps: true });
+
+handoffSchema.index({ userId: 1, takenAt: 1, cancelledAt: 1, createdAt: -1 });
+
+const Handoff = mongoose.model('Handoff', handoffSchema);
+
 module.exports = {
   User,
+  Handoff,
   Feedback,
   Recommendation,
   Folder,

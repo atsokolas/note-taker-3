@@ -2,7 +2,7 @@
    unless the runtime asks for more, because each listed tool costs the
    agent context on every turn and a long list makes it pick the wrong one.
 
-   core      brief, recall, read, save, write, keep a paper: what most agents need
+   core      brief, recall, read, handoffs, save, write, keep a paper: what most agents need
    library   articles, highlights, folders, piles
    think     notebook, concepts, questions
    wiki      pages, sources, proposals, maintenance, schema
@@ -11,6 +11,7 @@
    all       everything */
 export const CORE_TOOLS = Object.freeze([
   'connection_info', 'brief', 'recall', 'read',
+  'take_handoff', 'finish_handoff', 'hand_off',
   'list_pages', 'get_page_markdown', 'create_page',
   'create_article', 'create_highlight',
   'create_notebook_entry', 'update_notebook_entry',

@@ -1103,7 +1103,8 @@ export class NoeisClient {
       question: `${app}/think?tab=questions&questionId=${id}`,
       view: `${app}/wiki/workspace?page=${id}`,
       wiki_page: `${app}/wiki/workspace?page=${id}`,
-      edition: `${app}/editions/${id}`
+      edition: `${app}/editions/${id}`,
+      handoff: `${app}/away?handoff=${id}`
     }[hit.kind] || app;
   }
 
@@ -1148,6 +1149,25 @@ export class NoeisClient {
       topic: asked,
       ...Object.fromEntries(Object.entries(groups).map(([kind, hits]) => [kind, hits.map(hit => ({ ...hit, link: this.linkFor(hit) }))]))
     }));
+  }
+
+  /* Work handed to an agent. Taking one brings the brief on it, so the agent
+     starts where the reader stopped; finishing says what it did, what is
+     still open and what it would do next, and lists what it wrote. */
+  handOff({ ask, context, to } = {}) {
+    return this.request('/api/handoffs', { method: 'POST', body: { ask, context, to } })
+      .then(handoff => ({ ...handoff, link: this.linkFor(handoff) }));
+  }
+
+  async takeHandoff({ handoffId } = {}) {
+    const handoff = await this.request(`/api/handoffs/${encodeURIComponent(handoffId)}/take`, { method: 'POST', body: {} });
+    const { handedToYou, ...brief } = await this.brief({ topic: [handoff.context?.title, handoff.ask].filter(Boolean).join(': ') });
+    return { handoff: { ...handoff, link: this.linkFor(handoff) }, brief };
+  }
+
+  finishHandoff({ handoffId, did, open, next } = {}) {
+    return this.request(`/api/handoffs/${encodeURIComponent(handoffId)}/finish`, { method: 'POST', body: { did, open, next } })
+      .then(handoff => ({ ...handoff, link: this.linkFor(handoff), wrote: handoff.wrote.map(item => ({ ...item, link: this.linkFor(item) })) }));
   }
 
   /* Anything recall returned, in full: an article with its highlights and

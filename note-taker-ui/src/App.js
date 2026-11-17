@@ -73,6 +73,7 @@ const EditionRead = lazy(() => import('./pages/EditionRead'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
 const ThinkNotes = lazy(() => import('./pages/ThinkNotes'));
 const WorkNotes = lazy(() => import('./work/WorkNotes'));
+const WhileAway = lazy(() => import('./pages/WhileAway'));
 const AuthoredRecovery = lazy(() => import('./components/think/AuthoredRecovery'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
@@ -816,6 +817,7 @@ function App() {
                 entry still opens that object in the older workspace. */}
             <Route path="/think" element={<ThinkSurface />} />
             <Route path="/work" element={<WorkNotes />} />
+            <Route path="/away" element={<WhileAway />} />
             {/* /wiki is the quiet collection; the maintenance workspace stays
                 one hairline away at /wiki/workspace. */}
             {/* Judgment: the index is a list of claim sentences; opening one

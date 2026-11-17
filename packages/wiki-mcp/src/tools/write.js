@@ -496,6 +496,39 @@ export const writeTools = [
     handler: (client, args) => client.deleteConceptNote(args)
   },
   {
+    name: 'take_handoff',
+    description: 'Take work the reader handed to you (brief lists it under handedToYou). Returns their one line, where they were when they handed it off (the page, the passage they were in), and the brief on it. Do the work in pencil as usual, then call finish_handoff. Only one agent can take a handoff.',
+    inputSchema: {
+      handoffId: z.string().min(1).describe('The id from handedToYou.')
+    },
+    handler: (client, args) => client.takeHandoff(args)
+  },
+  {
+    name: 'finish_handoff',
+    description: 'Finish a handoff you took, for the reader to find when they come back: what you did, what is still open, and what you would do next. Plain sentences. Everything you wrote while you had it is listed with it.',
+    inputSchema: {
+      handoffId: z.string().min(1),
+      did: z.string().min(1).describe('What you did.'),
+      open: z.string().optional().describe('What is still open or unsure.'),
+      next: z.string().optional().describe('What you would do next.')
+    },
+    handler: (client, args) => client.finishHandoff(args)
+  },
+  {
+    name: 'hand_off',
+    description: 'Hand work on to the next agent, the way the reader hands work to you: one line of what to do, and where. The next agent session sees it first in its brief.',
+    inputSchema: {
+      ask: z.string().min(1).max(2000).describe('What the next agent should do.'),
+      context: z.object({
+        kind: z.string().optional(),
+        id: z.string().optional(),
+        title: z.string().optional(),
+        excerpt: z.string().optional()
+      }).optional().describe('What it is about: the note, page or article, and the passage.')
+    },
+    handler: (client, args) => client.handOff(args)
+  },
+  {
     name: 'create_notebook_entry',
     description: 'Write a new Notebook entry. A note is the reader\'s own thinking, not a saved source — save sources with create_article. Name a folder by folderId or folder (the name, resolved for you). Kind is claim, evidence or note; evidence may name the claim entry it supports.',
     inputSchema: {

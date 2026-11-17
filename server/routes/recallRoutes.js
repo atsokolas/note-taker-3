@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { retrieveWithBearing, readSource } = require('../services/agentRetrieval');
+const { waitingFor } = require('./handoffRoutes');
 
 const MAX_LIMIT = 25;
 const BRIEF_LIMIT = 16;
@@ -66,7 +67,7 @@ const standing = async ({ userId, models: { Article, NotebookEntry, WikiPage, Qu
   };
 };
 
-const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, semanticSearch = null }) => {
+const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, semanticSearch = null }) => {
   const router = express.Router();
   const models = { Article, NotebookEntry, TagMeta, WikiPage, Question };
   // Aggregations do not cast ids the way finds do.
@@ -85,8 +86,9 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
     }
   });
 
-  /* One call at the start of a session: on a topic, everything of the
-     reader's that bears on it, by kind; with none, where they stand. */
+  /* One call at the start of a session: what the reader handed over, first;
+     then on a topic, everything of theirs that bears on it, by kind; with
+     none, where they stand. */
   router.get('/api/brief', authenticateToken, async (req, res) => {
     const topic = String(req.query.topic || '').trim().slice(0, 500);
     try {
@@ -94,7 +96,7 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
       const groups = topic
         ? groupByKind((await recall({ userId, query: topic, limit: BRIEF_LIMIT, models, semanticSearch })).map(asResult))
         : await standing({ userId, models });
-      res.json({ topic, ...groups });
+      res.json({ topic, handedToYou: Handoff ? await waitingFor({ Handoff, req }) : [], ...groups });
     } catch (error) {
       console.error('[brief] failed', error.message);
       res.status(500).json({ error: 'The brief could not be gathered.' });

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { NoeisCliClient, NoeisCliError } from './client.js';
 import { DEFAULT_API_URL, DEFAULT_APP_URL, readConfig, resolveAuth, writeConfig } from './config.js';
 import { syncFolder } from './sync.js';
+import { LAUNCH, workHandoffs } from './work.js';
 
 const xdgConfig = ({ env, home }) => env.XDG_CONFIG_HOME || path.join(home, '.config');
 
@@ -60,6 +61,9 @@ Usage:
   noeis save --hook    (an agent hook: saves the URL it just fetched)
   noeis note "text"|- [--title title] [--json]
   noeis sync [folder] [--watch]   (your Noeis as Markdown, both ways; ~/Noeis by default)
+  noeis hand "what to do" [--to noeis|any]   (hand work to Noeis's own agent, or to any agent)
+  noeis handoffs [--status waiting|taken|done|cancelled] [--json]
+  noeis work [${Object.keys(LAUNCH).join('|')}] [--watch]   (work what you hand off, with that agent, on this machine)
   noeis login [--token ntk_at_...] [--api-url https://note-taker-3-unrg.onrender.com]
   noeis pages list [--query text] [--status draft|published|archived] [--page-type type] [--limit n] [--json]
   noeis pages get <id> [--json]
@@ -144,7 +148,7 @@ const openBrowser = (url, { platform = process.platform } = {}) => {
 };
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const SYNC_EVERY_MS = 60 * 1000;
+const WATCH_EVERY_MS = 60 * 1000;
 
 
 const resolveConnectScopes = (value = 'read', work = false) => {
@@ -632,7 +636,29 @@ export const runCli = async (argv = [], context = {}) => {
     do {
       const done = await syncFolder({ dir, client, log });
       log(`Synced ${dir}: ${done.sent} sent, ${done.created} new, ${done.written} written, ${done.removed} removed${done.kept ? `, ${done.kept} kept both ways` : ''}.`);
-      if (hasFlag(args, '--watch')) await (context.sleep || sleep)(SYNC_EVERY_MS);
+      if (hasFlag(args, '--watch')) await (context.sleep || sleep)(WATCH_EVERY_MS);
+    } while (hasFlag(args, '--watch'));
+    return;
+  } else if (command === 'hand') {
+    const ask = positional.slice(1).join(' ');
+    if (!ask.trim()) throw new NoeisCliError('Usage: noeis hand "what to do"');
+    const to = optionValue(args, '--to', 'noeis');
+    const handoff = await client.request('/api/handoffs', { method: 'POST', body: { ask, to: to === 'any' ? '' : to } });
+    if (json) printJson(handoff, io);
+    else io.stdout.write(`Handed to ${to === 'any' ? 'the next agent' : 'Noeis'}: ${handoff.ask} (${handoff.id})\n`);
+    return;
+  } else if (command === 'handoffs') {
+    const { handoffs } = await client.request('/api/handoffs', { query: { status: optionValue(args, '--status') } });
+    if (json) printJson(handoffs, io);
+    else handoffs.forEach(h => io.stdout.write(`${h.status}\t${h.id}\t${h.ask}${h.takenBy ? `\t(${h.takenBy})` : ''}${h.did ? `\n    did: ${h.did}` : ''}${h.open ? `\n    open: ${h.open}` : ''}${h.next ? `\n    next: ${h.next}` : ''}\n`));
+    return;
+  } else if (command === 'work') {
+    const runtime = normalizeRuntime(positional[1] || 'claude-code');
+    const log = line => io.stdout.write(`${line}\n`);
+    do {
+      const worked = await workHandoffs({ client, runtime, run: context.spawnSync, env, log });
+      if (!hasFlag(args, '--watch')) log(worked ? `Worked ${worked} handoff${worked === 1 ? '' : 's'}.` : 'Nothing handed off is waiting.');
+      else await (context.sleep || sleep)(WATCH_EVERY_MS);
     } while (hasFlag(args, '--watch'));
     return;
   } else if (command === 'draft') {

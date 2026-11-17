@@ -17,8 +17,12 @@ noeis connect claude-code --scope read   # or claude-desktop, codex, cursor, vsc
 Approve in the browser, reload the runtime, call `connection_info`. Start a
 session with `brief` (on a topic, or none) for where the reader stands, then ask
 `recall` in plain words ("what have I written about hiring?") and open any hit
-with `read`. Thirteen core tools are listed; add more with
+with `read`. Sixteen core tools are listed; add more with
 `noeis mcp --toolsets=wiki,library,think,editions` or `all`.
+
+If `brief` lists anything under `handedToYou`, the reader handed it to you before
+stepping away: `take_handoff`, do it, then `finish_handoff` with what you did,
+what is still open and what you would do next.
 
 An agent that works in files can use `noeis sync ~/Noeis` instead: the reader's
 Think, Library and wiki as Markdown, both ways, with an `AGENTS.md` that says
