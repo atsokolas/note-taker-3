@@ -220,12 +220,13 @@ const semanticKey = hit => {
   return passage ? `article:${hit.objectId}:p${passage[1]}` : `article:${hit.objectId}`;
 };
 
+const PASSAGE_LIMIT = 6;
 const retrievePassages = async ({
   userId,
   query = '',
   about = '',
   excludeId = '',
-  limit = 6,
+  limit = PASSAGE_LIMIT,
   articleFilter = null,
   includeNotes = true,
   includeViews = includeNotes,
@@ -368,7 +369,10 @@ const retrieveWithBearing = async (scope) => {
     ...scope, query: '', about: hit.fullText, excludeId: hit.id, includeNotes: false, includeViews: false, includePages: false, limit: 1
   }).then(found => found.map(passage => ({ ...passage, bearsOn: hit.id })))))).flat();
   const seen = new Set(hits.map(sourceOf));
-  return [...hits, ...bearing.filter(hit => !seen.has(sourceOf(hit)) && seen.add(sourceOf(hit)))];
+  const fresh = bearing.filter(hit => !seen.has(sourceOf(hit)) && seen.add(sourceOf(hit)));
+  // Each reading sits under the note it bears on, inside the same budget, so
+  // what gives way is the weakest of the rest.
+  return hits.flatMap(hit => [hit, ...fresh.filter(found => found.bearsOn === hit.id)]).slice(0, scope.limit || PASSAGE_LIMIT);
 };
 
 // The passages of one source that best answer a query, strongest first, each
