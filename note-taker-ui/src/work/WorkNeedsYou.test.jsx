@@ -219,3 +219,10 @@ test('a task linked to a weekly priority shows under that priority, not again in
   expect(needs.queryByText('Linked task')).toBeNull();
   expect(within(screen.getByRole('region', { name: 'Ship the pilot' })).getByText('Linked task')).toBeInTheDocument();
 });
+test('a Next row offers one way to plan it for today', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  records.push({ _id: 'next-once', revision: 0, title: 'Plan me once', takenOn: today, workItem: { kind: 'task', list: 'next', sortedOn: today, history: [] } });
+  work('today');
+  const menu = (await screen.findByLabelText('Actions for Plan me once')).closest('details');
+  expect(within(menu).getAllByRole('button').map(button => button.textContent).filter(label => /today/i.test(label))).toEqual(['Move to today', 'Make it today’s one thing']);
+});
