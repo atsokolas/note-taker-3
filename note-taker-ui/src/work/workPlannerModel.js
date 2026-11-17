@@ -8,7 +8,8 @@ export const writtenDay = note => note?.takenOn || ((note?.capturedAt || note?.c
 export const validDay = day => typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) && !Number.isNaN(Date.parse(day)) && new Date(day).toISOString().slice(0, 10) === day;
 export const shiftDay = (day, count) => { const date = new Date(`${day}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + count); return date.toISOString().slice(0, 10); };
 export const weekDays = day => { const weekday = new Date(`${day}T12:00:00Z`).getUTCDay(); const monday = shiftDay(day, -(weekday || 7) + 1); return Array.from({ length: 7 }, (_, index) => shiftDay(monday, index)); };
-export const displayDay = (day, options = { weekday: 'long', day: 'numeric', month: 'short' }) => day ? new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...options }).format(new Date(`${day}T12:00:00Z`)).replace(',', '') : '';
+// One way to say a day across Work: Mon 16 Nov.
+export const displayDay = (day, options = { weekday: 'short', day: 'numeric', month: 'short' }) => day ? new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...options }).format(new Date(`${day}T12:00:00Z`)).replace(',', '') : '';
 // 16–22 Nov, or 30 Nov – 6 Dec: a shared month is written once, as the weekly edition writes it.
 export const displayRange = (from, to, options = {}) => {
   const end = displayDay(to, { day: 'numeric', month: 'short', ...options });

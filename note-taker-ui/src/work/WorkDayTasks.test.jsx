@@ -73,8 +73,8 @@ test('the follow-up panel plans a day from the week strip and shows which priori
   render(<WorkItemForm item={{ id: 'i', kind: 'task', title: 'Get the matrix from Maulik', priority: 0 }} today="2026-11-16" defaults={{}} notes={[]} folders={[]} occupiedPriorities={() => [2]} onSave={onSave} onClose={() => {}} />);
   expect(screen.queryByRole('radiogroup', { name: 'Kind' })).toBeNull();
   expect(screen.getByRole('radio', { name: '1' })).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: 'Wednesday 18 Nov' }));
-  expect(screen.getByRole('button', { name: 'Wednesday 18 Nov' })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(screen.getByRole('button', { name: 'Wed 18 Nov' }));
+  expect(screen.getByRole('button', { name: 'Wed 18 Nov' })).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByLabelText('Planned day')).toHaveValue('2026-11-18');
   expect(screen.getByRole('radio', { name: '2' })).toBeDisabled();
   fireEvent.click(screen.getByRole('radio', { name: '1' }));

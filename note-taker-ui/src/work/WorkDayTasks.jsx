@@ -48,7 +48,7 @@ export default function WorkDayTasks({ day, today, items, notes, folders, onActi
     <div className="work-day-lines"><section className="work-priorities" aria-label={label}>{planned.filter(item => !item.completed).map(item => row(item))}</section></div>
     {carried.length ? <details className="work-earlier"><summary>Earlier <span>({carried.length})</span></summary><section aria-label="Carried from earlier">{carried.map(item => {
       const note = item.noteId && notes.find(value => [value._id, value.clientId].includes(item.noteId));
-      return row(item, <span className="work-carried"><time>{displayDay(item.plannedOn || writtenDay(note), { weekday: 'short', day: 'numeric', month: 'short' })}</time></span>);
+      return row(item, <span className="work-carried"><time>{displayDay(item.plannedOn || writtenDay(note))}</time></span>);
     })}</section></details> : null}
     {planned.some(item => item.completed) ? <details className="work-done-today"><summary>Done today <span>({planned.filter(item => item.completed).length})</span></summary>{planned.filter(item => item.completed).map(item => row(item))}</details> : null}
   </details>;
