@@ -47,8 +47,13 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
 .work-shelf .work-section-heading > .work-place-toggle { flex-basis: var(--work-row); }
 .work-shelf .work-place-toggle .work-icon { width: 12px; height: 12px; flex-basis: 12px; transition: rotate var(--work-reopen-duration) ease-out; }
 .work-place-toggle[aria-expanded=true] .work-icon { rotate: 90deg; }
-.work-shelf .work-place-menu { display: grid; place-items: center; flex: 0 0 var(--work-row); padding: 0; opacity: .7; }
-.work-place-menu .work-icon { width: 14px; height: 14px; }
+.work-shelf .work-place-menu { display: grid; place-items: center; flex: 0 0 var(--work-row); padding: 0; }
+.work-shelf :is(.work-place-menu, .work-menu > summary) .work-icon { width: 14px; height: 14px; }
+/* A row's ··· shows once the row is reached, open or current, so the rail reads as names. */
+@media (hover: hover) and (pointer: fine) {
+  .work-shelf :is(.work-place-row, .work-shelf-note-row) > :is(.work-menu, .work-place-menu):not([open]) { opacity: 0; }
+  .work-shelf :is(.work-place-row, .work-shelf-note-row):is(:hover, :focus-within, [aria-current=page], :has([aria-current=page])) > :is(.work-menu, .work-place-menu) { opacity: 1; }
+}
 .work-place-notes, .work-place-branches { display: flex; flex-direction: column; list-style: none; margin: 0 0 0 calc(var(--work-tree-step) / 2); padding: 0 0 0 calc(var(--work-tree-step) / 2 - 1px); border-left: 1px solid var(--noeis-rule); }
 .work-place-notes:empty { display: none; }
 .work-place-notes > li, .work-place-branches > li { min-width: 0; }
