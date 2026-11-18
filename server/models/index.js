@@ -585,6 +585,8 @@ const entryRevisionSchema = new mongoose.Schema({
   entryId: { type: mongoose.Schema.Types.ObjectId, required: true },
   reason: { type: String, enum: ['before', 'edit', 'restore'], default: 'edit' },
   restoredFromAt: { type: Date, default: null },
+  // The connection whose words these are; '' is the reader's own hand.
+  hand: { type: String, default: '' },
   snapshot: { type: mongoose.Schema.Types.Mixed, required: true }
 }, { timestamps: true, minimize: false });
 
@@ -3595,6 +3597,40 @@ const Citation = mongoose.model('Citation', citationSchema);
 /* A question the reader expects their library to answer, and the sources
    that answer it. Whether recall still finds them is worked out each time
    it is asked, never stored. */
+/* The reader's verdict on something an agent wrote: inked, or struck and
+   why. What it was about is kept with it, since a strike removes the thing;
+   the log is the reader's taste, as agents read it. */
+const verdictSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  verdict: { type: String, enum: ['ink', 'strike'], required: true },
+  kind: { type: String, required: true },
+  agent: { type: String, default: '' },
+  title: { type: String, default: '' },
+  text: { type: String, default: '' },
+  why: { type: String, default: '' }
+}, { timestamps: true });
+verdictSchema.index({ userId: 1, createdAt: -1 });
+const Verdict = mongoose.model('Verdict', verdictSchema);
+
+/* Two hands that cannot both be right: what an agent wrote, against a view
+   the reader holds (agent '') or another agent's pencil. Open until the
+   reader settles it. */
+const sideSchema = new mongoose.Schema({
+  agent: { type: String, default: '' },
+  kind: String,
+  id: String,
+  title: { type: String, default: '' },
+  says: { type: String, default: '' }
+}, { _id: false });
+const disagreementSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  a: { type: sideSchema, required: true },
+  b: { type: sideSchema, required: true },
+  settledAt: { type: Date, default: null }
+}, { timestamps: true });
+disagreementSchema.index({ userId: 1, settledAt: 1, createdAt: -1 });
+const Disagreement = mongoose.model('Disagreement', disagreementSchema);
+
 const recallCheckSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   question: { type: String, required: true, trim: true, maxlength: 500 },
@@ -3608,6 +3644,8 @@ module.exports = {
   Handoff,
   Citation,
   RecallCheck,
+  Verdict,
+  Disagreement,
   Feedback,
   Recommendation,
   Folder,

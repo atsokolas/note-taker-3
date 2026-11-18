@@ -38,6 +38,25 @@ const RecallCheck = {
   create: jest.fn(async row => ({ _id: 'c3', ...row }))
 };
 
+const verdicts = [
+  { verdict: 'strike', kind: 'note', agent: 'Codex', title: 'Hiring, tidied', why: 'Too smooth; keep my words.', createdAt: new Date() },
+  { verdict: 'ink', kind: 'highlight', agent: 'Claude Code', title: 'Base rates', why: '', createdAt: new Date() }
+];
+const Verdict = {
+  aggregate: jest.fn(async () => [{ _id: 'strike', n: 3 }, { _id: 'ink', n: 9 }]),
+  find: jest.fn(() => {
+    const query = { sort: () => query, limit: () => query, select: () => query, lean: async () => verdicts };
+    return query;
+  })
+};
+
+const Disagreement = {
+  find: jest.fn(() => {
+    const query = { sort: () => query, limit: () => query, lean: async () => [{ _id: 'd1', a: { agent: 'Codex', says: 'Interviews predict hiring well.' }, b: { agent: '', kind: 'view', says: 'Interviews predict hiring poorly.' }, createdAt: new Date() }] };
+    return query;
+  })
+};
+
 const start = async () => {
   const app = express();
   app.use(express.json());
@@ -49,6 +68,8 @@ const start = async () => {
     },
     Citation,
     RecallCheck,
+    Verdict,
+    Disagreement,
     Article: model([{ _id: ARTICLE, title: 'Base rates', content: 'Start from the base rate before the story.', highlights: [{ _id: 'h1', text: 'Interviews predict little about hiring.', note: 'Remember for the hiring loop.' }, { _id: 'h2', text: 'The story comes after the rate.', note: 'A guess of mine.', pencil: { agent: 'Codex' } }], updatedAt: new Date() }]),
     NotebookEntry: model([{ _id: NOTE, title: 'Hiring', content: 'Hire for slope, not intercept, when hiring engineers.', pencil: { agent: 'Claude Code' }, updatedAt: new Date() }]),
     TagMeta: model([{ _id: CONCEPT, name: 'Base rates', description: 'Start from how often things like this usually go.', updatedAt: new Date() }]),
@@ -125,7 +146,13 @@ describe('recall routes', () => {
 
   it('with no topic, briefs an agent on where the reader stands', async () => {
     const brief = await fetch(`${url}/api/brief`).then(res => res.json());
-    expect(Object.keys(brief)).toEqual(['topic', 'handedToYou', 'view', 'question', 'pencil', 'article']);
+    expect(Object.keys(brief)).toEqual(['topic', 'handedToYou', 'taste', 'disagreements', 'view', 'question', 'pencil', 'article']);
+    // Two hands that cannot both be right are set out as a disagreement, not two facts.
+    expect(brief.disagreements[0]).toMatchObject({ id: 'd1', a: { agent: 'Codex' }, b: { agent: '', kind: 'view' } });
+    // What the reader keeps and strikes, with why, so no agent has to be told twice.
+    expect(brief.taste).toMatchObject({ inked: 9, struck: 3 });
+    expect(brief.taste.lately[0]).toMatchObject({ verdict: 'strike', agent: 'Codex', why: 'Too smooth; keep my words.' });
+    expect(brief.taste.lately[1].why).toBeUndefined();
     expect(brief.question[0]).toMatchObject({ kind: 'question', title: 'Do work samples predict hiring better than interviews?' });
     expect(brief.pencil).toContainEqual(expect.objectContaining({ kind: 'note', id: NOTE, pencil: 'Claude Code' }));
   });

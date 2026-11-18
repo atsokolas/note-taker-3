@@ -123,6 +123,8 @@ const {
   Handoff,
   Citation,
   RecallCheck,
+  Verdict,
+  Disagreement,
   AgentArtifactDraft,
   AgentRun,
   AgentProposedChange,
@@ -597,7 +599,10 @@ const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildRecallRouter } = require('./routes/recallRoutes');
 const { buildSyncRouter } = require('./routes/syncRoutes');
 const { buildHandoffRouter } = require('./routes/handoffRoutes');
+const { buildDisagreementRouter } = require('./routes/disagreementRoutes');
+const { checkDisagreements } = require('./services/disagreements');
 const { workHandoff, resumeHandoffs } = require('./services/handoffWorker');
+const { fileAgentsReadingEditions } = require('./services/agentsReadingEdition');
 const { buildPencilRouter } = require('./routes/pencilRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
@@ -5321,7 +5326,10 @@ const filterOutIds = (items, type, ids) => {
   });
 };
 
-app.use(buildPencilRouter({ authenticateToken, humanOnly: requireHumanReader, Article, NotebookEntry }));
+app.use(buildPencilRouter({
+  authenticateToken, humanOnly: requireHumanReader, Article, NotebookEntry, Verdict,
+  EntryRevision, ReferenceEdge, ArticleReadingState, deleteArticleEmbeddingState, deleteHighlightEmbeddingState
+}));
 
 app.use(buildRecallRouter({
   authenticateToken: authenticateUserOrAgentToken,
@@ -5333,6 +5341,8 @@ app.use(buildRecallRouter({
   Handoff,
   Citation,
   RecallCheck,
+  Verdict,
+  Disagreement,
   humanOnly: requireHumanReader,
   semanticSearch
 }));
@@ -5346,7 +5356,12 @@ app.use(buildSyncRouter({
 const handoffModels = { Handoff, AgentToken };
 const workForNoeis = handoff => workHandoff({ handoffId: handoff._id, models: handoffModels, apiUrl: internalApiUrl })
   .catch(error => console.error('[handoff] built-in agent failed', error.message));
-app.use(buildHandoffRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Handoff, Article, NotebookEntry, onHandedToNoeis: workForNoeis }));
+// What an agent wrote for a handoff is held against the views it bears on, and other agents' pencil.
+const disagreementModels = { Article, NotebookEntry, TagMeta, WikiPage, Question, Disagreement };
+const checkWhatItWrote = ({ handoff, wrote }) => checkDisagreements({ userId: handoff.userId, agent: handoff.takenBy.agent, wrote, models: disagreementModels, semanticSearch })
+  .catch(error => console.error('[disagreements] check failed', error.message));
+app.use(buildHandoffRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Handoff, Article, NotebookEntry, onHandedToNoeis: workForNoeis, onFinished: checkWhatItWrote }));
+app.use(buildDisagreementRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Disagreement }));
 
 app.use(buildSemanticSearchRouter({
   authenticateToken,
@@ -5986,5 +6001,13 @@ startServer({ app, port: PORT });
 
 const resumeBuiltInHandoffs = () => resumeHandoffs({ models: handoffModels, apiUrl: internalApiUrl })
   .catch(error => console.error('[handoff] resume failed', error.message));
-if (mongoose.connection.readyState === 1) resumeBuiltInHandoffs();
-else mongoose.connection.once('open', resumeBuiltInHandoffs);
+// Last week's "What your agents read" is filed once the week is over, checked hourly while awake.
+const fileAgentsReading = () => fileAgentsReadingEditions({ models: { Article, Edition, AgentToken }, apiUrl: internalApiUrl })
+  .catch(error => console.error('[agents-reading] editions failed', error.message));
+const wakeBuiltInAgent = () => {
+  resumeBuiltInHandoffs();
+  fileAgentsReading();
+  setInterval(fileAgentsReading, 60 * 60 * 1000).unref?.();
+};
+if (mongoose.connection.readyState === 1) wakeBuiltInAgent();
+else mongoose.connection.once('open', wakeBuiltInAgent);

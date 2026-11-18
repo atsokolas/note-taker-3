@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { retrieveWithBearing, readSource } = require('../services/agentRetrieval');
 const { waitingFor } = require('./handoffRoutes');
+const { openDisagreements } = require('./disagreementRoutes');
 const { pencilOf } = require('../services/agentTokenService');
 
 const MAX_LIMIT = 25;
@@ -9,6 +10,7 @@ const BRIEF_LIMIT = 16;
 const STANDING = 8;
 // How far down recall's answers a named source may sit and still count as found.
 const KNOWS_TOP = 8;
+const TASTE_LATELY = 12;
 
 // The kind an outside agent opens a hit as: a marked passage is a highlight,
 // a wiki page carrying a held view is that view.
@@ -70,7 +72,24 @@ const standing = async ({ userId, models: { Article, NotebookEntry, WikiPage, Qu
   };
 };
 
-const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, Citation = null, RecallCheck = null, humanOnly = (_req, _res, next) => next(), semanticSearch = null }) => {
+/* The reader's taste, as agents read it: derived from every verdict they
+   gave on agents' pencil, never written down where it could go stale. How
+   much they keep, and the latest of what they kept and struck, with why. */
+const tasteOf = async ({ Verdict, userId }) => {
+  if (!Verdict) return null;
+  const [counts, lately] = await Promise.all([
+    Verdict.aggregate([{ $match: { userId } }, { $group: { _id: '$verdict', n: { $sum: 1 } } }]),
+    Verdict.find({ userId }).sort({ createdAt: -1 }).limit(TASTE_LATELY).select('verdict kind agent title why createdAt').lean()
+  ]);
+  const count = verdict => counts.find(row => row._id === verdict)?.n || 0;
+  return {
+    inked: count('ink'),
+    struck: count('strike'),
+    lately: lately.map(row => ({ verdict: row.verdict, kind: row.kind, agent: row.agent, title: row.title, ...(row.why ? { why: row.why } : {}), at: row.createdAt }))
+  };
+};
+
+const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, Citation = null, RecallCheck = null, Verdict = null, Disagreement = null, humanOnly = (_req, _res, next) => next(), semanticSearch = null }) => {
   const router = express.Router();
   const models = { Article, NotebookEntry, TagMeta, WikiPage, Question };
   // Aggregations do not cast ids the way finds do.
@@ -99,10 +118,22 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
       const groups = topic
         ? groupByKind((await recall({ userId, query: topic, limit: BRIEF_LIMIT, models, semanticSearch })).map(asResult))
         : await standing({ userId, models });
-      res.json({ topic, handedToYou: Handoff ? await waitingFor({ Handoff, req }) : [], ...groups });
+      const [handedToYou, taste, disagreements] = await Promise.all([
+        Handoff ? waitingFor({ Handoff, req }) : [], tasteOf({ Verdict, userId }), openDisagreements({ Disagreement, userId })
+      ]);
+      res.json({ topic, handedToYou, ...(taste ? { taste } : {}), ...(disagreements.length ? { disagreements } : {}), ...groups });
     } catch (error) {
       console.error('[brief] failed', error.message);
       res.status(500).json({ error: 'The brief could not be gathered.' });
+    }
+  });
+
+  router.get('/api/taste', authenticateToken, async (req, res) => {
+    try {
+      return res.json(await tasteOf({ Verdict, userId: userOf(req) }) || { inked: 0, struck: 0, lately: [] });
+    } catch (error) {
+      console.error('[taste] failed', error.message);
+      return res.status(500).json({ error: 'Taste could not be gathered.' });
     }
   });
 

@@ -25,7 +25,8 @@ test('real Mongo: the reader hands off, one agent takes it, and what it wrote co
       next();
     };
     const humanOnly = (req, res, next) => (req.agentToken ? res.status(403).end() : next());
-    app.use(buildHandoffRouter({ authenticateToken, humanOnly, Handoff, Article, NotebookEntry }));
+    const finished = [];
+    app.use(buildHandoffRouter({ authenticateToken, humanOnly, Handoff, Article, NotebookEntry, onFinished: ({ handoff, wrote }) => finished.push([handoff.takenBy.agent, wrote.length]) }));
     server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
     const call = async (path, { as, body } = {}) => {
       const response = await fetch(`http://127.0.0.1:${server.address().port}${path}`, {
@@ -62,6 +63,8 @@ test('real Mongo: the reader hands off, one agent takes it, and what it wrote co
       ['highlight', 'Panels and charisma'],
       ['note', 'Base rates, finished']
     ]);
+    // What it wrote goes on to be held against the views it bears on.
+    assert.deepEqual(finished, [['Claude Code', 3]]);
 
     // Handed to one connection, the other never sees it; only the reader calls one off.
     const forCodex = await call('/api/handoffs', { body: { ask: 'Tidy the tags.', to: agents.codex.id } });

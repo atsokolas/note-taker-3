@@ -54,7 +54,7 @@ const waitingFor = async ({ Handoff, req }) => (
   await Handoff.find({ userId: req.user.id, ...STATUS.waiting, ...forWhom(req) }).sort({ createdAt: 1 }).limit(10).lean()
 ).map(shown);
 
-const buildHandoffRouter = ({ authenticateToken, humanOnly, Handoff, Article, NotebookEntry, onHandedToNoeis = () => {} }) => {
+const buildHandoffRouter = ({ authenticateToken, humanOnly, Handoff, Article, NotebookEntry, onHandedToNoeis = () => {}, onFinished = () => {} }) => {
   const router = express.Router();
   const valid = id => mongoose.isValidObjectId(id);
 
@@ -128,7 +128,9 @@ const buildHandoffRouter = ({ authenticateToken, humanOnly, Handoff, Article, No
       { new: true }
     ).lean();
     if (!handoff) return res.status(409).json({ error: 'You have not taken that handoff, or it is already finished.' });
-    return res.json({ ...shown(handoff), wrote: await wroteDuring({ userId: req.user.id, ...handoff }) });
+    const wrote = await wroteDuring({ userId: req.user.id, ...handoff });
+    if (wrote.length) onFinished({ handoff, wrote });
+    return res.json({ ...shown(handoff), wrote });
   });
 
   router.post('/api/handoffs/:id/cancel', authenticateToken, humanOnly, async (req, res) => {
