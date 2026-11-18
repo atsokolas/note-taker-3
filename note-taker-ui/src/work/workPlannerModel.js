@@ -8,13 +8,20 @@ export const writtenDay = note => note?.takenOn || ((note?.capturedAt || note?.c
 export const validDay = day => typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) && !Number.isNaN(Date.parse(day)) && new Date(day).toISOString().slice(0, 10) === day;
 export const shiftDay = (day, count) => { const date = new Date(`${day}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + count); return date.toISOString().slice(0, 10); };
 export const weekDays = day => { const weekday = new Date(`${day}T12:00:00Z`).getUTCDay(); const monday = shiftDay(day, -(weekday || 7) + 1); return Array.from({ length: 7 }, (_, index) => shiftDay(monday, index)); };
-// One way to say a day across Work: Mon 16 Nov.
-export const displayDay = (day, options = { weekday: 'short', day: 'numeric', month: 'short' }) => day ? new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...options }).format(new Date(`${day}T12:00:00Z`)).replace(',', '') : '';
+// One way to say a day across Work: Mon 16 Nov, and 16 Nov 2025 once it isn't this year.
+// A caller that names year, even as undefined, decides it: an entry heading always keeps its year.
+export const displayDay = (day, options = { weekday: 'short', day: 'numeric', month: 'short' }) => {
+  if (!day) return '';
+  const otherYear = options.day && options.month && !('year' in options) && day.slice(0, 4) !== String(new Date().getFullYear());
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...options, ...(otherYear && { year: 'numeric' }) }).format(new Date(`${day}T12:00:00Z`)).replace(',', '');
+};
 // 16–22 Nov, or 30 Nov – 6 Dec: a shared month is written once, as the weekly edition writes it.
-export const displayRange = (from, to, options = {}) => {
-  const end = displayDay(to, { day: 'numeric', month: 'short', ...options });
+// A range across New Year names both years; otherwise its end carries the year when one is needed.
+export const displayRange = (from, to) => {
+  const year = from.slice(0, 4) === to.slice(0, 4) ? undefined : 'numeric';
+  const end = displayDay(to, { day: 'numeric', month: 'short', ...(year && { year }) });
   if (from.slice(0, 7) === to.slice(0, 7)) return `${Number(from.slice(8))}–${end}`;
-  return `${displayDay(from, { day: 'numeric', month: 'short', ...(from.slice(0, 4) === to.slice(0, 4) ? {} : options) })} – ${end}`;
+  return `${displayDay(from, { day: 'numeric', month: 'short', year })} – ${end}`;
 };
 export const KIND_LABEL = { task: 'To-do', question: 'Open question', appointment: 'Appointment' };
 export const itemMetadata = item => Object.fromEntries(['kind', 'noteId', 'plannedOn', 'dueOn', 'priority', 'startTime', 'endTime', 'list', 'waitingOn', 'sortedOn', 'returnOn', 'oneThingOn', 'origin'].filter(key => item?.[key] !== undefined).map(key => [key, item[key]]));

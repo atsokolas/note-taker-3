@@ -93,7 +93,7 @@ test('Projects lists every project and Everything open unfolds them, from the ra
 test('a project untouched for weeks says the day it was last touched, month capitalized', async () => {
   work('view=project&folder=h');
   const page = within(await screen.findByRole('region', { name: 'Hiring' }));
-  expect(page.getByText(/, last touched \d{1,2} [A-Z][a-z]{2}\.$/)).toBeInTheDocument();
+  expect(page.getByText(/, last touched \d{1,2} [A-Z][a-z]{2}( \d{4})?\.$/)).toBeInTheDocument();
 });
 
 test('a project page reads the same way every time: log, next with what is owed, schedule, decided and kept', async () => {

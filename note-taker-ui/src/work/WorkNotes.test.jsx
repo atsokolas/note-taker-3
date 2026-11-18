@@ -4,6 +4,9 @@ import WorkNotes from './WorkNotes';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
 import { createWorkSession, draftKey } from './workSession';
+import { runInNovember2026 } from './testClock';
+
+runInNovember2026();
 
 jest.mock('react-router-dom', () => {
   const React = require('react');
