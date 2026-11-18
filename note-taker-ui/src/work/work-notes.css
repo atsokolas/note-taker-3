@@ -49,10 +49,10 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
 .work-place-toggle[aria-expanded=true] .work-icon { rotate: 90deg; }
 .work-shelf .work-place-menu { display: grid; place-items: center; flex: 0 0 var(--work-row); padding: 0; }
 .work-shelf :is(.work-place-menu, .work-menu > summary) .work-icon { width: 14px; height: 14px; }
-/* A row's ··· shows once the row is reached, open or current, so the rail reads as names. */
+/* A row's ··· shows once the row is reached, open or current, so the rail and a project's log read as names. */
 @media (hover: hover) and (pointer: fine) {
-  .work-shelf :is(.work-place-row, .work-shelf-note-row) > :is(.work-menu, .work-place-menu):not([open]) { opacity: 0; }
-  .work-shelf :is(.work-place-row, .work-shelf-note-row):is(:hover, :focus-within, [aria-current=page], :has([aria-current=page])) > :is(.work-menu, .work-place-menu) { opacity: 1; }
+  :is(.work-shelf :is(.work-place-row, .work-shelf-note-row), .work-project-log-row) > :is(.work-menu, .work-place-menu):not([open]) { opacity: 0; }
+  :is(.work-shelf :is(.work-place-row, .work-shelf-note-row), .work-project-log-row):is(:hover, :focus-within, [aria-current=page], :has([aria-current=page])) > :is(.work-menu, .work-place-menu) { opacity: 1; }
 }
 .work-place-notes, .work-place-branches { display: flex; flex-direction: column; list-style: none; margin: 0 0 0 calc(var(--work-tree-step) / 2); padding: 0 0 0 calc(var(--work-tree-step) / 2 - 1px); border-left: 1px solid var(--noeis-rule); }
 .work-place-notes:empty { display: none; }
@@ -437,7 +437,7 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-project-checkin p, .work-notes .work-project-checkin input { grid-column: 2; margin: 0; padding: 4px 0; background: transparent; border: 0; border-bottom: 1px solid var(--noeis-rule); color: var(--noeis-ink); font: 17px/1.45 var(--font-serif); }
 .work-project-checkin p { border-bottom: 0; }
 .work-project-checkin p small { margin-left: 12px; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
-.work-notes .work-project .work-log-entry { display: grid; gap: 5px; width: 100%; padding: 14px 0 16px; border-bottom: 1px solid var(--noeis-rule); text-align: left; color: var(--noeis-ink); }
+.work-notes .work-project .work-log-entry { display: grid; gap: 5px; width: 100%; padding: 14px 0 16px; text-align: left; color: var(--noeis-ink); }
 .work-log-entry small { font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-log-entry span { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; font: 16px/1.55 var(--font-serif); }
 .work-project-decision small { margin-left: auto; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); white-space: nowrap; }

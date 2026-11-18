@@ -33,6 +33,7 @@
 .work-project-studio .work-project-page { display: contents; }
 .work-project-studio .work-project-context { grid-column: 2; grid-row: 1 / span 10; }
 .work-project-log-row { display: flex; align-items: start; border-bottom: 1px solid var(--noeis-rule); }
-.work-project-log-row .work-log-entry { flex: 1; min-width: 0; border: 0; }
-.work-project-log-row > .work-menu { flex: 0 0 44px; }
+.work-project-log-row .work-log-entry { flex: 1; min-width: 0; }
+/* The row draws the one rule under an entry and its ···; a 44px target centres the ··· on the entry's date line. */
+.work-project-log-row > .work-menu > summary { display: grid; place-items: center; width: 44px; min-height: 44px; }
 @media (max-width: 1100px) { .work-project-studio { display: block; } .work-project-studio .work-project-page { display: block; } .work-project-context { margin-top: 24px; } }
