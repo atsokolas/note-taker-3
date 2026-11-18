@@ -877,12 +877,13 @@ const buildNotebookRouter = ({
       await attachPersistedIdentity(existing);
       const before = snapshotOf('note', existing);
       const beforeAt = existing.updatedAt;
+      const beforeHand = String(existing.pencil?.tokenId || '');
       Object.assign(existing, updates);
       sanitizeNotebookEntry(existing);
       const updated = await existing.save();
       await recordRevision({
         EntryRevision, userId, kind: 'note', entryId: updated._id,
-        before, beforeAt, after: snapshotOf('note', updated), restoredFrom: req.body.restoredFrom
+        before, beforeAt, beforeHand, hand: String(updated.pencil?.tokenId || ''), after: snapshotOf('note', updated), restoredFrom: req.body.restoredFrom
       });
       if (updates.blocks !== undefined) {
         try {

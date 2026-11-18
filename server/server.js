@@ -123,6 +123,7 @@ const {
   Handoff,
   Citation,
   RecallCheck,
+  Verdict,
   AgentArtifactDraft,
   AgentRun,
   AgentProposedChange,
@@ -5321,7 +5322,10 @@ const filterOutIds = (items, type, ids) => {
   });
 };
 
-app.use(buildPencilRouter({ authenticateToken, humanOnly: requireHumanReader, Article, NotebookEntry }));
+app.use(buildPencilRouter({
+  authenticateToken, humanOnly: requireHumanReader, Article, NotebookEntry, Verdict,
+  EntryRevision, ReferenceEdge, ArticleReadingState, deleteArticleEmbeddingState, deleteHighlightEmbeddingState
+}));
 
 app.use(buildRecallRouter({
   authenticateToken: authenticateUserOrAgentToken,
@@ -5333,6 +5337,7 @@ app.use(buildRecallRouter({
   Handoff,
   Citation,
   RecallCheck,
+  Verdict,
   humanOnly: requireHumanReader,
   semanticSearch
 }));

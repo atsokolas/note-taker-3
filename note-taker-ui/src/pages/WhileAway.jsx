@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { cancelHandoff, getHandoff, listHandoffs } from '../api/handoffs';
-import { inkPencil, listPencil } from '../api/pencil';
+import { getTaste, inkPencil, listPencil, strikePencil } from '../api/pencil';
 import { WHO, timeOf } from '../components/handoff/HandOff';
 
 const hrefOf = item => ({
@@ -21,14 +21,21 @@ const standing = (handoff) => {
 
 const keyOf = item => `${item.kind}:${item.id}:${item.highlightId || ''}`;
 
+const SETTLED = { inked: 'Inked.', removed: 'Struck.', restored: 'Struck; your version is back.' };
+
 /* What the reader comes back to: each thing they handed off, what the agent
    says it did, what is open and what it would do next, and what it wrote;
-   then everything else agents left in pencil, by agent. j and k move through
-   what was written, i inks it, Return opens it. */
+   then everything else agents left in pencil, by agent; then what agents
+   learn from what the reader keeps and strikes. j and k move through what
+   was written, i inks it, x strikes it (with a why, if they like), Return
+   opens it. */
 const WhileAway = () => {
   const [handoffs, setHandoffs] = useState(null);
   const [loose, setLoose] = useState([]);
-  const [inked, setInked] = useState(() => new Set());
+  const [settled, setSettled] = useState({});
+  const [striking, setStriking] = useState('');
+  const [why, setWhy] = useState('');
+  const [taste, setTaste] = useState(null);
   const [at, setAt] = useState(0);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -40,6 +47,7 @@ const WhileAway = () => {
     const theirs = new Set(shown.flatMap(h => (h.wrote || []).map(keyOf)));
     setLoose(only ? [] : (await listPencil()).filter(item => !theirs.has(keyOf(item))));
     setHandoffs(shown);
+    setTaste(only ? null : await getTaste());
   }, [only]);
   useEffect(() => { load().catch(() => setHandoffs([])); }, [load]);
 
@@ -48,8 +56,14 @@ const WhileAway = () => {
   const written = useMemo(() => [...(handoffs || []).flatMap(h => h.wrote || []), ...byAgent.flatMap(([, items]) => items)].map(item => ({ ...item, key: keyOf(item) })), [handoffs, byAgent]);
   const ink = useCallback(async (item) => {
     await inkPencil(item);
-    setInked(current => new Set(current).add(item.key));
+    setSettled(current => ({ ...current, [item.key]: 'inked' }));
   }, []);
+  const strike = async (item) => {
+    const struck = await strikePencil({ ...item, why: why.trim() });
+    setSettled(current => ({ ...current, [item.key]: struck }));
+    setStriking('');
+    setWhy('');
+  };
 
   useEffect(() => {
     const onKey = (event) => {
@@ -57,6 +71,7 @@ const WhileAway = () => {
       if (event.key === 'j') setAt(index => Math.min(index + 1, written.length - 1));
       else if (event.key === 'k') setAt(index => Math.max(index - 1, 0));
       else if (event.key === 'i') ink(written[at]);
+      else if (event.key === 'x') { event.preventDefault(); setStriking(written[at].key); }
       else if (event.key === 'Enter') navigate(hrefOf(written[at]));
     };
     window.addEventListener('keydown', onKey);
@@ -70,7 +85,17 @@ const WhileAway = () => {
         return (
           <li key={key} className={written[at]?.key === key ? 'is-current' : ''}>
             <Link to={hrefOf(item)}>{item.text || item.title || 'Untitled'}</Link>
-            {inked.has(key) ? <span> Inked.</span> : <button type="button" onClick={() => ink({ ...item, key })}>Ink it</button>}
+            {settled[key] ? <span> {SETTLED[settled[key]]}</span> : striking === key ? (
+              <form className="handoff-form" onSubmit={(event) => { event.preventDefault(); strike({ ...item, key }); }}>
+                <input autoFocus aria-label="Why strike it" placeholder="Why? An agent reads this next time." value={why} onChange={event => setWhy(event.target.value)} onKeyDown={event => event.key === 'Escape' && setStriking('')} />
+                <button type="submit">Strike</button>
+              </form>
+            ) : (
+              <>
+                <button type="button" onClick={() => ink({ ...item, key })}>Ink it</button>
+                <button type="button" onClick={() => setStriking(key)}>Strike</button>
+              </>
+            )}
           </li>
         );
       })}
@@ -105,7 +130,20 @@ const WhileAway = () => {
           <Written items={items} />
         </section>
       ))}
-      {written.length ? <p className="while-away__keys">j and k move, i inks, Return opens.</p> : null}
+      {taste?.lately?.length ? (
+        <section className="while-away__handoff">
+          <h2>What agents learn from you</h2>
+          <p className="while-away__standing">You have inked {taste.inked} and struck {taste.struck} of what agents wrote. Every agent reads this in its brief.</p>
+          <ul className="while-away__wrote">
+            {taste.lately.map(verdict => (
+              <li key={`${verdict.at}:${verdict.title}`}>
+                {verdict.verdict === 'ink' ? 'Kept' : 'Struck'} {verdict.agent}’s {verdict.title || verdict.kind}{verdict.why ? `: ${verdict.why}` : '.'}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {written.length ? <p className="while-away__keys">j and k move, i inks, x strikes, Return opens.</p> : null}
       <p className="while-away__keys"><Link to="/knows">Does Noeis know you?</Link></p>
     </main>
   );
