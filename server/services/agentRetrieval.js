@@ -38,6 +38,7 @@ find found show tell anything everything argue argues argument according connect
 relates related relation bear bears bearing author authors essay essays mention mentions summarize summary
 objection objections strongest weakest
 believe believes belief beliefs currently challenge challenges
+keep keeps next look looks
 `.split(/\s+/).filter(Boolean));
 
 const words = (text = '') => String(text || '')
@@ -94,9 +95,21 @@ const passagesOf = (title, content) => {
 
 // Who wrote it, when an agent did and the reader has not inked it.
 const penOf = record => record?.pencil?.agent || undefined;
+const inPencil = record => (penOf(record) ? { pencil: penOf(record), pencilAt: record.pencil.at } : {});
+
+/* Pencil nobody took up fades from recall: after a month it ranks half as
+   high, after three it no longer comes up at all. It stays on its shelf for
+   the reader; it just stops speaking for them. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+const FADING = [[90, 0], [30, 0.5]];
+const weightOf = ({ pencil, pencilAt }, now = Date.now()) => {
+  if (!pencil || !pencilAt) return 1;
+  const days = (now - new Date(pencilAt).getTime()) / DAY_MS;
+  return (FADING.find(([after]) => days > after) || [0, 1])[1];
+};
 
 const articleUnits = article => [
-  ...passagesOf(article.title, stripImportChrome(article.content)).map((text, index) => ({ key: `p${index}`, text, pencil: penOf(article) })),
+  ...passagesOf(article.title, stripImportChrome(article.content)).map((text, index) => ({ key: `p${index}`, text, ...inPencil(article) })),
   ...(Array.isArray(article.highlights) ? article.highlights : [])
     .filter(highlight => highlight?.text || highlight?.note)
     .map(highlight => ({
@@ -104,7 +117,7 @@ const articleUnits = article => [
       // A note keeps its line breaks but no blank line: a blank line ends the
       // passage. An agent's note is labelled as its own, never the reader's.
       text: [highlight.text, highlight.note ? `${penOf(highlight) ? `${penOf(highlight)}'s note:` : NOTE_LABEL} ${String(highlight.note).replace(/\s*\n\s*\n\s*/g, '\n')}` : ''].filter(Boolean).join(' '),
-      pencil: penOf(highlight)
+      ...inPencil(highlight)
     }))
 ].map(unit => ({ ...unit, type: 'article', id: String(article._id), title: article.title || 'Article', updatedAt: article.updatedAt }));
 
@@ -112,7 +125,7 @@ const noteUnits = note => passagesOf(
   note.title,
   [note.content, ...(Array.isArray(note.blocks) ? note.blocks.map(block => block?.text) : [])].filter(Boolean).join('\n')
 ).map((text, index) => ({
-  key: `p${index}`, text, type: 'notebook', id: String(note._id), title: note.title || 'Note', updatedAt: note.updatedAt, pencil: penOf(note)
+  key: `p${index}`, text, type: 'notebook', id: String(note._id), title: note.title || 'Note', updatedAt: note.updatedAt, ...inPencil(note)
 }));
 
 // A wiki page the reader keeps, passage by passage. Outside agents ask about
@@ -120,6 +133,13 @@ const noteUnits = note => passagesOf(
 const pageUnits = page => passagesOf(page.title, page.plainText).map((text, index) => ({
   key: `p${index}`, text, type: 'wiki_page', id: String(page._id), title: page.title || 'Wiki page', updatedAt: page.updatedAt
 }));
+
+// A question the reader is still asking, with what would settle it.
+const QUESTION_FIELDS = '_id text settledBy updatedAt';
+const OPEN_QUESTION = { status: 'open', archived: { $ne: true } };
+const questionUnits = question => [{
+  key: 'q', text: [question.text, question.settledBy && `Settled by: ${question.settledBy}`].filter(Boolean).join('\n'), type: 'question', id: String(question._id), title: question.text, updatedAt: question.updatedAt
+}];
 
 const conceptUnits = concept => [{
   key: 'd', text: concept.description || concept.name, type: 'concept', id: String(concept._id), title: concept.name, updatedAt: concept.updatedAt
@@ -212,12 +232,13 @@ const semanticKey = hit => {
   return passage ? `article:${hit.objectId}:p${passage[1]}` : `article:${hit.objectId}`;
 };
 
+const PASSAGE_LIMIT = 6;
 const retrievePassages = async ({
   userId,
   query = '',
   about = '',
   excludeId = '',
-  limit = 6,
+  limit = PASSAGE_LIMIT,
   articleFilter = null,
   includeNotes = true,
   includeViews = includeNotes,
@@ -225,7 +246,7 @@ const retrievePassages = async ({
   // The model's own searches are short and it judges what comes back, so
   // half the words of a query are enough to bring a passage back to it.
   forModel = false,
-  models: { Article, NotebookEntry, TagMeta, WikiPage = null },
+  models: { Article, NotebookEntry, TagMeta, WikiPage = null, Question = null },
   semanticSearch = null
 }) => {
   // A question that names nothing ("connect this to anything") is about the
@@ -240,10 +261,11 @@ const retrievePassages = async ({
   const articleScope = { userId, ...(articleFilter || {}) };
   const articleFields = '_id title content highlights pencil updatedAt';
   const noteFields = '_id title content blocks pencil updatedAt';
-  const [articles, notes, concepts, views, pages, corpusSize] = await Promise.all([
+  const [articles, notes, concepts, questions, views, pages, corpusSize] = await Promise.all([
     findCandidates(Article, { userId, terms, filter: articleFilter || {}, fields: articleFields }),
     includeNotes ? findCandidates(NotebookEntry, { userId, terms, fields: noteFields }) : [],
     includeNotes ? findCandidates(TagMeta, { userId, terms, fields: '_id name description updatedAt' }) : [],
+    includeNotes && Question ? findCandidates(Question, { userId, terms, filter: OPEN_QUESTION, fields: QUESTION_FIELDS }) : [],
     // A reader holds dozens of views, not thousands: every one is a candidate.
     includeViews && WikiPage
       ? WikiPage.find({ userId, 'judgment.currentJudgment': { $nin: ['', null] }, 'judgment.status': { $nin: ['closed', 'archived'] }, status: { $ne: 'archived' } })
@@ -256,6 +278,7 @@ const retrievePassages = async ({
       Article.countDocuments(articleScope),
       includeNotes ? NotebookEntry.countDocuments({ userId }) : 0,
       includeNotes ? TagMeta.countDocuments({ userId }) : 0,
+      includeNotes && Question ? Question.countDocuments({ userId, ...OPEN_QUESTION }) : 0,
       includePages && WikiPage ? WikiPage.countDocuments({ userId, status: { $ne: 'archived' } }) : 0
     ]).then(counts => counts.reduce((sum, count) => sum + count, 0))
   ]);
@@ -275,11 +298,12 @@ const retrievePassages = async ({
   ]);
 
   // The source in hand is already in the conversation; retrieval looks past it.
-  const pooled = [...articles, ...semanticArticles, ...notes, ...semanticNotes, ...concepts, ...views, ...pages];
+  const pooled = [...articles, ...semanticArticles, ...notes, ...semanticNotes, ...concepts, ...questions, ...views, ...pages];
   const candidates = [
     ...[...articles, ...semanticArticles].flatMap(articleUnits),
     ...[...notes, ...semanticNotes].flatMap(noteUnits),
     ...concepts.flatMap(conceptUnits),
+    ...questions.flatMap(questionUnits),
     ...views.flatMap(viewUnits),
     ...pages.flatMap(pageUnits)
   ].filter(unit => unit.id !== String(excludeId || ''));
@@ -312,8 +336,9 @@ const retrievePassages = async ({
     .sort((left, right) => right.score - left.score)
     .map((unit, rank) => ({
       ...unit,
-      fused: 1 / (RRF_K + rank) + (unit.semantic === undefined ? 0 : 1 / (RRF_K + unit.semantic))
+      fused: (1 / (RRF_K + rank) + (unit.semantic === undefined ? 0 : 1 / (RRF_K + unit.semantic))) * weightOf(unit)
     }))
+    .filter(unit => unit.fused > 0)
     .sort((left, right) => right.fused - left.fused);
 
   const seen = new Set();
@@ -342,6 +367,27 @@ const retrievePassages = async ({
     }));
 };
 
+/* "What have I written about hiring, and what in my reading bears on it?"
+   is two questions. The reader's own words answer the first; the second is
+   answered by searching the reading with those words, so a note about the
+   candidate with the best story finds the article on base rates though it
+   never says "hiring". The first few of their own hits each pull in the one
+   passage that bears on them most. */
+const BEARING_FROM = 3;
+const sourceOf = hit => `${hit.type}:${hit.id}`;
+const retrieveWithBearing = async (scope) => {
+  const hits = await retrievePassages(scope);
+  const own = hits.filter(hit => (hit.type === 'notebook' || hit.held) && !hit.pencil).slice(0, BEARING_FROM);
+  const bearing = (await Promise.all(own.map(hit => retrievePassages({
+    ...scope, query: '', about: hit.fullText, excludeId: hit.id, includeNotes: false, includeViews: false, includePages: false, limit: 1
+  }).then(found => found.map(passage => ({ ...passage, bearsOn: hit.id })))))).flat();
+  const seen = new Set(hits.map(sourceOf));
+  const fresh = bearing.filter(hit => !seen.has(sourceOf(hit)) && seen.add(sourceOf(hit)));
+  // Each reading sits under the note it bears on, inside the same budget, so
+  // what gives way is the weakest of the rest.
+  return hits.flatMap(hit => [hit, ...fresh.filter(found => found.bearsOn === hit.id)]).slice(0, scope.limit || PASSAGE_LIMIT);
+};
+
 // The passages of one source that best answer a query, strongest first, each
 // with its score. A query that names nothing ("connect this") is about the
 // whole source; its opening passage is where the argument is stated.
@@ -363,7 +409,7 @@ const bestPassage = (input = {}) => topPassages({ ...input, limit: 1 })[0]?.text
 
 // One source in full, as the reader saved it: an article with its highlights
 // and margin notes, or a notebook page. Only the reader's own.
-const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPage = null, TagMeta = null } }) => {
+const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPage = null, TagMeta = null, Question = null } }) => {
   if (!/^[a-f0-9]{24}$/i.test(String(id || ''))) return null;
   const article = await Article.findOne({ _id: id, userId }).select('_id title content highlights pencil updatedAt').lean();
   if (article) {
@@ -393,6 +439,10 @@ const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPa
   const concept = TagMeta && await TagMeta.findOne({ _id: id, userId }).select('_id name description updatedAt').lean();
   if (concept) {
     return { type: 'concept', id: String(concept._id), title: concept.name, fullText: conceptUnits(concept)[0].text, updatedAt: concept.updatedAt };
+  }
+  const question = Question && await Question.findOne({ _id: id, userId }).select(QUESTION_FIELDS).lean();
+  if (question) {
+    return { type: 'question', id: String(question._id), title: question.text, fullText: questionUnits(question)[0].text, updatedAt: question.updatedAt };
   }
   // A view the reader holds is found by search; reading it opens the page it
   // lives on.
@@ -432,4 +482,4 @@ const readStandingContext = async ({ userId, models: { Article, WikiPage = null 
   };
 };
 
-module.exports = { retrievePassages, touches, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits, pageUnits } };
+module.exports = { retrievePassages, retrieveWithBearing, touches, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { weightOf, queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, questionUnits, viewUnits, pageUnits } };

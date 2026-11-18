@@ -158,3 +158,40 @@ test('a PDF is read back into paragraphs, titled by its metadata or else its fir
   const broken = await parseExportFile({ name: 'broken.pdf', buffer: Buffer.from('%PDF-1.4 not really') });
   assert.deepEqual([broken.sources, broken.skipped], [[], 1], 'a damaged PDF is skipped, not guessed at');
 });
+
+test('a note read back from the Markdown Noeis wrote keeps its marks and the reader\'s quotes', () => {
+  const { parseMarkdownNote } = require('./exportFiles');
+  const { buildNotebookMarkdown } = require('../notebookMarkdown');
+  const [articleId, highlightId] = ['a'.repeat(24), 'b'.repeat(24)];
+  const note = { title: 'Hiring', blocks: [
+    { type: 'paragraph', text: 'Hire for slope.' },
+    { type: 'highlight-ref', text: 'Base rates beat stories.', articleTitle: 'Base rates', articleId, highlightId },
+    { type: 'bullet', text: 'Ask how often it worked before.' }
+  ] };
+  const back = parseMarkdownNote({ name: 'hiring.md', text: buildNotebookMarkdown(note) });
+  assert.equal(back.title, 'Hiring');
+  assert.deepEqual(back.blocks.map(block => [block.type, block.text]), [
+    ['paragraph', 'Hire for slope.'],
+    ['highlight-ref', 'Base rates beat stories.'],
+    ['bullet', 'Ask how often it worked before.']
+  ]);
+  assert.deepEqual([back.blocks[1].articleId, back.blocks[1].highlightId, back.blocks[1].articleTitle], [articleId, highlightId, 'Base rates']);
+  // A quote of the reader's own, with no source line under it, is text.
+  assert.deepEqual(parseMarkdownNote({ name: 'q.md', text: '> Nets, not crutches.\n' }).blocks, [{ type: 'paragraph', text: 'Nets, not crutches.' }]);
+});
+
+test('a note keeps its references, code and rules through its Markdown', () => {
+  const { parseMarkdownNote } = require('./exportFiles');
+  const { buildNotebookMarkdown } = require('../notebookMarkdown');
+  const [articleId, conceptId, questionId] = ['a'.repeat(24), 'c'.repeat(24), 'd'.repeat(24)];
+  const blocks = [
+    { type: 'article_ref', text: 'Base rates', articleTitle: 'Base rates', articleId },
+    { type: 'concept_ref', text: 'Slope', conceptName: 'Slope', conceptId },
+    { type: 'question_ref', text: 'Do panels help?', questionText: 'Do panels help?', questionId },
+    { type: 'wiki_ref', text: 'Hiring', articleTitle: 'Hiring', sourcePath: '/wiki/workspace?page=abc' },
+    { type: 'code', text: 'score = slope * 2', sourcePath: 'js' },
+    { type: 'divider', text: '' }
+  ];
+  const back = parseMarkdownNote({ name: 'refs.md', text: buildNotebookMarkdown({ title: 'Refs', blocks }) });
+  assert.deepEqual(back.blocks, blocks);
+});

@@ -12,6 +12,8 @@ import NotebookEditor from '../components/think/notebook/NotebookEditor';
 import NotebookCuttings from '../components/think/notebook/NotebookCuttings';
 import NoteStage from '../components/think/notebook/NoteStage';
 import Pencil from '../components/pencil/Pencil';
+import HandOff from '../components/handoff/HandOff';
+import UsedIn from '../components/pencil/UsedIn';
 import { inkPencil } from '../api/pencil';
 import { movedBoard, stageChange, stageOf } from '../components/think/notebook/notebookStages';
 import ThinkEntryEditor from '../components/think/ThinkEntryEditor';
@@ -602,6 +604,8 @@ const ThinkNotes = () => {
               stage={stageOf(entry.board)}
               stageControl={<>
                 <Pencil pencil={entry.pencil} onInk={() => inkNote(entry._id)} />
+                <HandOff context={{ kind: 'note', id: entry._id, title: entry.title || 'Untitled' }} />
+                <UsedIn id={entry._id} />
                 <NoteStage board={entry.board} onMove={(stage, became) => moveStage(entry._id, stage, became)} />
               </>}
               metaId="think-note-title"

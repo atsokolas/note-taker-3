@@ -32,6 +32,15 @@ const library = () => ({
 });
 
 describe('retrievePassages', () => {
+  it('lets pencil nobody took up fade: half as loud after a month, gone from recall after three', async () => {
+    const daysAgo = days => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const pencilled = (id, days) => ({ ...article(id, `Tired managers ${id}`, 'Tired managers approve worse decisions.'), pencil: { agent: 'Codex', at: daysAgo(days) } });
+    const models = { ...library(), Article: model([pencilled('fresh', 2), pencilled('month', 45), pencilled('old', 120)], 40) };
+    const results = await retrievePassages({ userId: 'u1', query: 'tired managers decisions', models });
+    expect(results.map(item => item.id)).toEqual(['fresh', 'month']);
+    expect(results[0].score).toBeGreaterThan(results[1].score);
+  });
+
   it('drops the words that frame a question and keeps the ones that say what it is about', () => {
     expect(queryTerms('What have I saved about tired people making worse decisions?'))
       .toEqual(['tired', 'people', 'making', 'worse', 'decisions']);

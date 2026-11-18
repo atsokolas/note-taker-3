@@ -36,6 +36,8 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+// Where the server reaches its own API, as an agent would: the hosted MCP and the built-in agent.
+const internalApiUrl = process.env.NOEIS_MCP_INTERNAL_API_URL || `http://127.0.0.1:${PORT}`;
 
 app.use((req, res, next) => {
   const requestId = req.headers['x-request-id'] || crypto.randomUUID();
@@ -118,6 +120,9 @@ const {
   AgentProtocolApproval,
   AgentProtocolHookRun,
   AgentHandoff,
+  Handoff,
+  Citation,
+  RecallCheck,
   AgentArtifactDraft,
   AgentRun,
   AgentProposedChange,
@@ -590,6 +595,9 @@ const { buildMarketingFunnelRouter } = require('./routes/marketingFunnelRoutes')
 const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes');
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildRecallRouter } = require('./routes/recallRoutes');
+const { buildSyncRouter } = require('./routes/syncRoutes');
+const { buildHandoffRouter } = require('./routes/handoffRoutes');
+const { workHandoff, resumeHandoffs } = require('./services/handoffWorker');
 const { buildPencilRouter } = require('./routes/pencilRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
@@ -5321,8 +5329,24 @@ app.use(buildRecallRouter({
   NotebookEntry,
   TagMeta,
   WikiPage,
+  Question,
+  Handoff,
+  Citation,
+  RecallCheck,
+  humanOnly: requireHumanReader,
   semanticSearch
 }));
+
+app.use(buildSyncRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  models: { Article, NotebookEntry, WikiPage }
+}));
+
+// What the reader hands the built-in agent is worked at once, and again on waking if the server slept first.
+const handoffModels = { Handoff, AgentToken };
+const workForNoeis = handoff => workHandoff({ handoffId: handoff._id, models: handoffModels, apiUrl: internalApiUrl })
+  .catch(error => console.error('[handoff] built-in agent failed', error.message));
+app.use(buildHandoffRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Handoff, Article, NotebookEntry, onHandedToNoeis: workForNoeis }));
 
 app.use(buildSemanticSearchRouter({
   authenticateToken,
@@ -5494,7 +5518,7 @@ app.use(buildChatgptOAuthRouter({
 }));
 app.use(buildHostedMcpRouter({
   authenticateAgentToken: authenticateMcpToken,
-  internalApiUrl: chatgptOAuthConfig?.internalApiUrl || process.env.NOEIS_MCP_INTERNAL_API_URL || `http://127.0.0.1:${PORT}`,
+  internalApiUrl: chatgptOAuthConfig?.internalApiUrl || internalApiUrl,
   resourceMetadataUrl: chatgptOAuthConfig ? `${chatgptOAuthConfig.issuer}/.well-known/oauth-protected-resource` : null
 }));
 
@@ -5959,3 +5983,8 @@ app.use(buildSystemRouter({
 }));
 
 startServer({ app, port: PORT });
+
+const resumeBuiltInHandoffs = () => resumeHandoffs({ models: handoffModels, apiUrl: internalApiUrl })
+  .catch(error => console.error('[handoff] resume failed', error.message));
+if (mongoose.connection.readyState === 1) resumeBuiltInHandoffs();
+else mongoose.connection.once('open', resumeBuiltInHandoffs);

@@ -14,14 +14,25 @@ npm install -g @noeis/noeis-cli
 noeis connect claude-code --scope read   # or claude-desktop, codex, cursor, vscode, grok, muse, hermes, openclaw, opencode
 ```
 
-Approve in the browser, reload the runtime, call `connection_info`. Then ask
+Approve in the browser, reload the runtime, call `connection_info`. Start a
+session with `brief` (on a topic, or none) for where the reader stands, then ask
 `recall` in plain words ("what have I written about hiring?") and open any hit
-with `read`. Twelve core tools are listed; add more with
+with `read`. Seventeen core tools are listed; add more with
 `noeis mcp --toolsets=wiki,library,think,editions` or `all`.
+
+If `brief` lists anything under `handedToYou`, the reader handed it to you before
+stepping away: `take_handoff`, do it, then `finish_handoff` with what you did,
+what is still open and what you would do next.
+
+An agent that works in files can use `noeis sync ~/Noeis` instead: the reader's
+Think, Library and wiki as Markdown, both ways, with an `AGENTS.md` that says
+how the folder works.
 
 What an agent writes (notes, saved articles, highlights) lands in pencil,
 marked with the connection that wrote it, until the reader inks it. A recall
 hit with `pencil` names that agent: never present it as the reader's view.
+Save every page you read for the reader with `create_article`; it waits on
+their "Read by agents" shelf.
 
 ## Finish line
 

@@ -179,7 +179,10 @@ const buildLibraryCollectionRouter = ({
       if (scope === 'later') match.placement = 'later';
       if (scope === 'set-aside') match.placement = 'setAside';
       if (scope === 'kept') match.evergreen = true;
+      // What agents read waits on its own shelf until you ink it; one they put
+      // on your nightstand is there for you to read.
       if (scope === 'pencil') match.pencil = { $ne: null };
+      else if (scope !== 'later') match.pencil = null;
       const needle = query.replace(/\s+/g, ' ').trim();
       const ordering =
         sort === 'title'

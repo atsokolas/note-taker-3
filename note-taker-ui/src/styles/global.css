@@ -84,3 +84,20 @@ a:hover {
 /* Pencil: what an agent wrote, before the reader takes it up. */
 .pencil-line { display: flex; align-items: baseline; gap: 12px; margin: 0 0 14px; color: var(--text-secondary); font: italic 0.88rem/1.4 var(--font-serif); }
 .pencil-line button { padding: 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--text-primary); font: normal 0.78rem var(--font-sans); cursor: pointer; }
+.handoff-open { padding: 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: var(--text-secondary); font: 0.78rem var(--font-sans); cursor: pointer; }
+.handoff-open:hover, .handoff-open:focus-visible { border-bottom-color: currentColor; color: var(--text-primary); }
+.handoff-line { margin: 0 0 14px; color: var(--text-secondary); font: italic 0.88rem/1.4 var(--font-serif); }
+.handoff-form { display: flex; align-items: baseline; gap: 10px; margin: 0 0 14px; border-bottom: 1px solid var(--border-subtle); }
+.handoff-form input { flex: 1; min-width: 16rem; padding: 6px 0; border: 0; background: transparent; color: var(--text-primary); font: 1rem/1.5 var(--font-serif); outline: none; }
+.handoff-form select, .handoff-form button { border: 0; background: transparent; color: var(--text-secondary); font: 0.78rem var(--font-sans); cursor: pointer; }
+.while-away { max-width: 42rem; margin: 0 auto; padding: 48px 24px 96px; font-family: var(--font-serif); }
+.while-away h1 { margin: 0 0 32px; font: 400 1.9rem/1.2 var(--font-serif); }
+.while-away__handoff { padding: 20px 0; border-top: 1px solid var(--border-subtle); }
+.while-away__handoff h2 { margin: 0 0 6px; font: 400 1.15rem/1.4 var(--font-serif); }
+.while-away__standing, .while-away__quiet, .while-away__keys { margin: 0 0 12px; color: var(--text-secondary); font: italic 0.88rem/1.4 var(--font-serif); }
+.while-away__standing button, .while-away__wrote button { margin-left: 8px; padding: 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--text-primary); font: normal 0.78rem var(--font-sans); cursor: pointer; }
+.while-away__said { margin: 0 0 8px; line-height: 1.6; }
+.while-away__said b { display: inline-block; width: 3.5rem; color: var(--text-secondary); font: 500 0.72rem var(--font-sans); letter-spacing: 0.04em; text-transform: uppercase; }
+.while-away__wrote { margin: 12px 0 0; padding: 0; list-style: none; }
+.while-away__wrote li { padding: 6px 0 6px 12px; border-left: 2px solid transparent; }
+.while-away__wrote li.is-current { border-left-color: var(--text-secondary); }

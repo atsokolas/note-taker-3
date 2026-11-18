@@ -30,7 +30,7 @@ const CASES = Object.freeze([
 
   // Against what the reader already holds.
   { id: 'reading-meets-view', surface: 'article:baseRates', ask: 'Does this challenge anything I believe?', sources: ['baseRates', 'forecasts'] },
-  { id: 'what-i-hold', surface: 'think', ask: 'What do I currently believe about roadmap forecasts?', sources: ['forecasts'] },
+  { id: 'what-i-hold', surface: 'think', ask: 'What do I currently believe about roadmap forecasts?', sources: ['forecasts'], allowed: ['baseRates'] },
 
   // Not in the library. Silence is the right answer.
   { id: 'french-revolution', surface: 'library', ask: 'What did I save about the French Revolution?', abstain: true },

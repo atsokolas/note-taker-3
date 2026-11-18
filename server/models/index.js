@@ -3550,8 +3550,64 @@ judgmentResponseDraftSchema.index(
 const JudgmentResponseDraft = mongoose.model('JudgmentResponseDraft', judgmentResponseDraftSchema);
 const AuthoredExploration = buildAuthoredExplorationModel(mongoose);
 
+/* Work the reader (or an agent) hands to an agent: one line, where they were,
+   and what came of it. Its status is read from when it was taken, finished or
+   called off, and what it wrote is the taker's pencil in between. */
+const handoffSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  ask: { type: String, required: true, trim: true, maxlength: 2000 },
+  context: {
+    kind: { type: String, default: '' },
+    id: { type: String, default: '' },
+    title: { type: String, default: '' },
+    excerpt: { type: String, default: '', maxlength: 4000 }
+  },
+  // '' for any agent, 'noeis' for the built-in agent, else one connection's id.
+  to: { type: String, default: '' },
+  from: { type: pencilSchema, default: null },
+  takenBy: { type: pencilSchema, default: null },
+  takenAt: { type: Date, default: null },
+  finishedAt: { type: Date, default: null },
+  cancelledAt: { type: Date, default: null },
+  did: { type: String, default: '', trim: true, maxlength: 4000 },
+  open: { type: String, default: '', trim: true, maxlength: 4000 },
+  next: { type: String, default: '', trim: true, maxlength: 4000 }
+}, { timestamps: true });
+
+handoffSchema.index({ userId: 1, takenAt: 1, cancelledAt: 1, createdAt: -1 });
+
+const Handoff = mongoose.model('Handoff', handoffSchema);
+
+/* Where an agent put the reader's thinking to work: a note or a source it
+   drew on, and where it went (a pull request, a doc, a reply). Told by the
+   agent, so it is only as complete as the agents that say so. */
+const citationSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  sourceId: { type: String, required: true },
+  where: { type: String, required: true, trim: true, maxlength: 500 },
+  by: { type: pencilSchema, required: true }
+}, { timestamps: true });
+
+citationSchema.index({ userId: 1, sourceId: 1, createdAt: -1 });
+
+const Citation = mongoose.model('Citation', citationSchema);
+
+/* A question the reader expects their library to answer, and the sources
+   that answer it. Whether recall still finds them is worked out each time
+   it is asked, never stored. */
+const recallCheckSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  question: { type: String, required: true, trim: true, maxlength: 500 },
+  expects: { type: [String], default: [] }
+}, { timestamps: true });
+
+const RecallCheck = mongoose.model('RecallCheck', recallCheckSchema);
+
 module.exports = {
   User,
+  Handoff,
+  Citation,
+  RecallCheck,
   Feedback,
   Recommendation,
   Folder,

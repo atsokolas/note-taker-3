@@ -24,7 +24,8 @@ test('real Mongo: the nightstand is sized in minutes, and tonight is the longest
       { userId, title: 'The Long Read on Chips', url: 'https://x.example/long', content: words(45 * 230), placement: 'later', placementAt: day(1) },
       { userId, title: 'The Shape of Attention', url: 'https://x.example/short', content: words(9 * 230), placement: 'later', placementAt: day(3), placementReason: 'Sam sent this' },
       { userId, title: 'A Newer Short One', url: 'https://x.example/newer', content: words(4 * 230), placement: 'later', placementAt: day(9) },
-      { userId, title: 'Already Read', url: 'https://x.example/read', content: words(2 * 230), placement: 'stream' }
+      { userId, title: 'Already Read', url: 'https://x.example/read', content: words(2 * 230), placement: 'stream' },
+      { userId, title: 'Docs Claude Read', url: 'https://x.example/docs', content: words(230), placement: 'stream', pencil: { agent: 'Claude Code' } }
     ]);
 
     assert.equal(readingMinutes(0), 1, 'a piece is never zero minutes');
@@ -54,6 +55,9 @@ test('real Mongo: the nightstand is sized in minutes, and tonight is the longest
     assert.equal(items[1].placementReason, 'Sam sent this');
     assert.equal(new Date(items[0].placementAt).toISOString(), day(1).toISOString());
     assert.equal(items[0].content, undefined);
+    // What an agent read sits on its shelf, not among your own reading.
+    assert.deepEqual((await get('scope=all')).items.map(row => row.title).sort(), ['A Newer Short One', 'Already Read', 'The Long Read on Chips', 'The Shape of Attention']);
+    assert.deepEqual((await get('scope=pencil')).items.map(row => [row.title, row.pencil.agent]), [['Docs Claude Read', 'Claude Code']]);
     // Search loads the text to match it and still sizes the row.
     const found = await get('scope=later&query=word');
     assert.equal(found.items.length, 3);

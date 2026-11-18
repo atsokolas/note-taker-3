@@ -2,6 +2,21 @@
 
 Releases of `@noeis/noeis-cli` on npm.
 
+## 0.1.14 (unreleased)
+
+### Added
+
+- `noeis sync [folder] [--watch]`: your Noeis as Markdown, both ways. Think
+  notes go back when edited, new files become notes or Library saves, and a
+  note changed in both places keeps both.
+- `noeis brief [topic]`: where you stand on a topic, or in general.
+- `noeis connect claude-code --scope read-write` adds a hook that saves every
+  page Claude Code fetches to the "Read by agents" shelf (`noeis save --hook`).
+- `noeis hand "…" [--to noeis|any]` and `noeis handoffs`: hand work to Noeis's
+  own agent or to the next agent, and see what came of it.
+- `noeis work [claude-code|codex] [--watch]`: works what you hand off with that
+  agent on this machine, headless, and finishes each handoff with its note.
+
 ## 0.1.13 (2026-11-15)
 
 ### Added

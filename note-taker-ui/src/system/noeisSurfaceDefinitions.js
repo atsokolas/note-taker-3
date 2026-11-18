@@ -145,6 +145,13 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     activePrefixes: ['/marketing-analytics', '/search-console-opportunities'],
     authenticatedPrefixes: ['/marketing-analytics', '/search-console-opportunities']
   }),
+  // What the reader handed to agents before stepping away, and what agents left in pencil.
+  surface({
+    id: 'surface.away',
+    name: 'Handed off',
+    route: '/away',
+    navigationGroup: 'secondary'
+  }),
   surface({
     id: 'surface.how-to-use',
     name: 'Help',

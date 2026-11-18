@@ -35,6 +35,12 @@ const WORKSPACE = {
       { kind: 'view', id: 'p1', title: 'Interviews', passage: 'You hold: interviews predict little.', held: 'Interviews predict little.' }
     ]
   },
+  '/api/brief': {
+    topic: 'hiring',
+    note: [{ kind: 'note', id: 'n1', title: 'Hiring notes', passage: 'Hire for slope, not intercept.' }],
+    question: [{ kind: 'question', id: 'q1', title: 'Do work samples beat interviews?', passage: 'Do work samples beat interviews?' }],
+    pencil: [{ kind: 'note', id: 'n2', title: 'Panels', passage: 'Panels overweight charisma.', pencil: 'Codex' }]
+  },
   '/api/recall/read/n1': { kind: 'note', id: 'n1', title: 'Hiring notes', text: 'Hire for slope, not intercept.' },
   '/api/editions': {
     editions: [{
@@ -96,6 +102,15 @@ const run = async () => {
   await assert.rejects(new NoeisClient({ token: 't', env: {}, fetchImpl: async () => { throw new Error('no call'); } })
     .recall({ query: '   ' }), /query is required/);
 
+  /* brief asks once and links everything, pencil kept apart. */
+  {
+    const { client, calls } = clientRouted(WORKSPACE);
+    const brief = await client.brief({ topic: ' hiring ' });
+    assert.strictEqual(calls[0].searchParams.get('topic'), 'hiring');
+    assert.strictEqual(brief.question[0].link, 'https://www.noeis.io/think?tab=questions&questionId=q1');
+    assert.deepStrictEqual(brief.pencil.map(hit => [hit.id, hit.pencil]), [['n2', 'Codex']]);
+  }
+
   /* read opens any hit by id, with its link. */
   {
     const { client } = clientRouted(WORKSPACE);
@@ -114,11 +129,12 @@ const run = async () => {
     await mcp.connect(clientSide);
 
     /* Every agent is told, on connecting, to recall first and never to pass pencil off as the reader's. */
+    assert.match(mcp.getInstructions(), /Start a session with brief/);
     assert.match(mcp.getInstructions(), /call recall/);
     assert.match(mcp.getInstructions(), /pencil[\s\S]*Never present it as the reader's own view/);
 
     const { tools } = await mcp.listTools();
-    for (const name of ['recall', 'read']) {
+    for (const name of ['brief', 'recall', 'read']) {
       const tool = tools.find(entry => entry.name === name);
       assert.ok(tool, `${name} is listed`);
       assert.strictEqual(tool.annotations.readOnlyHint, true);

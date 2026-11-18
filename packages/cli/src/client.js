@@ -115,6 +115,10 @@ export class NoeisCliClient {
     return this.request('/api/recall', { query: { q: query, limit } });
   }
 
+  brief(topic = '') {
+    return this.request('/api/brief', { query: { topic } });
+  }
+
   read(id) {
     return this.request(`/api/recall/read/${encodeURIComponent(id)}`);
   }

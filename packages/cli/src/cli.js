@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 import { NoeisCliClient, NoeisCliError } from './client.js';
 import { DEFAULT_API_URL, DEFAULT_APP_URL, readConfig, resolveAuth, writeConfig } from './config.js';
+import { syncFolder } from './sync.js';
+import { LAUNCH, workHandoffs } from './work.js';
 
 const xdgConfig = ({ env, home }) => env.XDG_CONFIG_HOME || path.join(home, '.config');
 
@@ -52,10 +54,16 @@ const HELP = `Noeis CLI
 Usage:
   noeis connect [${RUNTIME_NAMES}] [--scope read|read-write] [--work] [--label name] [--no-browser]
   noeis mcp [--help]
+  noeis brief ["topic"] [--json]
   noeis search "what you want to find" [--limit n] [--json]
   noeis read <id> [--json]
   noeis save <url|file|-> [--later] [--title title] [--json]
+  noeis save --hook    (an agent hook: saves the URL it just fetched)
   noeis note "text"|- [--title title] [--json]
+  noeis sync [folder] [--watch]   (your Noeis as Markdown, both ways; ~/Noeis by default)
+  noeis hand "what to do" [--to noeis|any]   (hand work to Noeis's own agent, or to any agent)
+  noeis handoffs [--status waiting|taken|done|cancelled] [--json]
+  noeis work [${Object.keys(LAUNCH).join('|')}] [--watch]   (work what you hand off, with that agent, on this machine)
   noeis login [--token ntk_at_...] [--api-url https://note-taker-3-unrg.onrender.com]
   noeis pages list [--query text] [--status draft|published|archived] [--page-type type] [--limit n] [--json]
   noeis pages get <id> [--json]
@@ -102,7 +110,7 @@ const optionValue = (args, name, fallback = '') => {
 
 const hasFlag = (args, name) => args.includes(name);
 // Flags that take no value, so the word after one is still a positional.
-const SWITCHES = new Set(['--json', '--work', '--no-browser', '--no-config', '--print-token', '--later']);
+const SWITCHES = new Set(['--json', '--work', '--no-browser', '--no-config', '--print-token', '--later', '--hook', '--watch']);
 
 // A lone `-` is standard input, a positional like any other.
 const isFlag = arg => arg?.startsWith('-') && arg !== '-';
@@ -140,6 +148,7 @@ const openBrowser = (url, { platform = process.platform } = {}) => {
 };
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const WATCH_EVERY_MS = 60 * 1000;
 
 
 const resolveConnectScopes = (value = 'read', work = false) => {
@@ -247,6 +256,20 @@ const addClaudeCodeServer = ({ server, env, io }) => {
   return [];
 };
 
+/* What Claude Code fetches from the web lands in the reader's Library, in
+   pencil on the "Read by agents" shelf, by a hook after each fetch. The hook
+   hands the save off and returns at once, so a slow save never holds the
+   agent up. */
+const READING_HOOK = 'noeis save --hook';
+const addClaudeCodeReadingHook = ({ env }) => {
+  const filePath = path.join(env.CLAUDE_CONFIG_DIR || path.join(env.HOME || os.homedir(), '.claude'), 'settings.json');
+  const settings = safeReadJson(filePath);
+  const others = (settings.hooks?.PostToolUse || []).filter(entry => !entry.hooks?.some(hook => hook.command === READING_HOOK));
+  settings.hooks = { ...settings.hooks, PostToolUse: [...others, { matcher: 'WebFetch', hooks: [{ type: 'command', command: READING_HOOK }] }] };
+  writeJsonFile(filePath, settings);
+  return filePath;
+};
+
 const writeRuntimeMcpConfig = ({ runtime, apiUrl, configDir, env = process.env, platform = process.platform, io } = {}) => {
   const at = { env, home: env.HOME || os.homedir(), platform };
   const target = RUNTIMES[runtime] || ANY_AGENT;
@@ -337,9 +360,20 @@ const sourceFromInput = (value, title = '', context = {}) => {
 
 const firstLine = text => String(text).trim().split('\n')[0].slice(0, 80);
 
+const printHit = io => hit => io.stdout.write(`${hit.kind}\t${hit.id}\t${hit.title || 'Untitled'}${hit.pencil ? `\t(in pencil: ${hit.pencil})` : ''}${hit.passage ? `\n    ${String(hit.passage).replace(/\s+/g, ' ').slice(0, 200)}` : ''}\n`);
+
 const printRecall = ({ results = [] }, io) => {
   if (!results.length) io.stdout.write('Nothing of yours bears on that.\n');
-  results.forEach(hit => io.stdout.write(`${hit.kind}\t${hit.id}\t${hit.title || 'Untitled'}${hit.pencil ? `\t(in pencil: ${hit.pencil})` : ''}\n    ${String(hit.passage || '').replace(/\s+/g, ' ').slice(0, 200)}\n`));
+  results.forEach(printHit(io));
+};
+
+const printBrief = ({ topic, ...groups }, io) => {
+  const kinds = Object.entries(groups).filter(([, hits]) => hits.length);
+  if (!kinds.length) io.stdout.write(topic ? 'Nothing of yours bears on that.\n' : 'Nothing kept yet.\n');
+  kinds.forEach(([kind, hits]) => {
+    io.stdout.write(`\n${kind}\n`);
+    hits.forEach(printHit(io));
+  });
 };
 
 const runLogin = async (args, context) => {
@@ -449,6 +483,10 @@ const runConnect = async (args, context) => {
     });
   }
 
+  const readingHook = runtime === 'claude-code' && requestedScopes.includes('agent-write') && !hasFlag(args, '--no-config')
+    ? addClaudeCodeReadingHook({ env: context.env || process.env })
+    : '';
+
   const scopeLabel = requestedScopes.includes('agent-write') ? 'read/write' : 'read-only';
   io.stdout.write(`Connected ${runtimeLabel(runtime)} with ${scopeLabel} Noeis access${requestedScopes.includes('work') ? ', Work included' : ''}.\n`);
   io.stdout.write(`Verified workspace ${connectionInfo?.workspace?.label || connectionInfo?.workspace?.id || 'identity unavailable'}.\n`);
@@ -459,6 +497,7 @@ const runConnect = async (args, context) => {
   });
   if (runtimeConfigPaths.length) io.stdout.write(`Runtime config reads the token from ${configPath}; no raw token was copied into MCP config.\n`);
   if (runtimeConfigPaths.length) io.stdout.write(`Reload ${runtimeLabel(runtime)}, then call connection_info there to confirm the runtime loaded its tools.\n`);
+  if (readingHook) io.stdout.write(`What Claude Code reads on the web now lands on your "Read by agents" shelf (hook in ${readingHook}).\n`);
   if (hasFlag(args, '--print-token')) io.stdout.write(`${approved.secret}\n`);
 };
 
@@ -547,6 +586,11 @@ export const runCli = async (argv = [], context = {}) => {
   } else if (command === 'ingest') {
     if (!positional[1]) throw new NoeisCliError('Usage: noeis ingest <url|file>');
     result = await client.ingestSource(sourceFromInput(positional[1], optionValue(args, '--title'), context));
+  } else if (command === 'brief') {
+    const brief = await client.brief(positional.slice(1).join(' '));
+    if (json) printJson(brief, io);
+    else printBrief(brief, io);
+    return;
   } else if (command === 'search') {
     if (!positional[1]) throw new NoeisCliError('Usage: noeis search "what you want to find"');
     const found = await client.recall({ query: positional.slice(1).join(' '), limit: optionValue(args, '--limit') });
@@ -558,6 +602,17 @@ export const runCli = async (argv = [], context = {}) => {
     const source = await client.read(positional[1]);
     if (json) printJson(source, io);
     else io.stdout.write(`${source.title}\n\n${source.text}\n`);
+    return;
+  } else if (command === 'save' && hasFlag(args, '--hook')) {
+    /* Called by an agent's hook with what it just fetched on standard input.
+       It never fails the agent: anything unreadable is let go. */
+    let url = '';
+    try {
+      url = JSON.parse((context.readStdin || (() => fs.readFileSync(0, 'utf8')))()).tool_input?.url || '';
+    } catch {
+      return;
+    }
+    if (isUrl(url)) (context.spawn || spawn)(process.execPath, [CLI_BIN, 'save', url], { detached: true, stdio: 'ignore', env }).unref();
     return;
   } else if (command === 'save') {
     if (!positional[1]) throw new NoeisCliError('Usage: noeis save <url|file|->');
@@ -574,6 +629,37 @@ export const runCli = async (argv = [], context = {}) => {
     const note = await client.createNote({ title: optionValue(args, '--title') || firstLine(content), content });
     if (json) printJson(note, io);
     else io.stdout.write(`Noted in Think: ${note.title || 'Untitled'} (${note._id})\n`);
+    return;
+  } else if (command === 'sync') {
+    const dir = path.resolve(positional[1] || path.join(env.HOME || os.homedir(), 'Noeis'));
+    const log = line => io.stdout.write(`${line}\n`);
+    do {
+      const done = await syncFolder({ dir, client, log });
+      log(`Synced ${dir}: ${done.sent} sent, ${done.created} new, ${done.written} written, ${done.removed} removed${done.kept ? `, ${done.kept} kept both ways` : ''}.`);
+      if (hasFlag(args, '--watch')) await (context.sleep || sleep)(WATCH_EVERY_MS);
+    } while (hasFlag(args, '--watch'));
+    return;
+  } else if (command === 'hand') {
+    const ask = positional.slice(1).join(' ');
+    if (!ask.trim()) throw new NoeisCliError('Usage: noeis hand "what to do"');
+    const to = optionValue(args, '--to', 'noeis');
+    const handoff = await client.request('/api/handoffs', { method: 'POST', body: { ask, to: to === 'any' ? '' : to } });
+    if (json) printJson(handoff, io);
+    else io.stdout.write(`Handed to ${to === 'any' ? 'the next agent' : 'Noeis'}: ${handoff.ask} (${handoff.id})\n`);
+    return;
+  } else if (command === 'handoffs') {
+    const { handoffs } = await client.request('/api/handoffs', { query: { status: optionValue(args, '--status') } });
+    if (json) printJson(handoffs, io);
+    else handoffs.forEach(h => io.stdout.write(`${h.status}\t${h.id}\t${h.ask}${h.takenBy ? `\t(${h.takenBy})` : ''}${h.did ? `\n    did: ${h.did}` : ''}${h.open ? `\n    open: ${h.open}` : ''}${h.next ? `\n    next: ${h.next}` : ''}\n`));
+    return;
+  } else if (command === 'work') {
+    const runtime = normalizeRuntime(positional[1] || 'claude-code');
+    const log = line => io.stdout.write(`${line}\n`);
+    do {
+      const worked = await workHandoffs({ client, runtime, run: context.spawnSync, env, log });
+      if (!hasFlag(args, '--watch')) log(worked ? `Worked ${worked} handoff${worked === 1 ? '' : 's'}.` : 'Nothing handed off is waiting.');
+      else await (context.sleep || sleep)(WATCH_EVERY_MS);
+    } while (hasFlag(args, '--watch'));
     return;
   } else if (command === 'draft') {
     if (!positional[1]) throw new NoeisCliError('Usage: noeis draft <pageId>');
