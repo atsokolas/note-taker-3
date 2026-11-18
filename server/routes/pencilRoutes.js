@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { pencilled } = require('../services/pencilled');
+const { snapshotOf } = require('../services/entryHistory');
 
 const TEXT_KEPT = 2000;
 const WHY_KEPT = 500;
@@ -27,11 +28,16 @@ const buildPencilRouter = ({
     note: {
       find: async ({ userId, id }) => {
         const note = await NotebookEntry.findOne({ _id: id, userId }).select('title blocks pencil').lean();
-        return note && { pencil: note.pencil, title: note.title, text: plain(note.blocks) };
+        return note && { pencil: note.pencil, title: note.title, text: plain(note.blocks), note };
       },
-      ink: ({ userId, id }) => NotebookEntry.updateOne({ _id: id, userId }, { $set: { pencil: null } }),
+      // Inked words are the reader's from now on, so their history says so: a later strike comes back to them.
+      ink: async ({ userId, id, found }) => {
+        await NotebookEntry.updateOne({ _id: id, userId }, { $set: { pencil: null } });
+        if (EntryRevision && found.pencil?.agent) await EntryRevision.create({ userId, kind: 'note', entryId: id, hand: '', snapshot: snapshotOf('note', found.note) });
+      },
       strike: async ({ userId, id }) => {
-        const yours = EntryRevision && await EntryRevision.findOne({ userId, kind: 'note', entryId: id, hand: '' }).sort({ createdAt: -1 }).lean();
+        // Revisions kept before hands were recorded are the reader's.
+        const yours = EntryRevision && await EntryRevision.findOne({ userId, kind: 'note', entryId: id, hand: { $in: ['', null] } }).sort({ createdAt: -1 }).lean();
         if (yours) {
           const { title, blocks } = yours.snapshot;
           await NotebookEntry.updateOne({ _id: id, userId }, { $set: { title, blocks, content: htmlOf(blocks), pencil: null } });
@@ -103,7 +109,7 @@ const buildPencilRouter = ({
       const scope = { userId: req.user.id, ...target };
       const found = await KINDS[target.kind].find(scope);
       if (!found) return res.status(404).json({ error: 'Nothing of yours has that id.' });
-      await KINDS[target.kind].ink(scope);
+      await KINDS[target.kind].ink({ ...scope, found });
       if (found.pencil?.agent) await record({ req, verdict: 'ink', target, found });
       return res.json({ ...target, pencil: null });
     } catch (error) {

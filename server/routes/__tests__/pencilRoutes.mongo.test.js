@@ -77,9 +77,25 @@ test('real Mongo: ink and strike agents\' pencil, and keep every verdict', async
       ['ink', 'highlight', 'Noeis', 'Start from the base rate.', ''],
       ['strike', 'highlight', 'Noeis', 'Stories mislead.', 'Not the point.']
     ]);
+    // A note the reader inked is theirs: an agent's later rewrite, struck, comes back to it.
+    const accepted = await NotebookEntry.create({ userId, title: 'Accepted', blocks: paragraph('Agent draft.'), pencil });
+    await recordRevision({ EntryRevision, userId, kind: 'note', entryId: accepted._id, before: { title: '', blocks: [] }, after: snapshotOf('note', accepted), hand: String(tokenId) });
+    assert.equal((await post('/api/ink', { kind: 'note', id: String(accepted._id) })).code, 200);
+    await NotebookEntry.updateOne({ _id: accepted._id }, { $set: { blocks: paragraph('Agent again.'), pencil } });
+    await recordRevision({ EntryRevision, userId, kind: 'note', entryId: accepted._id, before: snapshotOf('note', accepted), after: { title: 'Accepted', blocks: paragraph('Agent again.') }, hand: String(tokenId) });
+    assert.equal((await post('/api/strike', { kind: 'note', id: String(accepted._id) })).struck, 'restored');
+    assert.deepEqual((await NotebookEntry.findById(accepted._id).lean()).blocks.map(block => block.text), ['Agent draft.']);
+
+    // History kept before hands were recorded is the reader's, never a reason to delete.
+    const legacy = await NotebookEntry.create({ userId, title: 'Old', blocks: paragraph('Old words.') });
+    await EntryRevision.collection.insertOne({ userId, kind: 'note', entryId: legacy._id, reason: 'edit', snapshot: snapshotOf('note', legacy), createdAt: new Date(Date.now() - 60000), updatedAt: new Date() });
+    await NotebookEntry.updateOne({ _id: legacy._id }, { $set: { blocks: paragraph('Rewritten.'), pencil } });
+    assert.equal((await post('/api/strike', { kind: 'note', id: String(legacy._id) })).struck, 'restored');
+    assert.deepEqual((await NotebookEntry.findById(legacy._id).lean()).blocks.map(block => block.text), ['Old words.']);
+
     // Inking what was never pencil is still fine, and is no verdict.
     assert.equal((await post('/api/ink', { kind: 'note', id: String(yours._id) })).code, 200);
-    assert.equal(await Verdict.countDocuments({ userId }), 4);
+    assert.equal(await Verdict.countDocuments({ userId }), 7);
   } finally {
     server?.close();
     await mongoose.disconnect();
