@@ -1,16 +1,23 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import HandOff from './HandOff';
 import WhileAway from '../../pages/WhileAway';
 import { getHandoff, handOff, listHandoffs } from '../../api/handoffs';
 import { getTaste, inkPencil, listPencil, strikePencil } from '../../api/pencil';
+import { listDisagreements, settleDisagreement } from '../../api/disagreements';
 
 jest.mock('../../api/handoffs', () => ({ handOff: jest.fn(), listHandoffs: jest.fn(), getHandoff: jest.fn(), cancelHandoff: jest.fn() }));
 jest.mock('../../api/pencil', () => ({ inkPencil: jest.fn(), listPencil: jest.fn(), strikePencil: jest.fn(), getTaste: jest.fn() }));
 jest.mock('../../api/citations', () => ({ usedIn: jest.fn() }));
+jest.mock('../../api/disagreements', () => ({ listDisagreements: jest.fn(), settleDisagreement: jest.fn() }));
 
 const at = '2026-11-17T01:41:00Z';
+
+beforeEach(() => {
+  listDisagreements.mockResolvedValue([]);
+  settleDisagreement.mockResolvedValue({});
+});
 
 test('⌘⇧Return opens one line; what is typed goes to Noeis with the page it came from', async () => {
   handOff.mockResolvedValue({ id: 'h1', status: 'waiting', to: 'noeis', createdAt: at });
@@ -67,4 +74,16 @@ test('x strikes what an agent wrote, with why; what agents learn from that is on
   fireEvent.click(screen.getByRole('button', { name: 'Strike' }));
   expect(await screen.findByText('Struck; your version is back.')).toBeInTheDocument();
   expect(strikePencil).toHaveBeenCalledWith(expect.objectContaining({ kind: 'note', id: 'n2', why: 'Keep my words.' }));
+});
+
+test('where an agent runs against a view you hold, both sides are set out until you settle it', async () => {
+  listHandoffs.mockResolvedValue([]);
+  listPencil.mockResolvedValue([]);
+  getTaste.mockResolvedValue({ inked: 0, struck: 0, lately: [] });
+  listDisagreements.mockResolvedValue([{ id: 'd1', a: { agent: 'Codex', says: 'Interviews predict hiring well.' }, b: { agent: '', says: 'Interviews predict hiring poorly.' }, at }]);
+  render(<MemoryRouter><WhileAway /></MemoryRouter>);
+  expect(await screen.findByText(/Codex says: Interviews predict hiring well\. You hold: Interviews predict hiring poorly\./)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Settled' }));
+  expect(settleDisagreement).toHaveBeenCalledWith('d1');
+  await waitFor(() => expect(screen.queryByRole('heading', { name: 'Where they disagree' })).not.toBeInTheDocument());
 });

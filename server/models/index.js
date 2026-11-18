@@ -3612,6 +3612,25 @@ const verdictSchema = new mongoose.Schema({
 verdictSchema.index({ userId: 1, createdAt: -1 });
 const Verdict = mongoose.model('Verdict', verdictSchema);
 
+/* Two hands that cannot both be right: what an agent wrote, against a view
+   the reader holds (agent '') or another agent's pencil. Open until the
+   reader settles it. */
+const sideSchema = new mongoose.Schema({
+  agent: { type: String, default: '' },
+  kind: String,
+  id: String,
+  title: { type: String, default: '' },
+  says: { type: String, default: '' }
+}, { _id: false });
+const disagreementSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  a: { type: sideSchema, required: true },
+  b: { type: sideSchema, required: true },
+  settledAt: { type: Date, default: null }
+}, { timestamps: true });
+disagreementSchema.index({ userId: 1, settledAt: 1, createdAt: -1 });
+const Disagreement = mongoose.model('Disagreement', disagreementSchema);
+
 const recallCheckSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   question: { type: String, required: true, trim: true, maxlength: 500 },
@@ -3626,6 +3645,7 @@ module.exports = {
   Citation,
   RecallCheck,
   Verdict,
+  Disagreement,
   Feedback,
   Recommendation,
   Folder,

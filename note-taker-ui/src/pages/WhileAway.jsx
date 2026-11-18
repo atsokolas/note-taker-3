@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { cancelHandoff, getHandoff, listHandoffs } from '../api/handoffs';
 import { getTaste, inkPencil, listPencil, strikePencil } from '../api/pencil';
+import { listDisagreements, settleDisagreement } from '../api/disagreements';
 import { WHO, timeOf } from '../components/handoff/HandOff';
 
 const hrefOf = item => ({
@@ -21,11 +22,14 @@ const standing = (handoff) => {
 
 const keyOf = item => `${item.kind}:${item.id}:${item.highlightId || ''}`;
 
+const hand = side => (side.agent ? `${side.agent} says` : 'You hold');
+
 const SETTLED = { inked: 'Inked.', removed: 'Struck.', restored: 'Struck; your version is back.' };
 
 /* What the reader comes back to: each thing they handed off, what the agent
    says it did, what is open and what it would do next, and what it wrote;
-   then everything else agents left in pencil, by agent; then what agents
+   then where two hands cannot both be right; then everything else agents
+   left in pencil, by agent; then what agents
    learn from what the reader keeps and strikes. j and k move through what
    was written, i inks it, x strikes it (with a why, if they like), Return
    opens it. */
@@ -36,6 +40,7 @@ const WhileAway = () => {
   const [striking, setStriking] = useState('');
   const [why, setWhy] = useState('');
   const [taste, setTaste] = useState(null);
+  const [disagreements, setDisagreements] = useState([]);
   const [at, setAt] = useState(0);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -47,7 +52,10 @@ const WhileAway = () => {
     const theirs = new Set(shown.flatMap(h => (h.wrote || []).map(keyOf)));
     setLoose(only ? [] : (await listPencil()).filter(item => !theirs.has(keyOf(item))));
     setHandoffs(shown);
-    setTaste(only ? null : await getTaste());
+    if (only) return;
+    const [learnt, open] = await Promise.all([getTaste(), listDisagreements()]);
+    setTaste(learnt);
+    setDisagreements(open);
   }, [only]);
   useEffect(() => { load().catch(() => setHandoffs([])); }, [load]);
 
@@ -124,6 +132,17 @@ const WhileAway = () => {
           <Written items={handoff.wrote} />
         </section>
       ))}
+      {disagreements.length ? (
+        <section className="while-away__handoff">
+          <h2>Where they disagree</h2>
+          {disagreements.map(row => (
+            <p key={row.id} className="while-away__said">
+              {hand(row.a)}: {row.a.says} {hand(row.b)}: {row.b.says}
+              <button type="button" onClick={() => settleDisagreement(row.id).then(() => setDisagreements(current => current.filter(item => item.id !== row.id)))}>Settled</button>
+            </p>
+          ))}
+        </section>
+      ) : null}
       {byAgent.map(([agent, items]) => (
         <section key={agent} className="while-away__handoff">
           <h2>Also in pencil, by {agent}</h2>

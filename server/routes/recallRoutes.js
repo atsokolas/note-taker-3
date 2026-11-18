@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { retrieveWithBearing, readSource } = require('../services/agentRetrieval');
 const { waitingFor } = require('./handoffRoutes');
+const { openDisagreements } = require('./disagreementRoutes');
 const { pencilOf } = require('../services/agentTokenService');
 
 const MAX_LIMIT = 25;
@@ -88,7 +89,7 @@ const tasteOf = async ({ Verdict, userId }) => {
   };
 };
 
-const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, Citation = null, RecallCheck = null, Verdict = null, humanOnly = (_req, _res, next) => next(), semanticSearch = null }) => {
+const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, Citation = null, RecallCheck = null, Verdict = null, Disagreement = null, humanOnly = (_req, _res, next) => next(), semanticSearch = null }) => {
   const router = express.Router();
   const models = { Article, NotebookEntry, TagMeta, WikiPage, Question };
   // Aggregations do not cast ids the way finds do.
@@ -117,8 +118,10 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
       const groups = topic
         ? groupByKind((await recall({ userId, query: topic, limit: BRIEF_LIMIT, models, semanticSearch })).map(asResult))
         : await standing({ userId, models });
-      const [handedToYou, taste] = await Promise.all([Handoff ? waitingFor({ Handoff, req }) : [], tasteOf({ Verdict, userId })]);
-      res.json({ topic, handedToYou, ...(taste ? { taste } : {}), ...groups });
+      const [handedToYou, taste, disagreements] = await Promise.all([
+        Handoff ? waitingFor({ Handoff, req }) : [], tasteOf({ Verdict, userId }), openDisagreements({ Disagreement, userId })
+      ]);
+      res.json({ topic, handedToYou, ...(taste ? { taste } : {}), ...(disagreements.length ? { disagreements } : {}), ...groups });
     } catch (error) {
       console.error('[brief] failed', error.message);
       res.status(500).json({ error: 'The brief could not be gathered.' });

@@ -30,6 +30,7 @@ export const SERVER_INSTRUCTIONS = `This is the reader's own library in Noeis: w
 - The questions in brief are the reader's standing work: when they ask you to work on their questions, take one, find what bears on it and what would settle it (its settledBy says), and write that up as a note naming the question.
 - Before answering about the reader's reading, notes or views, call recall in plain words, then read the hits you use. Quote their words and give each hit's link.
 - A hit with pencil was written by an agent (it names which) and not yet taken up by the reader. Never present it as the reader's own view.
+- brief's disagreements are places two hands cannot both be right (an agent against a view the reader holds, or against another agent). Name the disagreement when you work near it; never quietly pick a side.
 - brief's taste is what the reader kept and struck of agents' pencil, with why. Write the way they keep, never the way they strike.
 - What you write lands in pencil, marked as yours, until the reader inks it. Write notes with create_notebook_entry and keep a paper with file_edition_items.
 - Save every page you read for the reader with create_article as you go, full text when you have it: it waits on their "Read by agents" shelf, so your reading compounds with theirs.
