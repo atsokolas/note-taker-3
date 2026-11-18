@@ -18,6 +18,17 @@ const PROFILES = Object.freeze({
     sourceLabel: 'This Week in AI',
     minItems: 2,
     maxItems: 5
+  }),
+  // What the reader's agents read for them in a week, filed by Noeis itself.
+  agents_reading: Object.freeze({
+    key: 'agents_reading',
+    editionPrefix: 'agents-reading',
+    artifactType: 'agents_reading',
+    titleLabel: 'What your agents read',
+    issueLabel: 'Week',
+    sourceLabel: 'What your agents read',
+    minItems: 1,
+    maxItems: 12
   })
 });
 

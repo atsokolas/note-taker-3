@@ -163,7 +163,7 @@ const WhileAway = () => {
         </section>
       ) : null}
       {written.length ? <p className="while-away__keys">j and k move, i inks, x strikes, Return opens.</p> : null}
-      <p className="while-away__keys"><Link to="/knows">Does Noeis know you?</Link></p>
+      <p className="while-away__keys"><Link to="/editions?paper=agents_reading">What your agents read, by the week</Link> · <Link to="/knows">Does Noeis know you?</Link></p>
     </main>
   );
 };

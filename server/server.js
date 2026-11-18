@@ -602,6 +602,7 @@ const { buildHandoffRouter } = require('./routes/handoffRoutes');
 const { buildDisagreementRouter } = require('./routes/disagreementRoutes');
 const { checkDisagreements } = require('./services/disagreements');
 const { workHandoff, resumeHandoffs } = require('./services/handoffWorker');
+const { fileAgentsReadingEditions } = require('./services/agentsReadingEdition');
 const { buildPencilRouter } = require('./routes/pencilRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
@@ -6000,5 +6001,13 @@ startServer({ app, port: PORT });
 
 const resumeBuiltInHandoffs = () => resumeHandoffs({ models: handoffModels, apiUrl: internalApiUrl })
   .catch(error => console.error('[handoff] resume failed', error.message));
-if (mongoose.connection.readyState === 1) resumeBuiltInHandoffs();
-else mongoose.connection.once('open', resumeBuiltInHandoffs);
+// Last week's "What your agents read" is filed once the week is over, checked hourly while awake.
+const fileAgentsReading = () => fileAgentsReadingEditions({ models: { Article, Edition, AgentToken }, apiUrl: internalApiUrl })
+  .catch(error => console.error('[agents-reading] editions failed', error.message));
+const wakeBuiltInAgent = () => {
+  resumeBuiltInHandoffs();
+  fileAgentsReading();
+  setInterval(fileAgentsReading, 60 * 60 * 1000).unref?.();
+};
+if (mongoose.connection.readyState === 1) wakeBuiltInAgent();
+else mongoose.connection.once('open', wakeBuiltInAgent);

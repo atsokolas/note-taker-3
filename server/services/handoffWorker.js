@@ -70,15 +70,16 @@ const pageOf = (api, context = {}) => ({
   }
 }[context.kind] || null);
 
-const connect = async ({ AgentToken, handoff }) => {
+// A connection of the built-in agent's own, for one piece of work.
+const connect = async ({ AgentToken, userId, scopes = [] }) => {
   const secret = createAgentTokenSecret();
   const token = await AgentToken.create({
-    userId: handoff.userId,
+    userId,
     label: NAME,
     runtime: BUILT_IN,
     hashedSecret: hashAgentTokenSecret(secret),
     secretPrefix: `${secret.slice(0, 12)}...`,
-    scopes: ['agent-write', ...(handoff.context?.kind === 'work_note' ? ['work'] : [])],
+    scopes: ['agent-write', ...scopes],
     expiresAt: new Date(Date.now() + 2 * TIME_LIMIT_MS),
     status: 'active'
   });
@@ -99,7 +100,7 @@ const apiFor = (apiUrl, secret) => async (path, { method = 'GET', body } = {}) =
 const workHandoff = async ({ handoffId, models: { Handoff, AgentToken }, apiUrl, chat = chatComplete, now = Date.now }) => {
   const handoff = await Handoff.findOne({ _id: handoffId, to: BUILT_IN, takenAt: null, cancelledAt: null }).lean();
   if (!handoff) return null;
-  const { token, secret } = await connect({ AgentToken, handoff });
+  const { token, secret } = await connect({ AgentToken, userId: handoff.userId, scopes: handoff.context?.kind === 'work_note' ? ['work'] : [] });
   const api = apiFor(apiUrl, secret);
   const finish = body => api(`/api/handoffs/${handoff._id}/finish`, { method: 'POST', body });
   const startedAt = now();
@@ -162,4 +163,4 @@ const resumeHandoffs = async ({ models, apiUrl, chat }) => {
   for (const { _id } of waiting) await workHandoff({ handoffId: _id, models, apiUrl, chat });
 };
 
-module.exports = { workHandoff, resumeHandoffs, TOOLS, NAME };
+module.exports = { workHandoff, resumeHandoffs, connect, apiFor, TOOLS, NAME };
