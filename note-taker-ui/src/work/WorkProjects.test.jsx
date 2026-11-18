@@ -90,6 +90,12 @@ test('Projects lists every project and Everything open unfolds them, from the ra
   expect(await screen.findByRole('heading', { name: 'Hiring', level: 1 })).toBeInTheDocument();
 });
 
+test('a project untouched for weeks says the day it was last touched, month capitalized', async () => {
+  work('view=project&folder=h');
+  const page = within(await screen.findByRole('region', { name: 'Hiring' }));
+  expect(page.getByText(/, last touched \d{1,2} [A-Z][a-z]{2}( \d{4})?\.$/)).toBeInTheDocument();
+});
+
 test('a project page reads the same way every time: log, next with what is owed, schedule, decided and kept', async () => {
   records.push({ _id: 'ic', revision: 0, title: 'IC', project: 'f', takenOn: today, workItem: { kind: 'appointment', plannedOn: today, startTime: '10:00', priority: 0, history: [] } });
   records.push({ _id: 'memo', revision: 0, title: 'Send the IC memo', project: 'f', takenOn: '2026-01-02', workItem: { kind: 'task', plannedOn: '2026-01-02', dueOn: '2999-01-04', priority: 0, history: [] } });

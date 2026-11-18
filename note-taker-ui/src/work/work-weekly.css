@@ -47,7 +47,6 @@
 .work-weekly-review-row small { display: block; color: var(--noeis-ink-muted); font-size: 12px; }
 .work-weekly-review-row button { font-size: 12px; padding: 6px; }
 .work-weekly-set-aside { margin-block: 16px; }
-.work-weekly-set-aside summary { min-height: 44px; padding: 12px 0; color: var(--noeis-ink-muted); font-size: 13px; cursor: pointer; }
 .work-weekly-today { margin-top: 32px; }
 .work-weekly-today .work-day-header .work-page-title { font-size: 25px; }
 .work-weekly-today .work-day-header p { font-size: 16px; }
@@ -57,8 +56,8 @@
 .work-weekly-receipt[role=alert] { border-left: 2px solid var(--noeis-action); padding-left: 12px; }
 .work-weekly-receipt pre { white-space: pre-wrap; font: inherit; }
 .work-weekly-missing { color: var(--noeis-ink-muted); font: 14px/1.5 var(--font-sans); padding: 12px 32px; }
-@media (max-width: 1200px) { .work-weekly { gap: 24px; grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); } .work-weekly-tray { padding-left: 20px; } }
-@media (max-width: 900px) {
+@container work-page (max-width: 880px) { .work-weekly { gap: 24px; grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); } .work-weekly-tray { padding-left: 20px; } }
+@container work-page (max-width: 720px) {
   .work-weekly { display: flex; flex-direction: column; gap: 28px; }
   .work-weekly-tray { border-left: 0; border-top: 1px solid var(--noeis-rule); padding: 24px 0 0; }
   .work-weekly h2 { font-size: 23px; }
@@ -87,17 +86,13 @@
 .work-weekly [draggable=true] { cursor: grab; }
 .work-weekly [draggable=true]:active { cursor: grabbing; }
 
-@media (max-width: 900px) { .work-weekly-task-new, .work-weekly-task-add { margin-left: 0; } }
+@container work-page (max-width: 720px) { .work-weekly-task-new, .work-weekly-task-add { margin-left: 0; } }
 
 .work-weekly .work-priority-toggle { display: flex; align-items: baseline; gap: 8px; padding: 0; text-align: left; font: inherit; letter-spacing: inherit; color: inherit; width: 100%; }
 .work-priority-toggle > .work-icon { align-self: center; width: 16px; height: 16px; flex-basis: 16px; color: var(--noeis-ink-muted); }
 .work-priority-toggle .work-weekly-number { margin-right: 8px; white-space: nowrap; flex-shrink: 0; color: var(--noeis-action); font: 500 16px var(--font-sans); font-variant-numeric: tabular-nums; }
-.work-day-tasks > summary { padding: 8px 0 16px; cursor: pointer; font: 400 25px/1.3 var(--font-serif); }
-.work-day-tasks > summary > span { color: var(--noeis-ink-muted); font: 12px var(--font-sans); }
-.work-weekly-more .work-needs-rest > summary { padding: 16px 0; font: 400 25px/1.3 var(--font-serif); color: var(--noeis-ink); }
 .work-weekly-more .work-day-lines .work-planner-task { font: 15px/1.5 var(--font-sans); }
 
-.work-weekly .work-weekly-add-trigger { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--noeis-action); border-radius: 6px; padding: 6px 14px; color: var(--noeis-action); font: 500 14px var(--font-sans); }
 .work-priority-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 8px; }
 .work-priority-foot .work-weekly-task-new { margin-top: 0; }
 .work-priority-foot .work-weekly-task-add { flex: 1 1 100%; }
@@ -112,7 +107,7 @@
   .work-priority-progress.is-settled { animation: work-priority-settle 280ms ease-out; }
   @keyframes work-priority-settle { from { opacity: .5; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 }
-@media (max-width: 900px) {
+@container work-page (max-width: 720px) {
   .work-weekly-heading { gap: 8px; padding-bottom: 16px; }
   .work-weekly-dateline { flex-basis: 100%; }
   .work-weekly-dateline p { flex: 1; font-size: 16px; }
@@ -139,11 +134,8 @@
 .work-task-menu .work-weekly-assignment select { width: 100%; font: inherit; min-height: 40px; }
 .work-task-menu .work-outstanding-sort { display: flex; flex-direction: column; align-items: stretch; }
 .work-task-menu button { width: 100%; }
-.work-notes .work-weekly .work-add-day-task { display: inline-flex; gap: 8px; align-items: center; padding: 6px 12px; margin: 0 0 10px; border: 1px solid var(--noeis-action); color: var(--noeis-action); border-radius: 6px; font: 500 14px var(--font-sans); }
 .work-rail-composer { margin-bottom: 12px; }
 .work-notes .work-rail-composer input { width: 100%; text-align: left; border: 1px solid var(--noeis-rule); padding: 10px; font: 15px var(--font-sans); }
 .work-rail-composer > div { display: flex; gap: 4px; flex-wrap: wrap; }
-.work-weekly .work-earlier, .work-rail-next, .work-done-today { border-top: 1px solid var(--noeis-rule); margin-top: 20px; }
-.work-weekly .work-earlier > summary, .work-done-today > summary, .work-rail-next > summary { background: transparent; border-radius: 0; color: var(--noeis-ink); cursor: pointer; padding: 16px 0; font: 400 23px/1.3 var(--font-serif); }
-.work-rail-hint { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--noeis-ink-muted); font: 12px/1.5 var(--font-sans); margin: 28px 0 0; }
+.work-weekly .work-earlier, .work-rail-next, .work-done-today { margin-top: 20px; }
 @media (pointer: coarse) { .work-task-menu > summary { min-height: 44px; } }

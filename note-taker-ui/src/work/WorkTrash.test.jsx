@@ -24,3 +24,11 @@ test('server-blocked erasure displays a recovery action rather than a deadline p
   expect(screen.getByText('Automatic erasure paused: project membership changed. Restore and review again.')).toBeInTheDocument();
   expect(screen.queryByText(/Permanently erased on or after/)).not.toBeInTheDocument();
 });
+
+test('each deleted note says its own rule, and an empty page says nothing is deleted', () => {
+  const note = { clientId: 'n', title: 'Pilot call', trashedAt: '2026-11-16T12:00:00Z', body: '' };
+  const { rerender } = render(<WorkTrash projects={[]} notes={[note]} session={session} />);
+  expect(screen.getByText(/^Deleted .* · Not erased automatically$/)).toBeInTheDocument();
+  rerender(<WorkTrash projects={[]} notes={[]} session={session} />);
+  expect(screen.getByText('Nothing deleted.')).toBeInTheDocument();
+});

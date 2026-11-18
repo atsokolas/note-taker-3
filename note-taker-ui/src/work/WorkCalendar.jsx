@@ -7,7 +7,7 @@ import { deviceTimeZone, displayDay, shiftDay, weekDays, writtenDay } from './wo
 import WorkDayTasks, { dayTasks } from './WorkDayTasks';
 
 // The week line sits over every Work page. On Today it is followed by the day itself, read top to bottom like a page in a day book:
-// its appointments and follow-ups, what is carried from earlier, what was written, the margin.
+// its appointments and to-dos, what is carried from earlier, what was written, the margin.
 export default function WorkCalendar({ day, today, mode, onMode, onDay, items, notes, query, folders, projects = [], timeZone = deviceTimeZone(), page, mark, drag, onOpen, onRenameNote, onTrashNote, onStart, onEdit, onAction, onNew, onPlan, margin, oneThing, sense, showTasks = true }) {
   const frame = useRef(null), contents = useRef(null), animation = useRef(null), origin = useRef(null);
   const [now, setNow] = useState(() => new Date());
@@ -63,10 +63,10 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, n
   const taskRow = (item, aside = null) => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} onAction={onAction} onEdit={onEdit} aside={aside} />;
   const appointmentRow = item => <WorkAppointmentRow key={item.id} item={item} folders={folders} projects={projects} onStart={onStart} onEdit={onEdit} status={when(item)} />;
   const counted = (n, one, many = `${one}s`) => n ? `${n} ${n === 1 ? one : many}` : '';
-  const parts = [counted(selectedAppointments.length, 'appointment'), counted(plan(day).filter(item => !item.completed).length, 'follow-up'), carried.length ? `${carried.length} carried from earlier` : ''].filter(Boolean);
+  const parts = [counted(selectedAppointments.length, 'appointment'), counted(plan(day).filter(item => !item.completed).length, 'to-do'), carried.length ? `${carried.length} carried from earlier` : ''].filter(Boolean);
   const daySentence = parts.length ? `${parts.join(', ').replace(/, ([^,]*)$/, ' and $1').replace(/^./, c => c.toUpperCase())}.` : 'A clear day.';
   return <section className={`work-calendar mode-${mode}`} aria-label="Work planner">
-    {page ? <header className="work-day-header"><h1 className="work-page-title">{day === today ? 'Today' : displayDay(day, { weekday: 'long', day: 'numeric', month: 'long' })}</h1><p><time dateTime={day}>{displayDay(day, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</time></p></header> : null}
+    {page ? <header className="work-day-header"><h1 className="work-page-title">{day === today ? 'Today' : displayDay(day)}</h1>{day === today ? <p><time dateTime={day}>{displayDay(day)}</time></p> : null}</header> : null}
     <details className="work-calendar-picker" open={mode === 'week' || undefined}><summary><WorkIcon name="calendar" />Choose a day</summary>
     <header className="work-calendar-heading"><button className="work-week-step" aria-label="Previous week" onClick={() => onDay(shiftDay(day, -7))}><WorkIcon name="previous" /></button><div className="work-week-days" role="group" aria-label="Calendar navigation">{days.map(date => <button key={date} className="work-day-heading" data-day={date} aria-label={displayDay(date)} aria-pressed={date === marked} aria-current={date === today ? 'date' : undefined} data-busy={onDate(items, date).some(item => item.kind !== 'jot' && !item.completed) ? true : undefined} onKeyDown={event => { const offset = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key]; if (!offset) return; event.preventDefault(); const next = shiftDay(date, offset); onDay(next); window.requestAnimationFrame(() => document.querySelector(`[data-day="${next}"]`)?.focus({ preventScroll: true })); }} onClick={() => onDay(date)}><span>{displayDay(date, { weekday: 'short' })}</span> {displayDay(date, { day: 'numeric' })}</button>)}</div><button className="work-week-step" aria-label="Next week" onClick={() => onDay(shiftDay(day, 7))}><WorkIcon name="next" /></button><button className="work-week-toggle" aria-pressed={mode === 'week'} onClick={() => selectMode(mode === 'week' ? 'compact' : 'week')}>Week</button></header>
     <div className="work-calendar-fold" ref={frame}>

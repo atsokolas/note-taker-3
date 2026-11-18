@@ -5,7 +5,7 @@ import { displayDay, validDay } from './workPlannerModel';
 export default function WorkItemSource({ origin, quote = false }) {
   if (!origin) return null;
   const linked = origin.noteId && !origin.noteId.startsWith('local-');
-  const label = origin.notebookName ? `From ${origin.notebookName}${validDay(origin.day) ? ` · ${displayDay(origin.day, { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}` : 'Link appears once saved';
+  const label = origin.notebookName ? `From ${origin.notebookName}${validDay(origin.day) ? ` · ${displayDay(origin.day, { day: 'numeric', month: 'short' })}` : ''}` : 'Link appears once saved';
   const target = `/work?${new URLSearchParams({ note: origin.noteId, ...(origin.blockId ? { block: origin.blockId } : {}) })}`;
   return <span className="work-item-source">{linked ? <a href={target} title={`Open ${origin.noteTitle || 'source note'}`}>{label}</a> : <span>{label} · link appears once saved</span>}{quote ? <q className="work-source-quote">{origin.quote}</q> : null}</span>;
 }

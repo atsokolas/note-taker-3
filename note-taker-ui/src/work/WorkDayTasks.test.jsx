@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import WorkItemForm from './WorkItemForm';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import WorkDayTasks from './WorkDayTasks';
+import { WorkTaskAssignment } from './WorkPlanItem';
+import { runInNovember2026 } from './testClock';
+
+runInNovember2026();
 const today = '2026-11-16';
 const task = { id: 'task', _id: 'task', clientId: 'local-task', kind: 'task', title: 'Write the application', plannedOn: today };
 const props = { day: today, today, items: [task], notes: [], folders: [], onAction: jest.fn(), onEdit: jest.fn(), onOpen: jest.fn(), onPlan: jest.fn(), onNew: jest.fn() };
@@ -65,4 +69,28 @@ test('an explicit unsuccessful result retains the draft', () => {
   fireEvent.change(input, { target: { value: 'Not saved yet' } }); fireEvent.submit(input.form);
   expect(input).toHaveValue('Not saved yet');
   expect(screen.getByRole('alert')).toHaveTextContent('Your line is still here');
+});
+
+test('the follow-up panel plans a day from the week strip and shows which priority slots are taken', () => {
+  const onSave = jest.fn();
+  render(<WorkItemForm item={{ id: 'i', kind: 'task', title: 'Get the matrix from Maulik', priority: 0 }} today="2026-11-16" defaults={{}} notes={[]} folders={[]} occupiedPriorities={() => [2]} onSave={onSave} onClose={() => {}} />);
+  expect(screen.queryByRole('radiogroup', { name: 'Kind' })).toBeNull();
+  expect(screen.getByRole('radio', { name: '1' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Wed 18 Nov' }));
+  expect(screen.getByRole('button', { name: 'Wed 18 Nov' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByLabelText('Planned day')).toHaveValue('2026-11-18');
+  expect(screen.getByRole('radio', { name: '2' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('radio', { name: '1' }));
+  expect(screen.getByText('2 of 3 used')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ plannedOn: '2026-11-18', priority: 1, dueOn: '' }));
+});
+
+test('Earlier leaves out a to-do already listed under a weekly priority', () => {
+  const linked = { ...task, id: 'linked', _id: 'linked', clientId: 'local-linked', title: 'Send the deck', plannedOn: '2026-11-12' };
+  const loose = { ...task, id: 'loose', _id: 'loose', clientId: 'local-loose', title: 'Book the room', plannedOn: '2026-11-13' };
+  render(<WorkTaskAssignment.Provider value={{ priorities: [{ id: 'p', title: 'Raise', taskIds: ['linked'] }], disabled: false, link: jest.fn() }}><WorkDayTasks {...props} items={[task, linked, loose]} /></WorkTaskAssignment.Provider>);
+  const earlier = screen.getByRole('region', { name: 'Carried from earlier' });
+  expect(earlier).toHaveTextContent('Book the room');
+  expect(earlier).not.toHaveTextContent('Send the deck');
 });

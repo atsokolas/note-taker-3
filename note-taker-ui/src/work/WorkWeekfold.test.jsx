@@ -5,6 +5,9 @@ import { MemoryRouter } from 'react-router-dom';
 import WorkNotes from './WorkNotes';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
+import { runInNovember2026 } from './testClock';
+
+runInNovember2026();
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn() }));
 let records, folders;
 const original = '<p>Two sites can support the pilot.</p><p>Keep these authored words.</p>';
@@ -38,17 +41,17 @@ const open = async (scope = '') => {
 const today = () => render(<MemoryRouter initialEntries={['/work?date=2026-10-26']}><WorkNotes /></MemoryRouter>);
 test('an open note keeps the week line with its written day marked, and its meeting date stays distinct', async () => {
   await open();
-  expect(screen.getByRole('button', { name: 'Monday 26 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent('In Customer discovery, written Monday 26 Oct, with Mira Chen.'); expect(screen.getByLabelText('Occurred on')).toHaveValue('2026-10-23');
-  fireEvent.click(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true }));
-  expect(await screen.findByRole('heading', { name: 'Tuesday 27 October' })).toBeInTheDocument(); expect(screen.queryByRole('textbox', { name: 'Work note writing' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Mon 26 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent('In Customer discovery, written Mon 26 Oct, with Mira Chen.'); expect(screen.getByLabelText('Occurred on')).toHaveValue('2026-10-23');
+  fireEvent.click(screen.getByRole('button', { name: 'Tue 27 Oct', exact: true }));
+  expect(await screen.findByRole('heading', { name: 'Tue 27 Oct' })).toBeInTheDocument(); expect(screen.queryByRole('textbox', { name: 'Work note writing' })).toBeNull();
 });
 test('a note written in another week brings its own week onto the line', async () => {
   render(<MemoryRouter initialEntries={['/work?date=2026-11-09']}><WorkNotes /></MemoryRouter>);
   const shelf = within(await screen.findByRole('complementary')); fireEvent.click(await shelf.findByRole('button', { name: 'Customer discovery' }));
   fireEvent.click(await shelf.findByRole('button', { name: /Fieldwell · pilot follow-up/ }));
   fireEvent.click(await screen.findByLabelText('Note information'));
-  expect(await screen.findByRole('button', { name: 'Monday 26 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(await screen.findByRole('button', { name: 'Mon 26 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 test('the note information calendar still opens a full week without replacing the writing', async () => {
   const writing = await open();
@@ -80,7 +83,7 @@ test('dragging a note onto a place in the rail shows it arriving there, and the 
 test('completing a follow-up produces one dated top record and Undo restores the same item without changing prose', async () => {
   await open(); const section = screen.getByRole('region', { name: 'Open' });
   fireEvent.click(within(section).getByRole('checkbox', { name: 'Confirm service-training dates' }));
-  const completed = await screen.findByRole('region', { name: 'Completed follow-ups' }); expect(completed).toHaveTextContent('Confirm service-training dates');
+  const completed = await screen.findByRole('region', { name: 'Completed to-dos' }); expect(completed).toHaveTextContent('Confirm service-training dates');
   await waitFor(() => expect(records.find(x => x._id === 'task').workItem.history).toHaveLength(1));
   expect(records.find(x => x._id === 'note').content).toBe(original);
   fireEvent.click(within(completed).getByRole('button', { name: 'Undo', exact: true }));
@@ -109,7 +112,7 @@ test('a new folder from the place line is where the open note goes', async () =>
   expect(records.find(x => x.content?.includes('Placed writing')).folder).not.toBe('f');
 });
 test('planning a new note question is explicit and retains its note identity in the day', async () => {
-  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a follow-up' }));
+  await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
   expect(screen.queryByRole('dialog')).toBeNull(); fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Which site is ready first?' } });
   fireEvent.change(screen.getByLabelText('Open item kind'), { target: { value: 'question' } }); fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   await waitFor(() => expect(records.some(x => x.title === 'Which site is ready first?')).toBe(true));
@@ -129,18 +132,18 @@ test('filing linked items reports a partial failure honestly and Undo restores e
   expect(records.find(x => x._id === 'task').folder).toBe('f');
 });
 test('arrow keys move between days in the week', async () => {
-  today(); const monday = await screen.findByRole('button', { name: 'Monday 26 Oct', exact: true });
+  today(); const monday = await screen.findByRole('button', { name: 'Mon 26 Oct', exact: true });
   fireEvent.keyDown(monday, { key: 'ArrowRight' });
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true'));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Tue 27 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true'));
 });
 test.each(['task', 'appointment'])('standalone %s conflicts open both versions rather than a save dead end', async kind => {
   records.push({ _id: 'standalone', revision: 0, title: 'Standalone work', content: '', workItem: { kind, plannedOn: '2026-10-26', startTime: '15:00', endTime: '15:30', history: [] } });
   today(); fireEvent.click(await screen.findByRole('button', { name: 'Week', exact: true }));
   if (kind !== 'appointment') fireEvent.click(screen.getByLabelText('Actions for Standalone work'));
   fireEvent.click(kind === 'appointment' ? screen.getByRole('button', { name: 'Edit appointment Standalone work', exact: true }) : within(screen.getByLabelText('Actions for Standalone work').closest('details')).getByRole('button', { name: 'Edit to-do' }));
-  const form = await screen.findByRole('dialog', { name: kind === 'appointment' ? 'Edit appointment' : 'Edit follow-up' });
+  const form = await screen.findByRole('dialog', { name: kind === 'appointment' ? 'Edit appointment' : 'Edit to-do' });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'standalone'), revision: 1, title: 'Other device version' } } } });
-  fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My version' } }); fireEvent.click(within(form).getByRole('button', { name: 'Save item' }));
+  fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My version' } }); fireEvent.click(within(form).getByRole('button', { name: 'Save', exact: true }));
   const review = await screen.findByRole('dialog', { name: 'Two versions' }); expect(review).toHaveTextContent('Other device version'); expect(review).toHaveTextContent('My version');
   fireEvent.click(within(review).getByRole('button', { name: 'Use the other one' }));
   expect(screen.queryByRole('dialog')).toBeNull();
@@ -159,7 +162,7 @@ test('concurrent day margins remain discoverable, and a conflicting margin offer
 test('a semantically rejected action stays in review and can use the saved version', async () => {
   await open(); const section = screen.getByRole('region', { name: 'Open' });
   fireEvent.click(within(section).getByRole('checkbox', { name: 'Confirm service-training dates' }));
-  const complete = await screen.findByRole('region', { name: 'Completed follow-ups' });
+  const complete = await screen.findByRole('region', { name: 'Completed to-dos' });
   await waitFor(() => expect(records.find(x => x._id === 'task').revision).toBe(1));
   const remote = { ...records.find(x => x._id === 'task'), revision: 2 };
   api.put.mockRejectedValue({ response: { status: 409, data: { error: 'This item changed. Review its latest history before undoing.', current: remote } } });
@@ -169,15 +172,15 @@ test('a semantically rejected action stays in review and can use the saved versi
   fireEvent.click(within(review).getByRole('button', { name: 'Use mine' }));
   await waitFor(() => expect(within(review).getByRole('alert')).toHaveTextContent('Review its latest history'));
   fireEvent.click(within(review).getByRole('button', { name: 'Use the other one' })); expect(screen.queryByRole('dialog')).toBeNull();
-  expect(screen.getByRole('region', { name: 'Completed follow-ups' })).toHaveTextContent('Confirm service-training dates');
+  expect(screen.getByRole('region', { name: 'Completed to-dos' })).toHaveTextContent('Confirm service-training dates');
 });
 test('review resolution stays locked while its accepted change is being acknowledged', async () => {
   await open(); const current = records.find(x => x._id === 'task'), remote = { ...current, revision: 1, title: 'Other device wording' };
   fireEvent.click(within(screen.getByRole('region', { name: 'Open' })).getByRole('button', { name: 'Edit Confirm service-training dates', exact: true }));
-  const form = await screen.findByRole('dialog', { name: 'Edit follow-up' });
+  const form = await screen.findByRole('dialog', { name: 'Edit to-do' });
   fireEvent.change(within(form).getByLabelText('Item'), { target: { value: 'My reviewed wording' } });
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: remote } } });
-  fireEvent.click(within(form).getByRole('button', { name: 'Save item', exact: true }));
+  fireEvent.click(within(form).getByRole('button', { name: 'Save', exact: true }));
   const review = await screen.findByRole('dialog', { name: 'Two versions' });
   let acknowledge; api.put.mockImplementationOnce((_, body) => new Promise(resolve => { acknowledge = () => { const data = { ...current, revision: 2, workItem: { ...current.workItem, history: (body.workActions || []).map(action => ({ ...action, recordedAt: new Date().toISOString() })) } }; records[records.findIndex(x => x._id === 'task')] = data; resolve({ data }); }; }));
   fireEvent.click(within(review).getByRole('button', { name: 'Use mine' }));
@@ -209,14 +212,14 @@ test('authentication recovery remains available if the matching server arrives a
 });
 test('a day reads as one page: its follow-ups, what it was written, and earlier open work that can move to it', async () => {
   render(<MemoryRouter initialEntries={['/work?date=2026-10-26']}><WorkNotes /></MemoryRouter>);
-  expect(await screen.findByRole('heading', { name: 'Monday 26 October' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Mon 26 Oct' })).toBeInTheDocument();
   const page = () => document.querySelector('.work-day-page');
   expect(await within(page()).findByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
   expect(within(screen.getByRole('region', { name: 'Written Monday' })).getByRole('button', { name: /Fieldwell · pilot follow-up.*Customer discovery/ })).toBeInTheDocument();
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'depot' } }); expect(screen.queryByRole('region', { name: 'Written Monday' })).toBeNull();
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
   expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Tuesday 27 Oct', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Tue 27 Oct', exact: true }));
   fireEvent.click(await screen.findByText('Earlier'));
   const carried = await screen.findByRole('region', { name: 'Carried from earlier' });
   expect(within(carried).getByRole('button', { name: 'Fieldwell · pilot follow-up' })).toBeInTheDocument();

@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import WorkNotes from './WorkNotes';
 import { WorkDayClose, morning } from './WorkNeedsYou.jsx';
 import WorkCalendar from './WorkCalendar';
+import { weekDays } from './workPlannerModel';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn() }));
@@ -52,14 +53,16 @@ test('the morning sentence says the day and crosses out each part as it is done'
     { kind: 'appointment', title: 'Jo', plannedOn: '2026-11-13', startTime: '15:30', endTime: '16:00' },
     { kind: 'task', title: 'Draft the risk section', plannedOn: '2026-11-13', oneThingOn: '2026-11-13', completed: true },
     { kind: 'task', title: 'Send Sam the bands', plannedOn: '2026-11-13' }];
-  expect(morning(items, needs, '2026-11-13', '11:00')).toEqual([
+  expect(morning(items, [], needs, '2026-11-13', '11:00')).toEqual([
     { text: 'Call with Priya at 10:00.', done: true }, { text: 'Jo at 15:30.', done: false },
     { text: 'Your one thing: draft the risk section.', done: true }, { text: 'One more line is planned.', done: false },
     { text: 'Priya has owed you the data room login for 9 days.' }, { text: '2 lines from your notes need a place.' },
     { text: 'Pricing has gone quiet.' }, { text: 'It’s Friday: read the week back.' }]);
   const next = { kind: 'task', title: 'Call the auditor', plannedOn: '2026-11-13', oneThingOn: '2026-11-13' };
-  expect(morning([...items, next], { ...needs, oneThing: next }, '2026-11-13', '11:00')).toContainEqual({ text: 'Your one thing: call the auditor.', done: undefined });
-  expect(morning([], { waiting: [], fresh: [], silent: [] }, '2026-11-12', '09:00')).toEqual([{ text: 'A clear day, and nothing needs you.' }]);
+  expect(morning([...items, next], [], { ...needs, oneThing: next }, '2026-11-13', '11:00')).toContainEqual({ text: 'Your one thing: call the auditor.', done: undefined });
+  expect(morning([], [], { waiting: [], fresh: [], silent: [] }, '2026-11-12', '09:00')).toEqual([{ text: 'A clear day, and nothing needs you.' }]);
+  const carried = [{ kind: 'task', title: 'Send the deck', plannedOn: '2026-11-10' }, { kind: 'task', title: 'Book the room', plannedOn: '2026-11-11' }];
+  expect(morning(carried, [], { waiting: [], fresh: [], silent: [] }, '2026-11-12', '09:00')).toEqual([{ text: '2 lines are carried from earlier.' }]);
 });
 
 test('a new line from a note is sorted onto Waiting on with the person, on the same record', async () => {
@@ -201,4 +204,25 @@ test('the dashboard opens Next, Someday and Done without extra clicks, including
   work('today');
   await within(await screen.findByRole('region', { name: 'Needs you' })).findByText('Next visible task');
   sections().forEach(section => expect(section.open).toBe(true));
+});
+
+test('a task linked to a weekly priority shows under that priority, not again in Next', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  records.push(
+    { _id: 'linked', revision: 0, title: 'Linked task', takenOn: today, workItem: { kind: 'task', list: 'next', sortedOn: today, history: [] } },
+    { _id: 'loose', revision: 0, title: 'Loose task', takenOn: today, workItem: { kind: 'task', list: 'next', sortedOn: today, history: [] } },
+    { _id: 'week', revision: 0, title: 'Week', takenOn: today, workItem: { kind: 'week', plannedOn: weekDays(today)[0], priorities: [{ id: 'p', title: 'Ship the pilot', taskIds: ['linked'], status: 'active', reviewed: true, carriedFrom: null }], history: [] } }
+  );
+  work('today');
+  const needs = within(await screen.findByRole('region', { name: 'Needs you' }));
+  await needs.findByText('Loose task');
+  expect(needs.queryByText('Linked task')).toBeNull();
+  expect(within(screen.getByRole('region', { name: 'Ship the pilot' })).getByText('Linked task')).toBeInTheDocument();
+});
+test('a Next row offers one way to plan it for today', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  records.push({ _id: 'next-once', revision: 0, title: 'Plan me once', takenOn: today, workItem: { kind: 'task', list: 'next', sortedOn: today, history: [] } });
+  work('today');
+  const menu = (await screen.findByLabelText('Actions for Plan me once')).closest('details');
+  expect(within(menu).getAllByRole('button').map(button => button.textContent).filter(label => /today/i.test(label))).toEqual(['Move to today', 'Make it today’s one thing']);
 });

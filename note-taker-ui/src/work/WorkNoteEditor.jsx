@@ -53,7 +53,7 @@ const WorkEntryDates = Extension.create({
   }
 });
 
-export default function WorkNoteEditor({ note, onChange, onMakeOpen, fresh = false, sourceBlock = null, today = dayInZone(), heading = null, tools = null }) {
+export default function WorkNoteEditor({ note, onChange, onMakeOpen, fresh = false, sourceBlock = null, today = dayInZone(), heading = null, footer = null, onRename = null, onTrash = null }) {
   const surface = useRef(null), contents = useRef(null), change = useRef(onChange), slashKey = useRef(null), returnPoint = useRef(null), composing = useRef(false);
   change.current = onChange;
   const [url, setUrl] = useState('');
@@ -177,19 +177,26 @@ export default function WorkNoteEditor({ note, onChange, onMakeOpen, fresh = fal
         <form onSubmit={event => { event.preventDefault(); addEntry(); event.currentTarget.closest("details").open = false; }}><label><span className="work-sr-only">Entry date</span><input aria-label="Meeting entry date" type="date" required value={day} onChange={event => setEntryDate(event.target.value)} /></label><button type="submit" disabled={!editor || !validDay(day)}>Use date</button>{editor && !editor.isEmpty && !entries.length ? <button type="button" onClick={() => addEntry(true)} disabled={!validDay(day)}>Date existing writing</button> : null}</form>
         </WorkMenu>
         <button className="work-new-entry" aria-label={entries.some(entry => entry.day === day) ? 'Continue this entry' : 'Add dated entry'} disabled={!editor || !validDay(day)} onClick={() => addEntry()}>+ Entry</button>
-        <WorkMenu label="Writing tools" icon="more" className="work-writing-tools">
-        <label className="work-heading-select"><span className="work-sr-only">Text style</span><select aria-label="Text style" value={editor?.isActive('heading') ? String(editor.getAttributes('heading').level) : 'paragraph'} onChange={event => { if (event.target.value === 'paragraph') editor.chain().focus().setParagraph().run(); else editor.chain().focus().setHeading({ level: Number(event.target.value) }).run(); }}><option value="paragraph">Body</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option></select></label>
+        <WorkMenu label="Note actions" icon="more" className="work-note-menu">
+        {onRename || outline.length ? <p className="work-menu-group">Note</p> : null}
+        {onRename ? <button onClick={onRename}>Rename</button> : null}
         {outline.length ? <details ref={contents} className="work-contents" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); const details = event.currentTarget; details.open = false; details.querySelector('summary').focus(); } }}><summary>Contents <small>{outline.length}</small></summary><nav aria-label="Table of contents"><div className="work-outline-levels"><label>Collapse level<select aria-label="Collapse heading level" defaultValue="" onChange={event => { if (event.target.value) editor.view.dispatch(editor.state.tr.setMeta(outlineKey, { type: 'level', level: Number(event.target.value) })); event.target.value = ''; }}><option value="">Choose…</option>{[1, 2, 3].map(level => <option value={level} key={level}>Heading {level}</option>)}</select></label><button type="button" onClick={() => editor.view.dispatch(editor.state.tr.setMeta(outlineKey, { type: 'expand' }))}>Expand all</button></div><ol>{outline.map(heading => <li key={heading.position} style={{ '--heading-level': heading.level }}><button type="button" aria-expanded={!folded.has(heading.position)} aria-label={`${folded.has(heading.position) ? 'Expand' : 'Collapse'} section ${heading.title}`} onClick={() => editor.view.dispatch(editor.state.tr.setMeta(outlineKey, { type: 'toggle', position: heading.position }))}>{folded.has(heading.position) ? '▸' : '▾'}</button><button type="button" onClick={() => openEntry(heading)}>{heading.title}</button></li>)}</ol></nav></details> : null}
-{onMakeOpen ? <button type="button" onPointerDown={event => event.preventDefault()} onMouseDown={event => event.preventDefault()} onClick={event => { event.currentTarget.closest('details').open = false; makeOpen(); }}>Make Open</button> : null}<button onClick={() => moveCurrentBlock(editor, 'up')}>Move paragraph up</button><button onClick={() => moveCurrentBlock(editor, 'down')}>Move paragraph down</button><form onSubmit={event => {
+        <p className="work-menu-group">Paragraph</p>
+        <label className="work-heading-select"><span className="work-sr-only">Text style</span><select aria-label="Text style" value={editor?.isActive('heading') ? String(editor.getAttributes('heading').level) : 'paragraph'} onChange={event => { if (event.target.value === 'paragraph') editor.chain().focus().setParagraph().run(); else editor.chain().focus().setHeading({ level: Number(event.target.value) }).run(); }}><option value="paragraph">Body</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option></select></label>
+        {onMakeOpen ? <button type="button" onPointerDown={event => event.preventDefault()} onMouseDown={event => event.preventDefault()} onClick={event => { event.currentTarget.closest('details').open = false; makeOpen(); }}>Make Open</button> : null}<button onClick={() => moveCurrentBlock(editor, 'up')}>Move paragraph up</button><button onClick={() => moveCurrentBlock(editor, 'down')}>Move paragraph down</button>
+        <p className="work-menu-group">Link</p>
+        <form onSubmit={event => {
       event.preventDefault(); const href = safeLink(url.trim()); if (!href) return;
       editor.chain().focus().insertContent({ type: 'text', text: href, marks: [{ type: 'workLink', attrs: { href } }] }).run(); setUrl('');
-    }}><input aria-label="Link address" type="url" placeholder="https://…" value={url} onChange={event => setUrl(event.target.value)} /><button disabled={!safeLink(url.trim())}>Insert link</button></form>{tools}
+    }}><input aria-label="Link address" type="url" placeholder="https://…" value={url} onChange={event => setUrl(event.target.value)} /><button disabled={!safeLink(url.trim())}>Insert link</button></form>
+        {onTrash ? <><hr /><button className="work-destructive" onClick={onTrash}>Delete note</button></> : null}
         </WorkMenu>
       </div>
     </header>
       {folded.size ? <p className="work-fold-status" role="status">{folded.size} {folded.size === 1 ? 'section' : 'sections'} collapsed. <button type="button" onClick={() => editor.view.dispatch(editor.state.tr.setMeta(outlineKey, { type: 'expand' }))}>Show all writing</button></p> : null}
     {sourceMissing ? <p className="work-source-missing" role="status">The original passage has changed. Its source note is open.</p> : null}
-    <EditorDraftShell editor={editor} surfaceRef={surface} contextualToolbar slashCommands={slash} magnetCaretToolbar={false} hideBlockControls onMakeOpen={onMakeOpen ? makeOpen : null} helperCopy="Select words or use Writing tools to Make Open." />
+    <EditorDraftShell editor={editor} surfaceRef={surface} contextualToolbar slashCommands={slash} magnetCaretToolbar={false} hideBlockControls onMakeOpen={onMakeOpen ? makeOpen : null} helperCopy="Select words or use the ··· menu to Make Open." />
+    {footer ? <footer className="work-note-footer">{footer}</footer> : null}
 
   </div>;
 }
