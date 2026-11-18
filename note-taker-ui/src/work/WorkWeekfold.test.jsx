@@ -5,6 +5,9 @@ import { MemoryRouter } from 'react-router-dom';
 import WorkNotes from './WorkNotes';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
+import { runInNovember2026 } from './testClock';
+
+runInNovember2026();
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn() }));
 let records, folders;
 const original = '<p>Two sites can support the pilot.</p><p>Keep these authored words.</p>';

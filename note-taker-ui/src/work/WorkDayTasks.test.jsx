@@ -3,6 +3,9 @@ import WorkItemForm from './WorkItemForm';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import WorkDayTasks from './WorkDayTasks';
 import { WorkTaskAssignment } from './WorkPlanItem';
+import { runInNovember2026 } from './testClock';
+
+runInNovember2026();
 const today = '2026-11-16';
 const task = { id: 'task', _id: 'task', clientId: 'local-task', kind: 'task', title: 'Write the application', plannedOn: today };
 const props = { day: today, today, items: [task], notes: [], folders: [], onAction: jest.fn(), onEdit: jest.fn(), onOpen: jest.fn(), onPlan: jest.fn(), onNew: jest.fn() };

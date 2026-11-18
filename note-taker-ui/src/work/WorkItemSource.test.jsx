@@ -2,10 +2,14 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import WorkItemSource from './WorkItemSource';
 import WorkOpenComposer from './WorkOpenComposer';
+
+import { runInNovember2026 } from './testClock';
+
+runInNovember2026();
 const origin = { noteId: 'source', blockId: 'passage', notebookName: 'Customers', noteTitle: 'Supplier meeting', day: '2026-11-03', quote: 'They promised six weeks.' };
 test('source receipt identifies the original notebook/date and links to the saved passage', () => {
   render(<WorkItemSource origin={origin} quote />);
-  expect(screen.getByRole('link', { name: 'From Customers · 3 Nov 2026' })).toHaveAttribute('href', '/work?note=source&block=passage');
+  expect(screen.getByRole('link', { name: 'From Customers · 3 Nov' })).toHaveAttribute('href', '/work?note=source&block=passage');
   expect(screen.getByText('They promised six weeks.')).toBeInTheDocument();
 });
 test('destination notebook selection uses the existing draft and never changes the source', () => {
@@ -22,5 +26,5 @@ test('incomplete and offline source receipts never manufacture an undefined note
   const view = render(<WorkItemSource origin={{ quote: 'Offline words', blockId: 'b' }} />);
   expect(screen.queryByRole('link')).toBeNull(); expect(screen.getByText(/Link appears once saved/)).toBeInTheDocument();
   view.rerender(<WorkItemSource origin={{ ...origin, noteId: 'local-source' }} />);
-  expect(screen.queryByRole('link')).toBeNull(); expect(screen.getByText(/From Customers · 3 Nov 2026/)).toBeInTheDocument();
+  expect(screen.queryByRole('link')).toBeNull(); expect(screen.getByText(/From Customers · 3 Nov/)).toBeInTheDocument();
 });
