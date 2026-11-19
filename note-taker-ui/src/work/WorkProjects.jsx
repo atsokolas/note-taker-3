@@ -13,7 +13,7 @@ import { hangingDate, timeBetween } from './workNoteEntries';
 const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 const short = day => displayDay(day, { day: 'numeric', month: 'short' });
 const touched = (day, today) => { const days = daysBetween(day, today); return days === 0 ? 'today' : days < 7 ? displayDay(day, { weekday: 'short' }) : short(day); };
-const HangingDate = ({ day }) => <span className="work-hang-date" aria-hidden="true">{hangingDate(day).map((part, index) => index === 1 ? <b key={index}>{part}</b> : <small key={index}>{part}</small>)}</span>;
+const HangingDate = ({ day }) => <span className="work-hang-date">{hangingDate(day).map((part, index) => index === 1 ? <b key={index}>{part}</b> : <small key={index}>{part}</small>)}</span>;
 const capital = text => text.replace(/^./, c => c.toUpperCase());
 const owes = item => `${item.waitingOn} owes you ${item.title.charAt(0).toLowerCase()}${item.title.slice(1)}`;
 const keyed = event => !event.metaKey && !event.ctrlKey && !event.altKey && !event.target.closest?.('input, textarea, [contenteditable="true"], dialog');

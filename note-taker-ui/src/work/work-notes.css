@@ -678,6 +678,7 @@ body.noeis-editorial .work-notes .work-inspector input:not([type=checkbox]), bod
 .work-between { display: grid; grid-template-columns: calc(var(--work-hang) - 24px) minmax(0, 1fr); gap: 0 24px; align-items: center; min-height: 56px; font: italic 14px/1.4 var(--font-serif); color: var(--noeis-ink-muted); }
 .work-between::before { content: ''; align-self: stretch; background: repeating-linear-gradient(135deg, var(--noeis-rule-strong) 0 1px, transparent 1px 6px); mask: linear-gradient(#000, rgb(0 0 0 / .12) 50%, #000); -webkit-mask: linear-gradient(#000, rgb(0 0 0 / .12) 50%, #000); }
 .work-writing .ProseMirror .work-hang-date, .work-writing .ProseMirror .work-between { display: none; }
+.work-between:has(+ .work-folded-block) { display: none !important; }
 @container work-page (min-width: 760px) {
   .work-page > .work-note-paper:has(h2.work-entry-date) { max-width: calc(var(--work-reading-width) + var(--work-hang)); padding-left: var(--work-hang); }
   .work-writing .ProseMirror > h2.work-entry-date { position: relative; height: 0; margin: 40px 0 18px; border-top: 1px solid var(--noeis-ink); font-size: 0; }
