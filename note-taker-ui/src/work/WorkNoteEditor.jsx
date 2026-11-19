@@ -9,8 +9,9 @@ import useSlashCommands from '../components/think/editor/useSlashCommands';
 import { buildDocFromBlocks, ensureBlockIds, serializeBlocksFromDoc } from '../utils/notebookBlocks';
 import { dayInZone, validDay } from './workPlannerModel';
 import { WorkOutline, foldedHeadings, noteOutline, outlineKey } from './workNoteOutline';
-import { entryDateLabel, noteEntries } from './workNoteEntries';
-import { Plugin } from '@tiptap/pm/state';
+import { entryDateLabel, hangingDate, noteEntries, timeBetween } from './workNoteEntries';
+import { daysBetween } from './workOutstanding';
+import { Plugin, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import '../styles/think-writing.css';
 import WorkMenu from './WorkMenu';
@@ -37,17 +38,31 @@ const entryToggle = (label, folded) => (view, getPos) => {
   button.addEventListener('click', () => view.dispatch(view.state.tr.setMeta(outlineKey, { type: 'toggle', position: getPos() - 1 })));
   return button;
 };
+// The date hangs in the margin; clicking it puts the caret in the heading, which is still the date you edit.
+const marginDate = day => (view, getPos) => {
+  const date = document.createElement('span');
+  date.className = 'work-hang-date'; date.contentEditable = 'false'; date.setAttribute('aria-hidden', 'true');
+  hangingDate(day).forEach((part, index) => date.appendChild(Object.assign(document.createElement(index === 1 ? 'b' : 'small'), { textContent: part })));
+  date.addEventListener('mousedown', event => { event.preventDefault(); const end = view.state.doc.resolve(getPos()).end(); view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, end))); view.focus(); });
+  return date;
+};
+// The time between two entries is the page's ground, drawn as hatching in the margin.
+const between = label => () => Object.assign(document.createElement('div'), { className: 'work-between', contentEditable: 'false', textContent: label });
 const WorkEntryDates = Extension.create({
   name: 'workEntryDates',
   addProseMirrorPlugins() {
     return [new Plugin({ props: { decorations: state => {
       const folded = outlineKey.getState(state);
-      return DecorationSet.create(state.doc, noteEntries(state.doc).flatMap(entry => {
-        const label = entryDateLabel(entry.day), isFolded = folded.has(entry.position);
+      const { from } = state.selection;
+      return DecorationSet.create(state.doc, noteEntries(state.doc).flatMap((entry, index, entries) => {
+        const label = entryDateLabel(entry.day), isFolded = folded.has(entry.position), gap = index && Math.abs(daysBetween(entries[index - 1].day, entry.day));
+        const editing = from > entry.position && from < entry.position + entry.size;
         return [
-          Decoration.node(entry.position, entry.position + entry.size, { class: 'work-entry-date', 'data-entry-date': entry.day }),
-          Decoration.widget(entry.position + 1, entryToggle(label, isFolded), { side: -1, key: `${label}:${isFolded}`, ignoreSelection: true, stopEvent: () => true })
-        ];
+          gap ? Decoration.widget(entry.position, between(timeBetween(gap)), { side: -1, key: `between:${gap}`, ignoreSelection: true }) : null,
+          Decoration.node(entry.position, entry.position + entry.size, { class: `work-entry-date${editing ? ' is-editing' : ''}`, 'data-entry-date': entry.day }),
+          Decoration.widget(entry.position + 1, entryToggle(label, isFolded), { side: -1, key: `${label}:${isFolded}`, ignoreSelection: true, stopEvent: () => true }),
+          Decoration.widget(entry.position + 1, marginDate(entry.day), { side: -2, key: `date:${entry.day}`, ignoreSelection: true })
+        ].filter(Boolean);
       }));
     } } })];
   }

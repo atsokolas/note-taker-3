@@ -139,3 +139,11 @@
 .work-rail-composer > div { display: flex; gap: 4px; flex-wrap: wrap; }
 .work-weekly .work-earlier, .work-rail-next, .work-done-today { margin-top: 20px; }
 @media (pointer: coarse) { .work-task-menu > summary { min-height: 44px; } }
+
+/* Each priority's number hangs in the margin, and a narrow column under it fills with ink as its to-dos are done, out of the hatched ground of what's open. */
+@container work-page (min-width: 721px) {
+  .work-weekly-main { padding-left: var(--work-hang); }
+  .work-weekly-priority { border-top: 1px solid var(--noeis-ink); border-bottom: 0; }
+  .work-weekly-priority .work-weekly-number { position: absolute; top: 26px; left: calc(-1 * var(--work-hang)); width: calc(var(--work-hang) - 24px); margin: 0; text-align: right; color: var(--noeis-ink-muted); font: 400 44px/1 var(--font-serif); }
+  .work-priority-ink { position: absolute; top: 84px; bottom: 28px; left: -38px; width: 14px; background: linear-gradient(var(--noeis-ink), var(--noeis-ink)) top / 100% calc(var(--done) * 100%) no-repeat, repeating-linear-gradient(135deg, var(--noeis-rule-strong) 0 1px, transparent 1px 5px); }
+}

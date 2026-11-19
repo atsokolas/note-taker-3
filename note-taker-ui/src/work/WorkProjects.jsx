@@ -8,10 +8,12 @@ import './work-project.css';
 import { dayInZone, displayDay, shiftDay, weekDays, writtenDay } from './workPlannerModel';
 import { daysBetween, sortedSince } from './workOutstanding';
 import { LINK_ROOM, checkInOf, fade, linkHref, project, projects, quiet } from './workProjects';
+import { hangingDate, timeBetween } from './workNoteEntries';
 
 const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 const short = day => displayDay(day, { day: 'numeric', month: 'short' });
 const touched = (day, today) => { const days = daysBetween(day, today); return days === 0 ? 'today' : days < 7 ? displayDay(day, { weekday: 'short' }) : short(day); };
+const HangingDate = ({ day }) => <span className="work-hang-date">{hangingDate(day).map((part, index) => index === 1 ? <b key={index}>{part}</b> : <small key={index}>{part}</small>)}</span>;
 const capital = text => text.replace(/^./, c => c.toUpperCase());
 const owes = item => `${item.waitingOn} owes you ${item.title.charAt(0).toLowerCase()}${item.title.slice(1)}`;
 const keyed = event => !event.metaKey && !event.ctrlKey && !event.altKey && !event.target.closest?.('input, textarea, [contenteditable="true"], dialog');
@@ -120,7 +122,7 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
     {item.state === 'active' ? <form className="work-project-checkin" aria-label="This week’s check-in" onSubmit={answerCheckIn}><small>Monday check-in</small><q>What would move {record.name} this week?</q>
       {answered ? <p>{answered.text}<small>Answered {displayDay(answered.on, { weekday: 'short', day: 'numeric' })}</small></p> : <input aria-label={`What would move ${record.name} this week?`} placeholder="One line, filed in the log" value={answer} onChange={event => setAnswer(event.target.value)} />}</form> : null}
     <div className="work-project-page">
-      <section aria-label="Log"><div className="work-project-log-heading"><h2>Log</h2>{item.state === 'done' ? null : <button className="work-project-new-note" aria-label={`New note in ${record.name}`} onClick={onNewNote}><WorkIcon name="plus" />New note</button>}</div>{item.log.map((entry, index) => <div className="work-project-log-row" key={`${entry.note?.clientId || 'check-in'}:${entry.day}:${index}`}><button className="work-log-entry" disabled={!entry.note} onClick={() => onOpenNote(entry.note.clientId)}><small>{displayDay(entry.day, { weekday: 'short', day: 'numeric', month: 'short' })} · {entry.checkIn ? 'Monday check-in' : noteTitle(entry.note)}</small><span>{entry.text}</span></button>{entry.note && onRenameNote ? <WorkNoteActions note={entry.note} onRename={onRenameNote} onOpen={onOpenNote} onTrash={onTrashNote} /> : null}</div>)}
+      <section aria-label="Log"><div className="work-project-log-heading"><h2>Log</h2>{item.state === 'done' ? null : <button className="work-project-new-note" aria-label={`New note in ${record.name}`} onClick={onNewNote}><WorkIcon name="plus" />New note</button>}</div>{item.log.map((entry, index) => { const gap = index && Math.abs(daysBetween(item.log[index - 1].day, entry.day)); return <React.Fragment key={`${entry.note?.clientId || 'check-in'}:${entry.day}:${index}`}>{gap ? <div className="work-between">{timeBetween(gap)}</div> : null}<div className="work-project-log-row">{index && !gap ? <span className="work-hang-date" /> : <HangingDate day={entry.day} />}<button className="work-log-entry" disabled={!entry.note} onClick={() => onOpenNote(entry.note.clientId)}><small><span className="work-log-day">{displayDay(entry.day, { weekday: 'short', day: 'numeric', month: 'short' })} · </span>{entry.checkIn ? 'Monday check-in' : noteTitle(entry.note)}</small><span>{entry.text}</span></button>{entry.note && onRenameNote ? <WorkNoteActions note={entry.note} onRename={onRenameNote} onOpen={onOpenNote} onTrash={onTrashNote} /> : null}</div></React.Fragment>; })}
         {item.log.length ? null : <p className="work-outstanding-line">Nothing written yet. Add a note to {record.name} and it shows up here.</p>}
       </section>
       <div className="work-project-context">

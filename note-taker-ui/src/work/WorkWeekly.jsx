@@ -111,10 +111,12 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
     } catch (error) { setMessage(error.message || 'That did not save.'); }
     finally { inFlight.current = false; setBusy(false); }
   };
+  // Inside the week a day is its weekday; the week is already the frame.
+  const inWeek = day => day >= week && day < shiftDay(week, 7) ? displayDay(day, { weekday: 'short' }) : shortDate(day);
   const source = item => {
     const note = notes.find(value => [value._id, value.clientId].includes(item.noteId));
     const folder = folders.find(value => value._id === (item.folder?._id || item.folder));
-    return item.origin ? <WorkItemSource origin={item.origin} /> : <small className="work-weekly-source">{note ? <button onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : folder?.name || 'Work'}{writtenDay(item) ? ` · ${shortDate(writtenDay(item))}` : ''}</small>;
+    return item.origin ? <WorkItemSource origin={item.origin} /> : <small className="work-weekly-source">{note ? <button onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : folder?.name || 'Work'}{writtenDay(item) ? ` · ${inWeek(writtenDay(item))}` : ''}</small>;
   };
   const taskRow = (id, priority) => {
     const item = tasks.find(value => value._id === id);
@@ -147,6 +149,7 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
         const done = linked.filter(task => task && (past ? completionAtWeekEnd(task, week) : task.completed)).length;
         const settled = linked.length > 0 && done === linked.length && linked.every(task => !task.pending);
         return <li key={priority.id}><section aria-label={priority.title} className={`work-weekly-priority ${dropTarget === priority.id ? 'is-drop-target' : ''}`} onDragOver={event => { if (!past && !disabled && acceptsTask(event)) { event.preventDefault(); setDropTarget(priority.id); } }} onDrop={event => drop(event, priority.id)}>
+        {linked.length ? <span className="work-priority-ink" aria-hidden="true" style={{ '--done': done / linked.length }} /> : null}
         <header><h2><button className="work-priority-toggle" aria-expanded={!collapsed[`${week}:${priority.id}`]} aria-controls={`${disclosureId}-${priority.id}`} onClick={() => setCollapsed(value => ({ ...value, [`${week}:${priority.id}`]: !value[`${week}:${priority.id}`] }))}><WorkIcon name={collapsed[`${week}:${priority.id}`] ? 'right' : 'down'} /><span className="work-weekly-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>{priority.title}</button></h2>{!past ? <WorkMenu actions label={`Manage ${priority.title}`} icon="more" className="work-weekly-manage">
           <button disabled={held(priority)} onClick={() => { setCollapsed(value => ({ ...value, [`${week}:${priority.id}`]: false })); setEditing(priority.id); setEditTitle(priority.title); }}>Rename</button>
           <button disabled={held(priority)} onClick={() => changePriority(priority.id, { status: 'complete', reviewed: true })}>Complete priority</button>
