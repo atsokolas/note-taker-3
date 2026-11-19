@@ -4,6 +4,7 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.work-notes
   --font-sans: "Helvetica Neue", var(--noeis-font-ui);
   --work-reading-width: 46rem;
   --work-entry-toggle: 24px;
+  --work-hang: 112px;
   --work-fold-ms: 260;
   --work-check-duration: 140ms;
   --work-receipt-duration: 120ms;
@@ -439,7 +440,7 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-project-checkin p small { margin-left: 12px; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-notes .work-project .work-log-entry { display: grid; gap: 5px; width: 100%; padding: 14px 0 16px; text-align: left; color: var(--noeis-ink); }
 .work-log-entry small { font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
-.work-log-entry span { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; font: 16px/1.55 var(--font-serif); }
+.work-log-entry > span { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; font: 16px/1.55 var(--font-serif); }
 .work-project-decision small { margin-left: auto; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); white-space: nowrap; }
 .work-notes textarea.work-project-brief { width: 100%; resize: none; padding: 0 0 12px; background: transparent; border: 0; color: var(--noeis-ink); font: 19px/1.55 var(--font-serif); }
 .work-project-brief::placeholder { color: var(--noeis-ink-subtle); }
@@ -668,3 +669,25 @@ body.noeis-editorial .work-notes .work-inspector input:not([type=checkbox]), bod
 :is(.work-day-tasks, .work-earlier, .work-done-today, .work-needs-rest, .work-weekly-set-aside, .work-day-margin) > summary::before { content: ''; flex: 0 0 10px; height: 10px; background: var(--noeis-ink-subtle); mask: url(../assets/work-icons/chevron-right.svg) center / contain no-repeat; -webkit-mask: url(../assets/work-icons/chevron-right.svg) center / contain no-repeat; }
 :is(.work-day-tasks, .work-earlier, .work-done-today, .work-needs-rest, .work-weekly-set-aside, .work-day-margin)[open] > summary::before { rotate: 90deg; }
 .work-notes :is(.work-day-tasks, .work-earlier, .work-done-today, .work-needs-rest) > summary span, .work-notes .work-outstanding h2 small { margin: 0; color: var(--noeis-ink-subtle); font: inherit; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+
+/* The hanging margin, one way across Work. Dates and priority numbers hang in a left margin, large, so the page is read by them;
+   the time between dated entries is hatched ground in that margin, strongest beside the entries and fading between them. */
+.work-hang-date { display: grid; justify-items: end; align-content: start; font: 12.5px/1.35 var(--font-sans); color: var(--noeis-ink-muted); }
+.work-hang-date small { font: inherit; }
+.work-hang-date b { margin: 2px 0 3px; font: 400 44px/1 var(--font-serif); letter-spacing: -.01em; color: var(--noeis-ink); }
+.work-between { display: grid; grid-template-columns: calc(var(--work-hang) - 24px) minmax(0, 1fr); gap: 0 24px; align-items: center; min-height: 56px; font: italic 14px/1.4 var(--font-serif); color: var(--noeis-ink-muted); }
+.work-between::before { content: ''; align-self: stretch; background: repeating-linear-gradient(135deg, var(--noeis-rule-strong) 0 1px, transparent 1px 6px); mask: linear-gradient(#000, rgb(0 0 0 / .12) 50%, #000); -webkit-mask: linear-gradient(#000, rgb(0 0 0 / .12) 50%, #000); }
+.work-writing .ProseMirror .work-hang-date, .work-writing .ProseMirror .work-between { display: none; }
+@container work-page (min-width: 760px) {
+  .work-page > .work-note-paper:has(h2.work-entry-date) { max-width: calc(var(--work-reading-width) + var(--work-hang)); padding-left: var(--work-hang); }
+  .work-writing .ProseMirror > h2.work-entry-date { position: relative; height: 0; margin: 40px 0 18px; border-top: 1px solid var(--noeis-ink); font-size: 0; }
+  .work-writing .ProseMirror-focused > h2.work-entry-date.is-editing { height: auto; padding-top: 12px; font-size: 13px; }
+  .work-writing .ProseMirror > h2.work-entry-date:first-child { margin-top: 8px; }
+  .work-writing .ProseMirror > h2.work-entry-date > .work-hang-date { display: grid; position: absolute; top: 14px; right: calc(100% + 24px); width: calc(var(--work-hang) - 24px); cursor: text; }
+  .work-writing .ProseMirror > h2.work-entry-date > .work-entry-toggle { position: absolute; top: 14px; left: calc(-1 * var(--work-hang)); height: 20px; }
+  .work-writing .ProseMirror > .work-between { display: grid; margin: 32px 0 0 calc(-1 * var(--work-hang)); }
+  .work-writing .ProseMirror > .work-between + h2.work-entry-date { margin-top: 0; }
+  /* In dated notes a top-level point is the topic, and what's under it reads quieter. */
+  .work-note-paper:has(h2.work-entry-date) .ProseMirror > :is(ul, ol) > li > p { font: 400 19px/1.45 var(--font-serif); }
+  .work-note-paper:has(h2.work-entry-date) .ProseMirror li li { color: var(--noeis-ink-muted); font-size: 16px; }
+}

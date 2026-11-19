@@ -14,7 +14,7 @@
 .work-project-log-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
 .work-project-studio .work-project-log-heading h2 { margin: 0; }
 .work-notes .work-project-new-note { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--noeis-thread-strong); border-radius: 6px; padding: 8px 12px; color: var(--noeis-thread-strong); font: 14px var(--font-sans); white-space: nowrap; }
-.work-project-studio .work-log-entry span { display: block; font: 16px/1.6 var(--font-sans); overflow-wrap: anywhere; }
+.work-project-studio .work-log-entry > span { display: block; font: 16px/1.6 var(--font-sans); overflow-wrap: anywhere; }
 .work-notes .work-project-studio .work-log-entry:disabled { opacity: 1; }
 .work-project-studio .work-project-decision, .work-project-studio .work-project-link { font-family: var(--font-sans); overflow-wrap: anywhere; }
 .work-project-studio .work-project-closing { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--noeis-rule); }
@@ -37,3 +37,12 @@
 /* The row draws the one rule under an entry and its ···; a 44px target centres the ··· on the entry's date line. */
 .work-project-log-row > .work-menu > summary { display: grid; place-items: center; width: 44px; min-height: 44px; }
 @media (max-width: 1100px) { .work-project-studio { display: block; } .work-project-studio .work-project-page { display: block; } .work-project-context { margin-top: 24px; } }
+
+/* The log hangs its dates like a dated note: one date per day in the margin, hatched time between days. */
+.work-project-log-row > .work-hang-date, .work-project-studio .work-between { display: none; }
+@container work-page (min-width: 760px) {
+  .work-project-log-row { display: grid; grid-template-columns: calc(var(--work-hang) - 24px) minmax(0, 1fr) auto; gap: 0 24px; }
+  .work-project-log-row > .work-hang-date { display: grid; padding-top: 14px; }
+  .work-project-studio .work-between { display: grid; }
+  .work-project-studio .work-log-entry .work-log-day { display: none; }
+}
