@@ -22,6 +22,7 @@ export const writeEditionLocal = (issueId, kind, value) => {
 };
 export const findingAnchor = (id) => `edition-item-${id}`;
 export const findingHash = (id) => `#${encodeURIComponent(findingAnchor(id))}`;
+export const editionIssuePath = (id) => `/editions/${encodeURIComponent(id)}`;
 export const readingPosition = (root) => {
   const items = [...(root?.querySelectorAll('[data-reading-item]') || [])];
   return items.find((el) => el.getBoundingClientRect().bottom > 160) || items[items.length - 1];

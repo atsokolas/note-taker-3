@@ -149,6 +149,8 @@
 }
 
 .work-week-close > summary, .work-week-close form summary { cursor: pointer; padding-block: 6px; }
+.work-week-close > summary { box-sizing: border-box; min-block-size: 44px; align-content: center; }
+.work-week-close__preview { display: block; margin-block-start: var(--space-1); color: var(--noeis-ink-muted); font-size: .875em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .work-week-close ul { list-style: none; padding: 0; margin: 0; }
 .work-week-close li { padding-block: 10px; border-block-start: 1px solid var(--noeis-rule); overflow-wrap: anywhere; }
 .work-week-close h3 { margin: 0 0 4px; font: 1rem/1.4 var(--font-serif); }

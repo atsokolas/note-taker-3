@@ -8,6 +8,7 @@ const stillApplies = (item, receipt) => {
   if (receipt.kind === 'waiting') return item.list === 'waiting' && item.waitingOn === receipt.owner;
   return Boolean(receipt.operation) && (receipt.kind === 'done' ? item.completion : item.plan)?.operationId === receipt.operation;
 };
+const mondayHeading = 'Monday starts here';
 
 export default function WorkWeekClose({ week, today, timeZone, items, notes, session, onAction, onSort, onOpen }) {
   const monday = shiftDay(week, 7);
@@ -25,8 +26,9 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
   const left = rows.filter(({ receipt }) => receipt?.phase !== 'saved').length;
   const filed = rows.length - left;
   const busy = rows.some(({ receipt }) => ['saving', 'retrying'].includes(receipt?.phase));
-  const carried = items.filter(item => !item.completed && !item.pending && !item.plan?.pending && item.plannedOn === monday
+  const carried = items.filter(item => item.title?.trim() && !item.completed && !item.pending && !item.plan?.pending && item.plannedOn === monday
     && item.plan?.actionAt && dayInZone(item.plan.actionAt, timeZone) >= week);
+  const [firstMondayTask] = carried;
 
   const update = (id, receipt) => setReceipts(current => ({ ...current, [id]: receipt }));
 
@@ -88,7 +90,10 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
 
   return (
     <details className="work-weekly-review work-week-close" onToggle={event => setOpen(event.currentTarget.open)}>
-      <summary>Close the week{left ? ` · ${left} to review` : ''}</summary>
+      <summary>
+        Close the week{left ? ` · ${left} to review` : ''}
+        {!open && firstMondayTask ? <span className="work-week-close__preview">{mondayHeading} · {firstMondayTask.title}</span> : null}
+      </summary>
       {open ? <>
         {rows.length ? <ul ref={list}>{rows.map(({ item, receipt }) => {
           const retrying = receipt?.phase === 'retrying';
@@ -132,7 +137,7 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
             </li>
           );
         })}</ul> : !carried.length ? <p>Nothing needs a decision.</p> : null}
-        {carried.length ? <section aria-label="Monday starts here"><h3>Monday starts here</h3><ul>{carried.map(item => (
+        {carried.length ? <section aria-label={mondayHeading}><h3>{mondayHeading}</h3><ul>{carried.map(item => (
           <li key={item.id}>{item.title}{' '}{source(item)}</li>
         ))}</ul></section> : null}
         {filed > 0 && left === 0 ? <p className="work-week-close__colophon">That’s the week. {filed} {filed === 1 ? 'decision' : 'decisions'} filed.</p> : null}

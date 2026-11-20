@@ -316,6 +316,49 @@ it('opens a bookmarked issue at the exact finding, even within the same column',
   const heading = await screen.findByRole('heading', { name: two.title });
   await waitFor(() => expect(heading.closest('article')).toHaveFocus());
 });
+it('copies the finding with its limit and exact issue link', async () => {
+  mockSearch = 'item=one&by=jarvis';
+  const previous = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  const writeText = jest.fn().mockResolvedValue();
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  try {
+    render(<Editions />);
+    const action = await screen.findByRole('button', { name: 'Copy clipping' });
+    action.focus();
+    fireEvent.click(action);
+    expect(await screen.findByRole('button', { name: 'Copied.' })).toHaveFocus();
+    expect(writeText).toHaveBeenCalledWith([
+      item.title,
+      item.finding,
+      `What it doesn’t show\n${item.boundary}`,
+      'Weekend Readings · Edition 2\nhttp://localhost/editions/e1#edition-item-one'
+    ].join('\n\n'));
+    expect(api.shareEdition).not.toHaveBeenCalled();
+  } finally {
+    if (previous) Object.defineProperty(navigator, 'clipboard', previous);
+    else delete navigator.clipboard;
+  }
+});
+it('keeps the same clipping selectable when clipboard access is denied', async () => {
+  const previous = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  const writeText = jest.fn().mockRejectedValue(new Error('denied'));
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  try {
+    render(<Editions />);
+    const action = await screen.findByRole('button', { name: 'Copy clipping' });
+    action.focus();
+    fireEvent.click(action);
+    const field = await screen.findByRole('textbox', { name: 'Copy the text manually' });
+    expect(action).toHaveFocus();
+    expect(field).toHaveAttribute('readonly');
+    expect(field).toHaveValue(writeText.mock.calls[0][0]);
+    field.focus();
+    await waitFor(() => expect(field.selectionEnd - field.selectionStart).toBe(field.value.length));
+  } finally {
+    if (previous) Object.defineProperty(navigator, 'clipboard', previous);
+    else delete navigator.clipboard;
+  }
+});
 it('sets a finding aside with Not for me, and Undo brings it back', async () => {
   api.setEditionItemState.mockImplementation(async (_id, itemId, status) => ({ itemId, readerStatus: status, edition: { ...edition, items: [{ ...item, readerStatus: status }] } }));
   render(<Editions />);

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import CopyClip from '../../CopyClip';
 import {
   beginCarry,
   beginContributions,
@@ -73,27 +74,6 @@ export const PocketField = ({ id, label, value, onChange, placeholder, rows = 2 
     />
   </>
 );
-
-export const CopyClip = ({ clip, idleLabel, copiedLabel = 'Copied.' }) => {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return undefined;
-    const timer = window.setTimeout(() => setCopied(false), 1600);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-  if (!clip) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        if (!navigator.clipboard?.writeText) return;
-        navigator.clipboard.writeText(clip).then(() => setCopied(true)).catch(() => {});
-      }}
-    >
-      {copied ? copiedLabel : idleLabel}
-    </button>
-  );
-};
 
 const SetAsideWork = ({ aside, caption, bringLabel, tryLabel, onBring, onTry }) => (
   aside ? (
