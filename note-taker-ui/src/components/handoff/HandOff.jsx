@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { handOff } from '../../api/handoffs';
 
@@ -30,6 +30,8 @@ const HandOff = ({ context, shortcut = true, readExcerpt }) => {
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
   const surface = useRef(null);
+  const restoreFocus = useRef(false);
+  const focusOrigin = useRef(null);
   const work = ['work_task', 'work_note'].includes(context?.kind);
   const recipient = to ? WHO[to] : work ? 'the next agent with Work access' : WHO[''];
   const begin = useCallback(() => {
@@ -40,9 +42,23 @@ const HandOff = ({ context, shortcut = true, readExcerpt }) => {
       surface.current?.querySelector('input')?.focus();
       return;
     }
+    focusOrigin.current = document.activeElement;
     setPassage(excerpt.trim().slice(0, 4000));
     setOpen(true);
   }, [context?.excerpt, open, readExcerpt]);
+
+  useLayoutEffect(() => {
+    const target = open ? surface.current?.querySelector('input') : restoreFocus.current ? surface.current : null;
+    restoreFocus.current = false;
+    if (!target) return undefined;
+    target.focus({ preventScroll: !open });
+    // An editor can finish a deferred focus after the preview enters.
+    const frame = window.requestAnimationFrame(() => {
+      if (target.isConnected && document.activeElement === focusOrigin.current
+        && target.closest('details')?.open !== false) target.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [open]);
 
   useEffect(() => {
     const onKey = (event) => {
@@ -75,9 +91,9 @@ const HandOff = ({ context, shortcut = true, readExcerpt }) => {
   }
 
   const cancel = () => {
+    restoreFocus.current = true;
     setOpen(false);
     setError('');
-    window.requestAnimationFrame(() => surface.current?.focus({ preventScroll: true }));
   };
 
   const submit = async (event) => {
@@ -108,7 +124,6 @@ const HandOff = ({ context, shortcut = true, readExcerpt }) => {
         <p>To {recipient}</p>
       </div>
       <input
-        autoFocus
         aria-label="What should be done while you are away"
         placeholder="What should be done while you are away?"
         value={ask}
