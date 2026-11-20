@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { currentAccountId } from '../../../utils/browserScope';
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
 import { Node, mergeAttributes } from '@tiptap/core';
 import { Button, buttonClass } from '../../ui';
@@ -83,6 +84,13 @@ import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../..
 import '../../../styles/think-writing.css';
 
 const AUTOSAVE_DELAY_MS = 850;
+let notebookSourceReturn = null;
+
+const notebookSourceLink = (target) => {
+  const link = target.closest?.('a[href]');
+  return link && (!link.target || link.target === '_self') && link.origin === window.location.origin
+    && /^\/(library|articles|wiki)(?:\/|$)/.test(link.pathname) ? link : null;
+};
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -315,6 +323,13 @@ const NotebookEditor = ({
   const flushWorkbench = workbench.flush;
   const continuityRestoredRef = useRef('');
   const navigate = useNavigate();
+  const { key: historyKey } = useLocation();
+  const accountId = currentAccountId();
+  const openingSource = useRef(false);
+  const leavingPlace = useRef(null);
+  const sourceReturn = notebookSourceReturn && notebookSourceReturn.key === historyKey
+    && notebookSourceReturn.accountId === accountId && notebookSourceReturn.entryId === entry?._id
+    ? notebookSourceReturn : null;
   const { highlights, highlightMap, loading: highlightsLoading, error: highlightsError } = useHighlights();
   const { articles } = useArticles({ enabled: insertMode === 'article' });
   const { concepts } = useConcepts();
@@ -756,30 +771,66 @@ const NotebookEditor = ({
     return attempt;
   }, [buildSavePayload, onSave]);
 
+  const writingPlace = useCallback(() => {
+    const range = { fullRange: true };
+    const target = domNotebookTarget(editor, range) || selectionNotebookTarget(editor, range) || targetFromEditor(editor);
+    return target ? { target, scrollY: Math.max(0, window.scrollY || 0), updatedAt: new Date().toISOString() } : null;
+  }, [editor]);
+
+  const rememberWritingPlace = useCallback((place = writingPlace()) => {
+    if (place) updateWorkbench(current => ({ ...current, continuity: place }));
+    return place;
+  }, [writingPlace, updateWorkbench]);
+
+  const flushWriting = useCallback(async () => {
+    let saved;
+    do { saved = await commitDraft(); } while (saved && dirtyRef.current);
+    return saved && await flushWorkbench();
+  }, [commitDraft, flushWorkbench]);
+
   useEffect(() => {
-    onRegisterSave?.(async () => {
-      const continuityTarget = targetFromEditor(editor);
-      if (continuityTarget?.blockId) {
-        updateWorkbench(current => ({
-          ...current,
-          continuity: {
-            target: continuityTarget,
-            scrollY: Math.max(0, window.scrollY || 0),
-            updatedAt: new Date().toISOString()
-          }
-        }));
-      }
-      let saved;
-      do { saved = await commitDraft(); } while (saved && dirtyRef.current);
-      if (!saved) return false;
-      return flushWorkbench();
+    onRegisterSave?.(() => {
+      rememberWritingPlace();
+      return flushWriting();
     });
     return () => onRegisterSave?.(null);
-  }, [commitDraft, editor, flushWorkbench, onRegisterSave, updateWorkbench]);
+  }, [flushWriting, onRegisterSave, rememberWritingPlace]);
+
+  const followSource = async (event) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = notebookSourceLink(event.target);
+    if (!link) return;
+    event.preventDefault();
+    if (openingSource.current) return;
+    openingSource.current = true;
+    const place = rememberWritingPlace(leavingPlace.current?.entryId === entry._id ? leavingPlace.current.place : undefined);
+    leavingPlace.current = null;
+    try {
+      if (!(await flushWriting()) || editor?.isDestroyed) return;
+      notebookSourceReturn = place && accountId ? { ...place, entryId: entry._id, key: historyKey, accountId } : null;
+      navigate(link.pathname + link.search + link.hash);
+    } finally {
+      openingSource.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (!editor || !sourceReturn) return undefined;
+    continuityRestoredRef.current = String(sourceReturn.entryId);
+    setEditingBody(true);
+    const frame = requestAnimationFrame(() => {
+      if (focusEditorTarget(editor, sourceReturn.target, { selection: true })) {
+        window.scrollTo({ top: sourceReturn.scrollY, behavior: 'auto' });
+        editor.commands.scrollIntoView?.();
+      }
+      if (notebookSourceReturn === sourceReturn) notebookSourceReturn = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [editor, sourceReturn]);
 
   useEffect(() => {
     const entryId = String(entry?._id || '');
-    if (!editor || !entryId || continuityRestoredRef.current === entryId) return undefined;
+    if (!editor || !entryId || sourceReturn || continuityRestoredRef.current === entryId) return undefined;
     continuityRestoredRef.current = entryId;
     const explicitIntent = [...new URLSearchParams(window.location.search).keys()]
       .some(key => !['tab', 'entryId'].includes(key));
@@ -1613,7 +1664,14 @@ const NotebookEditor = ({
   }
 
   return (
-    <div className="think-notebook-editor">
+    <div className="think-notebook-editor" onClickCapture={followSource}
+      onPointerDownCapture={event => {
+        leavingPlace.current = notebookSourceLink(event.target) ? { entryId: entry._id, place: writingPlace() } : null;
+      }}
+      onKeyDownCapture={event => {
+        if (event.key === 'Tab' && editor?.view.dom.contains(event.target)) leavingPlace.current = { entryId: entry._id, place: writingPlace() };
+      }}
+    >
       <div className="think-notebook-editor-header">
         <EntryBar
           kind={entryType || 'note'}
@@ -1857,17 +1915,7 @@ const NotebookEditor = ({
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) {
             setBodyHasFocus(false);
-            const continuityTarget = targetFromEditor(editor);
-            if (continuityTarget?.blockId) {
-              workbench.update(current => ({
-                ...current,
-                continuity: {
-                  target: continuityTarget,
-                  scrollY: Math.max(0, window.scrollY || 0),
-                  updatedAt: new Date().toISOString()
-                }
-              }));
-            }
+            rememberWritingPlace();
             commitDraft();
           }
         }}
