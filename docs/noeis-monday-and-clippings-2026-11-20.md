@@ -15,5 +15,5 @@
 
 ## Small details to try next
 
-- Give Work’s completed group a date heading when it holds items from different days. Open work remains easy to scan, and a finished item’s date stays visible when it moves.
+- Let a freshly completed Work item be reopened from the weekly ledger. Focus could return to its restored to-do.
 - Let Editions copy an explicitly selected sentence with the same issue credit and exact finding link. The whole-finding action can stay where it is.
