@@ -215,7 +215,7 @@ describe('OpenSentenceStoryboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Then' }));
     expect(screen.getByRole('heading', { name: STORYBOARD_COMPUTE_TITLE })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: STORYBOARD_THEN_NOW })).toBeInTheDocument();
-    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_THEN_NOW);
+    expect(screen.getByText('Revised wording').nextElementSibling).toHaveTextContent(STORYBOARD_THEN_NOW);
     expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
     expect(document.querySelector('.open-sentence-pocket__then-source')).toHaveTextContent(STORYBOARD_THEN_QUOTATION);
     expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_THEN_BESIDE.passage);

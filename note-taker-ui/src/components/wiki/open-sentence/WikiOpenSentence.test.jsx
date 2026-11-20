@@ -446,7 +446,7 @@ describe('WikiOpenSentence', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
-    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText('Revised wording').nextElementSibling).toHaveTextContent('Memory compounds with review.');
     expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent('Memory was a pile of notes.');
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
