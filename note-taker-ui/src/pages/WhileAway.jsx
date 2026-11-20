@@ -9,7 +9,8 @@ const hrefOf = item => ({
   note: `/think?tab=notebook&entryId=${item.id}`,
   article: `/articles/${item.id}`,
   highlight: `/library?articleId=${item.id}&highlightId=${item.highlightId}`,
-  work_note: '/work',
+  work_note: `/work?note=${encodeURIComponent(item.id)}`,
+  work_task: item.href?.startsWith('/work?') ? item.href : '/work',
   wiki_page: `/wiki/workspace?page=${item.id}`
 }[item.kind] || '/');
 
@@ -168,6 +169,7 @@ const WhileAway = ({ only }) => {
               })}>Call it off</button></>
               : null}
           </p>
+          {handoff.context?.kind === 'work_task' && handoff.context.excerpt ? <blockquote>{handoff.context.excerpt}</blockquote> : null}
           {['did', 'open', 'next'].filter(field => handoff[field]).map(field => (
             <p key={field} className="while-away__said"><b>{{ did: 'Did', open: 'Open', next: 'Next' }[field]}</b> {handoff[field]}</p>
           ))}

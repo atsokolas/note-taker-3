@@ -87,9 +87,12 @@ a:hover {
 .handoff-open { padding: 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: var(--text-secondary); font: 0.78rem var(--font-sans); cursor: pointer; }
 .handoff-open:hover, .handoff-open:focus-visible { border-bottom-color: currentColor; color: var(--text-primary); }
 .handoff-line { margin: 0 0 14px; color: var(--text-secondary); font: italic 0.88rem/1.4 var(--font-serif); }
-.handoff-form { display: flex; align-items: baseline; gap: 10px; margin: 0 0 14px; border-bottom: 1px solid var(--border-subtle); }
-.handoff-form input { flex: 1; min-width: 16rem; padding: 6px 0; border: 0; background: transparent; color: var(--text-primary); font: 1rem/1.5 var(--font-serif); outline: none; }
+.handoff-form { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 0 0 14px; border-bottom: 1px solid var(--border-subtle); }
+.handoff-form input { flex: 1 1 16rem; min-width: 0; padding: 6px 0; border: 0; background: transparent; color: var(--text-primary); font: 1rem/1.5 var(--font-serif); }
 .handoff-form select, .handoff-form button { border: 0; background: transparent; color: var(--text-secondary); font: 0.78rem var(--font-sans); cursor: pointer; }
+.handoff-preview { flex: 0 1 100%; min-width: 0; padding-block: 8px; overflow-wrap: anywhere; }
+.handoff-preview blockquote { margin: .4rem 0; padding-inline-start: .8rem; border-inline-start: 1px solid var(--noeis-rule); }
+.handoff-preview p { margin: .4rem 0 0; color: var(--text-secondary); font-size: .85rem; }
 .while-away { max-width: 42rem; margin: 0 auto; padding: 48px 24px 96px; font-family: var(--font-serif); }
 .while-away h1 { margin: 0 0 32px; font: 400 1.9rem/1.2 var(--font-serif); }
 .while-away__handoff { padding: 20px 0; border-top: 1px solid var(--border-subtle); }

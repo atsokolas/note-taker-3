@@ -3569,7 +3569,8 @@ const handoffSchema = new mongoose.Schema({
     kind: { type: String, default: '' },
     id: { type: String, default: '' },
     title: { type: String, default: '' },
-    excerpt: { type: String, default: '', maxlength: 4000 }
+    excerpt: { type: String, default: '', maxlength: 4000 },
+    href: { type: String, default: '' }
   },
   // '' for any agent, 'noeis' for the built-in agent, else one connection's id.
   to: { type: String, default: '' },

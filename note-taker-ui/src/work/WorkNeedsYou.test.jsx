@@ -89,7 +89,8 @@ test('one typed line with @name lands in Owed to you, and Nudge drafts a message
   fireEvent.change(line, { target: { value: '@Priya data room access' } }); fireEvent.submit(line.closest('form'));
   await waitFor(() => expect(records.at(-1)).toMatchObject({ title: 'data room access', workItem: { kind: 'task', list: 'waiting', waitingOn: 'Priya' } }));
   const owed = within(screen.getByRole('region', { name: 'Owed to you' }));
-  expect(await owed.findByText('Priya owes you data room access')).toBeInTheDocument();
+  expect(await owed.findByText('data room access')).toBeInTheDocument();
+  expect(owed.getByText('Waiting on Priya')).toBeInTheDocument();
   fireEvent.click(owed.getAllByRole('button', { name: 'Nudge' })[0]);
   expect(screen.getByText('Hi Mira, any news on the pilot numbers? No rush if it’s in hand.')).toBeInTheDocument();
 });

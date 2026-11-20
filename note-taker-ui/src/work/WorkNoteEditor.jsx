@@ -172,10 +172,10 @@ export default function WorkNoteEditor({ note, onChange, onMakeOpen, fresh = fal
     if (contents.current) contents.current.open = false;
   }, [editor]);
   useLayoutEffect(() => {
-    if (!editor || sourceBlock || !sourceDay) return;
+    if (!editor || (sourceBlock && !sourceMissing) || !sourceDay) return;
     const entry = noteEntries(editor.state.doc).find(item => item.day === sourceDay);
     if (entry) openEntry(entry);
-  }, [editor, openEntry, sourceBlock, sourceDay]);
+  }, [editor, openEntry, sourceBlock, sourceDay, sourceMissing]);
   const addEntry = (existingWriting = false) => {
     if (!editor || !validDay(day)) return;
     const existing = noteEntries(editor.state.doc).find(entry => entry.day === day);

@@ -50,13 +50,16 @@ export default function WorkNeedsYou({ needs, notes, folders, items, today, onSo
   const { planned, carried } = dayTasks(items || needs.next, notes, today, today);
   // Next is what has no place yet: a task already planned for a day, linked to a weekly priority or gone quiet shows there instead.
   const placed = new Set([...planned, ...carried, ...needs.quiet].map(item => item.id).concat(priorities.flatMap(priority => priority.taskIds)));
-  const next = needs.next.filter(item => !placed.has(item.id));
+  const next = needs.next.filter(item => !item.plannedOn && !placed.has(item.id));
   return <section className="work-outstanding work-home-margin" aria-label="Needs you">
     {children}
-    <details className="work-needs-rest work-rail-next" open><summary>Next <span>{next.length}</span></summary>{next.map(item => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} notes={notes} onOpen={onOpen} onAction={onAction} onEdit={onEdit} aside={item.plannedOn ? <time>{displayDay(item.plannedOn)}</time> : null} actions={<>{star(item)}{sorting(item, false)}</>} />)}{!next.length ? <p className="work-weekly-empty">Nothing in Next.</p> : null}</details>
+    <details className="work-needs-rest work-rail-next" open><summary>Next <span>{next.length}</span></summary>{next.map(item => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} notes={notes} onOpen={onOpen} onAction={onAction} onEdit={onEdit} actions={<>{star(item)}{sorting(item, false)}</>} />)}{!next.length ? <p className="work-weekly-empty">Nothing in Next.</p> : null}</details>
     {struckRows}
     {section('New from your notes', needs.fresh, freshRow, 'sort each once')}
-    {section('Owed to you', needs.waiting, item => { const days = daysBetween(sortedSince(item), today); return row({ ...item, title: `${item.waitingOn} owes you ${item.title.charAt(0).toLowerCase()}${item.title.slice(1)}` }, <><time className={days >= CHASE_DAYS ? 'is-long' : ''}>{ago(days)}</time>{source(item)}<button onClick={() => setDrafting(drafting === item.id ? null : item.id)}>Nudge</button></>, draft(item)); })}
+    {section('Owed to you', needs.waiting, item => {
+      const days = daysBetween(sortedSince(item), today);
+      return row(item, <><span>Waiting on {item.waitingOn}</span><time className={days >= CHASE_DAYS ? 'is-long' : ''}>{ago(days)}</time>{source(item)}<button onClick={() => setDrafting(drafting === item.id ? null : item.id)}>Nudge</button></>, draft(item));
+    })}
     {needs.silent.length || needs.quiet.length ? <section aria-label="Gone quiet"><h2>Gone quiet</h2>
       {needs.silent.map(item => <p className="work-needs-project" key={item.id}><button onClick={() => onProject(item.id)}>{item.name}</button><span>Untouched for {plural(Math.floor(item.idle / 7), 'week')}{item.next[0] ? `. Next: ${item.next[0].title}` : ''}.</span><span className="work-carried"><button onClick={() => onProject(item.id)}>Write one line</button><button onClick={() => onSaveProject(item.record, { paused: true })}>Pause</button></span></p>)}
       {needs.quiet.map(item => row(item, source(item), quietAsk(item)))}</section> : null}

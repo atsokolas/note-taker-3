@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import WorkItemSource from './WorkItemSource';
+import WorkItemSource, { WorkSourceHistory } from './WorkItemSource';
 import WorkOpenComposer from './WorkOpenComposer';
 
 import { runInNovember2026 } from './testClock';
@@ -9,8 +9,18 @@ runInNovember2026();
 const origin = { noteId: 'source', blockId: 'passage', notebookName: 'Customers', noteTitle: 'Supplier meeting', day: '2026-11-03', quote: 'They promised six weeks.' };
 test('source receipt identifies the original notebook/date and links to the saved passage', () => {
   render(<WorkItemSource origin={origin} quote />);
-  expect(screen.getByRole('link', { name: 'From Customers · 3 Nov' })).toHaveAttribute('href', '/work?note=source&block=passage');
+  expect(screen.getByRole('link', { name: 'From Customers · 3 Nov' })).toHaveAttribute('href', '/work?note=source&block=passage&entry=2026-11-03');
   expect(screen.getByText('They promised six weeks.')).toBeInTheDocument();
+});
+
+test('history keeps the captured quote beside the current text of the same block', () => {
+  const view = render(<WorkSourceHistory origin={origin} note={{ content: '<p data-block-id="passage">The revised timeline is eight weeks.</p>' }} />);
+  expect(screen.getByText('Original words').nextElementSibling).toHaveTextContent(origin.quote);
+  expect(screen.getByText('Current line').nextElementSibling).toHaveTextContent('The revised timeline is eight weeks.');
+  view.rerender(<WorkSourceHistory origin={origin} note={{ content: '<p data-block-id="neighbor">An unrelated line.</p>' }} />);
+  expect(screen.getByText(origin.quote)).toBeVisible();
+  expect(screen.getByText('The current line is unavailable.')).toBeVisible();
+  expect(screen.queryByText('An unrelated line.')).toBeNull();
 });
 test('destination notebook selection uses the existing draft and never changes the source', () => {
   const change = jest.fn(), begin = jest.fn();

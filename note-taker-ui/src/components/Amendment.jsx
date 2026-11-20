@@ -1,11 +1,11 @@
 import React from 'react';
 
-export default function Amendment({ before, after, children }) {
+export default function Amendment({ before, after, beforeLabel = 'Previous wording', afterLabel = 'Revised wording', children }) {
   return (
     <div className="reading-amendment">
       <dl>
-        <div><dt>Previous wording</dt><dd>{before}</dd></div>
-        <div><dt>Revised wording</dt><dd>{after}</dd></div>
+        <div><dt>{beforeLabel}</dt><dd>{before}</dd></div>
+        <div><dt>{afterLabel}</dt><dd>{after}</dd></div>
       </dl>
       {children}
     </div>

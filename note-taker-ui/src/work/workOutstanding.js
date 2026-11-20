@@ -11,6 +11,7 @@ export const sortedSince = item => item.sortedOn || writtenDay(item);
 export function listOf(item, notes, today) {
   if (item.list === 'someday') return item.returnOn && item.returnOn <= today ? 'new' : 'someday';
   if (item.list) return item.list;
+  if (item.plannedOn) return 'next';
   const source = item.noteId && notes.find(note => [note._id, note.clientId].includes(item.noteId));
   return source && daysBetween(writtenDay(source), today) <= FRESH_DAYS ? 'new' : 'next';
 }

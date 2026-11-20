@@ -14,7 +14,7 @@ test('real Mongo: the reader hands off, one agent takes it, and what it wrote co
     const userId = new mongoose.Types.ObjectId();
     const agents = {
       claude: { id: String(new mongoose.Types.ObjectId()), label: 'Claude Code', scopes: ['read', 'agent-write'] },
-      codex: { id: String(new mongoose.Types.ObjectId()), label: 'Codex', scopes: ['read', 'agent-write'] }
+      codex: { id: String(new mongoose.Types.ObjectId()), label: 'Codex', scopes: ['read', 'agent-write', 'work'] }
     };
 
     const app = express();
@@ -74,6 +74,20 @@ test('real Mongo: the reader hands off, one agent takes it, and what it wrote co
     // An agent may hand work on; it says who handed it.
     assert.equal((await call('/api/handoffs', { as: 'claude', body: { ask: 'Check the citations.' } })).from, 'Claude Code');
     assert.equal((await call('/api/handoffs?status=nonsense')).code, 400);
+
+    const originId = String(new mongoose.Types.ObjectId());
+    const work = await NotebookEntry.create({ userId, knowledgeContext: 'work', title: 'Confirm the pilot', workItem: {
+      kind: 'task', origin: { noteId: originId, blockId: 'pilot', quote: 'Ask whether the dock is free Friday.' }
+    } });
+    const context = { kind: 'work_task', id: String(work._id), title: work.title, excerpt: work.workItem.origin.quote };
+    assert.equal((await call('/api/handoffs', { body: { ask: 'Draft the question.', context: { ...context, excerpt: 'Invented quote' } } })).code, 409);
+    assert.equal((await call('/api/handoffs', { as: 'claude', body: { ask: 'Draft the question.', context } })).code, 403);
+    const workHandoff = await call('/api/handoffs', { body: { ask: 'Draft the question.', context } });
+    assert.equal(workHandoff.code, 201);
+    assert.equal(workHandoff.context.href, `/work?note=${originId}&block=pilot`);
+    assert.equal((await call(`/api/handoffs/${workHandoff.id}`, { as: 'claude' })).code, 404);
+    assert.equal((await call(`/api/handoffs/${workHandoff.id}/take`, { as: 'claude', body: {} })).code, 409);
+    assert.equal((await call(`/api/handoffs/${workHandoff.id}`, { as: 'codex' })).context.excerpt, context.excerpt);
 
     // Everything in pencil, whoever wrote it, is the reader's to take up.
     const { pencilled } = require('../../services/pencilled');

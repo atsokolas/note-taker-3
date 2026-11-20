@@ -147,3 +147,12 @@
   .work-weekly-priority .work-weekly-number { position: absolute; top: 26px; left: calc(-1 * var(--work-hang)); width: calc(var(--work-hang) - 24px); margin: 0; text-align: right; color: var(--noeis-ink-muted); font: 400 44px/1 var(--font-serif); }
   .work-priority-ink { position: absolute; top: 84px; bottom: 28px; left: -38px; width: 14px; background: linear-gradient(var(--noeis-ink), var(--noeis-ink)) top / 100% calc(var(--done) * 100%) no-repeat, repeating-linear-gradient(135deg, var(--noeis-rule-strong) 0 1px, transparent 1px 5px); }
 }
+
+.work-week-close > summary, .work-week-close form summary { cursor: pointer; padding-block: 6px; }
+.work-week-close ul { list-style: none; padding: 0; margin: 0; }
+.work-week-close li { padding-block: 10px; border-block-start: 1px solid var(--noeis-rule); overflow-wrap: anywhere; }
+.work-week-close h3 { margin: 0 0 4px; font: 1rem/1.4 var(--font-serif); }
+.work-week-close :is(form, section) { margin-block-start: 8px; }
+.work-week-close form { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.work-week-close form input { max-width: min(14rem, 100%); }
+.work-week-close__source { text-decoration: underline; text-underline-offset: .2em; }
