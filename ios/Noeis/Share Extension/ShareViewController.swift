@@ -58,8 +58,7 @@ private struct SaveCard: View {
 
     private enum Stage: Equatable {
         case saving
-        case saved(marked: Bool)
-        case argues(view: String)
+        case saved(NoeisAPI.SavedLink, marked: Bool, view: String? = nil)
         case failed(String)
     }
 
@@ -84,17 +83,20 @@ private struct SaveCard: View {
                 switch stage {
                 case .saving:
                     HStack(spacing: 8) { ProgressView(); Text("Saving…").foregroundStyle(Ink.muted) }
-                case .saved(let marked):
-                    Label(marked ? "Saved, with the passage marked" : "Saved to your Library", systemImage: "checkmark.circle")
+                case .saved(let receipt, let marked, let view):
+                    Label(receipt.message, systemImage: "checkmark.circle")
                         .foregroundStyle(Ink.living)
-                case .argues(let view):
-                    Label("Saved", systemImage: "checkmark.circle").foregroundStyle(Ink.living)
-                    Text("This pushes against your view that \(view.lowercasedFirst)")
-                        .font(.system(.body, design: .serif))
-                        .padding(.top, 2)
-                    Text("It is waiting in the view, to file for or against.").font(.footnote).foregroundStyle(Ink.subtle)
+                    if marked { Text("Passage marked").foregroundStyle(Ink.muted) }
+                    if let href = receipt.href { Link("Open saved article", destination: href) }
+                    if let view {
+                        Text("This pushes against your view that \(view.lowercasedFirst)")
+                            .font(.system(.body, design: .serif))
+                            .padding(.top, 2)
+                        Text("It is waiting in the view, to file for or against.").font(.footnote).foregroundStyle(Ink.subtle)
+                    }
                 case .failed(let message):
                     Text(message).foregroundStyle(Ink.danger)
+                    if let page { Button("Retry") { Task { await save(page) } } }
                 }
             }
             .padding(20)
@@ -119,24 +121,28 @@ private struct SaveCard: View {
             stage = .failed("There is no web page here to save.")
             return
         }
+        await save(shared)
+    }
+
+    private func save(_ shared: SharedPage) async {
         page = shared
+        stage = .saving
         do {
-            let articleId = try await NoeisAPI.shared.save(url: shared.url, title: shared.title)
+            let receipt = try await NoeisAPI.shared.save(url: shared.url, title: shared.title)
             var marked = false
-            if let selection = shared.selection?.trimmingCharacters(in: .whitespacesAndNewlines), selection.count >= 3, !articleId.isEmpty {
-                marked = (try? await NoeisAPI.shared.mark(articleId: articleId, text: selection)) != nil
+            if let selection = shared.selection?.trimmingCharacters(in: .whitespacesAndNewlines), selection.count >= 3 {
+                marked = (try? await NoeisAPI.shared.mark(articleId: receipt.id, text: selection)) != nil
             }
-            stage = .saved(marked: marked)
+            stage = .saved(receipt, marked: marked)
             // Reading it against your views takes a moment; ask twice, then let it be.
             for delay in [1.0, 3.0] {
                 try? await Task.sleep(for: .seconds(delay))
-                if let reading = try? await NoeisAPI.shared.pushesAgainst(articleId: articleId) {
-                    stage = .argues(view: reading["view"].text)
+                if Task.isCancelled { return }
+                if let reading = try? await NoeisAPI.shared.pushesAgainst(articleId: receipt.id) {
+                    stage = .saved(receipt, marked: marked, view: reading["view"].text)
                     return
                 }
             }
-            try? await Task.sleep(for: .seconds(1))
-            close()
         } catch {
             stage = .failed(error.localizedDescription)
         }

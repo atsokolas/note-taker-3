@@ -50,7 +50,7 @@ const answer = ({ method, url, body }) => {
   if (pathname === '/save-article') {
     assert.ok(body.content.includes('Reading compounds'), 'the article body is read off the page');
     assert.strictEqual(body.author, 'Jane Writer');
-    return { _id: 'a1', title: body.title };
+    return { _id: 'a1', title: body.title, placement: body.placement };
   }
   if (pathname === '/articles/a1/highlights') {
     state.saved = { _id: 'a1', title: 'Why reading compounds', createdAt: '2026-10-16T00:00:00Z', highlights: [{ _id: 'h1', text: body.text }] };
@@ -176,7 +176,7 @@ const shot = async (page, name) => {
     await shot(card, 'popup-save');
     await card.selectOption('#folder', 'f1');
     await card.click('#save');
-    await card.waitForSelector('#receipt:has-text("Saved to Investing")');
+    await card.waitForSelector('#receipt:has-text("Saved in your Library · Investing")');
     await shot(card, 'popup-saved');
     await card.close();
 
@@ -226,6 +226,7 @@ const shot = async (page, name) => {
     await reader.reload();
     card = await popup();
     await card.waitForSelector('#receipt:has-text(", 1 highlight.")');
+    assert.match(await card.textContent('#receipt'), /Already saved/);
     await shot(card, 'popup-already-saved');
     await card.close();
     await reader.waitForFunction(() => document.querySelectorAll('noeis-mark').length === 2);
@@ -236,8 +237,9 @@ const shot = async (page, name) => {
     await reader.reload();
     card = await popup();
     await card.waitForSelector('#folder option[value="f1"]', { state: 'attached' });
+    await card.getByRole('button', { name: 'Put it on the nightstand' }).click();
     await card.click('#save');
-    await card.waitForSelector('#receipt:has-text("Saved to your Library")');
+    await card.waitForSelector('#receipt:has-text("Saved on your nightstand")');
     await card.close();
     await reader.waitForFunction(() => document.querySelector('noeis-margin'));
     await reader.waitForTimeout(3600);

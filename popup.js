@@ -1,5 +1,6 @@
 import { APP, request } from './api.js';
 import { mountSaveCardSwitch } from './save-card-switch.js';
+import { savedPlacement } from './note-taker-ui/src/pages/placementModel.js';
 
 /* The save card.
  *
@@ -120,7 +121,7 @@ const open = async () => {
     $('pageTitle').textContent = saved.title || $('pageTitle').textContent;
     $('libraryLink').href = `${APP}/library?articleId=${encodeURIComponent(saved._id)}`;
     $('libraryLink').textContent = 'Open in Noeis';
-    say(`Saved on ${onDay(saved.createdAt)}${marks.length ? `, ${count(marks.length, 'highlight')}` : ''}. Select text to mark it.`);
+    say(`Already saved · ${onDay(saved.createdAt)}${marks.length ? `, ${count(marks.length, 'highlight')}` : ''}. Select text to mark it.`);
     tell(tab, { type: 'open', article: { id: saved._id, title: saved.title }, marks, palette: colors });
     return;
   }
@@ -174,7 +175,7 @@ const open = async () => {
       $('libraryLink').href = `${APP}/library?articleId=${encodeURIComponent(article._id)}`;
       $('libraryLink').textContent = 'Open in Noeis';
       const folder = folderId ? $('folder').selectedOptions[0].text : '';
-      say(`Saved${folder ? ` to ${folder}` : ' to your Library'}. Select text to mark it.`);
+      say(`Saved ${savedPlacement(article)}${folder ? ` · ${folder}` : ''}. Select text to mark it.`);
       tell(tab, { type: 'open', article: { id: article._id, title: article.title }, marks: [], palette: colors, fresh: true });
     } catch (error) {
       $('save').disabled = false;

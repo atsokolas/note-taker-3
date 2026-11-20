@@ -174,13 +174,34 @@ struct NoeisAPI {
         return try await send("POST", "/articles/\(articleId)/highlights", body: ["text": .string(text), "anchor": .object(anchor)])["highlight"] ?? .null
     }
 
-    /// Saves a link; the server fetches and keeps the readable text.
-    /// Returns the article id.
-    func save(url: URL, title: String? = nil) async throws -> String {
+    struct SavedLink: Equatable {
+        let id: String
+        let placement: String
+        let existing: Bool
+
+        var message: String {
+            if existing { return "Already saved" }
+            switch placement {
+            case "later": return "Saved to your nightstand"
+            case "setAside": return "Saved on your desk"
+            default: return "Saved to your Library"
+            }
+        }
+
+        var href: URL? {
+            var url = URLComponents(url: NoeisAPI.shared.site.appending(path: "library"), resolvingAgainstBaseURL: false)
+            url?.queryItems = [URLQueryItem(name: "articleId", value: id)]
+            return url?.url
+        }
+    }
+
+    func save(url: URL, title: String? = nil) async throws -> SavedLink {
         var body: [String: JSON] = ["url": .string(url.absoluteString)]
         if let title, !title.isEmpty { body["title"] = .string(title) }
         let reply = try await send("POST", "/api/import/url", body: .object(body))
-        return reply.at("article._id").text
+        let id = reply.at("article._id").text
+        guard !id.isEmpty else { throw NoeisAPIError.server("Noeis couldn’t confirm the save. Try again.") }
+        return SavedLink(id: id, placement: reply.at("article.placement").text, existing: reply["existing"]?.bool == true)
     }
 
     // MARK: Think

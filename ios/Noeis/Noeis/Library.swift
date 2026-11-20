@@ -78,14 +78,15 @@ extension JSON {
 private struct SaveLinkSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var link = ""
-    @State private var saved = false
+    @State private var saved: NoeisAPI.SavedLink?
     @StateObject private var writer = Writer()
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                if saved {
-                    Label("Saved to your Library", systemImage: "checkmark.circle").font(.headline).foregroundStyle(Ink.living)
+                if let saved {
+                    Label(saved.message, systemImage: "checkmark.circle").font(.headline).foregroundStyle(Ink.living)
+                    if let href = saved.href { Link("Open saved article", destination: href) }
                     Text("Noeis reads it against the views you hold. If it argues with one, the Wiki will say so.")
                         .font(.callout).foregroundStyle(Ink.muted)
                 } else {
@@ -101,14 +102,14 @@ private struct SaveLinkSheet: View {
             .navigationTitle("Save a link")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button(saved ? "Done" : "Cancel") { dismiss() } }
-                if !saved {
+                ToolbarItem(placement: .cancellationAction) { Button(saved != nil ? "Done" : "Cancel") { dismiss() } }
+                if saved == nil {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Save") {
                             guard let url = URL(string: link.trimmingCharacters(in: .whitespaces)) else { return }
                             writer.run {
-                                _ = try await NoeisAPI.shared.save(url: url)
-                                calmly { saved = true }
+                                let receipt = try await NoeisAPI.shared.save(url: url)
+                                calmly { saved = receipt }
                             }
                         }
                         .disabled(URL(string: link)?.scheme?.hasPrefix("http") != true || writer.busy)

@@ -24,6 +24,12 @@ export const placementOf = (article = {}) => {
   return placement || PLACEMENT_STREAM;
 };
 
+export const savedPlacement = article => ({
+  [PLACEMENT_LATER]: 'on your nightstand',
+  [PLACEMENT_SET_ASIDE]: 'on your desk',
+  [PLACEMENT_STREAM]: 'in your Library'
+}[placementOf(article)]);
+
 export const isParked = (article = {}) => {
   const placement = placementOf(article);
   return placement === PLACEMENT_LATER || placement === PLACEMENT_SET_ASIDE;

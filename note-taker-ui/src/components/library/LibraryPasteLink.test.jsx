@@ -32,7 +32,7 @@ test('pasting a link saves it at once and names what landed', async () => {
   paste('example.com/slow');
   expect(importPastedUrl).toHaveBeenCalledWith({ url: 'https://example.com/slow', placement: 'later', folderId: '' });
   fireEvent.click(await screen.findByRole('button', { name: 'On Slow Reading' }));
-  expect(screen.getByRole('status')).toHaveTextContent('On your nightstand: On Slow Reading Add why See the nightstand');
+  expect(screen.getByRole('status')).toHaveTextContent('Saved on your nightstand: On Slow Reading Add why See the nightstand');
   expect(onSaved).toHaveBeenCalledWith(piece);
   expect(onOpen).toHaveBeenCalledWith('a1');
   fireEvent.click(screen.getByRole('button', { name: 'See the nightstand' }));
@@ -50,7 +50,7 @@ test('a link already saved names the copy you have, since when, and where it sit
   fireEvent.change(field(), { target: { value: 'https://example.com/slow' } });
   fireEvent.submit(field().closest('form'));
   await screen.findByRole('button', { name: 'On Slow Reading' });
-  expect(screen.getByRole('status')).toHaveTextContent(/^Already yours since .*4.*, on your desk: On Slow Reading$/);
+  expect(screen.getByRole('status')).toHaveTextContent(/^Already saved since .*4.*, on your desk: On Slow Reading$/);
 });
 
 test('a link already read goes into the Library, filed in the folder chosen', async () => {
@@ -72,7 +72,7 @@ test('a link already read goes into the Library, filed in the folder chosen', as
   paste('https://example.com/taste');
   expect(importPastedUrl).toHaveBeenCalledWith({ url: 'https://example.com/taste', placement: 'stream', folderId: 'f2' });
   await screen.findByRole('button', { name: 'Notes on Taste' });
-  expect(screen.getByRole('status')).toHaveTextContent(/^In your Library, in Essays: Notes on Taste$/);
+  expect(screen.getByRole('status')).toHaveTextContent(/^Saved in your Library, in Essays: Notes on Taste$/);
 });
 
 test('a page the server cannot read says so plainly', async () => {
@@ -120,8 +120,14 @@ test('several links pasted at once all save, titles arriving in order', async ()
   paste('https://a.example/1\nhttps://a.example/2\nhttps://a.example/3');
   await screen.findByRole('button', { name: 'Three' });
   expect(importPastedUrl.mock.calls.map(([call]) => call.url)).toEqual(['https://a.example/1', 'https://a.example/2', 'https://a.example/3']);
-  expect(screen.getByRole('status')).toHaveTextContent('2 on your nightstand: One · Three. 1 could not be read.');
-  expect(onSaved).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole('status')).toHaveTextContent('2 in your Library: One · Three. 1 could not be read. Retry the remaining links above.');
+  expect(screen.getByRole('textbox', { name: 'Paste a link to save' })).toHaveValue('https://a.example/2');
+  importPastedUrl.mockResolvedValueOnce({ article: { _id: 'a2', title: 'Two', placement: 'later' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  expect(await screen.findByRole('button', { name: 'Two' })).toBeInTheDocument();
+  expect(importPastedUrl).toHaveBeenCalledTimes(4);
+  expect(importPastedUrl.mock.calls[3][0].url).toBe('https://a.example/2');
+  expect(onSaved).toHaveBeenCalledTimes(3);
 });
 
 test('why it waits can be added after the save, in a line', async () => {
@@ -135,7 +141,7 @@ test('why it waits can be added after the save, in a line', async () => {
   fireEvent.change(line, { target: { value: 'Sam sent this ' } });
   fireEvent.keyDown(line, { key: 'Enter' });
   expect(setArticlePlacement).toHaveBeenCalledWith('a1', 'later', 'Sam sent this');
-  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('On your nightstand: On Slow Reading Sam sent this'));
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Saved on your nightstand: On Slow Reading Sam sent this'));
   expect(screen.queryByRole('button', { name: 'Add why' })).toBeNull();
   expect(importPastedUrl).toHaveBeenCalledTimes(1);
 });
