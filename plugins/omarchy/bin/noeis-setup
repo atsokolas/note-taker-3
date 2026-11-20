@@ -1,72 +1,123 @@
 #!/bin/bash
-# Makes Noeis the reader on this Omarchy machine, once. Each step checks
-# first, so running it again changes nothing that is already in place.
+# Makes Noeis the reader on this Omarchy machine, once. Optional: the plugin
+# never runs this; you do. Each step checks first, so running it again changes
+# nothing that is already in place, and only what it changes is reported.
 #
-#   - noeis-open on your PATH, and two launcher entries: Noeis, all of
-#     noeis.io as an app, and Noeis reader, the reading window, which also
-#     opens EPUB, PDF and Markdown files
-#   - the Noeis browser extension loaded into Omarchy's Chromium
-#   - keys: Super+Alt+N opens Noeis, Super+Alt+R reads, Super+Ctrl+Alt+N
-#     opens the panel, and three more save a link, highlighted text, or text
-#     off the screen
-#   - "Noeis" in the Share menu (Super+Ctrl+S) saves the clipboard's link
+#   noeis-setup            make the changes below
+#   noeis-setup --dry-run  say what it would change, and change nothing
+#   noeis-setup --remove   undo every change it makes
+#
+# It changes only:
+#   - ~/.local/bin/noeis-open, a link to this plugin's bin/noeis-open
+#   - two launcher entries, Noeis and Noeis reader, via omarchy-webapp-install
+#   - lines under a "-- Noeis" comment in ~/.config/hypr/bindings.lua
+#   - one "trigger.share.noeis" entry in ~/.config/omarchy/extensions/omarchy-menu.jsonc
 set -euo pipefail
+
+case ${1:-} in
+  "") MODE=apply ;;
+  --dry-run) MODE=dry ;;
+  --remove) MODE=remove ;;
+  *) echo "usage: noeis-setup [--dry-run | --remove]" >&2; exit 2 ;;
+esac
 
 PLUGIN=$(cd "$(dirname "$0")/.." && pwd)
 APP=${NOEIS_APP_URL:-https://www.noeis.io}
-[[ $APP == https://* ]] || APP=https://www.noeis.io
+[[ $APP =~ ^https://[A-Za-z0-9.-]+$ ]] || APP=https://www.noeis.io
+LINK=$HOME/.local/bin/noeis-open
+APPS=$HOME/.local/share/applications
 BINDINGS=$HOME/.config/hypr/bindings.lua
-FLAGS=$HOME/.config/chromium-flags.conf
 MENU=$HOME/.config/omarchy/extensions/omarchy-menu.jsonc
-# Two folders down: the marketplace reads a manifest.json within one folder of
-# the root as a second plugin.
-EXTENSION=$PLUGIN/browser/chromium
+FLAGS=$HOME/.config/chromium-flags.conf
 SAVE="omarchy-shell noeis saveClipboard"
+MENU_ENTRY="  \"trigger.share.noeis\": {\"icon\":\"󰂺\",\"label\":\"Noeis\",\"description\":\"Save the link on your clipboard to read later\",\"action\":\"$SAVE\"},"
 
-done_() { printf '  %s\n' "$1"; }
+KEYS=(
+  "SUPER + ALT + N|Noeis|noeis-open --web"
+  "SUPER + ALT + R|Noeis reader|omarchy-shell noeis read"
+  "SUPER + CTRL + ALT + N|Noeis panel|omarchy-shell shell toggle io.noeis"
+  "SUPER + ALT + SHIFT + N|Save link to Noeis|$SAVE"
+  "SUPER + ALT + T|Save highlighted text to Noeis|omarchy-shell noeis saveSelection"
+  "SUPER + CTRL + ALT + PRINT|Save text on screen to Noeis|omarchy-shell noeis saveScreenText"
+)
 
-# A binding is added once; an older Noeis binding on the same keys gives way.
-bind() {
-  local keys=$1 label=$2 command=$3
-  grep -qF "o.bind(\"$keys\", \"$label\", \"$command\")" "$BINDINGS" && return
-  sed -i "/o.bind(\"$keys\",.*noeis/d" "$BINDINGS"
-  grep -q '^-- Noeis' "$BINDINGS" || printf '\n-- Noeis\n' >>"$BINDINGS"
-  printf 'o.bind("%s", "%s", "%s")\n' "$keys" "$label" "$command" >>"$BINDINGS"
+changed=0
+# Run a change, or only name it on --dry-run.
+change() {
+  local what=$1; shift
+  changed=1
+  if [[ $MODE == dry ]]; then printf '  would: %s\n' "$what"; return; fi
+  "$@"
+  printf '  %s\n' "$what"
 }
 
-mkdir -p "$HOME/.local/bin"
-ln -sf "$PLUGIN/bin/noeis-open" "$HOME/.local/bin/noeis-open"
-done_ "noeis-open is on your PATH"
+has() { [[ -f $2 ]] && grep -qF -- "$1" "$2"; }
 
-omarchy-webapp-install Noeis "$APP" "" "noeis-open --web" >/dev/null
-omarchy-webapp-install "Noeis reader" "$APP" noeis "noeis-open %U" \
-  "application/epub+zip;application/pdf;text/markdown;" >/dev/null
-done_ "Noeis is in the launcher as its own app; Noeis reader is the reading window, and opens EPUB, PDF and Markdown files"
+# ---- noeis-open on your PATH
+if [[ $MODE == remove ]]; then
+  [[ -L $LINK && $(readlink "$LINK") == "$PLUGIN/bin/noeis-open" ]] && change "removed $LINK" rm -f "$LINK"
+elif [[ $(readlink "$LINK" 2>/dev/null) != "$PLUGIN/bin/noeis-open" ]]; then
+  [[ -e $LINK && ! -L $LINK ]] && { echo "$LINK exists and is not a link; leaving it alone" >&2; exit 1; }
+  change "linked $LINK" sh -c 'mkdir -p "$(dirname "$1")" && ln -sfn "$2" "$1"' _ "$LINK" "$PLUGIN/bin/noeis-open"
+fi
 
-if [[ -d $EXTENSION ]] && ! grep -q "$EXTENSION" "$FLAGS" 2>/dev/null; then
-  if grep -q '^--load-extension=' "$FLAGS" 2>/dev/null; then
-    sed -i "s|^--load-extension=.*|&,$EXTENSION|" "$FLAGS"
-  else
-    echo "--load-extension=$EXTENSION" >>"$FLAGS"
+# ---- Launcher entries
+webapp() {
+  local name=$1; shift
+  if [[ $MODE == remove ]]; then
+    [[ -f $APPS/$name.desktop ]] && change "removed the $name launcher entry" omarchy-webapp-remove "$name"
+  elif [[ ! -f $APPS/$name.desktop ]]; then
+    change "added $name to the launcher" sh -c '"$@" >/dev/null' _ omarchy-webapp-install "$name" "$@"
   fi
-  done_ "The extension loads the next time Chromium starts (Alt+Shift+N saves the tab)"
+  return 0
+}
+webapp Noeis "$APP" "" "noeis-open --web"
+webapp "Noeis reader" "$APP" noeis "noeis-open %U" "application/epub+zip;application/pdf;text/markdown;"
+
+# ---- Keys, under a "-- Noeis" comment
+if [[ $MODE == remove ]]; then
+  [[ -f $BINDINGS ]] && grep -qE '^-- Noeis$|^o\.bind\(.*[Nn]oeis' "$BINDINGS" &&
+    change "removed the Noeis keys from $BINDINGS" sed -i '/^o\.bind(.*[Nn]oeis/d; /^$/{N;/^\n-- Noeis$/d;P;D}; /^-- Noeis$/d' "$BINDINGS"
+elif [[ -f $BINDINGS ]]; then
+  for entry in "${KEYS[@]}"; do
+    IFS='|' read -r keys label command <<<"$entry"
+    line="o.bind(\"$keys\", \"$label\", \"$command\")"
+    has "$line" "$BINDINGS" && continue
+    # An older Noeis binding on the same keys gives way; nothing else is touched.
+    change "bound $keys to $label" sh -c '
+      sed -i "/^o\.bind(\"$2\",.*[Nn]oeis/d" "$1"
+      grep -q "^-- Noeis$" "$1" || printf "\n-- Noeis\n" >>"$1"
+      printf "%s\n" "$3" >>"$1"' _ "$BINDINGS" "$keys" "$line"
+  done
+else
+  echo "  skipped keys: $BINDINGS does not exist" >&2
 fi
 
-bind "SUPER + ALT + N" "Noeis" "noeis-open --web"
-bind "SUPER + ALT + R" "Noeis reader" "omarchy-shell noeis read"
-bind "SUPER + CTRL + ALT + N" "Noeis panel" "omarchy-shell shell toggle io.noeis"
-bind "SUPER + ALT + SHIFT + N" "Save link to Noeis" "$SAVE"
-bind "SUPER + ALT + T" "Save highlighted text to Noeis" "omarchy-shell noeis saveSelection"
-bind "SUPER + CTRL + ALT + PRINT" "Save text on screen to Noeis" "omarchy-shell noeis saveScreenText"
-done_ "Super+Alt+N opens Noeis; Super+Alt+R reads; Super+Ctrl+Alt+N opens the panel; Super+Alt+Shift+N saves the link on your clipboard"
-done_ "Super+Alt+T saves the text you highlighted; Super+Ctrl+Alt+Print saves text from a part of the screen"
-
-if ! grep -q 'trigger.share.noeis' "$MENU" 2>/dev/null; then
-  mkdir -p "$(dirname "$MENU")"
-  [[ -f $MENU ]] || echo '{}' >"$MENU"
-  # The file is JSONC, so the entry goes in before its closing brace.
-  sed -i "\$s|}\s*\$|  \"trigger.share.noeis\": {\"icon\":\"󰂺\",\"label\":\"Noeis\",\"description\":\"Save the link on your clipboard to read later\",\"action\":\"$SAVE\"},\n}|" "$MENU"
+# ---- Share → Noeis. The file is JSONC, so the entry goes before its last brace.
+if [[ $MODE == remove ]]; then
+  has 'trigger.share.noeis' "$MENU" && change "removed Share → Noeis from $MENU" sed -i '/"trigger\.share\.noeis"/d' "$MENU"
+elif ! has 'trigger.share.noeis' "$MENU"; then
+  if [[ -f $MENU ]] && ! grep -qE '^\s*}\s*$' "$MENU"; then
+    echo "  skipped Share → Noeis: $MENU has no closing brace on a line of its own" >&2
+  else
+    change "added Share → Noeis to $MENU" sh -c '
+      mkdir -p "$(dirname "$1")"
+      [ -f "$1" ] || printf "{\n}\n" >"$1"
+      last=$(grep -nE "^\s*}\s*$" "$1" | tail -1 | cut -d: -f1)
+      { head -n $((last - 1)) "$1"; printf "%s\n" "$2"; tail -n +"$last" "$1"; } >"$1.noeis" && cat "$1.noeis" >"$1" && rm -f "$1.noeis"' _ "$MENU" "$MENU_ENTRY"
+  fi
 fi
-done_ "Share → Noeis saves the link on your clipboard"
 
-done_ "To give noeis.io your Omarchy colours, choose Omarchy in its theme settings once"
+# ---- Earlier versions loaded a bundled browser extension into Chromium. It is
+#      no longer shipped; the flag pointing at it goes, in every mode.
+if has '/io.noeis/' "$FLAGS"; then
+  change "removed the old bundled extension from $FLAGS" sed -i \
+    's|,[^,=]*/io\.noeis/[^,]*||; s|=[^,]*/io\.noeis/[^,]*,\?|=|; /^--load-extension=$/d' "$FLAGS"
+fi
+
+if (( ! changed )); then
+  echo "  nothing to change"
+elif [[ $MODE == apply ]]; then
+  echo "  To save tabs from Chromium, add the Noeis extension from the Chrome Web Store."
+  echo "  To give noeis.io your Omarchy colours, choose Omarchy in its theme settings once."
+fi

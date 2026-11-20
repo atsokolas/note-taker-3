@@ -34,7 +34,9 @@ your own configuration:
 ```
 
 It changes exactly these, checks before each so running it again changes
-nothing, and [Remove](#remove) undoes every one:
+nothing, and reports only what it changed. `noeis-setup --dry-run` lists what
+it would change without changing anything, and `noeis-setup --remove` undoes
+every one:
 
 - **`~/.config/hypr/bindings.lua`:** lines under a `-- Noeis` comment.
   Super+Alt+N opens Noeis, Super+Alt+R reads, Super+Ctrl+Alt+N opens the
@@ -43,9 +45,6 @@ nothing, and [Remove](#remove) undoes every one:
   Noeis bound before is moved to its new meaning; check the rest are free
   first with `omarchy menu keybindings --print`. By hand, a binding reads
   `o.bind("SUPER + ALT + N", "Noeis", "noeis-open --web")`.
-- **`~/.config/chromium-flags.conf`:** the Noeis browser extension, added to
-  `--load-extension`, so Alt+Shift+N in Chromium saves the tab you are
-  reading.
 - **`~/.config/omarchy/extensions/omarchy-menu.jsonc`:** **Share → Noeis**
   (Super+Ctrl+S), which saves the link on your clipboard.
 - **Two launcher entries**, through `omarchy-webapp-install`: **Noeis**, all
@@ -56,11 +55,17 @@ nothing, and [Remove](#remove) undoes every one:
 - **`~/.local/bin/noeis-open`:** a link to `bin/noeis-open`, which the
   bindings and launcher entries call.
 
-`omarchy-noeis` is this folder published on its own (with the browser
-extension packed in `browser/chromium`) by `.github/workflows/omarchy-plugin.yml`, since
-this repository's root is the Chrome extension and `omarchy plugin add`
-cannot read it. From a checkout, `cp -r plugins/omarchy
-~/.config/omarchy/plugins/io.noeis` does the same, without the extension.
+Nothing is loaded into your browser. To save the tab you are reading from
+Chromium (Alt+Shift+N), add the Noeis extension from the
+[Chrome Web Store](https://chromewebstore.google.com/detail/bekllegjmjbnamphjnkifpijkhoiepaa).
+Earlier versions of `noeis-setup` loaded a copy bundled with the plugin; the
+copy is gone, and running `noeis-setup` again takes its line out of
+`~/.config/chromium-flags.conf`.
+
+`omarchy-noeis` is this folder published on its own by
+`.github/workflows/omarchy-plugin.yml`, since this repository's root is the
+Chrome extension and `omarchy plugin add` cannot read it. From a checkout,
+`cp -r plugins/omarchy ~/.config/omarchy/plugins/io.noeis` does the same.
 
 The mark lands on the right of the bar; `omarchy bar move io.noeis --section
 left` moves it.
@@ -175,7 +180,7 @@ Omarchy 4, which brings all of these:
 - `jq`, to read the session in `noeis-open`;
 - `wl-paste` (from `wl-clipboard`), for the clipboard and highlighted text;
 - `omarchy-capture-text`, for saving text off the screen;
-- Chromium or Google Chrome, for the Noeis app window and the extension.
+- Chromium or Google Chrome, for the Noeis app window.
 
 Like every Omarchy plugin it runs unsandboxed inside the shell, with your
 user's permissions.
@@ -183,23 +188,14 @@ user's permissions.
 ## Remove
 
 Sign out in the panel first, which ends the connection on the server, or
-revoke it at noeis.io under **Connected agents**. Then remove the plugin and
-its session:
+revoke it at noeis.io under **Connected agents**. If you ran `noeis-setup`,
+undo it while the script is still there, then remove the plugin and its
+session:
 
 ```bash
+~/.config/omarchy/plugins/io.noeis/bin/noeis-setup --remove
 omarchy plugin remove io.noeis --yes
 rm -f ~/.config/noeis/omarchy.json
-```
-
-If you ran `noeis-setup`, undo it:
-
-```bash
-sed -i '/^-- Noeis$/d; /^o\.bind(.*[Nn]oeis/d' ~/.config/hypr/bindings.lua
-sed -i 's|,[^,=]*/io\.noeis/[a-z/]*||; s|=[^,]*/io\.noeis/[a-z/]*,\?|=|; /^--load-extension=$/d' ~/.config/chromium-flags.conf
-sed -i '/"trigger.share.noeis"/d' ~/.config/omarchy/extensions/omarchy-menu.jsonc
-omarchy-webapp-remove Noeis
-omarchy-webapp-remove "Noeis reader"
-rm -f ~/.local/bin/noeis-open
 ```
 
 ## Files
@@ -214,7 +210,7 @@ rm -f ~/.local/bin/noeis-open
 | `NoeisMark.qml` | The three-ring mark, drawn natively at bar size |
 | `Model.js` | The decisions, tested in node by `scripts/omarchy_plugin.test.js` |
 | `bin/noeis-open` | The reading window, links onto the nightstand, files into your Library, and noeis.io itself with `--web` |
-| `bin/noeis-setup` | Keys, launcher entries, the extension and the Share menu; optional |
+| `bin/noeis-setup` | Keys, launcher entries and the Share menu; optional, with `--dry-run` and `--remove` |
 | `preview.png` | The reading window, with demo essays |
 | `LICENSE` | ISC |
 

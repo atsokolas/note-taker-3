@@ -1,9 +1,9 @@
 # The Omarchy plugin as its own repository, so it installs with
 #   omarchy plugin add https://github.com/atsokolas/omarchy-noeis --enable
 # This repository's root is the Chrome extension, which `omarchy plugin add`
-# cannot read as a plugin. Each push to main that touches the plugin or the
-# extension publishes plugins/omarchy, with the packed extension in browser/chromium
-# for noeis-setup to load into Chromium.
+# cannot read as a plugin. Each push to main that touches the plugin publishes
+# plugins/omarchy, and nothing else: the marketplace verifies one exact commit,
+# so the repository moves only when the plugin does.
 #
 # Needs a deploy key with write access on atsokolas/omarchy-noeis, stored
 # here as the OMARCHY_PLUGIN_DEPLOY_KEY secret.
@@ -14,12 +14,7 @@ on:
     branches: [main]
     paths:
       - plugins/omarchy/**
-      - manifest.json
-      - '*.js'
-      - '*.html'
-      - '*.css'
-      - images/**
-      - scripts/pack_extension.js
+      - scripts/omarchy_plugin.test.js
 
 jobs:
   publish:
@@ -30,7 +25,6 @@ jobs:
         with:
           node-version: 20
       - run: node scripts/omarchy_plugin.test.js
-      - run: npm run extension:pack
       - name: Publish
         env:
           DEPLOY_KEY: ${{ secrets.OMARCHY_PLUGIN_DEPLOY_KEY }}
@@ -39,7 +33,6 @@ jobs:
           export GIT_SSH_COMMAND="ssh -i ~/.ssh_key -o StrictHostKeyChecking=accept-new"
           git clone git@github.com:atsokolas/omarchy-noeis.git out
           rsync -a --delete --exclude .git plugins/omarchy/ out/
-          mkdir -p out/browser && cp -r dist/extension out/browser/chromium
           cd out
           git add -A
           git diff --cached --quiet && exit 0

@@ -224,4 +224,42 @@ const named = ['bin/noeis-open', 'bin/noeis-setup', 'README.md', 'Service.qml'].
 assert.ok(named.length >= 4);
 for (const call of named) assert.ok(answers.has(call), `noeis ${call} is answered`);
 
+// noeis-setup, run against a throwaway home: --dry-run changes nothing, a
+// second run changes nothing, it never loads anything into the browser (and
+// takes out the old bundled extension), and --remove leaves every file as it
+// found it.
+{
+  const { execFileSync } = require('node:child_process');
+  const os = require('node:os');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-setup-'));
+  const stub = path.join(home, 'stub');
+  const at = file => path.join(home, file);
+  const write = (file, text, mode) => { fs.mkdirSync(path.dirname(at(file)), { recursive: true }); fs.writeFileSync(at(file), text, { mode }); };
+  write('stub/omarchy-webapp-install', '#!/bin/sh\nmkdir -p "$HOME/.local/share/applications" && : >"$HOME/.local/share/applications/$1.desktop"\n', 0o755);
+  write('stub/omarchy-webapp-remove', '#!/bin/sh\nrm -f "$HOME/.local/share/applications/$1.desktop"\n', 0o755);
+  const bindings = 'o.bind("SUPER + RETURN", "Terminal", "xdg-terminal-exec")\n';
+  const menu = '{\n  // mine\n  "personal": {"label":"Personal"},\n}\n';
+  write('.config/hypr/bindings.lua', bindings);
+  write('.config/omarchy/extensions/omarchy-menu.jsonc', menu);
+  write('.config/chromium-flags.conf', `--ozone-platform=wayland\n--load-extension=/mine,${home}/.config/omarchy/plugins/io.noeis/browser/chromium\n`);
+  const files = () => ['.config/hypr/bindings.lua', '.config/omarchy/extensions/omarchy-menu.jsonc', '.config/chromium-flags.conf'].map(f => fs.readFileSync(at(f), 'utf8'));
+  const setup = (...args) => execFileSync('bash', [path.join(plugin, 'bin/noeis-setup'), ...args], { env: { ...process.env, HOME: home, PATH: `${stub}:${process.env.PATH}` }, encoding: 'utf8' });
+  try {
+    const before = files();
+    assert.match(setup('--dry-run'), /would: /);
+    assert.deepStrictEqual(files(), before, '--dry-run changes nothing');
+    setup();
+    const [keys, share, flags] = files();
+    assert.strictEqual((keys.match(/^o\.bind\(.*Noeis/gm) || []).length, 6, 'six keys under -- Noeis');
+    assert.match(share, /"trigger\.share\.noeis"[^\n]*\n}\n$/, 'Share → Noeis goes in before the closing brace');
+    assert.strictEqual(flags, '--ozone-platform=wayland\n--load-extension=/mine\n', 'nothing of Noeis is loaded into Chromium; the rest is kept');
+    assert.match(setup(), /nothing to change/, 'a second run changes nothing');
+    setup('--remove');
+    assert.deepStrictEqual(files(), [bindings, menu, flags], '--remove undoes every change');
+    assert.ok(!fs.existsSync(at('.local/bin/noeis-open')) && fs.readdirSync(at('.local/share/applications')).length === 0, '--remove takes out the link and launcher entries');
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+}
+
 console.log('omarchy plugin: ok');
