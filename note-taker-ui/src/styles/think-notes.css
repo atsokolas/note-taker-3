@@ -563,7 +563,7 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
 .think-notebook-utility__more > summary::-webkit-details-marker { display: none; }
 .think-notebook-utility__more > div {
   position: absolute;
-  z-index: 2;
+  z-index: 12;
   inset-inline-end: 0;
   display: grid;
   width: max-content;
@@ -575,9 +575,10 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
   padding: 8px;
   border: 1px solid var(--vellum-line);
   border-radius: 10px;
-  background: var(--vellum-paper);
+  background: var(--noeis-paper);
   box-shadow: 0 14px 34px rgba(43, 37, 28, 0.12);
 }
+.think-notebook-utility__more > div:has(.handoff-form) > :not(.handoff-form) { display: none; }
 .think-notebook-utility__more button { text-align: start; }
 .think-notebook-utility__more .handoff-form { inline-size: min(20rem, calc(100vw - 66px)); margin: 0; }
 .think-notebook-utility__more .handoff-line { max-inline-size: 18rem; }
