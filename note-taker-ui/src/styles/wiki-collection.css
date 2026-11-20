@@ -267,6 +267,66 @@
 }
 
 /* What moved since you last looked: one quiet block above the list. */
+.wiki-collection__resume {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin-block: 16px;
+  padding: 14px 0 10px;
+  border-top: 2px solid var(--noeis-action);
+}
+
+.wiki-collection__resume h2 {
+  margin: 0 0 4px;
+  color: var(--noeis-ink-muted);
+  font: 500 11px/1.5 var(--font-sans);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.wiki-collection__resume p {
+  margin: 0;
+  color: var(--noeis-ink);
+  font: 22px/1.35 var(--font-serif);
+  overflow-wrap: anywhere;
+}
+
+.wiki-collection__resume p span {
+  color: var(--noeis-ink-muted);
+  font: 13px/1.5 var(--font-sans);
+}
+
+.wiki-collection__resume-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  font-size: 13px;
+}
+
+.wiki-collection__resume-actions > * {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
+  text-underline-offset: 3px;
+}
+
+.wiki-collection__resume-actions a {
+  color: var(--noeis-ink);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.wiki-collection__resume-actions button {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--noeis-ink-muted);
+}
+
 .wiki-collection__since-quiet {
   margin: 22px 0 0;
   font: 16px/1.5 var(--font-serif);

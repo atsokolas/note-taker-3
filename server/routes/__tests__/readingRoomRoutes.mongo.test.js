@@ -42,6 +42,30 @@ test('real Mongo: the reading room reads only the owner\'s visible shelf, with f
     assert.equal(room.weather, null);
     assert.deepEqual(room.worthSaying, []);
 
+    // Newer rows must not win when the source has been put away, finished,
+    // suppressed, deleted, or belongs to somebody else.
+    const excluded = await Article.create([
+      { userId, title: 'Set aside', placement: 'setAside' },
+      { userId, title: 'Hidden', hiddenFromHome: true },
+      { userId, title: 'Finished', finishedOn: '2026-11-19' },
+      { userId, title: 'Filed as read', placement: 'stream', placementAt: new Date() },
+      { userId: stranger, title: 'Stranger’s article' }
+    ].map((row, index) => ({ ...row, content: body, url: `https://e.com/excluded/${index}` })));
+    const newer = new Date();
+    await ArticleReadingState.insertMany(excluded.concat({ _id: new mongoose.Types.ObjectId() }).map(article => ({
+      userId, articleId: article._id, anchor: { text: 'private passage', startOffsetApprox: 12 }, ratio: 0.6, visitedAt: newer
+    })));
+    await Article.updateOne({ _id: excluded[3]._id }, { $set: { placementAt: new Date(newer.getTime() + 1000) } });
+    const resumeUrl = `${base}/api/library/reading-room/resume`;
+    const response = await fetch(resumeUrl);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    const { resume } = await response.json();
+    assert.deepEqual(resume, {
+      articleId: String(partway._id), title: 'Halfway through', ratio: 0.5, visitedAt: resume.visitedAt
+    });
+    await ArticleReadingState.updateOne({ userId, articleId: partway._id }, { $set: { ratio: 0.98 } });
+    assert.deepEqual(await (await fetch(resumeUrl)).json(), { resume: null });
+
     const said = await (await fetch(`${base}/api/library/reading-room/said`)).json();
     assert.deepEqual(said, { said: null });
 

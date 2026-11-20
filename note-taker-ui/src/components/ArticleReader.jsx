@@ -409,6 +409,7 @@ const ArticleReader = ({
 
   const arrival = useArticleReadingPlace({
     articleId, contentRef, contentKey: article?.content,
+    focusOnArrival: Boolean(location.state?.fromWikiReading),
     explicitDestination: Boolean(focusedHighlightId || location.hash || new URLSearchParams(location.search).has('searchMissing') || location.state?.explicitPassage),
     enabled: Boolean(articleId && hasReadableContent(article?.content))
   });

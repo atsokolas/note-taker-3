@@ -351,6 +351,40 @@ const canExplainBack = (article, configured = isTextGenerationConfigured) => Boo
 
 const SUPPRESSED = { archived: { $ne: true }, debugOnly: { $ne: true }, hiddenFromHome: { $ne: true } };
 
+const buildReadingContinuation = async ({ models: { Article, ArticleReadingState }, userId, now = new Date() }) => {
+  const [place] = await ArticleReadingState.aggregate([
+    { $match: {
+      userId,
+      ratio: { $gt: STARTED, $lt: FINISHED },
+      visitedAt: { $gte: new Date(now.getTime() - READING_STATE_WINDOW), $lte: now },
+      'anchor.text': /\S/
+    } },
+    { $sort: { visitedAt: -1, _id: -1 } },
+    { $lookup: {
+      from: Article.collection.name,
+      localField: 'articleId',
+      foreignField: '_id',
+      let: { visited: '$visitedAt' },
+      pipeline: [
+        { $match: {
+          userId, ...SUPPRESSED, placement: { $ne: 'setAside' },
+          finishedOn: { $in: ['', null] }, title: /\S/, content: /\S/,
+          $expr: { $or: [
+            { $ne: ['$placement', 'stream'] },
+            { $lte: [{ $ifNull: ['$placementAt', new Date(0)] }, '$$visited'] }
+          ] }
+        } },
+        { $project: { title: 1 } }
+      ],
+      as: 'article'
+    } },
+    { $unwind: '$article' },
+    { $limit: 1 },
+    { $project: { _id: 0, articleId: 1, title: '$article.title', ratio: 1, visitedAt: 1 } }
+  ]).option({ maxTimeMS: 3000 });
+  return place || null;
+};
+
 /** Owned, visible articles in the shape the rules read, with reading places attached. */
 const loadRoomArticles = async ({ Article, ArticleReadingState = null, userId, match = {} }) => {
   const rows = await Article.aggregate([
@@ -422,5 +456,6 @@ module.exports = {
   canExplainBack,
   loadRoomArticles,
   buildReadingRoom,
+  buildReadingContinuation,
   loadWorthSaying
 };

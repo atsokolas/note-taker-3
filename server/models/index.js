@@ -320,6 +320,7 @@ const articleReadingStateSchema = new mongoose.Schema({
   visitedAt: { type: Date, required: true }
 }, { timestamps: true });
 articleReadingStateSchema.index({ userId: 1, articleId: 1 }, { unique: true });
+articleReadingStateSchema.index({ userId: 1, visitedAt: -1, _id: -1 });
 const ArticleReadingState = mongoose.model('ArticleReadingState', articleReadingStateSchema);
 
 // --- NOTEBOOK: Schema for freeform notes with checklists ---
