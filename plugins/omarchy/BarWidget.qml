@@ -4,7 +4,8 @@ import qs.Ui
 
 // The Noeis mark in the bar, and the host for the panel under it. A click
 // opens the panel; `omarchy-shell shell toggle io.noeis` does the same from
-// the keyboard. The tooltip says how much waits on the nightstand. The
+// the keyboard. Beside the mark, how much waits on the nightstand; the mark
+// takes the theme's accent when something short fits tonight. The
 // widget hands the Service its settings, since only the bar holds them.
 BarWidget {
   id: root
@@ -72,13 +73,15 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    tooltipText: root.opened ? "" : root.waiting ? "Noeis · " + root.waiting + " on your nightstand" : "Noeis"
+    labelText: root.waiting ? String(root.waiting) : ""
+    tooltipText: root.opened ? "" : root.service && root.service.tonight ? root.service.tonight.text
+      : root.waiting ? "Noeis · " + root.waiting + " on your nightstand" : "Noeis"
     iconComponent: Component {
       Item {
         NoeisMark {
           anchors.centerIn: parent
           size: Math.round(Style.bar.iconCanvas * 0.95)
-          color: button.foreground
+          color: root.service && root.service.tonight ? root.service.palette.accent : button.foreground
         }
       }
     }

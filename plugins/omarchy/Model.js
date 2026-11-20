@@ -2,8 +2,9 @@
 
 // Everything Noeis decides without the shell: what counts as a link, where
 // a search result opens, what a save receipt says, how a failed request
-// reads, how a piece becomes paragraphs for the reading window, and what
-// the evening says. Pure functions, so they are tested in node
+// reads, how a piece becomes paragraphs for the reading window, where it
+// opens and what you kept in it, and what the evening and the day's passage
+// say. Pure functions, so they are tested in node
 // (scripts/omarchy_plugin.test.js) and trusted in QML.
 
 var APP = "https://www.noeis.io"
@@ -127,10 +128,7 @@ function searchResults(library, wiki, limit) {
     sources.push({ kind: "Source", id: a._id, title: clip(a.title, TITLE_CHARS) || "Untitled", detail: trimmed(a.content, 120),
       path: articlePath(a._id) })
   })
-  ;((library && library.highlights) || []).forEach(function(h) {
-    passages.push({ kind: "Passage", id: h.articleId, passage: h.text, title: trimmed(h.text, 120), detail: clip(h.articleTitle, TITLE_CHARS),
-      path: articlePath(h.articleId) + "&highlightId=" + encodeURIComponent(h._id) })
-  })
+  ;((library && library.highlights) || []).forEach(function(h) { passages.push(passageRow(h)) })
   ;((library && library.notebook) || []).forEach(function(n) {
     notes.push({ kind: "Note", id: n._id, title: clip(n.title, TITLE_CHARS) || "Untitled note", detail: trimmed(n.content, 120),
       path: "/think?tab=notebook&entryId=" + encodeURIComponent(n._id) })
@@ -150,6 +148,18 @@ function searchResults(library, wiki, limit) {
 
 function articlePath(id) {
   return "/library?articleId=" + encodeURIComponent(id)
+}
+
+// A passage you kept, as a row: it reads in its source, opening at the passage.
+function passageRow(h) {
+  return { kind: "Passage", id: String(h.articleId), passage: h.text, title: trimmed(h.text, 120), detail: clip(h.articleTitle, TITLE_CHARS),
+    path: articlePath(h.articleId) + "&highlightId=" + encodeURIComponent(h._id) }
+}
+
+// The article a row reads in, when it reads in one. Only an article holds
+// passages and a place.
+function articleOf(row) {
+  return row && (row.kind === "Nightstand" || row.kind === "Source" || row.kind === "Passage") ? String(row.id) : ""
 }
 
 // The nightstand as rows: what you set aside to read later, newest first,
@@ -210,8 +220,7 @@ function pieceSource(row) {
     || "/articles/" + id
 }
 
-// The piece itself: a title, a line saying what it is, its blocks, and the
-// block to start at, which is the passage a passage row named.
+// The piece itself: a title, a line saying what it is, and its blocks.
 function pieceFrom(row, reply) {
   var r = reply || {}
   var piece
@@ -229,9 +238,43 @@ function pieceFrom(row, reply) {
     piece = { title: clip(r.title, TITLE_CHARS) || "Untitled", byline: clip(r.siteName || r.author, TITLE_CHARS), blocks: blocksOf(r.content) }
   }
   piece.blocks = piece.blocks.slice(0, MAX_BLOCKS)
-  var start = row.passage ? trimmed(row.passage, BLOCK_CHARS).slice(0, 60) : ""
-  piece.cursor = Math.max(0, start ? piece.blocks.findIndex(function(b) { return b.text.indexOf(start) !== -1 }) : 0)
   return piece
+}
+
+// The blocks of a piece that hold a passage you kept, from the article's
+// highlights.
+function keptIn(piece, highlights) {
+  return (Array.isArray(highlights) ? highlights : []).map(function(h) { return blockOf(piece.blocks, h.text) })
+    .filter(function(at) { return at >= 0 })
+}
+
+// The block that holds `text`, found by its opening words, or -1.
+function blockOf(blocks, text) {
+  var start = trimmed(text, BLOCK_CHARS).slice(0, 60)
+  if (!start) return -1
+  for (var i = 0; i < blocks.length; i++) if (blocks[i].text.indexOf(start) !== -1) return i
+  return -1
+}
+
+// Where a piece opens: at the passage a row named, else where you stopped
+// reading it, else at the top.
+function openAt(piece, row, place) {
+  var at = blockOf(piece.blocks, row && row.passage)
+  if (at < 0) at = blockOf(piece.blocks, place && place.anchor && place.anchor.text)
+  return Math.max(0, at)
+}
+
+// Where you are, as the web app keeps a reading place: the paragraph, a
+// little either side of it, and how far down the piece.
+var ANCHOR_CHARS = 6000
+var CONTEXT_CHARS = 240
+
+function placeOf(piece, at) {
+  var before = piece.blocks.slice(0, at).map(function(b) { return b.text }).join("\n\n")
+  var after = piece.blocks[at + 1] ? piece.blocks[at + 1].text : ""
+  return { anchor: { text: piece.blocks[at].text.slice(0, ANCHOR_CHARS), prefix: before.slice(-CONTEXT_CHARS),
+    suffix: after.slice(0, CONTEXT_CHARS), startOffsetApprox: before.length ? before.length + 2 : 0 },
+    ratio: piece.blocks.length > 1 ? at / (piece.blocks.length - 1) : 0 }
 }
 
 // What the evening says: how many short pieces fit tonight, beginning with
@@ -247,6 +290,21 @@ function tonight(rows) {
   var first = short[short.length - 1]
   return { id: first.id, text: (COUNTS[short.length] || short.length + " short pieces fit") + " tonight. "
     + first.title + " has waited longest, " + first.minutes + " min." }
+}
+
+// One passage you kept, for the day, from the server's daily sample: whole
+// enough to stand alone (a sentence, not a fragment) and from a piece still
+// here. Nothing that qualifies is silence, never a fragment offered anyway.
+var PASSAGE_WORDS = 8
+var PASSAGE_CHARS = 280
+
+function dayPassage(reply) {
+  var kept = ((reply && reply.dailyRandomHighlights) || []).filter(function(h) {
+    return h.articleId && trimmed(h.text, BLOCK_CHARS).split(" ").length >= PASSAGE_WORDS
+  })[0]
+  if (!kept) return null
+  var row = passageRow(kept)
+  return { row: row, text: "“" + trimmed(kept.text, PASSAGE_CHARS) + "”" + (row.detail ? " — " + row.detail : "") }
 }
 
 // Milliseconds until the clock next reads `hour`:00.
@@ -295,6 +353,7 @@ function problem(status, reply, action) {
   if (!status) return "Noeis could not be reached. Check your connection and try again."
   if (action === "connect" && status === 410) return "That approval ran out of time. Connect again."
   if (status === 401) return "Noeis no longer knows this desktop. Connect again."
+  if (action === "keep" && status === 403) return "This Noeis server does not keep passages from the desktop yet."
   if (action === "save" && (status === 400 || status === 422))
     return "Noeis could not read that page. Some sites only show their text to a signed-in browser."
   return clip(reply && reply.error, TITLE_CHARS) || "That did not work just now. Try it again."

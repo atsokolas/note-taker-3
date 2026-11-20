@@ -7,8 +7,10 @@ import "Model.js" as Model
 // whatever else is open. The list you opened it from on the left (your
 // nightstand, or what a search found), the piece on the right, in the
 // theme's colours and the system font. The keyboard does the reading:
-// j and k walk the paragraphs, n and p turn the list, o opens the piece on
-// noeis.io, q closes, ? says so.
+// j and k walk the paragraphs, h keeps the one you are on (a with a note),
+// n and p turn the list, o opens the piece on noeis.io, q closes, ? says so.
+// An article opens where you stopped reading it, here or on noeis.io, with
+// what you kept marked in the margin.
 Scope {
   id: root
 
@@ -25,11 +27,18 @@ Scope {
   property var shown: null
   property string line: ""
   property int cursor: 0
+  // The paragraph Noeis last knew you were on; moving off it is worth keeping.
+  property int placed: 0
+  property var kept: []
+  property bool noting: false
+  property string receipt: ""
   property bool help: false
   property int loadSeq: 0
 
   readonly property var keys: [
     ["j  k", "Next and previous paragraph"],
+    ["h", "Keep this paragraph"],
+    ["a", "Keep it with a note"],
     ["n  p", "Next and previous piece"],
     ["o", "Open it on noeis.io"],
     ["1–5", Model.PLACES.map(function(place) { return place[0] }).join(", ")],
@@ -76,6 +85,7 @@ Scope {
   }
 
   function load() {
+    remember()
     var asked = row
     var seq = ++loadSeq
     piece = null
@@ -84,15 +94,79 @@ Scope {
     if (!service || !service.signedIn)
       return line = service && service.session.ended ? Model.problem(401) : "Connect this desktop from the Noeis mark on the bar, then read here."
     if (!asked) return line = list ? "" : "Your nightstand is empty. A link saved from the panel waits here."
+    var waiting = service.pieces[Model.articleOf(asked)]
+    if (waiting) return show(asked, waiting, seq)
     line = "Opening…"
     service.request("GET", Model.pieceSource(asked), null, function(status, reply) {
       if (seq !== root.loadSeq) return
       if (status !== 200) return root.line = Model.problem(status, reply, "read")
-      root.line = ""
-      root.piece = Model.pieceFrom(asked, reply)
-      root.cursor = root.piece.cursor
-      Qt.callLater(root.reveal)
+      root.show(asked, Model.pieceFrom(asked, reply), seq)
     })
+  }
+
+  // A piece opens at once, at its passage or the top; then, as they arrive,
+  // at the place you stopped (unless you have already moved) and with what
+  // you kept marked.
+  function show(asked, opened, seq) {
+    line = ""
+    piece = opened
+    kept = []
+    cursor = placed = Model.openAt(piece, asked, null)
+    Qt.callLater(reveal)
+    var id = Model.articleOf(asked)
+    if (!id) return
+    var article = "/api/articles/" + encodeURIComponent(id)
+    service.request("GET", article + "/reading-state", null, function(status, reply) {
+      if (seq !== root.loadSeq || status !== 200 || root.cursor !== root.placed) return
+      root.cursor = root.placed = Model.openAt(root.piece, asked, reply.readingState)
+      root.reveal()
+    })
+    service.request("GET", article + "/highlights", null, function(status, reply) {
+      if (seq === root.loadSeq && status === 200) root.kept = Model.keptIn(root.piece, reply)
+    })
+  }
+
+  // Where you stopped, for noeis.io and the next time, once you have moved.
+  function remember() {
+    var id = Model.articleOf(shown)
+    if (!id || !piece || !piece.blocks.length || cursor === placed) return
+    placed = cursor
+    service.request("PUT", "/api/articles/" + encodeURIComponent(id) + "/reading-state", Model.placeOf(piece, cursor), null)
+  }
+
+  onCursorChanged: placeTimer.restart()
+
+  Timer {
+    id: placeTimer
+    interval: 3000
+    onTriggered: root.remember()
+  }
+
+  // The paragraph you are on becomes a passage in your Library, with your
+  // note if you wrote one. Keeping it again joins the mark already there.
+  function keep(note) {
+    noting = false
+    page.forceActiveFocus()
+    if (!piece || !piece.blocks.length) return
+    var id = Model.articleOf(shown)
+    if (!id) return tell("Passages are kept from articles.")
+    var at = cursor
+    service.request("POST", "/articles/" + encodeURIComponent(id) + "/highlights", { text: piece.blocks[at].text, note: note }, function(status, reply) {
+      if (status !== 200 && status !== 201) return root.tell(Model.problem(status, reply, "keep"))
+      if (Model.articleOf(root.shown) === id && root.kept.indexOf(at) < 0) root.kept = root.kept.concat([at])
+      root.tell(note ? "Kept, with your note." : "Kept in your Library.")
+    })
+  }
+
+  function tell(text) {
+    receipt = text
+    receiptTimer.restart()
+  }
+
+  Timer {
+    id: receiptTimer
+    interval: 4000
+    onTriggered: root.receipt = ""
   }
 
   function step(by) {
@@ -116,7 +190,10 @@ Scope {
     flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, top))
   }
 
-  function close() { window.visible = false }
+  function close() {
+    remember()
+    window.visible = false
+  }
 
   function key(event) {
     var text = event.text
@@ -127,6 +204,11 @@ Scope {
     else if (text === "k" || event.key === Qt.Key_Up) step(-1)
     else if (text === "n") turn(1)
     else if (text === "p") turn(-1)
+    else if (text === "h") keep("")
+    else if (text === "a" && piece && piece.blocks.length) {
+      noting = true
+      Qt.callLater(function() { noteInput.forceActiveFocus() })
+    }
     else if (text === "o" && shown) service.visit(shown.path)
     else if (Model.PLACES[text - 1]) service.visit(Model.PLACES[text - 1][1])
     else return
@@ -319,14 +401,15 @@ Scope {
               width: article.width
               height: blockText.implicitHeight
 
-              // The paragraph you are on, marked in the margin.
+              // The paragraph you are on, and those you kept, marked in the margin.
               Rectangle {
                 x: -Style.space(14)
                 width: 2
                 height: parent.height
                 radius: 1
                 color: root.accent
-                visible: root.cursor === block.index
+                visible: root.cursor === block.index || root.kept.indexOf(block.index) >= 0
+                opacity: root.cursor === block.index ? 1 : 0.4
               }
 
               Rectangle {
@@ -362,6 +445,63 @@ Scope {
               }
             }
           }
+        }
+      }
+
+      // ---- A note for the paragraph you are on, and what keeping it said.
+      Rectangle {
+        visible: root.noting || root.receipt !== ""
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: flick.horizontalCenter
+        anchors.bottomMargin: page.gutter
+        width: Math.min(flick.width - page.gutter * 2, Style.space(680))
+        height: (root.noting ? noteInput.implicitHeight : receiptText.implicitHeight) + Style.space(16)
+        radius: Style.cornerRadius
+        color: root.palette.selection
+        border.color: root.accent
+        border.width: root.noting ? 1 : 0
+
+        TextInput {
+          id: noteInput
+          visible: root.noting
+          anchors.fill: parent
+          anchors.margins: Style.space(8)
+          verticalAlignment: TextInput.AlignVCenter
+          color: root.fg
+          selectionColor: root.accent
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body
+          clip: true
+          Keys.onReturnPressed: {
+            root.keep(text.trim())
+            text = ""
+          }
+          Keys.onEscapePressed: {
+            root.noting = false
+            text = ""
+            page.forceActiveFocus()
+          }
+
+          Text {
+            visible: noteInput.text === ""
+            anchors.verticalCenter: parent.verticalCenter
+            text: "A note on this paragraph, then Enter. Esc lets it go."
+            textFormat: Text.PlainText
+            color: root.fg
+            opacity: root.muted
+            font: noteInput.font
+          }
+        }
+
+        Text {
+          id: receiptText
+          visible: !root.noting
+          anchors.centerIn: parent
+          text: root.receipt
+          textFormat: Text.PlainText
+          color: root.fg
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body
         }
       }
 
