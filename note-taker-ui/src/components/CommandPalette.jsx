@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import api from '../api';
 import { searchKeyword } from '../api/retrieval';
 import { createWikiPage, listWikiPages } from '../api/wiki';
@@ -27,6 +27,7 @@ import { normalizeSpaces } from '../utils/editorialText';
 import { buildPaletteDestinations } from '../system/paletteDestinations';
 import { buildSettingsPaletteRows } from '../settings/settingsRegistry';
 import { getFolders } from '../api/folders';
+import { currentAccountId } from '../utils/browserScope';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -245,8 +246,19 @@ const currentLocationSearch = () => (
   typeof window === 'undefined' ? '' : window.location?.search || ''
 );
 
-const CommandPalette = ({ open, onClose }) => {
+const resultKey = item => `${item.type}:${item.id || item.path}`;
+
+const CommandPalette = ({ open, onOpen, onClose }) => {
   const navigate = useNavigate();
+  const { key } = useLocation();
+  const navigationType = useNavigationType();
+  const account = currentAccountId();
+  const trail = useRef(null);
+  const previousKey = useRef(key);
+  const resume = useRef(null);
+  const restoring = useRef(null);
+  const listRef = useRef(null);
+  const inputRef = useRef(null);
   const systemStatus = useSystemStatusControls();
   const capabilityModel = useNoeisCapabilities();
   const [query, setQuery] = useState('');
@@ -260,6 +272,7 @@ const CommandPalette = ({ open, onClose }) => {
   const [notebook, setNotebook] = useState([]);
   const [concepts, setConcepts] = useState([]);
   const [wikiPages, setWikiPages] = useState([]);
+  const [recentWiki, setRecentWiki] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const isWikiSurface = currentPathname().startsWith('/wiki');
@@ -280,12 +293,36 @@ const CommandPalette = ({ open, onClose }) => {
   );
 
   useEffect(() => {
+    const previous = previousKey.current;
+    previousKey.current = key;
+    const saved = trail.current;
+    if (saved && saved.account !== account) trail.current = null;
+    if (!saved || saved.account !== account || key === previous) return;
+    if (previous === saved.from && navigationType === 'PUSH' && !saved.destination) saved.destination = key;
+    if (previous === saved.destination && navigationType === 'REPLACE') saved.destination = key;
+    if (!open && key === saved.from && previous === saved.destination && navigationType === 'POP') {
+      resume.current = saved;
+      onOpen?.();
+    }
+  }, [key, navigationType, account, open, onOpen]);
+
+  useEffect(() => {
     if (!open) return;
-    setQuery('');
-    setArticles([]);
-    setSearchGroups(EMPTY_GROUPS);
-    setWikiPages([]);
+    const saved = resume.current?.account === account ? resume.current : null;
+    resume.current = null;
+    restoring.current = saved ? { row: saved.row, focused: false } : null;
+    setQuery(saved?.query || '');
+    setArticles(saved?.articles || []);
+    setSearchGroups(saved?.groups || EMPTY_GROUPS);
+    setWikiPages(saved?.wikiPages || []);
+    setRecentWiki([]);
+    setNotebook([]);
+    setConcepts([]);
+    setFolders([]);
+    setShelfArticles([]);
+    setLoading(Boolean(saved));
     setActiveIndex(0);
+    let live = true;
     const fetchBase = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -297,9 +334,10 @@ const CommandPalette = ({ open, onClose }) => {
           getFolders(),
           api.get('/api/articles', { headers })
         ]);
+        if (!live || account !== currentAccountId()) return;
         setNotebook(notebookRows.status === 'fulfilled' ? notebookRows.value || [] : []);
         setConcepts(tagRes.status === 'fulfilled' ? tagRes.value?.data || [] : []);
-        setWikiPages(wikiRows.status === 'fulfilled' ? withoutHeldViews(wikiRows.value) : []);
+        setRecentWiki(wikiRows.status === 'fulfilled' ? withoutHeldViews(wikiRows.value) : []);
         setFolders(folderRows.status === 'fulfilled' && Array.isArray(folderRows.value) ? folderRows.value : []);
         setShelfArticles(shelfRes.status === 'fulfilled' && Array.isArray(shelfRes.value?.data) ? shelfRes.value.data : []);
       } catch (err) {
@@ -307,15 +345,18 @@ const CommandPalette = ({ open, onClose }) => {
       }
     };
     fetchBase();
-  }, [open]);
+    return () => { live = false; };
+  }, [open, account]);
 
   useEffect(() => {
     if (!open) return;
+    let live = true;
     const fetchSearch = async () => {
       const q = query.trim();
       if (!q) {
         setArticles([]);
         setSearchGroups(EMPTY_GROUPS);
+        setLoading(false);
         return;
       }
       setLoading(true);
@@ -324,28 +365,27 @@ const CommandPalette = ({ open, onClose }) => {
           searchKeyword({ q, scope: 'all' }),
           listWikiPages({ q, limit: 8, summary: 1 })
         ]);
-        const data = searchResult.status === 'fulfilled' ? searchResult.value : {};
-        setArticles(Array.isArray(data?.articles) ? data.articles : []);
-        setSearchGroups({
-          notes: Array.isArray(data?.groups?.notes) ? data.groups.notes : [],
-          highlights: Array.isArray(data?.groups?.highlights) ? data.groups.highlights : [],
-          claims: Array.isArray(data?.groups?.claims) ? data.groups.claims : [],
-          evidence: Array.isArray(data?.groups?.evidence) ? data.groups.evidence : []
-        });
-        setWikiPages(wikiResult.status === 'fulfilled' ? withoutHeldViews(wikiResult.value) : []);
+        if (!live || account !== currentAccountId()) return;
+        if (searchResult.status === 'fulfilled' || !restoring.current) {
+          const data = searchResult.value;
+          setArticles(Array.isArray(data?.articles) ? data.articles : []);
+          setSearchGroups({
+            notes: Array.isArray(data?.groups?.notes) ? data.groups.notes : [],
+            highlights: Array.isArray(data?.groups?.highlights) ? data.groups.highlights : [],
+            claims: Array.isArray(data?.groups?.claims) ? data.groups.claims : [],
+            evidence: Array.isArray(data?.groups?.evidence) ? data.groups.evidence : []
+          });
+        }
+        if (wikiResult.status === 'fulfilled' || !restoring.current) setWikiPages(withoutHeldViews(wikiResult.value));
       } catch (err) {
         console.error('Palette search failed', err);
       } finally {
-        setLoading(false);
+        if (live) setLoading(false);
       }
     };
     const timer = setTimeout(fetchSearch, 180);
-    return () => clearTimeout(timer);
-  }, [query, open]);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query]);
+    return () => { live = false; clearTimeout(timer); };
+  }, [query, open, account]);
 
   const createNote = useCallback(async () => {
     systemStatus.clearRecoverableFailure();
@@ -856,7 +896,7 @@ const CommandPalette = ({ open, onClose }) => {
     };
     const wikiPagesSection = {
       title: 'Wiki pages',
-      items: wikiPages.slice(0, q ? 8 : 6).map(page => {
+      items: (q ? wikiPages : recentWiki).slice(0, q ? 8 : 6).map(page => {
         const pageId = page._id || page.id;
         return pageId ? {
           type: 'Wiki',
@@ -903,6 +943,7 @@ const CommandPalette = ({ open, onClose }) => {
       list.push({
         title: 'Notes',
         items: (searchGroups.notes || []).slice(0, 6).map(item => ({
+          id: item._id,
           type: 'Note',
           label: buildResultLabel(item, 'Note'),
           path: item.openPath || `/think?tab=notebook&entryId=${item._id}`
@@ -911,6 +952,7 @@ const CommandPalette = ({ open, onClose }) => {
       list.push({
         title: 'Highlights',
         items: (searchGroups.highlights || []).slice(0, 6).map(item => ({
+          id: item._id,
           type: 'Highlight',
           label: buildResultLabel(item, 'Highlight'),
           path: item.openPath || buildCanonicalArticlePath(item.articleId || '')
@@ -919,6 +961,7 @@ const CommandPalette = ({ open, onClose }) => {
       list.push({
         title: 'Claims',
         items: (searchGroups.claims || []).slice(0, 6).map(item => ({
+          id: item._id,
           type: 'Claim',
           label: buildResultLabel(item, 'Claim'),
           path: item.openPath || (item.articleId ? buildCanonicalArticlePath(item.articleId) : `/think?tab=notebook&entryId=${item._id}`)
@@ -927,6 +970,7 @@ const CommandPalette = ({ open, onClose }) => {
       list.push({
         title: 'Evidence',
         items: (searchGroups.evidence || []).slice(0, 6).map(item => ({
+          id: item._id,
           type: 'Evidence',
           label: buildResultLabel(item, 'Evidence'),
           path: item.openPath || (item.articleId ? buildCanonicalArticlePath(item.articleId) : `/think?tab=notebook&entryId=${item._id}`)
@@ -979,7 +1023,7 @@ const CommandPalette = ({ open, onClose }) => {
     return list
       .map(section => ({ ...section, items: section.items.filter(Boolean) }))
       .filter(section => section.items.length > 0);
-  }, [articles, capabilityModel.commands, concepts, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, notebook, pages, pullReferencePath, query, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
+  }, [articles, capabilityModel.commands, concepts, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, notebook, pages, pullReferencePath, query, recentWiki, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
 
   const selectableItems = useMemo(
     () => sections.flatMap(section => section.items),
@@ -987,6 +1031,23 @@ const CommandPalette = ({ open, onClose }) => {
   );
 
   useEffect(() => {
+    if (!open) return;
+    const saved = restoring.current;
+    const previousIndex = saved ? selectableItems.findIndex(item => resultKey(item) === saved.row) : -1;
+    if (previousIndex >= 0) {
+      setActiveIndex(previousIndex);
+      if (!saved.focused) {
+        const row = listRef.current?.querySelectorAll('.palette-item')[previousIndex];
+        row?.focus({ preventScroll: true });
+        row?.scrollIntoView?.({ block: 'nearest' });
+        saved.focused = Boolean(row);
+      }
+      return;
+    }
+    if (!loading) {
+      if (saved?.focused) inputRef.current?.focus();
+      restoring.current = null;
+    }
     if (selectableItems.length === 0) {
       setActiveIndex(0);
       return;
@@ -1000,16 +1061,22 @@ const CommandPalette = ({ open, onClose }) => {
       }
     }
     setActiveIndex(prev => Math.min(prev, selectableItems.length - 1));
-  }, [loading, query, selectableItems]);
+  }, [loading, open, query, selectableItems]);
 
   const handleSelect = (item) => {
-    if (!item) return;
+    if (!item || (loading && !item.immediate && !restoring.current)) return;
     if (item.action) {
       onClose();
       item.action();
       return;
     }
     if (item.path) {
+      if (account && query.trim() && !['Action', 'Command'].includes(item.type)) {
+        trail.current = {
+          account, from: key, query, row: resultKey(item),
+          articles, groups: searchGroups, wikiPages
+        };
+      }
       navigate(item.path);
       onClose();
       return;
@@ -1035,18 +1102,16 @@ const CommandPalette = ({ open, onClose }) => {
   };
 
   const handleKeyDown = (event) => {
-    if (!open) return;
-    if (event.key === 'ArrowDown') {
+    if (!open || event.defaultPrevented) return;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
-      setActiveIndex(prev => Math.min(prev + 1, Math.max(selectableItems.length - 1, 0)));
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      setActiveIndex(prev => Math.max(prev - 1, 0));
+      restoring.current = null;
+      const next = Math.max(0, Math.min(activeIndex + (event.key === 'ArrowDown' ? 1 : -1), selectableItems.length - 1));
+      setActiveIndex(next);
+      if (event.target.matches('.palette-item')) listRef.current?.querySelectorAll('.palette-item')[next]?.focus();
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      const selectedItem = selectableItems[activeIndex];
-      if (loading && !selectedItem?.immediate) return;
-      handleSelect(selectedItem);
+      handleSelect(selectableItems[activeIndex]);
     } else if (event.key === 'Escape') {
       onClose();
     }
@@ -1058,13 +1123,16 @@ const CommandPalette = ({ open, onClose }) => {
 
   return (
     <div className="palette-overlay" onKeyDown={handleKeyDown} tabIndex={-1}>
-      <Card className="palette-card">
+      <Card className="palette-card" role="dialog" aria-modal="true" aria-label="Search Noeis">
         <div className="palette-input-row">
           <input
+            ref={inputRef}
             autoFocus
             value={query}
             onChange={(event) => {
+              restoring.current = null;
               const nextQuery = event.target.value;
+              setActiveIndex(0);
               setQuery(nextQuery);
               setLoading(Boolean(nextQuery.trim()));
             }}
@@ -1084,12 +1152,12 @@ const CommandPalette = ({ open, onClose }) => {
               the room's name starts with. Hold G and the masthead confirms. */}
           <span className="muted small">G then a room’s first letter: Jump</span>
         </div>
-        {loading && (
+        {loading && !restoring.current && (
           <p className="muted small" role="status" aria-live="polite">
             Searching…
           </p>
         )}
-        <div className="palette-list">
+        <div className="palette-list" ref={listRef}>
           {!loading && selectableItems.length === 0 && <p className="muted small">No results.</p>}
           {sections.map(section => (
             <div key={section.title} className="palette-group">
@@ -1103,6 +1171,7 @@ const CommandPalette = ({ open, onClose }) => {
                     type="button"
                     key={item.id || `${section.title}-${item.type}-${item.label}`}
                     className={`palette-item ${isActive ? 'active' : ''}`}
+                    onFocus={() => setActiveIndex(rowIndex)}
                     onMouseEnter={() => setActiveIndex(rowIndex)}
                     onMouseDown={handleResultMouseDown}
                     onClick={handleResultClick(item)}

@@ -22,7 +22,9 @@ import { SystemStatusProvider } from '../system/SystemStatusContext';
 const mockNavigate = jest.fn();
 
 jest.mock('react-router-dom', () => ({
-  useNavigate: () => mockNavigate
+  useNavigate: () => mockNavigate,
+  useLocation: () => ({ key: 'mock' }),
+  useNavigationType: () => 'POP'
 }));
 
 jest.mock('../api', () => ({
