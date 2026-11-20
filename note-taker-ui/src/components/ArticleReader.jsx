@@ -61,7 +61,7 @@ const PASSAGE_SELECTOR = 'p, li, blockquote, h2, h3';
 const passageText = (node) => String(node?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 180);
 
 const revealCitedPassage = (target, reducedMotion, focusEvidence) => {
-  target.scrollIntoView?.({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+  target.scrollIntoView?.({ behavior: reducedMotion ? 'auto' : 'smooth', block: focusEvidence ? 'start' : 'center' });
   if (focusEvidence) {
     target.tabIndex = -1;
     target.focus({ preventScroll: true });
