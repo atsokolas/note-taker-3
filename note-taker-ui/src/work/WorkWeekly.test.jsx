@@ -59,6 +59,25 @@ test('retries the same operation from its row and leaves intervening focus alone
   expect(summary).toHaveFocus();
   expect(props.onAction).toHaveBeenCalledTimes(1);
 });
+test('the review finds an earlier unfinished row and signs off only when every decision is acknowledged', async () => {
+  session.flush = jest.fn().mockResolvedValue(true);
+  props.onAction.mockImplementation(id => id);
+  const friday = '2026-11-20';
+  const { rerender } = render(<WorkWeekly {...props} today={friday} />);
+  fireEvent.click(screen.getByText('Close the week · 2 to review'));
+  const [first, last] = await screen.findAllByRole('button', { name: 'Plan for Monday' });
+  const planned = item => ({ ...item, plannedOn: '2026-11-23', plan: { operationId: item.id } });
+
+  last.focus();
+  fireEvent.click(last);
+  rerender(<WorkWeekly {...props} today={friday} items={[a, planned(b)]} />);
+  await waitFor(() => expect(first).toHaveFocus());
+  expect(screen.queryByText(/That’s the week/)).toBeNull();
+
+  fireEvent.click(first);
+  rerender(<WorkWeekly {...props} today={friday} items={[planned(a), planned(b)]} />);
+  expect(await screen.findByText('That’s the week. 2 decisions filed.')).toBeVisible();
+});
 test('shows all priorities, original sources, and supports keyboard assignment and removal', async () => {
   render(<WorkWeekly {...props} />);
   expect(screen.getByRole('heading', { name: 'Apply to accelerators' })).toBeInTheDocument();

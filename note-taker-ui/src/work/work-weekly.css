@@ -164,3 +164,4 @@
 .work-week-close__decision form:not([inert]) + .work-week-close__receipt { pointer-events: none; }
 .work-week-close button[aria-disabled="true"] { cursor: wait; }
 .work-week-close__source { text-decoration: underline; text-underline-offset: .2em; }
+.work-week-close__colophon { margin-block: var(--space-4) 0; padding-block-start: var(--space-3); border-block-start: 1px solid var(--noeis-rule); color: var(--noeis-ink-muted); font: italic 1rem/1.5 var(--font-serif); }
