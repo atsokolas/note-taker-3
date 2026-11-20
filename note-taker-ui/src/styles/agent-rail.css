@@ -426,6 +426,7 @@
   .agent-rail-drawer__trigger {
     bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     right: 14px;
+    min-height: 44px;
   }
 
   .app-shell-new__body:has(> .agent-rail-drawer__trigger),

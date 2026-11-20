@@ -146,26 +146,39 @@ body.noeis-editorial .magnetic-reading-rail__hint {
   text-transform: none;
 }
 
+body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__pill {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__btn {
+  flex: none;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 720px) {
   body.noeis-editorial .magnetic-reading-rail.has-return {
     align-items: flex-start;
     bottom: env(safe-area-inset-bottom, 0px);
-    max-width: calc(100vw - var(--magnetic-rail-left, 0px) - 116px);
+    max-width: calc(100vw - var(--magnetic-rail-left, 0px) - 28px - 5.5rem);
+    container: reading-return / inline-size;
   }
 
   body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__btn {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
-    white-space: nowrap;
-  }
-
-  body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__pill {
-    max-width: 100%;
   }
 }
 
-@media (max-width: 380px) {
+@container reading-return (width < 15rem) {
   body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__hint {
     display: none;
   }
