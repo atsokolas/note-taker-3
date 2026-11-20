@@ -29,7 +29,10 @@ export default function CopyClip({ clip, idleLabel }) {
     {status === 'manual' ? (
       <label className="copy-clip__manual">
         Copy the text manually
-        <textarea rows={5} readOnly value={clip} onFocus={event => event.currentTarget.select()} />
+        <textarea rows={5} readOnly value={clip} onFocus={event => {
+          const field = event.currentTarget;
+          requestAnimationFrame(() => { if (document.activeElement === field) field.select(); });
+        }} />
       </label>
     ) : null}
   </>;

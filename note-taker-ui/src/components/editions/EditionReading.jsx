@@ -92,8 +92,10 @@ export default function EditionReading({
     if (!loaded || !focusItem) return;
     /* A finding on its own opens at the top, under its line of context. */
     const frame = requestAnimationFrame(() => {
+      const finding = document.getElementById(findingAnchor(focusItem));
+      if (!finding || finding.contains(document.activeElement)) return;
       window.scrollTo?.(0, 0);
-      document.getElementById(findingAnchor(focusItem))?.focus({ preventScroll: true });
+      finding.focus({ preventScroll: true });
     });
     /* Stepping past a finding is not reading it: it counts as read once the
        reader has had it on screen a moment, so new counts hold while J skims

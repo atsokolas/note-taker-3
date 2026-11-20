@@ -353,7 +353,7 @@ it('keeps the same clipping selectable when clipboard access is denied', async (
     expect(field).toHaveAttribute('readonly');
     expect(field).toHaveValue(writeText.mock.calls[0][0]);
     field.focus();
-    expect(field.selectionEnd - field.selectionStart).toBe(field.value.length);
+    await waitFor(() => expect(field.selectionEnd - field.selectionStart).toBe(field.value.length));
   } finally {
     if (previous) Object.defineProperty(navigator, 'clipboard', previous);
     else delete navigator.clipboard;
