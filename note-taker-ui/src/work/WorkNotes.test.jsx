@@ -40,6 +40,25 @@ test('the day picker lives on Today only', async () => {
   fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Inbox' }));
   expect(screen.queryByText('Choose a day')).toBeNull();
 });
+test('the picker keeps its disclosure and gives focus to the selected date across weeks and months', async () => {
+  window.history.replaceState({}, '', '/work?date=2026-10-31');
+  render(<WorkNotes />);
+  fireEvent.click(await screen.findByText('Choose a day'));
+  const days = within(screen.getByRole('group', { name: 'Calendar navigation' }));
+  const saturday = days.getByRole('button', { name: 'Sat 31 Oct' });
+  saturday.focus();
+  fireEvent.keyDown(saturday, { key: 'ArrowRight' });
+  const sunday = days.getByRole('button', { name: 'Sun 1 Nov' });
+  expect(sunday).toHaveFocus();
+  expect(sunday).toHaveAttribute('aria-pressed', 'true');
+  expect(saturday).toHaveAttribute('tabindex', '-1');
+  fireEvent.keyDown(sunday, { key: 'ArrowRight' });
+  const monday = days.getByRole('button', { name: 'Mon 2 Nov' });
+  expect(monday).toHaveFocus();
+  fireEvent.keyDown(monday, { key: 'End' });
+  expect(days.getByRole('button', { name: 'Sun 8 Nov' })).toHaveFocus();
+  expect(screen.getByText('Choose a day').closest('details')).toHaveAttribute('open');
+});
 test('new note is untitled and untouched capture closes without creating anything', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: 'New note' }));
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveFocus();

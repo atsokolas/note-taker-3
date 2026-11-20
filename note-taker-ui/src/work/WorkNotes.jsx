@@ -102,7 +102,8 @@ export default function WorkNotes() {
   const [quick, setQuick] = useState(false);
   const [filing, setFiling] = useState('');
   const [dragging, setDragging] = useState('');
-  const departure = useRef(null), initialized = useRef(false);
+  const departure = useRef(null), initialized = useRef(false), calendarFocus = useRef(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const notes = session.entries(), note = session.entry(selected), conflict = session.conflict(selected);
   // Folders and projects share one store; a folder files a note, a project is an effort a note can be part of.
   const folders = session.folders().filter(item => item.kind !== 'project'), projectRecords = session.folders().filter(item => item.kind === 'project');
@@ -256,7 +257,12 @@ export default function WorkNotes() {
   const scope = (nextView, nextFolder = 'all') => leave(() => { setView(nextView); setFolder(nextFolder); if (nextView === 'today') setDay(today); setSelected(''); setFresh(''); setMobileShelf(false); url({ view: nextView, folder: nextFolder, note: '', ...(nextView === 'today' ? { date: today } : {}) }, false); });
   // A day is a view of its own: choosing one shows the day, never a note from it.
   // Choosing a day from anywhere in Work opens that day's page.
-  const selectDay = next => leave(() => { setView('today'); setFolder('all'); setDay(next); setSelected(''); setFresh(''); setMobileShelf(false); url({ view: 'today', folder: 'all', date: next, note: '' }, false); });
+  const selectDay = (next, calendarControl) => leave(() => {
+    if (calendarControl !== undefined) setCalendarOpen(true);
+    if (calendarControl) calendarFocus.current = { day: next, control: calendarControl };
+    setView('today'); setFolder('all'); setDay(next); setSelected(''); setFresh(''); setMobileShelf(false);
+    url({ view: 'today', folder: 'all', date: next, note: '' }, false);
+  });
   const renameNote = id => { setNoteEditing(id); setNewFolder(session.entry(id)?.title || ''); setNotice(''); setSheet('rename-note'); };
   const editProject = (item, action = 'description') => {
     if (action === 'delete') return prepareProjectDeletion(item);
@@ -447,6 +453,7 @@ export default function WorkNotes() {
   </main>;
   if (session.compatible() === false) return <main className="work-locked"><h1>{session.authNeeded() ? 'Log in to sync' : 'Work is updating'}</h1><p role="alert">{session.error() || 'Noeis is updating. Try again in a minute. Your writing stays here.'}</p><p>Keep this page open if you have unsynced writing.</p>{signIn}<button disabled={session.authNeeded()} onClick={() => session.load()}>Retry Work</button></main>;
   const changeCalendarMode = mode => {
+    if (!writing) calendarFocus.current = { day, control: 'mode' };
     setCalendarMode(mode);
     if (!writing) return;
     window.requestAnimationFrame(() => {
@@ -461,7 +468,7 @@ export default function WorkNotes() {
   const homePage = view === 'today' && !note?.trashedAt && !writing && day === today && calendarMode !== 'week';
   const addPlan = text => readOutstanding(text, today).list === 'next' ? plan({ text, plannedOn: day }) : captureOutstanding(text);
   const dayTasks = <WorkDayTasks day={day} today={today} items={scopedItems} notes={notes} folders={folders} onAction={action} onEdit={editItem} onOpen={open} onPlan={addPlan} onNew={newItem} />;
-  const planner = <WorkCalendar showTasks={!homePage} timeZone={timeZone} oneThing={needs.oneThing} page={view === 'today' && !writing} mark={writing ? writtenDay(note) : null} drag={drag} day={writing ? writtenDay(note) : day} today={today} mode={calendarMode} onMode={changeCalendarMode} onDay={selectDay} items={scopedItems} notes={notes} query={query} folders={folders} projects={projectRecords} onRenameNote={renameNote} onTrashNote={trashNote} onOpen={open} onEdit={editItem} onAction={action} onStart={startMeeting} onNew={newItem} onPlan={addPlan} sense={homePage ? <WorkMorning items={items} notes={notes} needs={needs} today={today} timeZone={timeZone} /> : null} margin={<WorkMargin disabled={Boolean(currentFolder?.archivedAt && !jot)} jots={jots} jot={jot} session={session} onChoose={setJotChoice} onChange={writeJot} onReview={editItem} />} />;
+  const planner = <WorkCalendar showTasks={!homePage} timeZone={timeZone} oneThing={needs.oneThing} page={view === 'today' && !writing} mark={writing ? writtenDay(note) : null} drag={drag} day={writing ? writtenDay(note) : day} today={today} mode={calendarMode} onMode={changeCalendarMode} onDay={selectDay} pickerOpen={calendarOpen} onPicker={setCalendarOpen} focusRequest={calendarFocus} items={scopedItems} notes={notes} query={query} folders={folders} projects={projectRecords} onRenameNote={renameNote} onTrashNote={trashNote} onOpen={open} onEdit={editItem} onAction={action} onStart={startMeeting} onNew={newItem} onPlan={addPlan} sense={homePage ? <WorkMorning items={items} notes={notes} needs={needs} today={today} timeZone={timeZone} /> : null} margin={<WorkMargin disabled={Boolean(currentFolder?.archivedAt && !jot)} jots={jots} jot={jot} session={session} onChoose={setJotChoice} onChange={writeJot} onReview={editItem} />} />;
   return <div className={`work-notes${sheet === 'item' ? ' has-inspector' : ''}`}>
     <div inert={sheet || quick ? true : undefined}>
       <div className={`work-layout ${mobileShelf ? 'is-shelf-open' : ''} ${shelfCollapsed ? 'is-shelf-collapsed' : ''}`}>
