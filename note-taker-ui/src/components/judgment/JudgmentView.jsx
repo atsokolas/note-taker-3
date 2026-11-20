@@ -245,31 +245,41 @@ const TheTest = ({ test, onSave, children }) => {
   );
 };
 
-const Record = ({ lines, origin }) => (
-  <ol className="judgment-record">
-    {lines.map(line => (
-      <li key={line.id}>
-        <time dateTime={line.at}>{formatLedgerDate(line.at)}</time>
-        <div>
-          <span>{line.text}</span>
-          {line.amendment?.before && line.amendment.after ? (
-            <Amendment before={line.amendment.before} after={line.amendment.after}>
-              {line.amendment.evidence ? (
-                <div className="judgment-amendment-source">
-                  <small>Passage behind this change</small>
-                  <blockquote>{line.amendment.evidence.text}</blockquote>
-                  {line.amendment.evidence.href ? <SourceLink origin={origin} focusId={`amendment-${line.id}`} href={line.amendment.evidence.href}>
-                    {line.amendment.evidence.source || 'Open source'}
-                  </SourceLink> : null}
-                </div>
-              ) : null}
-            </Amendment>
-          ) : null}
-        </div>
-      </li>
-    ))}
-  </ol>
-);
+const Record = ({ lines, origin }) => {
+  const days = lines.map(line => new Date(line.at).toDateString());
+  const count = new Map();
+  days.forEach(day => count.set(day, (count.get(day) || 0) + 1));
+  return (
+    <ol className="judgment-record">
+      {lines.map((line, index) => (
+        <li key={line.id}>
+          <time dateTime={line.at}>
+            {formatLedgerDate(line.at)}
+            {count.get(days[index]) > 1 && !/^\d{4}-\d{2}-\d{2}$/.test(line.at) ? (
+              <span>{new Date(line.at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>
+            ) : null}
+          </time>
+          <div>
+            <span>{line.text}</span>
+            {line.amendment?.before && line.amendment.after ? (
+              <Amendment before={line.amendment.before} after={line.amendment.after}>
+                {line.amendment.evidence ? (
+                  <div className="judgment-amendment-source">
+                    <small>Passage behind this change</small>
+                    <blockquote>{line.amendment.evidence.text}</blockquote>
+                    {line.amendment.evidence.href ? <SourceLink origin={origin} focusId={`amendment-${line.id}`} href={line.amendment.evidence.href}>
+                      {line.amendment.evidence.source || 'Open source'}
+                    </SourceLink> : null}
+                  </div>
+                ) : null}
+              </Amendment>
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+};
 
 const JudgmentView = ({ pageId, initialPage = null }) => {
   const { pathname, search } = useLocation();

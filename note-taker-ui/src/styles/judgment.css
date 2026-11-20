@@ -378,9 +378,12 @@
 .judgment-record time {
   color: var(--judgment-subtle);
   font: 400 0.8rem/1.9 var(--judgment-ui);
+  font-variant-numeric: tabular-nums;
 }
+.judgment-record time span { display: block; line-height: 1.35; }
 
 .judgment-amendment-source {
+  padding-inline-start: var(--amendment-indent);
   color: var(--judgment-muted);
 }
 .judgment-amendment-source blockquote { margin: 4px 0; overflow-wrap: anywhere; }

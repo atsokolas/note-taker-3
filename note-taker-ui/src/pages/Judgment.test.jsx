@@ -180,6 +180,23 @@ describe('the view', () => {
     expect(screen.getByRole('button', { name: 'Fairly sure' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('shows saved times when two record entries share a local date', async () => {
+    const startedAt = new Date(2026, 9, 10, 9, 15).toISOString();
+    const until = new Date(2026, 9, 10, 14, 30).toISOString();
+    getWikiPage.mockResolvedValue(viewPage({
+      startedAt,
+      heldHistory: [{ text: 'An earlier view.', until }]
+    }));
+    openView();
+    const record = await screen.findByRole('region', { name: 'Record' });
+    for (const at of [startedAt, until]) {
+      expect(record.querySelector(`time[datetime="${at}"] span`)).toHaveTextContent(
+        new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+      );
+    }
+    expect(record.querySelector('time[datetime="2026-10-11T12:00:00.000Z"] span')).toBeNull();
+  });
+
   it('says so and puts the page back when a write does not land', async () => {
     updateWikiPage.mockRejectedValue(new Error('That did not save.'));
     openView();
