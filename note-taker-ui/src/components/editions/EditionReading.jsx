@@ -237,20 +237,14 @@ export default function EditionReading({
     if (keeping.current || keepReceipt?.entryId) return;
     keeping.current = true;
     setKeptSelection({ key: selectionKey, phase: 'saving' });
-    try {
-      const note = await createNotebookEntry({
-        source: 'edition-selection',
-        title: item.plain || item.title,
-        blocks: [{ type: 'quote', text: selection.quote, articleTitle: clippingCredit,
-          sourcePath: editionFindingPath(issue._id, item.itemId) }]
-      });
-      if (!note?._id) throw new Error('Missing note receipt');
-      setKeptSelection({ key: selectionKey, entryId: note._id });
-    } catch {
-      setKeptSelection({ key: selectionKey, phase: 'failed' });
-    } finally {
-      keeping.current = false;
-    }
+    const note = await createNotebookEntry({
+      source: 'edition-selection',
+      title: item.plain || item.title,
+      blocks: [{ type: 'quote', text: selection.quote, articleTitle: clippingCredit,
+        sourcePath: editionFindingPath(issue._id, item.itemId) }]
+    }).catch(() => null);
+    keeping.current = false;
+    setKeptSelection(note?._id ? { key: selectionKey, entryId: note._id } : { key: selectionKey, phase: 'failed' });
   };
   const run = paper?.issues || [];
   const place = run.findIndex(other => other._id === issue._id);
