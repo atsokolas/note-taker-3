@@ -8,11 +8,19 @@ import {
   buildPassagePath,
   buildSourceOriginPath,
   isExternalSourceHref,
+  libraryReturnLink,
   parseSourceOrigin,
   resolveSourceDoors
 } from './sourceRoutes';
 
 describe('sourceRoutes', () => {
+  it('only returns private Library evidence to its originating room', () => {
+    expect(libraryReturnLink({ evidenceOrigin: { to: '/editions/e1?item=one', focusId: 'finding-one-source' } })).toEqual({
+      to: '/editions/e1?item=one', label: 'Back to the finding', state: { evidenceFocusId: 'finding-one-source' }
+    });
+    expect(libraryReturnLink({ evidenceOrigin: { to: '//example.com/judgment/x' } })).toBeNull();
+    expect(libraryReturnLink({ evidenceOrigin: { to: '/work' } })).toBeNull();
+  });
   it('builds private continuation from identity, ignoring browser queries and prose', () => {
     expect(buildAuthoredContinuationPath({ articleId: 'a / 1', highlightId: 'h&1', href: 'https://elsewhere.test', draft: { writing: 'private' } }))
       .toBe('/library?articleId=a%20%2F%201&highlightId=h%261&exploration=1');

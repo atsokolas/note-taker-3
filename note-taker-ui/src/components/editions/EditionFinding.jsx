@@ -83,7 +83,7 @@ export default function EditionFinding({ editionId, item, number, section = '', 
               {busy === `${item.itemId}:keep` ? 'Keeping…' : 'Keep'}
             </button>
           )}
-          <button className="reading-open" onClick={(event) => onPeek(item, 'source', event.currentTarget)}>
+          <button id={`${findingAnchor(item.itemId)}-source`} className="reading-open" onClick={(event) => onPeek(item, 'source', event.currentTarget)}>
             Read the source
           </button>
           {item.readerStatus === 'later' ? (

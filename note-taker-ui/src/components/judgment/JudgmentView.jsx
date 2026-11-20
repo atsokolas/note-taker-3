@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   getJudgmentLibraryEvidence,
   getWikiPage,
@@ -16,7 +16,8 @@ import {
 } from '../../api/judgmentResolution';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { rememberOpenedJudgment } from '../reader/folioModel';
-import { buildPassagePath, buildSourceOriginPath, parseSourceOrigin } from '../../utils/sourceRoutes';
+import { buildPassagePath, buildSourceOriginPath, isLibraryHref, parseSourceOrigin } from '../../utils/sourceRoutes';
+import useEvidenceReturnFocus from '../../hooks/useEvidenceReturnFocus';
 import { buildJudgmentSurfaceDescriptor } from '../../pages/judgmentSurfaceModel';
 import {
   CONFIDENCE,
@@ -88,13 +89,17 @@ export const UndoLine = ({ pending, onUndo, at }) => (
   ) : null
 );
 
-const SourceLink = ({ href, children }) => {
+const SourceLink = ({ href, focusId, origin, children }) => {
   if (!href) return <span>{children}</span>;
-  if (href.startsWith('/')) return <Link to={href}>{children}</Link>;
+  if (href.startsWith('/')) {
+    return <Link id={focusId} to={href} state={isLibraryHref(href) ? { evidenceOrigin: { to: origin, focusId } } : undefined}>
+      {children}
+    </Link>;
+  }
   return <a href={href} target="_blank" rel="noreferrer">{children}</a>;
 };
 
-const PassageColumn = ({ title, passages }) => (
+const PassageColumn = ({ title, passages, origin }) => (
   <section className="judgment-column" aria-label={title}>
     <h2>{title}</h2>
     {passages.length ? (
@@ -104,7 +109,9 @@ const PassageColumn = ({ title, passages }) => (
             <blockquote>{passage.text}</blockquote>
             {passage.source || passage.at ? (
               <p className="judgment-column__cite">
-                {passage.source ? <SourceLink href={passage.href}>{passage.source}</SourceLink> : null}
+                {passage.source ? (
+                  <SourceLink href={passage.href} focusId={`judgment-${title}-${passage.id}`} origin={origin}>{passage.source}</SourceLink>
+                ) : null}
                 {passage.source && passage.at ? ' · ' : null}
                 {passage.at ? <time dateTime={passage.at}>{formatLedgerDate(passage.at)}</time> : null}
               </p>
@@ -252,6 +259,7 @@ const Record = ({ lines }) => (
 );
 
 const JudgmentView = ({ pageId, initialPage = null }) => {
+  const { pathname, search } = useLocation();
   const [page, setPage] = useState(initialPage);
   const [reading, setReading] = useState([]);
   const [library, setLibrary] = useState([]);
@@ -296,6 +304,7 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
   }, [pageId, rereadPassages]);
 
   const view = useMemo(() => (page ? projectView(page) : null), [page]);
+  useEvidenceReturnFocus(Boolean(view));
   const mergeJudgment = useCallback((judgment) => {
     if (judgment) setPage(current => ({ ...current, judgment }));
   }, []);
@@ -525,8 +534,8 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
       ) : null}
 
       <div className="judgment-view__columns">
-        <PassageColumn title="For" passages={view.forPassages} />
-        <PassageColumn title="Against" passages={view.againstPassages} />
+        <PassageColumn title="For" passages={view.forPassages} origin={pathname + search} />
+        <PassageColumn title="Against" passages={view.againstPassages} origin={pathname + search} />
       </div>
 
       <TheTest key={`${view.test.text}:${view.test.by}`} test={view.test} onSave={saveTest}>

@@ -71,6 +71,17 @@ export const safeInternalPath = (value, prefix) => {
   }
 };
 
+export const libraryReturnLink = (state, articleId) => {
+  if (state?.fromWikiReading) {
+    return { to: '/wiki', label: 'Back to Wiki', state: { readingArticleId: articleId } };
+  }
+  const origin = state?.evidenceOrigin;
+  const to = safeInternalPath(origin?.to, '/judgment/') || safeInternalPath(origin?.to, '/editions/');
+  if (!to) return null;
+  const label = to.startsWith('/judgment/') ? 'Back to Judgment' : 'Back to the finding';
+  return { to, label, state: { evidenceFocusId: origin.focusId } };
+};
+
 // A saved quotation's exact passage must belong to its recorded article.
 // If its path drifted, return to that article without pretending it is exact.
 export const resolveSavedSourcePath = (source = {}) => {

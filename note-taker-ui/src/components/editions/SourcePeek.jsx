@@ -8,7 +8,7 @@ import AgentMark from './AgentMark';
 import { EditionBoundary } from './EditionFinding';
 import { Passage } from './EditionLayer';
 import ThoughtComposer from './ThoughtComposer';
-import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
+import { resolveSourceDoors } from '../../utils/sourceRoutes';
 
 // React renders text, never untrusted article markup. Preserve paragraph breaks.
 export const articleParagraphs = (html) => {
@@ -21,7 +21,7 @@ export const articleParagraphs = (html) => {
     blocks.length ? blocks.map((node) => node.textContent.trim()) : [doc.body.textContent.trim()]
   ).filter(Boolean);
 };
-export default function SourcePeek({ item, view, origin, quote, onClose, thoughtProps }) {
+export default function SourcePeek({ item, view, origin, evidenceOrigin, quote, onClose, thoughtProps }) {
   const [tab, setTab] = useState(view);
   const [source, setSource] = useState({ loading: Boolean(item.savedArticleId), paragraphs: [] });
   useEffect(() => {
@@ -48,6 +48,10 @@ export default function SourcePeek({ item, view, origin, quote, onClose, thought
   const href = passageHref(item);
   const opening = item.passageCheck === 'found' ? passageOpening(item.passage).toLowerCase().slice(0, 80) : '';
   const atPassage = Boolean(opening);
+  const { ownedHref } = resolveSourceDoors(
+    { type: 'article', objectId: item.savedArticleId },
+    { passage: atPassage ? item.passage : '' }
+  );
   /* The paragraph the checked passage sits in is marked, and opened to. */
   const held = useRef(null);
   const rests = paragraph => atPassage && paragraph.replace(/\s+/g, ' ').toLowerCase().includes(opening);
@@ -123,8 +127,8 @@ export default function SourcePeek({ item, view, origin, quote, onClose, thought
             ) : (
               <p>No link to the original.</p>
             )}
-            {item.savedArticleId ? (
-              <Link to={buildCanonicalArticlePath(item.savedArticleId)}>
+            {ownedHref ? (
+              <Link to={ownedHref} state={evidenceOrigin ? { evidenceOrigin } : undefined}>
                 Open in Library →
               </Link>
             ) : null}

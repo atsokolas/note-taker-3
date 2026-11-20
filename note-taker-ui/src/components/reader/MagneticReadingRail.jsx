@@ -110,8 +110,8 @@ const MagneticReadingRail = ({
   }, [contentRef, reducedMotion]);
 
   const railClass = useMemo(() => (
-    ['magnetic-reading-rail', motionOk ? 'is-motion' : ''].filter(Boolean).join(' ')
-  ), [motionOk]);
+    ['magnetic-reading-rail', motionOk && 'is-motion', returning && 'has-return'].filter(Boolean).join(' ')
+  ), [motionOk, returning]);
 
   return (
     <div ref={railRef} className={railClass} role="group" aria-label="Reading controls">

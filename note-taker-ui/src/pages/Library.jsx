@@ -39,7 +39,7 @@ import { takeFirstPaint } from '../motion/columnMotion';
 import LibraryCollection from '../components/library/LibraryCollection';
 import LibraryReadingRoom from '../components/library/LibraryReadingRoom';
 import LibraryPasteLink from '../components/library/LibraryPasteLink';
-import { buildArticlePassageHref } from '../utils/sourceRoutes';
+import { buildArticlePassageHref, libraryReturnLink } from '../utils/sourceRoutes';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
 import LibraryActions from '../components/library/LibraryActions';
 import ScreenWord from '../components/library/ScreenWord';
@@ -873,6 +873,7 @@ const Library = () => {
 
 
   const isReadingView = Boolean(selectedArticleId);
+  const readerReturn = libraryReturnLink(location.state, selectedArticleId);
   const articleHighlightCount = Array.isArray(articleHighlights) ? articleHighlights.length : 0;
   const articleReferenceCount = (
     (Array.isArray(references?.notebookBlocks) ? references.notebookBlocks.length : 0)
@@ -1096,9 +1097,9 @@ const Library = () => {
         className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
       />
       <div className="library-page-shell__column">
-        {isReadingView && (!location.state?.fromWikiReading || !selectedArticle) ? <div className="library-page-shell__column-head">
-          {location.state?.fromWikiReading ? (
-            <Link className="library-reader__back" to="/wiki" state={{ readingArticleId: selectedArticleId }}>← Back to Wiki</Link>
+        {isReadingView && (!readerReturn || !selectedArticle) ? <div className="library-page-shell__column-head">
+          {readerReturn ? (
+            <Link className="library-reader__back" to={readerReturn.to} state={readerReturn.state}>← {readerReturn.label}</Link>
           ) : (
             <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>← Back to collection</button>
           )}

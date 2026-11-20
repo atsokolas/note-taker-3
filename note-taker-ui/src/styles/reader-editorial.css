@@ -146,6 +146,31 @@ body.noeis-editorial .magnetic-reading-rail__hint {
   text-transform: none;
 }
 
+@media (max-width: 720px) {
+  body.noeis-editorial .magnetic-reading-rail.has-return {
+    align-items: flex-start;
+    bottom: env(safe-area-inset-bottom, 0px);
+    max-width: calc(100vw - var(--magnetic-rail-left, 0px) - 116px);
+  }
+
+  body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+
+  body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__pill {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__hint {
+    display: none;
+  }
+}
+
 /* Two inks, one warm pen. The saved passage is human ink; a note on it
    is the agent's half-step warmer. Capture itself is one yellow wash,
    never a crayon box and never the old cool blue. */
