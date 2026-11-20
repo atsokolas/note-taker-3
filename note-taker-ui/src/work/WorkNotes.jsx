@@ -120,7 +120,7 @@ export default function WorkNotes() {
   const jot = jots.find(item => item.clientId === jotChoice) || jots[0];
   const url = React.useCallback((patch = {}, replace = true) => {
     const next = { date: day, view, folder, note: note?._id || '', ...patch };
-    const value = new URLSearchParams({ date: next.date, view: next.view, ...(next.folder && next.folder !== 'all' ? { folder: next.folder } : next.view === 'inbox' ? { folder: '' } : {}), ...(next.note ? { note: next.note } : {}) });
+    const value = new URLSearchParams({ date: next.date, view: next.view, ...(next.folder && next.folder !== 'all' ? { folder: next.folder } : next.view === 'inbox' ? { folder: '' } : {}), ...(next.note ? { note: next.note } : {}), ...(next.entry ? { entry: next.entry } : {}) });
     ownURL.current = value.toString(); setParams(value, { replace });
   }, [day, view, folder, note?._id, setParams]);
   const restoreURL = useRef(url); restoreURL.current = url;
@@ -140,10 +140,10 @@ export default function WorkNotes() {
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => session.flush(selected), 850);
   };
-  const open = id => {
-    if (!session.canLeave()) { departure.current = () => open(id); setSheet('recovery'); return; }
+  const open = (id, entryDay) => {
+    if (!session.canLeave()) { departure.current = () => open(id, entryDay); setSheet('recovery'); return; }
     session.flush(selected); setSelected(id); setMobileShelf(false); setFresh(''); setNotice('');
-    const entry = session.entry(id); url({ note: entry?._id || '' }, false);
+    const entry = session.entry(id); url({ note: entry?._id || '', entry: validDay(entryDay) ? entryDay : '' }, false);
   };
   const capture = () => {
     if (currentFolder?.archivedAt && view === 'folder') { setNotice('Restore this folder before adding new writing.'); return; }
@@ -481,7 +481,7 @@ export default function WorkNotes() {
             <details className="work-note-details"><summary>People and meeting date</summary><label>With<input aria-label="With" placeholder="Add people, if useful" value={note.withText || ''} onChange={event => update({ withText: event.target.value })} /></label><label>Meeting date<input aria-label="Occurred on" type="date" value={note.occurredOn || ''} onChange={event => update({ occurredOn: event.target.value })} /></label></details>{calendarMode === 'week' ? <button onClick={() => changeCalendarMode('compact')}>Close week</button> : planner}</WorkMenu></div>} onRename={() => renameNote(selected)} onTrash={() => trashNote(selected)} footer={<>            <div className="work-foot"><label className="work-return"><span className="work-sr-only">Leave a line for next time</span><textarea rows={1} aria-label="Return line" value={note.workingState?.nextTimeLine?.text || ''} placeholder="A line for next time" onChange={event => update({ workingState: { ...note.workingState, nextTimeLine: { text: event.target.value, target: null } } })} /></label>
             <button className="work-continue" aria-label={`Continue this note: ${noteTitle(note)}`} disabled={busy || !note._id} onClick={() => prepareContinue(selected)}>Continue this note</button><HandOff context={note._id ? { kind: 'work_note', id: note._id, title: noteTitle(note) } : null} /></div>
 
-            {onward.length ? <nav className="work-onward" aria-label="Continued in">{onward.map(item => <button key={item.clientId} onClick={() => open(item.clientId)}>Continued in {noteTitle(item)} · {noteDate(item)}</button>)}</nav> : null}</>} note={note} sourceBlock={params.get('block')} today={today} fresh={fresh === selected} onChange={update} onMakeOpen={makeOpen} />}</WorkFollowups>
+            {onward.length ? <nav className="work-onward" aria-label="Continued in">{onward.map(item => <button key={item.clientId} onClick={() => open(item.clientId)}>Continued in {noteTitle(item)} · {noteDate(item)}</button>)}</nav> : null}</>} note={note} sourceBlock={params.get('block')} sourceDay={params.get('entry')} today={today} fresh={fresh === selected} onChange={update} onMakeOpen={makeOpen} />}</WorkFollowups>
 
           </article> : view === 'today' ? null : view === 'projects' || (view === 'project' && !currentProject) ? <WorkProjects records={projectRecords} notes={notes} items={items} today={today} onDay={selectDay} onOpen={id => scope('project', id)} onAction={action} onNew={() => newFolderDialog(false, 'project')} /> : currentProject ? <WorkProject key={currentProject._id} record={currentProject} notes={notes} items={items} today={today} onAction={action} onCapture={(line, id) => captureOutstanding(line, null, id)} onOpenNote={open} onNewNote={capture} onSave={saveProject} onEdit={editProject} renaming={projectRenaming === currentProject._id} renameBusy={busy} onRenameCancel={() => setProjectRenaming('')} onRenameSave={async name => { if (busyRef.current) return; busyRef.current = true; setBusy(true); try { if (name === currentProject.name || await saveProject(currentProject, { name }, true)) setProjectRenaming(''); } finally { busyRef.current = false; setBusy(false); } }} onRenameNote={renameNote} onTrashNote={trashNote} /> : <WorkIndex drag={drag} view={view} folder={currentFolder} folders={folders} notes={notes} items={session.items()} query={query} onOpen={open} onItem={item => editItem(item)} onNew={newItem} onFolderMenu={openFolder} />}
           {notice && !sheet ? <p role="alert">{notice}</p> : null}

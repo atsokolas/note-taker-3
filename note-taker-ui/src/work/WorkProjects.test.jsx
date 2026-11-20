@@ -7,9 +7,10 @@ import AddToProject from './AddToProject';
 import { FRIDAYS, decisionsIn, entriesOf, fade, hillOn, project, projects } from './workProjects';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
+import { dayInZone } from './workPlannerModel';
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn() }));
 
-const today = new Date().toISOString().slice(0, 10);
+const today = dayInZone(new Date());
 const ago = days => new Date(Date.now() - days * 86400000).toISOString();
 let records, folders;
 beforeEach(() => {

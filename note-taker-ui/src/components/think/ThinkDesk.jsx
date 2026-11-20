@@ -49,7 +49,7 @@ const ThinkDesk = ({ working, ideas, closed, onOpen, onView, onStart, creating, 
               <h2>{item.title}</h2>
               {item.nextTimeLine ? <p className="think-desk__next"><span>Next</span> {item.nextTimeLine}</p> : null}
               <p className="think-desk__meta">
-                <button type="button" onClick={() => onOpen(item)}>{item.nextTimeLine ? 'Write the next sentence' : 'Open it'}</button>
+                <button type="button" onClick={() => onOpen(item, { write: Boolean(item.nextTimeLine) })}>{item.nextTimeLine ? 'Write the next sentence' : 'Open it'}</button>
                 <span>Last written {dayLabel(item.updatedAt)}</span>
               </p>
             </li>

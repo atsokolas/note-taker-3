@@ -485,7 +485,7 @@ const NotebookEditor = ({
      across would mean the second note you looked at was live before you had
      read a word of it. */
   useEffect(() => {
-    setEditingBody(startWriting);
+    setEditingBody(Boolean(startWriting));
     setBodyHasFocus(false);
     setHeldTarget(null);
     setActiveTrialId('');
@@ -496,7 +496,16 @@ const NotebookEditor = ({
     setNextLineDismissed(false);
     setStageSelection(false);
     const focusFrame = startWriting
-      ? window.requestAnimationFrame?.(() => editor?.commands.focus('start'))
+      ? window.requestAnimationFrame?.(() => {
+        if (startWriting === 'next') {
+          const next = workbenchLatestRef.current.state.nextTimeLine;
+          if (next?.text && focusEditorTarget(editor, next.target)) {
+            editor?.commands.scrollIntoView?.();
+            return;
+          }
+        }
+        editor?.commands.focus(startWriting === 'next' ? 'end' : 'start');
+      })
       : null;
     setSaveState('idle');
     saveSequenceRef.current += 1;

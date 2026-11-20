@@ -101,7 +101,8 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   const now = marks.filter(mark => !isEarlier(mark, since));
   const lastReading = since ? article.readBefore[article.readBefore.length - 1] : null;
   const [line, setLine] = useState('');
-  const [page, setPage] = useState(() => pageNow(now));
+  const [turnedPage, setPage] = useState();
+  const page = turnedPage === undefined ? pageNow(now) : turnedPage;
   const [receipt, setReceipt] = useState('');
   const [inked, setInked] = useState('');
   const sent = useRef([]);
@@ -164,7 +165,8 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   /* The book opens where you are in it: the newest pages and the line, unless
      a link asked for one passage. */
   useEffect(() => {
-    if (arriving) lineRef.current?.scrollIntoView?.({ block: 'nearest' });
+    if (!arriving) return;
+    lineRef.current?.scrollIntoView?.({ block: 'nearest' });
     if (finePointer) lineRef.current?.focus({ preventScroll: true });
   }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
