@@ -5,10 +5,11 @@ import * as api from '../api/editions';
 import backendApi from '../api';
 let mockId;
 let mockSearch;
+let mockHash;
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
-  useLocation: () => ({ pathname: `/editions/${mockId}`, search: mockSearch }),
+  useLocation: () => ({ pathname: `/editions/${mockId}`, search: mockSearch, hash: mockHash }),
   useNavigate: () => mockNavigate, useParams: () => ({ id: mockId }),
   useSearchParams: () => [new URLSearchParams(mockSearch)]
 }));
@@ -22,7 +23,7 @@ const readingState = require('../components/editions/editionReadingState');
 const item = { itemId: 'one', title: 'A useful distinction', finding: 'Being informed is different from being able to use information.', boundary: 'One study cannot establish a universal rule.', sourceLabel: 'Research', url: 'https://example.com/source', section: 'ideas', filedBy: 'Jarvis' };
 const edition = { _id: 'e1', profile: 'weekend', profileLabel: 'Weekend Readings', title: 'Weekend Readings', number: 2, windowStart: '2026-09-01', windowEnd: '2099-09-07', sections: [{ key: 'ideas', label: 'Ideas' }, { key: 'limits', label: 'Counterevidence' }], items: [item] };
 beforeEach(() => {
-  jest.clearAllMocks(); mockId = 'e1'; mockSearch = '';
+  jest.clearAllMocks(); mockId = 'e1'; mockSearch = ''; mockHash = '';
   readingState.readEditionLocal.mockReturnValue(null);
   backendApi.get.mockResolvedValue({ data: { content: '<p>Saved source.</p>' } });
   api.listEditions.mockResolvedValue([edition]); api.getEdition.mockResolvedValue(edition);
@@ -292,16 +293,28 @@ it('does not turn a Later finding back into read', async () => {
   jest.useRealTimers();
 });
 it('gives a finding the page to itself, the issue a step back and the next a step on', async () => {
-  mockSearch = 'item=one';
+  mockSearch = 'item=one&by=jarvis';
   const two = { ...item, itemId: 'two', plain: 'A second plain line.', finding: 'A second finding.', title: 'Second' };
   api.getEdition.mockResolvedValue({ ...edition, items: [item, two] });
   render(<Editions />);
   await screen.findByText(item.finding);
   expect(screen.getByText('Finding 1 of 2')).toBeVisible();
   expect(screen.queryByText(two.finding)).toBeNull();
-  expect(screen.getByRole('link', { name: 'Edition 2 · Weekend Readings' })).toHaveAttribute('href', '/editions/e1');
+  expect(screen.getByRole('link', { name: 'Edition 2 · Weekend Readings' })).toHaveAttribute('href', '/editions/e1?by=jarvis#edition-item-one');
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/e1?by=jarvis#edition-item-one');
   fireEvent.click(screen.getByRole('button', { name: 'Next: A second plain line. →' }));
-  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/e1?item=two', { replace: true });
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/e1?item=two&by=jarvis', { replace: true });
+});
+it('opens a bookmarked issue at the exact finding, even within the same column', async () => {
+  mockSearch = 'section=ideas';
+  mockHash = '#edition-item-two';
+  Element.prototype.scrollIntoView = jest.fn();
+  const two = { ...item, itemId: 'two', title: 'A second finding' };
+  api.getEdition.mockResolvedValue({ ...edition, items: [item, two] });
+  render(<Editions />);
+  const heading = await screen.findByRole('heading', { name: two.title });
+  await waitFor(() => expect(heading.closest('article')).toHaveFocus());
 });
 it('sets a finding aside with Not for me, and Undo brings it back', async () => {
   api.setEditionItemState.mockImplementation(async (_id, itemId, status) => ({ itemId, readerStatus: status, edition: { ...edition, items: [{ ...item, readerStatus: status }] } }));

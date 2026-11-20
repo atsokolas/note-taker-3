@@ -23,6 +23,7 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
     return eligible || receipt ? [{ item, receipt }] : [];
   }).sort((a, b) => writtenDay(b.item).localeCompare(writtenDay(a.item)) || a.item.clientId.localeCompare(b.item.clientId));
   const left = rows.filter(({ receipt }) => receipt?.phase !== 'saved').length;
+  const filed = rows.length - left;
   const busy = rows.some(({ receipt }) => ['saving', 'retrying'].includes(receipt?.phase));
   const carried = items.filter(item => !item.completed && !item.pending && !item.plan?.pending && item.plannedOn === monday
     && item.plan?.actionAt && dayInZone(item.plan.actionAt, timeZone) >= week);
@@ -37,7 +38,7 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
     const index = elements.findIndex(row => row.dataset.itemId === id);
     if (index < 0) return;
     const row = elements[index];
-    const candidates = undo || retry ? [row] : elements.slice(index + 1);
+    const candidates = undo || retry ? [row] : [...elements.slice(index + 1), ...elements.slice(0, index)];
     const next = candidates.map(element => element.querySelector('[data-review-action]:not([inert] *)')).find(Boolean)
       || row.querySelector('[data-review-receipt]');
     next?.focus({ preventScroll: true });
@@ -134,6 +135,7 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
         {carried.length ? <section aria-label="Monday starts here"><h3>Monday starts here</h3><ul>{carried.map(item => (
           <li key={item.id}>{item.title}{' '}{source(item)}</li>
         ))}</ul></section> : null}
+        {filed > 0 && left === 0 ? <p className="work-week-close__colophon">That’s the week. {filed} {filed === 1 ? 'decision' : 'decisions'} filed.</p> : null}
       </> : null}
     </details>
   );

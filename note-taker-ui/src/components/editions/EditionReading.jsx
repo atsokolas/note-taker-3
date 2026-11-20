@@ -21,7 +21,7 @@ import SectionSilence from './SectionSilence';
 import SourcePeek from './SourcePeek';
 import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
 import useEditionIssue from './useEditionIssue';
-import { findingAnchor, readingPosition, writeEditionLocal } from './editionReadingState';
+import { findingAnchor, findingHash, readingPosition, writeEditionLocal } from './editionReadingState';
 
 const READ_AFTER_MS = 4000;
 
@@ -44,6 +44,7 @@ const issuePath = issue => `/editions/${encodeURIComponent(issue._id)}`;
 export default function EditionReading({
   issue,
   paper = null,
+  overview,
   focusItem = '',
   focusSection = '',
   source = false,
@@ -79,11 +80,14 @@ export default function EditionReading({
   const quiet = hand ? [] : shaped.filter(section => section.label && !section.items.length);
   const jump = useCallback((id) => {
     const element = document.getElementById(findingAnchor(id));
-    element?.scrollIntoView({ block: 'start', behavior: 'auto' });
     element?.focus({ preventScroll: true });
+    element?.scrollIntoView({ block: 'start', behavior: 'instant' });
   }, []);
   const loaded = Boolean(edition);
   const location = useLocation();
+  const bookmarked = location.hash && items.find(item => findingHash(item.itemId) === location.hash)?.itemId;
+  const columnStart = focusSection && items.find(item => item.section === focusSection)?.itemId;
+  const destination = bookmarked || columnStart;
   const latest = useRef(edition);
   latest.current = edition;
   useEffect(() => {
@@ -115,13 +119,19 @@ export default function EditionReading({
     };
   }, [loaded, focusItem, issue._id]);
   useEvidenceReturnFocus(loaded);
-  /* A link to a column opens at its first finding. */
+  /* A finding bookmark takes precedence over the first finding in a column. */
   useEffect(() => {
-    const first = !focusItem && focusSection && latest.current?.items.find(row => row.section === focusSection);
-    if (!loaded || !first) return undefined;
-    const frame = requestAnimationFrame(() => jump(first.itemId));
-    return () => cancelAnimationFrame(frame);
-  }, [loaded, focusSection, focusItem, jump]);
+    if (focusItem || !destination) return undefined;
+    let frame;
+    const openAtFinding = () => { frame = requestAnimationFrame(() => jump(destination)); };
+    // WebKit can restore the old page scroll after the new finding has mounted.
+    if (document.readyState === 'complete') openAtFinding();
+    else window.addEventListener('load', openAtFinding, { once: true });
+    return () => {
+      window.removeEventListener('load', openAtFinding);
+      cancelAnimationFrame(frame);
+    };
+  }, [destination, focusItem, location.key, jump]);
   useEffect(() => {
     if (!loaded) return;
     let frame;
@@ -266,7 +276,7 @@ export default function EditionReading({
       {!edition ? <p role="status">Opening this issue…</p> : null}
       {edition && focused >= 0 ? (
         <section className="edition-focus" aria-label="One finding">
-          <Link className="edition-focus__context" to={issuePath(issue)}>
+          <Link className="edition-focus__context" to={overview}>
             {[name, row.headline || paperTitle].filter(Boolean).join(' · ')}
           </Link>
           <p className="edition-focus__count">Finding {focused + 1} of {shown.length}</p>
@@ -275,7 +285,7 @@ export default function EditionReading({
             {focused > 0 ? (
               <button type="button" onClick={() => onItem(items[focused - 1].itemId, {}, { replace: true })}>← Previous</button>
             ) : (
-              <Link to={issuePath(issue)}>← Back to {name.toLowerCase().startsWith('this') ? 'the issue' : name}</Link>
+              <Link to={overview}>← Back to {name.toLowerCase().startsWith('this') ? 'the issue' : name}</Link>
             )}
             {items[focused + 1] ? (
               <button type="button" onClick={() => onItem(items[focused + 1].itemId, {}, { replace: true })}>
@@ -317,7 +327,7 @@ export default function EditionReading({
                   {shown.map(({ item }, index) => (
                     <li key={item.itemId}>
                       <a
-                        href={`#${findingAnchor(item.itemId)}`}
+                        href={findingHash(item.itemId)}
                         onClick={(event) => {
                           event.preventDefault();
                           jump(item.itemId);

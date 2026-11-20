@@ -6,7 +6,7 @@ import EditionReading from '../components/editions/EditionReading';
 import EditionRun from '../components/editions/EditionRun';
 import EditionStand from '../components/editions/EditionStand';
 import EditionZoom from '../components/editions/EditionZoom';
-import { readEditionLocal, readingPosition } from '../components/editions/editionReadingState';
+import { findingHash, readEditionLocal, readingPosition } from '../components/editions/editionReadingState';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { buttonClass } from '../components/ui';
 import { byPaper, issueLine, newCountOf } from './editionModel';
@@ -86,6 +86,7 @@ export default function Editions() {
   const stand = papers.length > 1 ? '/editions' : null;
 
   const issuePath = id ? `/editions/${encodeURIComponent(id)}` : '';
+  const overview = `${at(issuePath, { by })}${item ? findingHash(item) : ''}`;
   const paperPath = paper ? at('/editions', { paper: paper.profile }) : '/editions';
   const news = newCountOf(paper ? paper.issues : papers.flatMap(row => row.issues));
   const powerPath = news ? at('/editions', { power: '1', paper: paper?.profile, by }) : '';
@@ -93,7 +94,7 @@ export default function Editions() {
   const rungs = [
     { label: 'Your papers', to: stand },
     { label: paper?.title || 'A paper', to: paper ? paperPath : null },
-    { label: (id && issueLine({ ...issue, issueLabel: paper?.issueLabel })) || 'An issue', to: id ? at(issuePath, { by }) : null },
+    { label: (id && issueLine({ ...issue, issueLabel: paper?.issueLabel })) || 'An issue', to: id ? overview : null },
     { label: 'A finding', to: item ? at(issuePath, { item, by }) : null },
     { label: 'The source', to: null }
   ];
@@ -118,7 +119,7 @@ export default function Editions() {
     4: { out: null, into: firstPaper ? at('/editions', { paper: firstPaper.profile }) : null },
     3: { out: stand, into: paper ? `/editions/${encodeURIComponent(paper.issues[paper.current]._id)}` : null },
     2: { out: paperPath, into: intoReading },
-    1: { out: at(issuePath, { by }), into: at(issuePath, { item, by, source: '1' }) },
+    1: { out: overview, into: at(issuePath, { item, by, source: '1' }) },
     0: { out: at(issuePath, { item, by }), into: null }
   }[level];
 
@@ -171,6 +172,7 @@ export default function Editions() {
             key={issue._id}
             issue={issue}
             paper={paper}
+            overview={overview}
             focusItem={item}
             focusSection={params.get('section') || ''}
             source={level === 0}
