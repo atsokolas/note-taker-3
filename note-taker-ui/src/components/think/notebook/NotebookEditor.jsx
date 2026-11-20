@@ -58,7 +58,7 @@ import {
 } from './notebookWorkbenchDecorations';
 import { readySavedTrialMarks, savedMarksBesidePreview } from '../../../utils/notebookSavedTrialMarks';
 import { dimmedWordCount, handleWriteOnKey, undoStash } from './writeOn';
-import NextSentence from './NextSentence';
+import NextSentence, { ArgumentReturn } from './NextSentence';
 import {
   citationTargetsForMaterial,
   deleteEditorBlockById,
@@ -296,6 +296,7 @@ const NotebookEditor = ({
   const [historyOpen, setHistoryOpen] = useState(false);
   const settlement = useSettleIntoWiki('notebook', entry?._id, entry?.settledIn);
   const restoredFromRef = useRef('');
+  const partnerRevisionRef = useRef(false);
   const [entryType, setEntryType] = useState(entry?.type || 'note');
   const [entryTags, setEntryTags] = useState(entry?.tags || []);
   const [tagInput, setTagInput] = useState('');
@@ -326,6 +327,7 @@ const NotebookEditor = ({
   const { key: historyKey } = useLocation();
   const accountId = currentAccountId();
   const openingSource = useRef(false);
+  const keepingTrial = useRef(false);
   const leavingPlace = useRef(null);
   const sourceReturn = notebookSourceReturn && notebookSourceReturn.key === historyKey
     && notebookSourceReturn.accountId === accountId && notebookSourceReturn.entryId === entry?._id
@@ -746,6 +748,7 @@ const NotebookEditor = ({
     const payload = buildSavePayload();
     if (!payload) return false;
     if (restoredFromRef.current) payload.restoredFrom = restoredFromRef.current;
+    if (partnerRevisionRef.current) payload.revisionBoundary = true;
     restoredFromRef.current = '';
     const sequence = ++saveSequenceRef.current;
     dirtyRef.current = false;
@@ -754,6 +757,7 @@ const NotebookEditor = ({
       await Promise.resolve();
       try {
         await onSave(payload);
+        if (payload.revisionBoundary) partnerRevisionRef.current = false;
         if (sequence === saveSequenceRef.current) {
           setSaveState(dirtyRef.current ? 'dirty' : 'saved');
           if (!dirtyRef.current) setSavedAt(new Date().toISOString());
@@ -926,6 +930,12 @@ const NotebookEditor = ({
 
   const arrangementDoc = editor?.getJSON?.() || { type: 'doc', content: [] };
   const arrangementPieces = groupDocPieces(arrangementDoc);
+  const nextLine = workbench.state.nextTimeLine;
+  const nextPiece = nextLine.target?.blockId ? arrangementPieces.find(piece =>
+    piece.nodes.some(node => node.attrs?.blockId === nextLine.target.blockId)) : null;
+  const correctionPieces = sourceCorrection?.sourceUseId ? arrangementPieces.filter(piece =>
+    piece.nodes.some(node => node.attrs?.blockId === sourceCorrection.sourceUseId || (sourceCorrection.sourceType === 'highlight' &&
+      sourceCorrection.sourceObjectId && node.attrs?.highlightId === sourceCorrection.sourceObjectId))) : [];
   const currentPieceIndex = pieceIndexForSelection(
     arrangementDoc,
     editor?.state?.selection
@@ -1438,10 +1448,18 @@ const NotebookEditor = ({
     setWorkbenchView('material');
   };
 
-  const useTrial = () => {
-    if (!activeTrial?.alternative?.trim()) return;
+  const useTrial = async () => {
+    if (!activeTrial?.alternative?.trim() || keepingTrial.current) return;
+    const partner = activeTrial.origin === 'partner';
+    if (partner) {
+      keepingTrial.current = true;
+      try {
+        if (!(await commitDraft())) return;
+      } finally { keepingTrial.current = false; }
+    }
     const result = replaceEditorTargetText(editor, activeTrial.target, activeTrial.alternative);
     if (!result.applied) return;
+    if (partner) partnerRevisionRef.current = true;
     workbench.update(current => ({
       ...current,
       trials: retargetTrials(current.trials, notebookTrialKey(activeTrial), activeTrial.alternative, item => (item.id === activeTrial.id ? notebookTargetText(activeTrial.target) : item.alternative))
@@ -1452,7 +1470,8 @@ const NotebookEditor = ({
       target: activeTrial.target,
       before: notebookTargetText(activeTrial.target),
       after: notebookTrialText(activeTrial.target, activeTrial.alternative),
-      adoptedLength: activeTrial.alternative.length
+      adoptedLength: activeTrial.alternative.length,
+      partner
     });
     setActiveTrialId('');
     setEphemeralTrial(null);
@@ -1557,12 +1576,12 @@ const NotebookEditor = ({
         : null,
       savedMarks: savedTrialMarks,
       dimmed: workbench.state.dimmed,
-      nextLine: workbench.state.nextTimeLine?.text && !nextLineDismissed
+      nextLine: startWriting !== 'next' && workbench.state.nextTimeLine?.text && !nextLineDismissed
         ? { blockId: workbench.state.nextTimeLine.target?.blockId, text: workbench.state.nextTimeLine.text }
         : null,
       opposite
     });
-  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget, nextLineDismissed, opposite, savedTrialMarks, trialPreview, workbench.state.dimmed, workbench.state.nextTimeLine, workbenchView]);
+  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget, nextLineDismissed, opposite, savedTrialMarks, startWriting, trialPreview, workbench.state.dimmed, workbench.state.nextTimeLine, workbenchView]);
   useEffect(() => { onAlternativesOpenChange?.(alternativesVisible); }, [alternativesVisible, onAlternativesOpenChange]);
   useEffect(() => () => onAlternativesOpenChange?.(false), [onAlternativesOpenChange]);
   useEffect(() => () => partnerOptionsAbortRef.current?.abort?.(), []);
@@ -1651,8 +1670,7 @@ const NotebookEditor = ({
 
   const openHistory = async (event) => {
     event.currentTarget.closest('details')?.removeAttribute('open');
-    await commitDraft();
-    setHistoryOpen(true);
+    if (await commitDraft()) setHistoryOpen(true);
   };
 
   if (!entry) {
@@ -1771,9 +1789,22 @@ const NotebookEditor = ({
             </div>
           </div>
         )}
+        {startWriting === 'next' ? <ArgumentReturn line={nextLine} piece={nextPiece} highlights={highlightMap} expanded={!nextLineDismissed}
+          onResume={() => {
+            setEditingBody(true);
+            if (!focusEditorTarget(editor, nextLine.target)) editor?.commands.focus('end');
+            editor?.commands.scrollIntoView?.();
+          }} /> : null}
         <SourceCorrectionReview
           preview={sourceCorrection}
-          onDispose={({ eventId, action }) => disposeNotebookSourceCorrection(entry._id, { eventId, action })}
+          keepReason
+          draftPassages={correctionPieces.length ? <ul className="source-correction-review__passages" aria-label="Draft passages beside this source">
+            {correctionPieces.map(piece => <li key={piece.startIndex}><button type="button" onClick={() => {
+              setEditingBody(true);
+              window.requestAnimationFrame(() => focusPieceInEditor(editor, piece.pieceIndex));
+            }}>{piece.label}</button></li>)}
+          </ul> : null}
+          onDispose={(decision) => disposeNotebookSourceCorrection(entry._id, decision)}
           onSettled={(result) => {
             if (result?.sourceCorrection) setSourceCorrection(result.sourceCorrection);
             onSourceCorrectionSettled?.(result);
@@ -1790,6 +1821,7 @@ const NotebookEditor = ({
         <p className={`notebook-workbench-receipt is-${workbenchReceipt.type}`} role="status">
           {workbenchReceipt.text}
           {['insert', 'thought', 'trial', 'stash', 'next-line'].includes(workbenchReceipt.type) ? <Button variant="quiet" onClick={undoWorkbenchReceipt}>Undo</Button> : null}
+          {workbenchReceipt.partner ? <Button variant="quiet" onClick={openHistory}>Open version history</Button> : null}
         </p>
       ) : null}
       {organizeOpen && (

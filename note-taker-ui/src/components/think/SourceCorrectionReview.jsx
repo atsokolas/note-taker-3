@@ -26,16 +26,18 @@ const Phrase = ({ segments = [], fallback = '' }) => {
   });
 };
 
-export default function SourceCorrectionReview({ preview, onDispose, onSettled }) {
+export default function SourceCorrectionReview({ preview, onDispose, onSettled, draftPassages, keepReason = false }) {
   const reduced = usePrefersReducedMotion();
   const [held, setHeld] = useState(preview);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [reason, setReason] = useState('');
 
   useEffect(() => {
     setHeld(preview);
     setError('');
   }, [preview]);
+  useEffect(() => { setReason(''); }, [preview?.eventId]);
 
   if (!held?.eventId || !held.oldQuotation || !held.newEvidence) return null;
 
@@ -46,7 +48,7 @@ export default function SourceCorrectionReview({ preview, onDispose, onSettled }
     setBusy(action);
     setError('');
     try {
-      const result = await onDispose({ eventId: held.eventId, action });
+      const result = await onDispose({ eventId: held.eventId, action, ...(action === 'keep' && reason.trim() ? { reason: reason.trim() } : {}) });
       const next = result?.sourceCorrection || result?.preview || {
         ...held,
         ui: 'settled',
@@ -74,6 +76,7 @@ export default function SourceCorrectionReview({ preview, onDispose, onSettled }
         <span className="source-correction-review__label">What changed</span>
         {held.whatChanged || 'The saved passage was corrected.'}
       </p>
+      {draftPassages}
       <p className="source-correction-review__fold">
         <span className="source-correction-review__label">What it affects</span>
         {held.whatItAffects || 'this work'}
@@ -114,11 +117,15 @@ export default function SourceCorrectionReview({ preview, onDispose, onSettled }
       ) : null}
 
       {settled ? (
-        <p className="source-correction-review__receipt" role="status">
-          {SETTLED[held.disposition] || SETTLED.no_change}
-        </p>
+        <div className="source-correction-review__receipt" role="status">
+          <p>{SETTLED[held.disposition] || SETTLED.no_change}</p>
+          {held.reviewReason ? <blockquote>{held.reviewReason}</blockquote> : null}
+        </div>
       ) : (
         <>
+          {keepReason ? <label className="source-correction-review__reason">Why keep the original quotation?
+            <input value={reason} onChange={event => setReason(event.target.value)} maxLength={500} placeholder="Optional" disabled={Boolean(busy)} />
+          </label> : null}
           <div className="source-correction-review__verbs">
             {VERBS.map((verb) => (
               <button

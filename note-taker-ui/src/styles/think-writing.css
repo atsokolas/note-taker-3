@@ -572,3 +572,10 @@ body.think-rails-away .think-notes__shelf {
   .notebook-arrangement { transition: none; }
   .think-entry-history { animation: none; }
 }
+
+.think-argument { border-block: 1px solid var(--noeis-rule); margin-block: 1rem; padding-block: .6rem; overflow-wrap: anywhere; }
+.think-argument summary { cursor: pointer; font: 500 .9rem var(--font-sans); }
+.think-argument p, .think-argument blockquote { margin: .6rem 0; }
+.think-argument blockquote { padding-inline-start: .8rem; border-inline-start: 1px solid var(--noeis-rule); color: var(--noeis-ink-muted); font-family: var(--font-serif); }
+.think-argument__line { font: 1.12rem/1.55 var(--font-serif); }
+.think-argument button { padding: .4rem 0; min-height: 44px; border: 0; background: transparent; color: inherit; text-decoration: underline; cursor: pointer; }

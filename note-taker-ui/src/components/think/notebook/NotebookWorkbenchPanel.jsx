@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Button } from '../../ui';
 import { sourceTitle } from '../../../utils/sourceDisplayText';
+import { PartnerWordingPreview } from './NotebookAlternativesRail';
 
 const SourceRow = ({ item, used, targets, onInsert, onRemove, onGoTo }) => (
   <article className={`notebook-workbench__row${used ? ' is-used' : ''}`}>
@@ -73,6 +74,7 @@ const NotebookWorkbenchPanel = ({
           <span>Alternative</span>
           <textarea value={activeTrial.alternative || ''} onChange={(event) => onChangeTrial(event.target.value)} rows={8} />
         </label>
+        <PartnerWordingPreview trial={activeTrial} status={trialStatus} />
         <div className="notebook-workbench__actions">
           <Button variant="quiet" onClick={() => onPreviewTrial('original')}>Original</Button>
           <Button variant="quiet" onClick={() => onPreviewTrial('trial')}>Read it in place</Button>

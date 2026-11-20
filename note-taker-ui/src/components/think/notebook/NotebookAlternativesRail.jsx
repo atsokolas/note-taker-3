@@ -1,6 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { notebookTargetText } from '../../../utils/notebookWorkbench';
+import { notebookTargetText, notebookTrialText } from '../../../utils/notebookWorkbench';
+import Amendment from '../../Amendment';
 import { readTighterCuts, renderReadTighterOriginal } from '../../../utils/notebookReadTighter';
+
+export function PartnerWordingPreview({ trial, status }) {
+  if (trial.origin !== 'partner' || status !== 'ready' || !trial.alternative?.trim()) return null;
+  return <details className="think-argument" open>
+    <summary>See the affected paragraph</summary>
+    <Amendment before={trial.target.baseText} after={notebookTrialText(trial.target, trial.alternative)}
+      beforeLabel="Your draft" afterLabel="Partner’s proposal" />
+  </details>;
+}
 
 // The document owns the alternatives. This strip lists them and adds one more.
 const NotebookAlternativesRail = ({
@@ -108,6 +118,7 @@ const NotebookAlternativesRail = ({
           </div>
         ))}
       </div>
+      {preview === 'trial' ? <PartnerWordingPreview trial={trial} status={status} /> : null}
       <label className="notebook-alternatives__edit">
         <span className="sr-only">Add another wording</span>
         <textarea

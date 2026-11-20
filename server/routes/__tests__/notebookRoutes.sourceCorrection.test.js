@@ -128,11 +128,12 @@ const run = async () => {
     const settled = await fetch(`${url}/api/notebook/${NOTE}/source-correction`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ eventId: EVENT, action: 'no_change' })
+      body: JSON.stringify({ eventId: EVENT, action: 'keep', reason: 'The draft records the original account.' })
     });
     const settledBody = await settled.json();
     assert.strictEqual(settled.status, 200, JSON.stringify(settledBody));
-    assert.strictEqual(settledBody.receipt.provenance.disposition, 'no_change');
+    assert.strictEqual(settledBody.receipt.provenance.disposition, 'keep');
+    assert.strictEqual(settledBody.sourceCorrection.reviewReason, 'The draft records the original account.');
     assert.strictEqual(settledBody.receipt.provenance.writingRewritten, false);
     assert.strictEqual(settledBody.sourceCorrection.ui, 'settled');
     assert.strictEqual(entry.blocks[0].text, OLD);
