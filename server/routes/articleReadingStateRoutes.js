@@ -32,6 +32,8 @@ const projectReadingPlace = (row) =>
 const buildArticleReadingStateRouter = ({
   auth,
   humanOnly,
+  // The reader, or their own desktop: where they stopped is theirs to keep from either.
+  ownDesktop = [auth, humanOnly],
   Article,
   ArticleReadingState,
   checkStatus = publicUrlStatus
@@ -48,7 +50,7 @@ const buildArticleReadingStateRouter = ({
     }
   };
   const path = '/api/articles/:id/reading-state';
-  router.get(path, auth, humanOnly, owned, async (req, res) => {
+  router.get(path, ownDesktop, owned, async (req, res) => {
     try {
       const row = await ArticleReadingState.findOne({
         userId: req.user.id,
@@ -72,7 +74,7 @@ const buildArticleReadingStateRouter = ({
         .json({ error: 'Reading place is temporarily unavailable.' });
     }
   });
-  router.put(path, auth, humanOnly, owned, async (req, res) => {
+  router.put(path, ownDesktop, owned, async (req, res) => {
     if (!validReadingPlace(req.body || {}))
       return res
         .status(400)

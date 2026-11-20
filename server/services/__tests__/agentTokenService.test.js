@@ -7,6 +7,7 @@ const {
   sanitizeAgentToken,
   buildAuthenticateAgentToken,
   requiredScopeForRequest,
+  requireHumanOrDesktop,
   AGENT_TOKEN_SCOPES
 } = require('../agentTokenService');
 const { AgentToken: AgentTokenModel, AgentConnectSession } = require('../../models');
@@ -161,6 +162,19 @@ const run = async () => {
   const revokedRes = createResponse();
   await runMiddleware(middleware, revokedReq, revokedRes);
   assert.strictEqual(revokedRes.statusCode, 401);
+
+  // Your own desktop holds capture and cannot write as an agent; an agent
+  // that also asked for capture is still an agent.
+  const passes = async (agentToken) => {
+    const res = createResponse();
+    let through = false;
+    requireHumanOrDesktop(agentToken ? { agentToken } : {}, res, () => { through = true; });
+    return through && res.statusCode === 200;
+  };
+  assert.strictEqual(await passes(null), true, 'the reader');
+  assert.strictEqual(await passes({ scopes: ['read', 'capture'] }), true, 'their desktop');
+  assert.strictEqual(await passes({ scopes: ['read'] }), false, 'a reading agent');
+  assert.strictEqual(await passes({ scopes: ['read', 'capture', 'agent-write'] }), false, 'a writing agent that asked for capture too');
 };
 
 run().catch((error) => {
