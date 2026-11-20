@@ -80,8 +80,8 @@ export default function EditionReading({
   const quiet = hand ? [] : shaped.filter(section => section.label && !section.items.length);
   const jump = useCallback((id) => {
     const element = document.getElementById(findingAnchor(id));
-    element?.scrollIntoView({ block: 'start', behavior: 'auto' });
     element?.focus({ preventScroll: true });
+    element?.scrollIntoView({ block: 'start', behavior: 'instant' });
   }, []);
   const loaded = Boolean(edition);
   const location = useLocation();
@@ -122,8 +122,15 @@ export default function EditionReading({
   /* A finding bookmark takes precedence over the first finding in a column. */
   useEffect(() => {
     if (focusItem || !destination) return undefined;
-    const frame = requestAnimationFrame(() => jump(destination));
-    return () => cancelAnimationFrame(frame);
+    let frame;
+    const openAtFinding = () => { frame = requestAnimationFrame(() => jump(destination)); };
+    // WebKit can restore the old page scroll after the new finding has mounted.
+    if (document.readyState === 'complete') openAtFinding();
+    else window.addEventListener('load', openAtFinding, { once: true });
+    return () => {
+      window.removeEventListener('load', openAtFinding);
+      cancelAnimationFrame(frame);
+    };
   }, [destination, focusItem, location.key, jump]);
   useEffect(() => {
     if (!loaded) return;
