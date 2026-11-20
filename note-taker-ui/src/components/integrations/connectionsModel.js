@@ -1,3 +1,5 @@
+import { completedSourceSync } from './connectionReceiptModel';
+
 const SUPPORTED_HANDOFF_SCOPES = new Set(['read', 'agent-write']);
 
 const count = (value) => {
@@ -24,6 +26,18 @@ const resultFor = (connection = {}, session = null) => (
   || {}
 );
 
+export const sourceImportSession = (connection, current, recentFailures = []) => {
+  if (!connection?.id) return null;
+  const completedAt = Date.parse(completedSourceSync(connection)?.at);
+  const belongs = session => session?.provider === connection.provider
+    && String(session.connectionId) === String(connection.id);
+  const unresolved = session => !completedAt || !session.updatedAt || Date.parse(session.updatedAt) > completedAt;
+  if (belongs(current) && (current.status !== 'failed' || unresolved(current))) return current;
+  if (current?.provider === connection.provider && !current.connectionId
+    && (current.status !== 'failed' || (current.sourceLabel === connection.accountLabel && unresolved(current)))) return current;
+  return recentFailures.find(session => belongs(session) && unresolved(session)) || null;
+};
+
 const savedCountCopy = (provider, result) => {
   if (provider === 'readwise') {
     const sources = count(result.importedArticles);
@@ -44,15 +58,17 @@ export const projectSourceConnection = ({
 } = {}) => {
   const safeProvider = String(provider || connection?.provider || session?.provider || '').toLowerCase();
   const result = resultFor(connection || {}, session);
+  const completedSync = connection && completedSourceSync({ ...connection, provider: safeProvider });
   const hasSavedHistory = Boolean(
-    connection?.lastSyncAt
+    completedSync
+    || connection?.lastSyncAt
     || session?.status === 'completed'
     || session?.status === 'completed_with_warnings'
     || count(result.importedArticles)
     || count(result.importedHighlights)
     || count(result.importedNotes)
   );
-  const indexingFailures = count(result.indexingFailures);
+  const indexingFailures = count(connection?.lastSyncResult?.indexingFailures ?? result.indexingFailures);
   const currentStatus = String(connection?.status || '').toLowerCase();
   const access = currentStatus === 'revoked'
     ? 'revoked'
@@ -110,7 +126,7 @@ export const projectSourceConnection = ({
     tone = 'warning';
   } else if (access === 'connected' && hasSavedHistory) {
     stateLabel = 'Imported into NOEIS';
-    detail = savedCopy || 'Done.';
+    detail = completedSync?.summary || savedCopy || 'Done.';
     nextAction = 'Review changes';
     tone = 'connected';
   } else if (access === 'connected') {
@@ -136,6 +152,7 @@ export const projectSourceConnection = ({
     tone,
     lastValidatedAt: connection?.lastValidatedAt || null,
     lastSyncAt: connection?.lastSyncAt || null,
+    completedSync,
     sessionId: session?.id || ''
   };
 };

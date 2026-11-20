@@ -3063,6 +3063,8 @@ const integrationConnectionSchema = new mongoose.Schema({
   lastValidatedAt: { type: Date, default: null },
   lastPreviewAt: { type: Date, default: null },
   lastSyncResult: {
+    importedArticles: { type: Number },
+    importedHighlights: { type: Number },
     importedNotes: { type: Number, default: 0 },
     skippedRows: { type: Number, default: 0 },
     indexingQueued: { type: Number, default: 0 },

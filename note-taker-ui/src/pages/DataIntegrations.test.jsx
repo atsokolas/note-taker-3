@@ -16,6 +16,7 @@ import {
   exportToNotionPage,
   getActiveImportSession,
   listImportConnections,
+  listImportSessions,
   previewNotionConnection,
   previewReadwiseConnection,
   startNotionOAuth,
@@ -56,6 +57,7 @@ jest.mock('../api/imports', () => ({
   exportToNotionPage: jest.fn(),
   getActiveImportSession: jest.fn(),
   listImportConnections: jest.fn(),
+  listImportSessions: jest.fn(),
   previewNotionConnection: jest.fn(),
   previewReadwiseConnection: jest.fn(),
   startNotionOAuth: jest.fn(),
@@ -83,6 +85,7 @@ describe('DataIntegrations first insight workflow', () => {
     localStorage.clear();
     window.history.pushState({}, '', '/connections');
     listImportConnections.mockResolvedValue([]);
+    listImportSessions.mockResolvedValue([]);
     getActiveImportSession.mockResolvedValue(null);
     checkReadwiseConnection.mockResolvedValue({});
     checkNotionConnection.mockResolvedValue({});
