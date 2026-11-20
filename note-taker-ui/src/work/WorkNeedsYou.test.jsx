@@ -91,6 +91,16 @@ test('reopens a completed line from the ledger and puts focus back on its own to
   await waitFor(() => expect(records.find(record => record._id === 'task').workItem.history.map(event => event.type)).toEqual(['complete', 'reopen']));
 });
 
+test('the finished ledger keeps the original passage link beside a completed task', async () => {
+  const task = records.find(record => record._id === 'task');
+  const day = task.takenOn;
+  task.workItem.origin = { noteId: 'note', blockId: 'pilot-words', day, noteTitle: records[0].title, notebookName: folders[0].name };
+  task.workItem.history = [{ operationId: 'closed-once', type: 'complete', actionAt: new Date().toISOString() }];
+  work('needs');
+  const ledger = (await screen.findByRole('button', { name: `Reopen ${task.title}` })).closest('dl');
+  expect(within(ledger).getByRole('link', { name: /From Customer discovery/ })).toHaveAttribute('href', `/work?note=note&block=pilot-words&entry=${day}`);
+});
+
 test('Today on a new line plans it for today and leaves it sorted', async () => {
   work('needs');
   fireEvent.click(within(await screen.findByRole('region', { name: /New from your notes/ })).getByRole('button', { name: 'Today' }));

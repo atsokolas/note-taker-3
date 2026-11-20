@@ -47,7 +47,11 @@ export default function WorkNeedsYou({ needs, notes, folders, items, today, onSo
     target?.scrollIntoView?.({ block: 'nearest' });
   });
   const sort = (item, patch) => { setAsking(null); onSort(item.clientId, { sortedOn: today, ...patch }); };
-  const source = item => { if (item.origin) return <WorkItemSource origin={item.origin} />; const note = noteOf(item); return note ? <button className="work-outstanding-source" onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : null; };
+  const source = (item, savedOnly = false) => {
+    if (item.origin && (!savedOnly || notes.some(note => note._id && note._id === item.origin.noteId))) return <WorkItemSource origin={item.origin} />;
+    const note = noteOf(item);
+    return note && (!savedOnly || note._id) ? <button type="button" className="work-outstanding-source" onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : null;
+  };
   const row = (item, aside, extra = null) => <React.Fragment key={item.id}><div {...taskDragProps(item)} className="work-planner-task work-outstanding-row">
     <WorkTaskGrip item={item} /><label><input type="checkbox" data-work-task={item.clientId} checked={false} onChange={() => tick(item)} /><span>{item.title}</span></label>
     <span className="work-carried">{aside}</span></div>{extra}</React.Fragment>;
@@ -94,7 +98,8 @@ export default function WorkNeedsYou({ needs, notes, folders, items, today, onSo
 
     {needs.someday.length ? <details className="work-needs-rest" open><summary>Someday <span>{needs.someday.length}</span></summary>{needs.someday.map(item => row(item, <>{item.returnOn ? <time>Back {displayDay(item.returnOn)}</time> : <label className="work-outstanding-back">Bring back<input type="date" aria-label={`Bring back ${item.title} on`} min={shiftDay(today, 1)} onChange={event => event.target.value && onSort(item.clientId, { returnOn: event.target.value })} /></label>}<button onClick={() => sort(item, { list: 'next', returnOn: null })}>Start now</button></>))}</details> : null}
     {needs.done ? <details className="work-needs-rest" open><summary>Done this week <span>{needs.done}</span></summary><dl className="work-ledger">{needs.ledger.map(entry => <React.Fragment key={entry.day}><dt>{displayDay(entry.day, { weekday: 'long' })}</dt><dd>{entry.items.map(item => <div className="work-ledger__line" key={item.id}>
-      <s>{item.title}</s>{!item.pending && ['task', 'question'].includes(item.kind) ? <button type="button" aria-label={`Reopen ${item.title}`} onClick={event => reopen(event, item)}>Reopen</button> : null}
+      <div className="work-ledger__title"><s>{item.title}</s>{source(item, true)}</div>
+      {!item.pending && ['task', 'question'].includes(item.kind) ? <button type="button" aria-label={`Reopen ${item.title}`} onClick={event => reopen(event, item)}>Reopen</button> : null}
     </div>)}</dd></React.Fragment>)}</dl>
       {needs.gotBack.map(({ item, days }) => <p className="work-outstanding-line" key={item.id}>{item.waitingOn} sent {item.title.charAt(0).toLowerCase() + item.title.slice(1)}{days > 0 ? `, after ${plural(days, 'day')}` : ''}.</p>)}
       <p className="work-outstanding-tally">{plural(needs.done, 'thing')} closed this week{needs.lastWeek ? `, ${needs.done === needs.lastWeek ? 'the same as' : needs.done > needs.lastWeek ? `${needs.done - needs.lastWeek} more than` : `${needs.lastWeek - needs.done} fewer than`} last week` : ''}.</p></details> : null}

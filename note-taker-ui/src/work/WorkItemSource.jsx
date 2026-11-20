@@ -6,9 +6,11 @@ import { displayDay, validDay } from './workPlannerModel';
 export default function WorkItemSource({ origin, quote = false }) {
   if (!origin) return null;
   const linked = origin.noteId && !origin.noteId.startsWith('local-');
-  const label = origin.notebookName ? `From ${origin.notebookName}${validDay(origin.day) ? ` · ${displayDay(origin.day, { day: 'numeric', month: 'short' })}` : ''}` : 'Link appears once saved';
+  const noteTitle = origin.noteTitle || 'source note';
+  const notebookName = origin.notebookName || (linked && noteTitle);
+  const label = notebookName ? `From ${notebookName}${validDay(origin.day) ? ` · ${displayDay(origin.day, { day: 'numeric', month: 'short' })}` : ''}` : 'Link appears once saved';
   const target = `/work?${new URLSearchParams({ note: origin.noteId, ...(origin.blockId ? { block: origin.blockId } : {}), ...(validDay(origin.day) ? { entry: origin.day } : {}) })}`;
-  return <span className="work-item-source">{linked ? <a href={target} title={`Open ${origin.noteTitle || 'source note'}`}>{label}</a> : <span>{label}</span>}{quote ? <q className="work-source-quote">{origin.quote}</q> : null}</span>;
+  return <span className="work-item-source">{linked ? <a href={target} title={`Open ${noteTitle}`}>{label}</a> : <span>{label}</span>}{quote ? <q className="work-source-quote">{origin.quote}</q> : null}</span>;
 }
 
 const normalized = text => String(text || '').replace(/\s+/g, ' ').trim();

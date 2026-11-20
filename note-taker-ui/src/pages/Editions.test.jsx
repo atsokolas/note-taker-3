@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import Editions from './Editions';
 import * as api from '../api/editions';
+import { createNotebookEntry } from '../api/notebook';
 import backendApi from '../api';
 let mockId;
 let mockSearch;
@@ -14,6 +15,7 @@ jest.mock('react-router-dom', () => ({
   useSearchParams: () => [new URLSearchParams(mockSearch)]
 }));
 jest.mock('../api/editions');
+jest.mock('../api/notebook', () => ({ createNotebookEntry: jest.fn() }));
 jest.mock('../api', () => ({ get: jest.fn().mockResolvedValue({ data: { content: '<p>Saved source.</p>' } }) }));
 jest.mock('../components/editions/editionReadingState', () => ({
   ...jest.requireActual('../components/editions/editionReadingState'),
@@ -391,6 +393,35 @@ it('clips only selected finding text and leaves the whole-finding copy available
     selection.removeAllRanges();
     if (previous) Object.defineProperty(navigator, 'clipboard', previous);
     else delete navigator.clipboard;
+  }
+});
+it('keeps the selected words in a Notebook quote with the exact finding link', async () => {
+  createNotebookEntry.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ _id: 'clipped-note' });
+  render(<Editions />);
+  const prose = await screen.findByText(item.finding);
+  const selection = window.getSelection();
+  const range = document.createRange();
+  const excerpt = 'Being informed';
+  range.setStart(prose.firstChild, 0);
+  range.setEnd(prose.firstChild, excerpt.length);
+  selection.removeAllRanges();
+  try {
+    selection.addRange(range);
+    fireEvent(document, new Event('selectionchange'));
+    const keep = await screen.findByRole('button', { name: 'Keep in Notebook' });
+    keep.focus();
+    fireEvent.click(keep);
+    expect(await screen.findByText('That didn’t save. Try again.')).toBeVisible();
+    expect(keep).toHaveFocus();
+    fireEvent.click(keep);
+    const saved = await screen.findByRole('button', { name: 'Kept in Notebook' });
+    expect(saved).toHaveFocus();
+    expect(saved).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('link', { name: /Open note/ })).toHaveAttribute('href', '/think?tab=notebook&entryId=clipped-note');
+    const payload = { source: 'edition-selection', title: item.title, blocks: [{ type: 'quote', text: excerpt, articleTitle: 'Weekend Readings · Edition 2', sourcePath: '/editions/e1#edition-item-one' }] };
+    expect(createNotebookEntry.mock.calls).toEqual([[payload], [payload]]);
+  } finally {
+    selection.removeAllRanges();
   }
 });
 it('sets a finding aside with Not for me, and Undo brings it back', async () => {

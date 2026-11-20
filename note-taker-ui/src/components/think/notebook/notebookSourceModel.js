@@ -9,6 +9,15 @@ const formatDate = (value) => {
 };
 
 export const resolveNotebookSource = (entry) => {
+  const clipping = (entry?.blocks || []).find(block => block?.type === 'quote'
+    && /^\/editions\/[^/?#\s]+#edition-item-[^/?#\s]+$/.test(block.sourcePath || ''));
+  if (clipping) return {
+    kind: 'edition',
+    label: clean(clipping.articleTitle) || 'Open finding',
+    href: clipping.sourcePath,
+    eyebrow: 'Clipped from Editions'
+  };
+
   const highlightBlocks = (entry?.blocks || []).filter((block) => (
     block?.type === 'highlight-ref' || block?.type === 'highlight_embed'
   ));
