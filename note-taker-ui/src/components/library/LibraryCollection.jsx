@@ -484,17 +484,15 @@ export default function LibraryCollection({
                         <button type="button" onClick={() => letGoOf(row)}>Let it go</button>
                       </p>
                     ) : null}
-                    {trace && trace.kind !== 'title' ? (
-                      <p
-                        className={`library-personal-trace${trace.kind === 'continue' ? ' is-continuation' : ''}`}
-                      >
-                        <span>
-                          {(row.match ? MATCH_LABELS : TRACE_LABELS)[trace.kind]}
-                        </span>
-                        {trace.text}
-                      </p>
-                    ) : row.match ? (
+                    {trace?.kind === 'title' ? (
                       <p className="library-row-label">Matched title</p>
+                    ) : trace || !query ? (
+                      <p
+                        className={`library-personal-trace${query ? '' : ' library-personal-trace--reserved'}`}
+                        title={!query ? trace?.text : undefined}
+                      >
+                        {trace ? <><span>{(row.match ? MATCH_LABELS : TRACE_LABELS)[trace.kind]}</span>{trace.text}</> : null}
+                      </p>
                     ) : null}
                   </div>
                   <button

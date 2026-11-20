@@ -43,6 +43,7 @@ test('the shelf shows each book with what was written in it and the last line', 
   const book = await screen.findByRole('link', { name: /The Better Angels of Our Nature/ });
   expect(book).toHaveAttribute('href', '/books/b1');
   expect(book).toHaveTextContent('pp. 188–190 · 1 quote, 1 question');
+  expect(book).toHaveTextContent('Last marked p. 190');
   expect(book).toHaveTextContent('Is he cherry-picking the base year?');
 });
 
