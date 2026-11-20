@@ -26,6 +26,7 @@ test('closes a week through the existing plan and only shows acknowledged Monday
   const pending = { ...a, plannedOn: '2026-11-23', plan: { operationId: 'plan-op', actionAt: '2026-11-20T16:00:00Z', pending: true } };
   rerender(<WorkWeekly {...props} today="2026-11-20" items={[pending, b]} />);
   expect(within(review).queryByRole('region', { name: 'Monday starts here' })).toBeNull();
+  expect(within(review).queryByText(/Monday starts here ·/)).toBeNull();
   const saved = { ...pending, plan: { ...pending.plan, pending: false } };
   rerender(<WorkWeekly {...props} today="2026-11-20" items={[saved, b]} />);
   await act(async () => finish(true));
@@ -36,6 +37,31 @@ test('closes a week through the existing plan and only shows acknowledged Monday
   fireEvent.click(within(row).getByRole('button', { name: 'Undo' }));
   expect(props.onAction).toHaveBeenLastCalledWith('a', { type: 'undo', undoOf: 'plan-op' });
   await act(async () => {});
+});
+
+test('the folded review previews the first confirmed Monday task and unfolds to the same list', async () => {
+  const friday = '2026-11-20';
+  const carry = (item, plan = {}) => ({ ...item, plannedOn: '2026-11-23', plan: { actionAt: `${friday}T16:00:00Z`, ...plan } });
+  const pending = carry({ ...a, id: 'pending', clientId: 'pending', title: 'Still saving' }, { pending: true });
+  const done = carry({ ...a, id: 'done', clientId: 'done', title: 'Already done', completed: true });
+  const old = carry({ ...a, id: 'old', clientId: 'old', title: 'Planned last week' }, { actionAt: '2026-11-13T16:00:00Z' });
+  const { rerender } = render(<WorkWeekly {...props} today={friday} items={[pending, done, old, carry(a), carry(b)]} />);
+  const summary = screen.getByText('Close the week');
+  expect(summary).toHaveTextContent(`Monday starts here · ${a.title}`);
+  expect(summary).not.toHaveTextContent(b.title);
+  expect(summary).not.toHaveTextContent(pending.title);
+
+  fireEvent.click(summary);
+  const monday = await screen.findByRole('region', { name: 'Monday starts here' });
+  expect(monday).toHaveTextContent(a.title);
+  expect(monday).toHaveTextContent(b.title);
+  expect(within(monday).getAllByRole('listitem')).toHaveLength(2);
+  expect(summary).not.toHaveTextContent('Monday starts here');
+
+  fireEvent.click(summary);
+  rerender(<WorkWeekly {...props} today={friday} items={[pending, done, old]} />);
+  await waitFor(() => expect(summary.closest('details')).not.toHaveAttribute('open'));
+  expect(summary).not.toHaveTextContent('Monday starts here');
 });
 
 test('retries the same operation from its row and leaves intervening focus alone', async () => {
