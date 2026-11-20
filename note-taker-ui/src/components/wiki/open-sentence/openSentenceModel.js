@@ -80,8 +80,8 @@ const asRecordedPassage = (value, ...today) => {
   };
 };
 
-const recordedSources = (value, ...today) => (
-  (Array.isArray(value?.sources) ? value.sources : []).reduce((list, item) => {
+const recordedSources = (sources, ...today) => (
+  (Array.isArray(sources) ? sources : []).reduce((list, item) => {
     const recorded = asRecordedPassage(item, ...today, ...list);
     return recorded ? [...list, recorded] : list;
   }, [])
@@ -91,12 +91,14 @@ const asThen = (value, currentText, ...today) => {
   const text = asLine(value?.text);
   const now = asLine(currentText);
   if (!text || !now || text === now) return null;
-  const sources = recordedSources(value, ...today);
+  const sources = recordedSources(value?.sources, ...today);
+  const addedSources = recordedSources(value?.addedSources);
   const question = asLine(value?.question);
   const draft = unlessSame(value?.draft, text, question);
   return {
     text,
     ...(sources.length ? { sources } : {}),
+    ...(addedSources.length ? { addedSources } : {}),
     ...(question ? { question } : {}),
     ...(draft ? { draft } : {})
   };

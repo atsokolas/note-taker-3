@@ -24,7 +24,7 @@ const page = {
   citations: [],
   judgment: {
     currentJudgment: 'AI compute remains scarce.',
-    why: [],
+    why: [{ reasonId: 'why-1', text: 'Two new clusters opened.', sourceLabel: 'Capacity report', acceptedFrom: 'article:article-1', sourceRefIds: [] }],
     against: [],
     falsifiers: [],
     decisions: [],
@@ -82,7 +82,7 @@ const run = async () => {
     const agentAttempt = await fetch(`${base}/api/wiki/pages/${PAGE_ID}/judgment-change-proposals`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-agent-token-id': 'agent-1' },
-      body: JSON.stringify({ proposedJudgment: 'AI compute is becoming abundant.' })
+      body: JSON.stringify({ proposedJudgment: 'AI compute is becoming abundant.', evidenceId: 'why:why-1' })
     });
     assert.strictEqual(agentAttempt.status, 403);
     assert.strictEqual(receipts.length, 0);
@@ -90,7 +90,7 @@ const run = async () => {
     const proposed = await fetch(`${base}/api/wiki/pages/${PAGE_ID}/judgment-change-proposals`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ proposedJudgment: 'AI compute is becoming abundant.' })
+      body: JSON.stringify({ proposedJudgment: 'AI compute is becoming abundant.', evidenceId: 'why:why-1' })
     });
     assert.strictEqual(proposed.status, 201);
     const proposal = (await proposed.json()).proposal;
@@ -106,6 +106,7 @@ const run = async () => {
     const result = await accepted.json();
     assert.strictEqual(result.proposal.status, 'accepted');
     assert.strictEqual(result.page.judgment.currentJudgment, 'AI compute is becoming abundant.');
+    assert.strictEqual(result.page.judgment.heldHistory.at(-1).evidence.text, 'Two new clusters opened.');
     assert.match(result.page.judgment.decisions[0].summary, /^Changed what I hold:/);
 
     const replay = await fetch(`${base}/api/wiki/pages/${PAGE_ID}/judgment-change-proposals/accept`, {

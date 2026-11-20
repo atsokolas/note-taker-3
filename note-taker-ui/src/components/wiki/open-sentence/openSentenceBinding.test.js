@@ -29,6 +29,25 @@ const neighbor = {
   snippet: 'Unrelated sentences should never be substituted.'
 };
 
+it('shows the passage added by the accepted wording change and skips a candidate', () => {
+  const claimId = 'claim-compute';
+  const previous = {
+    body: markedDoc('The plant was the only constraint.'),
+    claims: [{ claimId, sourceRefIds: [nomad._id] }], sourceRefs: [nomad]
+  };
+  const current = {
+    body: markedDoc('The constraint changed with the new plant.'),
+    claims: [{ claimId, sourceRefIds: [nomad._id, neighbor._id] }], sourceRefs: [nomad, neighbor]
+  };
+  const revisions = [
+    { before: { ...previous, body: markedDoc('An abandoned proposal.') }, after: current, promotionStatus: 'candidate' },
+    { before: previous, after: current, promotionStatus: 'promoted' }
+  ];
+  const change = liveExplorationForPageClaim(current, { claimId }, { revisions }).then;
+  expect(change.text).toBe('The plant was the only constraint.');
+  expect(change.addedSources).toEqual([expect.objectContaining({ title: neighbor.title, passage: neighbor.snippet })]);
+});
+
 const markedDoc = (text, attrs = { claimId: 'claim-compute' }) => ({
   type: 'doc',
   content: [{

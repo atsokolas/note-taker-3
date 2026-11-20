@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
+import Amendment from '../../Amendment';
 import useCssMagneticLerp from '../../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import {
@@ -1150,15 +1151,19 @@ const PocketBody = ({
             acceptSilence={acceptSilence}
           />
         ) : null}
-        <p className="open-sentence-pocket__qualification">
-          {acceptedLabel}: {accepted}
-        </p>
+        {!then ? <p className="open-sentence-pocket__qualification">{acceptedLabel}: {accepted}</p> : null}
         <WithoutParagraphWork exploration={exploration} onCommit={onCommit} />
         <WithoutSourceWork exploration={exploration} onCommit={onCommit} />
         {then ? (
           <div className="open-sentence-pocket__then">
-            <p className="open-sentence-pocket__qualification">Then</p>
-            <ThenQuote text={then.text} />
+            <Amendment before={then.text} after={accepted}>
+              {then.addedSources?.length ? <p className="open-sentence-pocket__qualification">Passages added with this revision</p> : null}
+              {then.addedSources?.map(source => (
+                <ThenPassage key={`${source.title}:${source.passage}`} source={source} mocked={mocked} copyable
+                  onOpen={() => onOpenSourceHome?.(source, exploration)} />
+              ))}
+            </Amendment>
+            {then.sources?.length ? <p className="open-sentence-pocket__qualification">Passages with the previous wording</p> : null}
             {(then.sources || []).map((source) => (
               <ThenPassage
                 key={`${source.title}:${source.passage}`}

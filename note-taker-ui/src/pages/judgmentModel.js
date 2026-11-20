@@ -155,9 +155,9 @@ const SYSTEM_DECISION = /^judgment-change-/;
 export const viewRecord = (page = {}) => {
   const judgment = page?.judgment || {};
   const lines = [];
-  const add = (at, text, was = '') => {
+  const add = (at, text, amendment = null) => {
     if (Number.isNaN(time(at)) || !text) return;
-    lines.push({ id: `${lines.length}:${time(at)}`, at, text, was });
+    lines.push({ id: `${lines.length}:${time(at)}`, at, text, amendment });
   };
   add(heldSinceOf(page), 'Held.');
   whyLines(judgment).forEach(line => add(line.at, line.sourceLabel
@@ -166,7 +166,12 @@ export const viewRecord = (page = {}) => {
   againstLines(judgment).forEach(line => add(line.at, line.sourceLabel
     ? `Filed a passage against, from ${line.sourceLabel}.`
     : 'Wrote a reason against.'));
-  list(judgment.heldHistory).forEach(entry => add(entry?.until, 'Revised. Was:', normalizeSpaces(entry?.text)));
+  const history = list(judgment.heldHistory);
+  history.forEach((entry, index) => add(entry?.until, 'Revised.', {
+    before: normalizeSpaces(entry?.text),
+    after: normalizeSpaces(history[index + 1]?.text || judgment.currentJudgment),
+    evidence: entry?.evidence?.text ? passageOf(page, { ...entry.evidence, sourceRefIds: list(entry.evidence.sourceRefIds) }) : null
+  }));
   list(judgment.resolutionHistory).forEach(entry => add(entry?.setAt, entry?.horizonAt
     ? `Said what would change my mind, by ${formatLedgerDate(entry.horizonAt)}.`
     : 'Said what would change my mind.'));

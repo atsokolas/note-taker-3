@@ -248,7 +248,7 @@ const normalizeDecisions = (items = [], actorType = 'user', priorItems = []) => 
   });
 };
 
-const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId = '' } = {}) => {
+const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId = '', revisionEvidence } = {}) => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new JudgmentValidationError('judgment must be an object.');
   }
@@ -273,7 +273,7 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId 
        first drafts have no history, and a save that changed nothing else is
        not a revision. */
     heldHistory: currentJudgment && previousJudgment && currentJudgment !== previousJudgment
-      ? [...list(prior.heldHistory), { text: previousJudgment, until: new Date() }].slice(-20)
+      ? [...list(prior.heldHistory), { text: previousJudgment, until: new Date(), ...(revisionEvidence ? { evidence: revisionEvidence } : {}) }].slice(-20)
       : list(prior.heldHistory),
     confidence: confidenceValue('judgment.confidence', next.confidence, null),
     status,

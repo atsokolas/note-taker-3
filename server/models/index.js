@@ -941,7 +941,11 @@ const wikiJudgmentSchema = new mongoose.Schema({
   heldHistory: {
     type: [new mongoose.Schema({
       text: { type: String, required: true, trim: true },
-      until: { type: Date, required: true }
+      until: { type: Date, required: true },
+      evidence: { type: new mongoose.Schema({
+        reasonId: String, text: String, sourceLabel: String, acceptedFrom: String,
+        sourceRefIds: [String]
+      }, { _id: false }), default: undefined }
     }, { _id: false })],
     default: []
   },
