@@ -691,7 +691,17 @@ const ArticleReader = ({
         </ul>
       ) : null}
       {/* How much is left is the book's to know; the desk has no length. */}
-      <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
+      <MagneticReadingRail
+        rootRef={readerRootRef}
+        contentRef={contentRef}
+        returnLink={location.state?.fromWikiReading ? (
+          <Link
+            className="magnetic-reading-rail__btn"
+            to="/wiki"
+            state={{ readingArticleId: articleId }}
+          >Back to Wiki</Link>
+        ) : null}
+      />
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>
   );

@@ -1096,7 +1096,7 @@ const Library = () => {
         className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
       />
       <div className="library-page-shell__column">
-        {isReadingView ? <div className="library-page-shell__column-head">
+        {isReadingView && (!location.state?.fromWikiReading || !selectedArticle) ? <div className="library-page-shell__column-head">
           {location.state?.fromWikiReading ? (
             <Link className="library-reader__back" to="/wiki" state={{ readingArticleId: selectedArticleId }}>← Back to Wiki</Link>
           ) : (

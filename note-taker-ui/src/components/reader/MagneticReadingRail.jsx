@@ -8,6 +8,7 @@ const clamp01 = (n) => Math.max(0, Math.min(1, n));
 const MagneticReadingRail = ({
   rootRef,
   contentRef,
+  returnLink,
   enabled = true
 }) => {
   const railRef = useRef(null);
@@ -19,6 +20,7 @@ const MagneticReadingRail = ({
   const [timeLeft, setTimeLeft] = useState('');
 
   const motionOk = enabled && !reducedMotion && finePointer;
+  const returning = Boolean(returnLink);
 
   const updateProgress = useCallback(() => {
     const content = contentRef?.current;
@@ -30,9 +32,9 @@ const MagneticReadingRail = ({
     const seen = clamp01((vh - rect.top) / Math.max(total, 1));
     bar.style.setProperty('--reading-progress', String(seen));
     /* Out of the way until the reading is under way: a fifth of the piece. */
-    railRef.current?.classList.toggle('is-shown', seen >= 0.2);
+    railRef.current?.classList.toggle('is-shown', returning || seen >= 0.2);
     setTimeLeft(timeLeftLine(words.current, seen));
-  }, [contentRef]);
+  }, [contentRef, returning]);
 
   const handlePointerMove = useCallback((event) => {
     if (!motionOk) return;
@@ -112,19 +114,19 @@ const MagneticReadingRail = ({
   ), [motionOk]);
 
   return (
-    <div ref={railRef} className={railClass} aria-hidden={motionOk ? undefined : 'true'}>
-      <div className="magnetic-reading-rail__track" ref={progressRef}>
+    <div ref={railRef} className={railClass} role="group" aria-label="Reading controls">
+      <div className="magnetic-reading-rail__track" ref={progressRef} aria-hidden="true">
         <div className="magnetic-reading-rail__fill" />
       </div>
       <div className="magnetic-reading-rail__pill-outer">
         <div className="magnetic-reading-rail__pill" ref={magnet.elRef}>
-          <button
+          {returnLink || <button
             type="button"
             className="magnetic-reading-rail__btn"
             onClick={scrollTop}
           >
             Top
-          </button>
+          </button>}
           <span className="magnetic-reading-rail__hint">{timeLeft || 'Reading'}</span>
         </div>
       </div>
