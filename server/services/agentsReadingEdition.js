@@ -2,13 +2,7 @@ const { connect, apiFor } = require('./handoffWorker');
 const { windowFor } = require('./editionShape');
 const { stripHtmlToLines } = require('./import/evernoteTransform');
 
-/* What the reader's agents read for them last week, as an Edition: each page
-   an agent saved, with the line that mattered (the passage the agent marked,
-   or the page's opening) and who read it. Noeis files it itself, through
-   the same Editions API any agent uses, once the week is over; a week no
-   agent read anything is no issue at all. Inking stays where pencil is
-   inked, on Handed off. */
-
+// File a finished week's agent reading through Editions, without inking it for the reader.
 const PROFILE = 'agents_reading';
 const ITEMS = 12;
 const LINE_CHARS = 400;
@@ -18,19 +12,23 @@ const lastWeek = now => windowFor('weekly', new Date(now - 7 * DAY_MS));
 const day = date => date.toISOString().slice(0, 10);
 const opening = html => stripHtmlToLines(html || '').join(' ').replace(/\s+/g, ' ').trim().slice(0, LINE_CHARS);
 
-const lineThatMattered = (article) => {
-  const marked = (article.highlights || []).find(mark => mark.pencil?.agent && String(mark.text || '').trim());
-  return marked ? marked.text.slice(0, LINE_CHARS) : opening(article.content);
-};
+const itemFor = article => {
+  const saver = article.pencil.agent;
+  const passage = (article.highlights || []).find(mark => mark.pencil?.agent && String(mark.text || '').trim());
+  const highlighter = passage?.pencil.agent;
+  const credit = highlighter === saver
+    ? `${saver} saved this and highlighted the passage for you.`
+    : `${saver} saved this for you.${highlighter ? ` ${highlighter} highlighted this passage.` : ''}`;
 
-const itemFor = article => ({
-  itemId: String(article._id),
-  title: article.title,
-  url: article.url,
-  sourceLabel: article.pencil.agent,
-  finding: lineThatMattered(article) || article.title,
-  boundary: `${article.pencil.agent} read this for you; you have not read it yourself yet.`
-});
+  return {
+    itemId: String(article._id),
+    title: article.title,
+    url: article.url,
+    sourceLabel: saver,
+    finding: (passage ? passage.text.slice(0, LINE_CHARS) : opening(article.content)) || article.title,
+    boundary: `${credit} You have not read it yourself yet.`
+  };
+};
 
 const onTheWeb = article => /^https?:\/\//i.test(String(article.url || ''));
 
