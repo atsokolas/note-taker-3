@@ -48,12 +48,12 @@ export default function WorkNeedsYou({ needs, notes, folders, items, today, onSo
     catch (error) { setReading({ busy: false, message: error.message }); }
   };
   const { planned, carried } = dayTasks(items || needs.next, notes, today, today);
-  // Next is what has no place yet: a task already planned for a day, linked to a weekly priority or gone quiet shows there instead.
+  // Today's and carried work already have a row. A future date can still be next.
   const placed = new Set([...planned, ...carried, ...needs.quiet].map(item => item.id).concat(priorities.flatMap(priority => priority.taskIds)));
-  const next = needs.next.filter(item => !item.plannedOn && !placed.has(item.id));
+  const next = needs.next.filter(item => !placed.has(item.id));
   return <section className="work-outstanding work-home-margin" aria-label="Needs you">
     {children}
-    <details className="work-needs-rest work-rail-next" open><summary>Next <span>{next.length}</span></summary>{next.map(item => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} notes={notes} onOpen={onOpen} onAction={onAction} onEdit={onEdit} actions={<>{star(item)}{sorting(item, false)}</>} />)}{!next.length ? <p className="work-weekly-empty">Nothing in Next.</p> : null}</details>
+    <details className="work-needs-rest work-rail-next" open><summary>Next <span>{next.length}</span></summary>{next.map(item => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} notes={notes} onOpen={onOpen} onAction={onAction} onEdit={onEdit} aside={item.plannedOn ? <time dateTime={item.plannedOn}>{displayDay(item.plannedOn)}</time> : null} actions={<>{star(item)}{sorting(item, false)}</>} />)}{!next.length ? <p className="work-weekly-empty">Nothing in Next.</p> : null}</details>
     {struckRows}
     {section('New from your notes', needs.fresh, freshRow, 'sort each once')}
     {section('Owed to you', needs.waiting, item => {
