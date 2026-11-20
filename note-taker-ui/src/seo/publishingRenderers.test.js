@@ -25,6 +25,7 @@ describe('publishing renderers', () => {
     const html = renderHomeFallback(content);
 
     expect(html).toContain(homeCopy.headline);
+    expect(html).toContain(`href="${homeCopy.evidenceCta.href}"`);
     homeCopy.statements.forEach(({ title }) => expect(html).toContain(title));
     expect(html).toContain('Claude Code, Codex and other agents can read it too');
     expect(html).toContain('id="how-it-works"');

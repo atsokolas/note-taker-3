@@ -294,7 +294,10 @@ describe('SharedWikiPage', () => {
     expect(finalReference.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
     expect(document.activeElement).toBe(finalReference);
     expect(window.location.hash).toBe('#wiki-ref-30');
-    window.history.replaceState({}, '', '/');
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the cited line' }));
+    expect(citation).toHaveFocus();
+    expect(window.location.hash).toBe('');
+    expect(screen.queryByRole('button', { name: 'Back to the cited line' })).not.toBeInTheDocument();
   });
 
   it('sends logged-out readers through auth with a return-to adoption URL', async () => {

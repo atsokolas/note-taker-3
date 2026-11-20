@@ -56,6 +56,7 @@ const WikiReaderContext = ({
 }) => {
   if (!panel) return null;
   const backLabel = {
+    citation: 'the cited line',
     review: 'the proposed revision',
     evidence: 'this sentence',
     history: 'page history',

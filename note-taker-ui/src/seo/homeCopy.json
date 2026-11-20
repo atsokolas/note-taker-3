@@ -7,6 +7,10 @@
     "label": "Get started",
     "href": "/register"
   },
+  "evidenceCta": {
+    "label": "Inspect a real source",
+    "href": "/share/wiki/collection/mental-models/starter%3Amental-models%3Afirst-principles-thinking"
+  },
   "specimen": {
     "title": "How small things compound",
     "grew": "A page in your wiki, from 23 sources since March 2025",

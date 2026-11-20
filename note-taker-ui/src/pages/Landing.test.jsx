@@ -29,6 +29,7 @@ describe('Landing', () => {
     });
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login');
+    expect(screen.getByRole('link', { name: 'Inspect a real source' })).toHaveAttribute('href', HOME.evidenceCta.href);
   });
 
   it('opens account setup straight from Get started', () => {

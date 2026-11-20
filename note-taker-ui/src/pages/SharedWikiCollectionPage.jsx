@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { adoptPublicWikiCollection, getPublicWikiCollection } from '../api/wiki';
 import renderTiptapDoc, { firstParagraphText } from '../components/wiki/renderTiptapDoc';
+import PublicWikiReferences, { usePublicCitationReturn } from '../components/wiki/PublicWikiReferences';
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import useSeoMetadata from '../hooks/useSeoMetadata';
@@ -96,34 +97,17 @@ export const buildSharedWikiCollectionSchema = ({
   };
 };
 
-const CollectionEntryBody = ({ page, className = '' }) => (
-  <div className={className} onClick={(event) => {
-    const citation = event.target.closest?.('.wiki-claim-citation');
-    const target = citation?.getAttribute('data-footnote-target');
-    if (!/^wiki-ref-\d+$/.test(target || '')) return;
-    const reference = event.currentTarget.querySelector(`[data-reference="${target}"]`);
-    reference?.scrollIntoView?.({ block: 'center' });
-  }}>
-    <div className="shared-wiki-page__body wiki-read">
-      {renderTiptapDoc(page.body, { disableInternalWikiLinks: true })}
+const CollectionEntryBody = ({ page, className = '' }) => {
+  const citation = usePublicCitationReturn();
+  return (
+    <div className={className} onClick={citation.openCitation}>
+      <div className="shared-wiki-page__body wiki-read">
+        {renderTiptapDoc(page.body, { disableInternalWikiLinks: true })}
+      </div>
+      <PublicWikiReferences sources={page.sourceRefs} citation={citation} />
     </div>
-    {Array.isArray(page.sourceRefs) && page.sourceRefs.length > 0 ? (
-      <section className="shared-wiki-page__sources" aria-label="References">
-        <h2>References</h2>
-        <ol>
-          {page.sourceRefs.map((source, index) => (
-            <li key={source._id || source.id || index} data-reference={`wiki-ref-${index + 1}`}>
-              {source.url ? (
-                <a href={source.url} target="_blank" rel="noopener noreferrer">{source.title || source.url}</a>
-              ) : <span>{source.title || source.type || 'Source'}</span>}
-              {source.snippet ? <p>{source.snippet}</p> : null}
-            </li>
-          ))}
-        </ol>
-      </section>
-    ) : null}
-  </div>
-);
+  );
+};
 
 const SharedWikiCollectionPage = () => {
   const { idOrSlug = '', entryId = '' } = useParams();
@@ -271,7 +255,7 @@ const SharedWikiCollectionPage = () => {
             <p className="shared-wiki-page__eyebrow">Shared wiki</p>
             <h1>{entry.title || 'Untitled page'}</h1>
           </header>
-          <CollectionEntryBody page={entry} />
+          <CollectionEntryBody key={entryId} page={entry} />
         </article>
       ) : collection ? (
         <article className="shared-wiki-page__article">
@@ -291,7 +275,7 @@ const SharedWikiCollectionPage = () => {
                 </svg>
                 {adopting ? 'Adding…' : 'Add to my library'}
               </button>
-              <p>Keep these pages and their public sources. Original unchanged.</p>
+              <p>Copy {pages.length} {pages.length === 1 ? 'page' : 'pages'} into your Wiki, with their public sources in your Library. Private reading stays with the owner.</p>
               {adoptionError ? <p className="shared-wiki-page__adopt-error" role="alert">{adoptionError}</p> : null}
             </section>
             <details className="shared-wiki-collection__sharing">

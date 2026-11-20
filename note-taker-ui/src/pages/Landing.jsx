@@ -9,7 +9,7 @@ import '../styles/landing-scale.css';
 /* One page, read top to bottom: what Noeis is, the one way in, a page of a
    reader's wiki to show it, and the three things that make it add up.
    Signed-in readers never see it: "/" sends them to the Wiki. */
-const SIGN_UP = buildMarketingHref('/register', { entry: 'home', cta: 'hero', pageType: 'home' });
+const SIGN_UP = buildMarketingHref(HOME.primaryCta.href, { entry: 'home', cta: 'hero', pageType: 'home' });
 
 const Landing = () => {
   useSeoMetadata({
@@ -35,13 +35,18 @@ const Landing = () => {
         <section className="landing-public__hero">
           <h1>{HOME.headline}</h1>
           <p>{HOME.lede}</p>
-          <Link
-            to={SIGN_UP}
-            className="landing-public__start"
-            onClick={() => trackMarketingCta({ page: 'home', cta: 'hero', target: '/register', pageType: 'home' })}
-          >
-            {HOME.primaryCta.label}
-          </Link>
+          <div className="landing-public__actions">
+            <Link
+              to={SIGN_UP}
+              className="landing-public__start"
+              onClick={() => trackMarketingCta({ page: 'home', cta: 'hero', target: HOME.primaryCta.href, pageType: 'home' })}
+            >
+              {HOME.primaryCta.label}
+            </Link>
+            <Link className="landing-public__evidence" to={HOME.evidenceCta.href}>
+              {HOME.evidenceCta.label} <span aria-hidden="true">→</span>
+            </Link>
+          </div>
         </section>
 
         <figure className="landing-public__specimen" aria-label={specimen.title}>
