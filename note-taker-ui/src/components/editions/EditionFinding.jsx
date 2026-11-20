@@ -1,15 +1,18 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { publicSourceHref, sureLine } from '../../pages/editionModel';
-import { findingAnchor } from './editionReadingState';
+import { editionIssuePath, findingAnchor, findingHash } from './editionReadingState';
+import CopyClip from '../CopyClip';
 import AgentMark from './AgentMark';
 import EditionReadings from './EditionReadings';
 import { Figures, Held, Passage, SourceLink, Why } from './EditionLayer';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
+const findingLimit = 'What it doesn’t show';
+
 export const EditionBoundary = ({ children }) => (
   <aside className="reading-boundary">
-    <span>What it doesn’t show</span>
+    <span>{findingLimit}</span>
     <p>{children}</p>
   </aside>
 );
@@ -22,7 +25,7 @@ const HANDS = ['', 'one', 'two', 'three', 'four'];
  * margin says where it comes from and how sure to be. The choices are the
  * reader's: keep it, read the source, save it for later, or set it aside.
  */
-export default function EditionFinding({ editionId, item, number, section = '', zoomed, busy, receipt, onAct, onPeek, onSelection }) {
+export default function EditionFinding({ editionId, item, number, section = '', zoomed, busy, receipt, onAct, onPeek, onSelection, clippingCredit }) {
   const href = publicSourceHref(item.url);
   const heading = item.plain || item.title;
   if (item.readerStatus === 'dismissed') {
@@ -46,6 +49,12 @@ export default function EditionFinding({ editionId, item, number, section = '', 
   );
   const readings = Boolean(item.readings?.length);
   const sure = sureLine(item);
+  const clip = editionId && item.finding?.trim() ? [
+    heading,
+    item.finding.trim(),
+    item.boundary?.trim() && `${findingLimit}\n${item.boundary.trim()}`,
+    [clippingCredit, `${window.location.origin}${editionIssuePath(editionId)}${findingHash(item.itemId)}`].filter(Boolean).join('\n')
+  ].filter(Boolean).join('\n\n') : '';
   return (
     <article
       className={`edition-finding${zoomed ? ' is-zoomed' : ''}`}
@@ -113,6 +122,7 @@ export default function EditionFinding({ editionId, item, number, section = '', 
             What made it worth keeping?
           </button>
         ) : null}
+        {clip ? <div className="edition-clipping"><CopyClip clip={clip} idleLabel="Copy clipping" /></div> : null}
       </div>
       <aside className="edition-finding__margin" aria-label="About this finding">
         <div>

@@ -80,7 +80,8 @@ import {
   writeHeldInstrument
 } from './openSentenceJourney';
 import { listenOpenSentenceStore } from './openSentenceStore';
-import { CopyClip, KeptWork, PocketField, WithoutParagraphWork, WithoutSourceWork } from './OpenSentenceKept';
+import CopyClip from '../../CopyClip';
+import { KeptWork, PocketField, WithoutParagraphWork, WithoutSourceWork } from './OpenSentenceKept';
 import AuthoredWriting, { AuthoredContext } from './AuthoredWriting';
 import FindWhatIAlreadyHave from './FindWhatIAlreadyHave';
 import UseDistinctionHere from './UseDistinctionHere';

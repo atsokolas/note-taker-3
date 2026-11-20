@@ -6,7 +6,7 @@ import EditionReading from '../components/editions/EditionReading';
 import EditionRun from '../components/editions/EditionRun';
 import EditionStand from '../components/editions/EditionStand';
 import EditionZoom from '../components/editions/EditionZoom';
-import { findingHash, readEditionLocal, readingPosition } from '../components/editions/editionReadingState';
+import { editionIssuePath, findingHash, readEditionLocal, readingPosition } from '../components/editions/editionReadingState';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { buttonClass } from '../components/ui';
 import { byPaper, issueLine, newCountOf } from './editionModel';
@@ -85,7 +85,7 @@ export default function Editions() {
   const level = id ? (item ? (params.get('source') ? 0 : 1) : 2) : paper ? 3 : 4;
   const stand = papers.length > 1 ? '/editions' : null;
 
-  const issuePath = id ? `/editions/${encodeURIComponent(id)}` : '';
+  const issuePath = id ? editionIssuePath(id) : '';
   const overview = `${at(issuePath, { by })}${item ? findingHash(item) : ''}`;
   const paperPath = paper ? at('/editions', { paper: paper.profile }) : '/editions';
   const news = newCountOf(paper ? paper.issues : papers.flatMap(row => row.issues));
@@ -117,7 +117,7 @@ export default function Editions() {
   const firstPaper = papers.find(row => newCountOf(row.issues)) || papers[0];
   const zoom = {
     4: { out: null, into: firstPaper ? at('/editions', { paper: firstPaper.profile }) : null },
-    3: { out: stand, into: paper ? `/editions/${encodeURIComponent(paper.issues[paper.current]._id)}` : null },
+    3: { out: stand, into: paper ? editionIssuePath(paper.issues[paper.current]._id) : null },
     2: { out: paperPath, into: intoReading },
     1: { out: overview, into: at(issuePath, { item, by, source: '1' }) },
     0: { out: at(issuePath, { item, by }), into: null }

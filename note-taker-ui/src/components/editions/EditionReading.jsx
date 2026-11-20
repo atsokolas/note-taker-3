@@ -21,7 +21,7 @@ import SectionSilence from './SectionSilence';
 import SourcePeek from './SourcePeek';
 import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
 import useEditionIssue from './useEditionIssue';
-import { findingAnchor, findingHash, readingPosition, writeEditionLocal } from './editionReadingState';
+import { editionIssuePath, findingAnchor, findingHash, readingPosition, writeEditionLocal } from './editionReadingState';
 
 const READ_AFTER_MS = 4000;
 
@@ -30,8 +30,6 @@ const ShareIcon = () => (
     <path d="M8 9H5v12h14V9h-3M12 15V2m-4 4 4-4 4 4" />
   </svg>
 );
-
-const issuePath = issue => `/editions/${encodeURIComponent(issue._id)}`;
 
 /**
  * An issue, read the way the mocks drew it: the headline first and what it
@@ -232,8 +230,10 @@ export default function EditionReading({
 
   const row = edition || issue;
   const issueLabel = paper?.issueLabel;
-  const name = issueLine({ ...row, issueLabel }) || 'This issue';
+  const issueName = issueLine({ ...row, issueLabel });
+  const name = issueName || 'This issue';
   const paperTitle = paper?.title || row.profileLabel || row.title || '';
+  const clippingCredit = [paperTitle, issueName || windowLine(row)].filter(Boolean).join(' · ');
   const run = paper?.issues || [];
   const place = run.findIndex(other => other._id === issue._id);
   const before = place > 0 ? run[place - 1] : null;
@@ -262,6 +262,7 @@ export default function EditionReading({
       section={section}
       zoomed={item.itemId === focusItem}
       editionId={issue._id}
+      clippingCredit={clippingCredit}
       busy={busy}
       receipt={receipts[item.itemId]}
       onAct={act}
@@ -299,7 +300,7 @@ export default function EditionReading({
         <>
           <header className="edition-issue__head">
             <p className="edition-issue__dateline">
-              {[issueLine({ ...row, issueLabel }), windowLine(row) ? `covers ${windowLine(row)}` : '', updatedLine(row)].filter(Boolean).join(' · ')}
+              {[issueName, windowLine(row) ? `covers ${windowLine(row)}` : '', updatedLine(row)].filter(Boolean).join(' · ')}
             </p>
             <h1>{row.headline || paperTitle || name}</h1>
             {row.standfirst ? <p className="edition-issue__deck">{row.standfirst}</p> : null}
@@ -402,9 +403,9 @@ export default function EditionReading({
               {closed ? 'That’s the whole issue.' : 'That’s the issue so far.'}
             </p>
             <nav className="edition-receipt__run" aria-label="Other issues">
-              {before ? <Link to={issuePath(before)}>← {issueLine({ ...before, issueLabel }) || windowLine(before)}</Link> : <span />}
+              {before ? <Link to={editionIssuePath(before._id)}>← {issueLine({ ...before, issueLabel }) || windowLine(before)}</Link> : <span />}
               {after
-                ? <Link to={issuePath(after)}>{issueLine({ ...after, issueLabel }) || windowLine(after)} →</Link>
+                ? <Link to={editionIssuePath(after._id)}>{issueLine({ ...after, issueLabel }) || windowLine(after)} →</Link>
                 : <span className="edition-receipt__ahead">{aheadLine(row, issueLabel)}</span>}
             </nav>
             <ThoughtComposer {...thoughts} itemId="" label="What stayed with you?" />

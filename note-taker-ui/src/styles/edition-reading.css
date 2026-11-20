@@ -97,6 +97,10 @@
 .edition-finding__margin h3 { margin-bottom: 4px; letter-spacing: .1em; }
 .edition-finding__quiet { color: var(--reading-muted); }
 .edition-finding__margin .edition-finding__quiet + .edition-finding__quiet, .edition-finding__margin p + .edition-finding__quiet { margin-top: 4px; }
+.edition-clipping { margin-block-start: var(--space-2); border-block-start: 1px dashed var(--reading-rule-strong); }
+.edition-clipping button { min-block-size: 44px; padding-inline: 0; color: var(--reading-thread); text-decoration: underline; text-underline-offset: .2em; }
+.edition-clipping .copy-clip__manual { display: grid; gap: var(--space-1); }
+.edition-clipping textarea { inline-size: 100%; box-sizing: border-box; padding: var(--space-2); }
 .edition-finding.is-set-aside { display: block; padding: 18px 0; font: 15px/1.6 var(--reading-sans); color: var(--reading-muted); }
 .edition-finding.is-set-aside p { margin: 0; }
 .edition-finding.is-set-aside button { min-height: 44px; padding: 0 0 0 8px; text-decoration: underline; color: var(--reading-ink); }
@@ -219,7 +223,7 @@
   .edition-finding__main { display: contents; }
   .edition-finding__margin { order: 1; gap: 14px; padding: 0 0 20px; }
   .edition-finding .reading-actions { order: 2; }
-  .edition-finding :is(.reading-receipt, .reading-reason) { order: 3; }
+  .edition-finding :is(.reading-receipt, .reading-reason, .edition-clipping) { order: 3; }
   .edition-finding h2 { font-size: 27px; margin-bottom: 18px; }
   .reading-figures dd { font-size: 32px; }
   .reading-bars { grid-template-columns: minmax(0, 1fr); gap: 4px 0; }
