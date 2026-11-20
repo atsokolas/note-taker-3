@@ -17,11 +17,12 @@ import {
 } from '../../pages/editionModel';
 import EditionShare from './EditionShare';
 import EditionFinding from './EditionFinding';
+import CopyClip from '../CopyClip';
 import SectionSilence from './SectionSilence';
 import SourcePeek from './SourcePeek';
 import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
 import useEditionIssue from './useEditionIssue';
-import { editionIssuePath, findingAnchor, findingHash, readingPosition, writeEditionLocal } from './editionReadingState';
+import { editionClip, editionIssuePath, findingAnchor, findingHash, readingPosition, writeEditionLocal } from './editionReadingState';
 
 const READ_AFTER_MS = 4000;
 
@@ -52,21 +53,27 @@ export default function EditionReading({
 }) {
   const { edition, pending, error, busy, receipts, act, showPending } = useEditionIssue(issue._id);
   const root = useRef(null);
+  const selectionTools = useRef(null);
+  const location = useLocation();
   const [peek, setPeek] = useState(null);
   const [selection, setSelection] = useState(null);
   const thoughts = useEditionThoughts(issue._id);
   useEffect(() => {
-    const clear = () => setSelection(null);
-    const check = () => {
-      if (window.getSelection()?.isCollapsed) clear();
+    setSelection(null);
+    const capture = () => {
+      const value = window.getSelection();
+      const quote = value?.toString().trim();
+      const node = value?.rangeCount ? value.getRangeAt(0).commonAncestorContainer : null;
+      const prose = (node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement)?.closest('[data-finding-text]');
+      if (!prose || !root.current?.contains(prose) || !quote || quote.length < 3 || quote.length > 1000) {
+        if (!selectionTools.current?.contains(document.activeElement)) setSelection(null);
+        return;
+      }
+      setSelection({ itemId: prose.dataset.findingText, quote, lead: prose.hasAttribute('data-lead-reading') });
     };
-    window.addEventListener('scroll', clear, { passive: true });
-    document.addEventListener('selectionchange', check);
-    return () => {
-      window.removeEventListener('scroll', clear);
-      document.removeEventListener('selectionchange', check);
-    };
-  }, []);
+    document.addEventListener('selectionchange', capture);
+    return () => document.removeEventListener('selectionchange', capture);
+  }, [location.key]);
   const { columns, looseItems } = standLayout(edition);
   const hands = handsOf(edition);
   /* A filter only means something when more than one hand is on the issue. */
@@ -82,7 +89,6 @@ export default function EditionReading({
     element?.scrollIntoView({ block: 'start', behavior: 'instant' });
   }, []);
   const loaded = Boolean(edition);
-  const location = useLocation();
   const bookmarked = location.hash && items.find(item => findingHash(item.itemId) === location.hash)?.itemId;
   const columnStart = focusSection && items.find(item => item.section === focusSection)?.itemId;
   const destination = bookmarked || columnStart;
@@ -158,13 +164,15 @@ export default function EditionReading({
   }, [loaded, edition?.profile, issue._id, peek]);
   useEffect(() => {
     const escape = (event) => {
-      if (event.key !== 'Escape' || event.defaultPrevented || peek || !selection) return;
+      if (event.key !== 'Escape' || event.defaultPrevented || peek || source || !selection) return;
+      if (selectionTools.current?.contains(document.activeElement)) document.getElementById(findingAnchor(selection.itemId))?.focus({ preventScroll: true });
+      window.getSelection()?.removeAllRanges();
       setSelection(null);
       event.preventDefault();
     };
-    document.addEventListener('keydown', escape);
-    return () => document.removeEventListener('keydown', escape);
-  }, [peek, selection]);
+    document.addEventListener('keydown', escape, true);
+    return () => document.removeEventListener('keydown', escape, true);
+  }, [peek, selection, source]);
   /* The finding the reader is on: the one in focus, else the one in view. */
   const current = useCallback(
     () => items.find(item => item.itemId === focusItem)
@@ -202,23 +210,6 @@ export default function EditionReading({
     if (view === 'source') onItem(item.itemId, { source: '1' });
     else setPeek({ itemId: item.itemId, view, origin, quote });
   };
-  const captureSelection = (event) => {
-    const value = window.getSelection();
-    const text = value?.toString().trim();
-    if (!text || text.length < 3 || text.length > 1000 || !value.rangeCount) {
-      setSelection(null);
-      return;
-    }
-    const range = value.getRangeAt(0);
-    if (!event.currentTarget.contains(range.commonAncestorContainer)) return;
-    const rect = range.getBoundingClientRect();
-    setSelection({
-      itemId: event.currentTarget.dataset.findingText,
-      quote: text,
-      top: Math.max(8, Math.min(window.innerHeight - 48, rect.bottom + 8)),
-      left: Math.max(12, Math.min(window.innerWidth - 170, rect.left))
-    });
-  };
   const absorb = () => {
     const anchor = readingPosition(root.current);
     const before = anchor?.getBoundingClientRect().top;
@@ -235,7 +226,8 @@ export default function EditionReading({
   const issueName = issueLine({ ...row, issueLabel });
   const name = issueName || 'This issue';
   const paperTitle = paper?.title || row.profileLabel || row.title || '';
-  const clippingCredit = [paperTitle, issueName || windowLine(row)].filter(Boolean).join(' · ');
+  const coverage = windowLine(row);
+  const clippingCredit = [paperTitle, issueName || coverage].filter(Boolean).join(' · ');
   const run = paper?.issues || [];
   const place = run.findIndex(other => other._id === issue._id);
   const before = place > 0 ? run[place - 1] : null;
@@ -269,7 +261,17 @@ export default function EditionReading({
       receipt={receipts[item.itemId]}
       onAct={act}
       onPeek={openPeek}
-      onSelection={captureSelection}
+      selectionTools={selection?.itemId === item.itemId && !peek && !source ? (
+        <div ref={selectionTools} className="reading-selection" role="group" aria-label="Selected text"
+          onMouseDown={event => { if (event.target.closest('button')) event.preventDefault(); }}>
+          <CopyClip clip={editionClip(item, issue._id, clippingCredit, selection.quote)} idleLabel="Copy selection" />
+          {selection.lead ? <button type="button" onClick={() => {
+            const origin = document.getElementById(findingAnchor(item.itemId))?.querySelector('.reading-actions button:last-child');
+            openPeek(item, 'thought', origin, selection.quote);
+            window.getSelection()?.removeAllRanges();
+          }}>Leave a thought</button> : null}
+        </div>
+      ) : null}
     />
   );
 
@@ -302,7 +304,7 @@ export default function EditionReading({
         <>
           <header className="edition-issue__head">
             <p className="edition-issue__dateline">
-              {[issueName, windowLine(row) ? `covers ${windowLine(row)}` : '', updatedLine(row)].filter(Boolean).join(' · ')}
+              {[issueName, coverage && `covers ${coverage}`, updatedLine(row)].filter(Boolean).join(' · ')}
             </p>
             <h1>{row.headline || paperTitle || name}</h1>
             {row.standfirst ? <p className="edition-issue__deck">{row.standfirst}</p> : null}
@@ -420,21 +422,6 @@ export default function EditionReading({
             {newCount ? `${newCount} finding${newCount === 1 ? '' : 's'} added` : 'This issue has an update'} · Show
           </button>
         </div>
-      ) : null}
-      {selection && !peek ? (
-        <button
-          className="reading-selection"
-          style={{ top: selection.top, left: selection.left }}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            const item = items.find((row) => row.itemId === selection.itemId);
-            const origin = document.getElementById(findingAnchor(item.itemId))?.querySelector('.reading-actions button:last-child');
-            openPeek(item, 'thought', origin, selection.quote);
-            window.getSelection()?.removeAllRanges();
-          }}
-        >
-          Leave a thought
-        </button>
       ) : null}
       {sideItem ? (
         <SourcePeek

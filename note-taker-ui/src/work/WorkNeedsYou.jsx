@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { WorkTaskAssignment, WorkTaskRow } from './WorkPlanItem';
 import { dayTasks } from './WorkDayTasks';
 import WorkItemSource from './WorkItemSource';
@@ -18,21 +18,45 @@ export default function WorkNeedsYou({ needs, notes, folders, items, today, onSo
   const [copied, setCopied] = useState('');
   const [struck, setStruck] = useState({});
   const [reading, setReading] = useState({ busy: false, message: '' });
+  const returning = useRef(null);
   const priorities = useContext(WorkTaskAssignment)?.priorities || [];
   const noteOf = item => item.noteId && notes.find(note => [note._id, note.clientId].includes(item.noteId));
   // Ticking draws a pen stroke through the words and leaves the line in place a moment, with Undo.
   const tick = item => { const operation = onAction(item.clientId, { type: 'complete' }); if (!operation) return; setStruck(current => ({ ...current, [item.id]: { item, operation } })); window.setTimeout(() => setStruck(({ [item.id]: _, ...rest }) => rest), 5000); };
+  const reopen = (event, item) => {
+    const button = event.currentTarget;
+    returning.current = { id: item.clientId, focus: document.activeElement, scope: button.closest('.work-weekly') || button.closest('.work-outstanding') };
+    if (!onAction(item.clientId, { type: 'reopen' })) returning.current = null;
+  };
+  useLayoutEffect(() => {
+    const held = returning.current;
+    if (!held || needs.ledger.some(entry => entry.items.some(item => item.clientId === held.id))) return;
+    if (document.activeElement !== held.focus && document.activeElement !== document.body) {
+      returning.current = null;
+      return;
+    }
+    const row = [...held.scope.querySelectorAll('input[data-work-task]:not(:disabled):not(:checked)')]
+      .find(input => input.dataset.workTask === String(held.id));
+    const priority = row?.closest('[hidden]') && row.closest('.work-weekly-priority');
+    const toggle = priority?.querySelector('.work-priority-toggle[aria-expanded="false"]');
+    if (toggle) { toggle.click(); return; }
+    returning.current = null;
+    for (let details = row?.closest('details'); details && held.scope.contains(details); details = details.parentElement.closest('details')) details.open = true;
+    const target = row || held.scope.querySelector('.work-rail-next > summary');
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView?.({ block: 'nearest' });
+  });
   const sort = (item, patch) => { setAsking(null); onSort(item.clientId, { sortedOn: today, ...patch }); };
   const source = item => { if (item.origin) return <WorkItemSource origin={item.origin} />; const note = noteOf(item); return note ? <button className="work-outstanding-source" onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : null; };
   const row = (item, aside, extra = null) => <React.Fragment key={item.id}><div {...taskDragProps(item)} className="work-planner-task work-outstanding-row">
-    <WorkTaskGrip item={item} /><label><input type="checkbox" checked={false} onChange={() => tick(item)} /><span>{item.title}</span></label>
+    <WorkTaskGrip item={item} /><label><input type="checkbox" data-work-task={item.clientId} checked={false} onChange={() => tick(item)} /><span>{item.title}</span></label>
     <span className="work-carried">{aside}</span></div>{extra}</React.Fragment>;
   const struckRows = Object.values(struck).map(({ item, operation }) => <div className="work-planner-task work-outstanding-row is-struck" key={`struck-${item.id}`}><label><input type="checkbox" checked readOnly /><span>{item.title}</span></label><span className="work-carried"><button onClick={() => { onAction(item.clientId, { type: 'undo', undoOf: operation }); setStruck(({ [item.id]: _, ...rest }) => rest); }}>Undo</button></span></div>);
   // In a row's ··· menu, Move to today already plans the line, so the menu leaves out a second Today.
   const sorting = (item, planToday = true) => asking === item.id
     ? <form className="work-outstanding-ask" onSubmit={event => { event.preventDefault(); const name = event.currentTarget.elements.person.value.trim(); if (name) sort(item, { list: 'waiting', waitingOn: name }); }}><input name="person" aria-label={`Who is ${item.title} waiting on?`} placeholder="Waiting on whom?" autoFocus /><button>Save</button><button type="button" onClick={() => setAsking(null)}>Cancel</button></form>
     : <span className="work-outstanding-sort">{planToday ? <button onClick={() => { onAction(item.clientId, { type: 'plan', plannedOn: today }); sort(item, { list: 'next', returnOn: null }); }}>Today</button> : null}<button onClick={() => sort(item, { list: 'next', returnOn: null })}>Next</button><button onClick={() => setAsking(item.id)}>Waiting on…</button><button onClick={() => sort(item, { list: 'someday', returnOn: null })}>Someday</button><button onClick={() => tick(item)}>Done</button></span>;
-  const freshRow = item => <div {...taskDragProps(item)} className="work-planner-task work-outstanding-row is-new" key={item.id}><WorkTaskGrip item={item} /><label><input type="checkbox" checked={false} onChange={() => tick(item)} /><span>{item.title}<small>{item.list === 'someday' ? `Set aside ${displayDay(item.sortedOn)}` : noteOf(item) ? `From ${noteTitle(noteOf(item))}` : 'Added here'}</small></span></label><span className="work-carried"><WorkItemSource origin={item.origin} />{sorting(item)}</span></div>;
+  const freshRow = item => <div {...taskDragProps(item)} className="work-planner-task work-outstanding-row is-new" key={item.id}><WorkTaskGrip item={item} /><label><input type="checkbox" data-work-task={item.clientId} checked={false} onChange={() => tick(item)} /><span>{item.title}<small>{item.list === 'someday' ? `Set aside ${displayDay(item.sortedOn)}` : noteOf(item) ? `From ${noteTitle(noteOf(item))}` : 'Added here'}</small></span></label><span className="work-carried"><WorkItemSource origin={item.origin} />{sorting(item)}</span></div>;
   const star = item => <button className="work-outstanding-star" aria-label={`Make ${item.title} today’s one thing`} aria-pressed={item.oneThingOn === today} onClick={() => { if (needs.oneThing && needs.oneThing.id !== item.id) onSort(needs.oneThing.clientId, { oneThingOn: null }); onSort(item.clientId, { oneThingOn: item.oneThingOn === today ? null : today }); }}>{item.oneThingOn === today ? 'Today’s one thing' : 'Make it today’s one thing'}</button>;
   const quietAsk = item => <p className="work-outstanding-quiet">Untouched for {plural(daysBetween(sortedSince(item), today), 'day')}. Still want it?<button onClick={() => sort(item, { list: 'next' })}>Keep</button><button onClick={() => sort(item, { list: 'someday' })}>Someday</button><button onClick={() => tick(item)}>Let it go</button></p>;
   const copy = async (item, text) => { try { await navigator.clipboard.writeText(text); setCopied(item.id); } catch (_) { setCopied(''); } };
@@ -69,7 +93,9 @@ export default function WorkNeedsYou({ needs, notes, folders, items, today, onSo
       <p className="work-outstanding-line">{reading.message ? <span role="status">{reading.message}</span> : 'Only Claude reads these notes, and the draft stays here in Work.'}</p></section>
 
     {needs.someday.length ? <details className="work-needs-rest" open><summary>Someday <span>{needs.someday.length}</span></summary>{needs.someday.map(item => row(item, <>{item.returnOn ? <time>Back {displayDay(item.returnOn)}</time> : <label className="work-outstanding-back">Bring back<input type="date" aria-label={`Bring back ${item.title} on`} min={shiftDay(today, 1)} onChange={event => event.target.value && onSort(item.clientId, { returnOn: event.target.value })} /></label>}<button onClick={() => sort(item, { list: 'next', returnOn: null })}>Start now</button></>))}</details> : null}
-    {needs.done ? <details className="work-needs-rest" open><summary>Done this week <span>{needs.done}</span></summary><dl className="work-ledger">{needs.ledger.map(entry => <React.Fragment key={entry.day}><dt>{displayDay(entry.day, { weekday: 'long' })}</dt><dd>{entry.items.map((item, index) => <React.Fragment key={item.id}>{index ? ' · ' : ''}<s>{item.title}</s></React.Fragment>)}</dd></React.Fragment>)}</dl>
+    {needs.done ? <details className="work-needs-rest" open><summary>Done this week <span>{needs.done}</span></summary><dl className="work-ledger">{needs.ledger.map(entry => <React.Fragment key={entry.day}><dt>{displayDay(entry.day, { weekday: 'long' })}</dt><dd>{entry.items.map(item => <div className="work-ledger__line" key={item.id}>
+      <s>{item.title}</s>{!item.pending && ['task', 'question'].includes(item.kind) ? <button type="button" aria-label={`Reopen ${item.title}`} onClick={event => reopen(event, item)}>Reopen</button> : null}
+    </div>)}</dd></React.Fragment>)}</dl>
       {needs.gotBack.map(({ item, days }) => <p className="work-outstanding-line" key={item.id}>{item.waitingOn} sent {item.title.charAt(0).toLowerCase() + item.title.slice(1)}{days > 0 ? `, after ${plural(days, 'day')}` : ''}.</p>)}
       <p className="work-outstanding-tally">{plural(needs.done, 'thing')} closed this week{needs.lastWeek ? `, ${needs.done === needs.lastWeek ? 'the same as' : needs.done > needs.lastWeek ? `${needs.done - needs.lastWeek} more than` : `${needs.lastWeek - needs.done} fewer than`} last week` : ''}.</p></details> : null}
   </section>;

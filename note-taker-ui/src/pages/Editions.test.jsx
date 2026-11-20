@@ -359,6 +359,40 @@ it('keeps the same clipping selectable when clipboard access is denied', async (
     else delete navigator.clipboard;
   }
 });
+it('clips only selected finding text and leaves the whole-finding copy available', async () => {
+  const previous = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  const writeText = jest.fn().mockResolvedValue();
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  const excerpt = 'Being informed is different';
+  const selection = window.getSelection();
+  try {
+    render(<Editions />);
+    const prose = await screen.findByText(item.finding);
+    const range = document.createRange();
+    range.setStart(prose.firstChild, 0);
+    range.setEnd(prose.firstChild, excerpt.length);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    fireEvent(document, new Event('selectionchange'));
+    const tools = await screen.findByRole('group', { name: 'Selected text' });
+    const copy = within(tools).getByRole('button', { name: 'Copy selection' });
+    copy.focus();
+    fireEvent.click(copy);
+    expect(await within(tools).findByRole('button', { name: 'Copied.' })).toHaveFocus();
+    expect(writeText).toHaveBeenCalledWith(`${item.title}\n\n${excerpt}\n\nWeekend Readings · Edition 2\nhttp://localhost/editions/e1#edition-item-one`);
+    expect(within(tools).getByRole('button', { name: 'Leave a thought' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Copy clipping' })).toBeVisible();
+
+    fireEvent.keyDown(copy, { key: 'Escape' });
+    expect(tools).not.toBeInTheDocument();
+    expect(prose.closest('article')).toHaveFocus();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  } finally {
+    selection.removeAllRanges();
+    if (previous) Object.defineProperty(navigator, 'clipboard', previous);
+    else delete navigator.clipboard;
+  }
+});
 it('sets a finding aside with Not for me, and Undo brings it back', async () => {
   api.setEditionItemState.mockImplementation(async (_id, itemId, status) => ({ itemId, readerStatus: status, edition: { ...edition, items: [{ ...item, readerStatus: status }] } }));
   render(<Editions />);

@@ -13,7 +13,7 @@ export function WorkTaskRow({ item, today, folders = [], notes = [], onOpen, onA
   const folder = folders.find(folder => folder._id === (item.folder?._id || item.folder));
   const note = notes.find(note => item.noteId && [note._id, note.clientId].includes(item.noteId));
   return <div {...taskDragProps(item)} className={`work-planner-task work-rail-task ${item.completed ? 'is-done' : ''}`}>
-    <WorkTaskGrip item={item} /><label><input type="checkbox" aria-label={item.title} checked={Boolean(item.completed)} onChange={() => onAction(item.clientId, { type: item.completed ? 'reopen' : 'complete' })} /><span>{item.title}</span></label>
+    <WorkTaskGrip item={item} /><label><input type="checkbox" data-work-task={item.clientId} aria-label={item.title} checked={Boolean(item.completed)} onChange={() => onAction(item.clientId, { type: item.completed ? 'reopen' : 'complete' })} /><span>{item.title}</span></label>
     <div className="work-rail-source">{item.origin ? <WorkItemSource origin={item.origin} /> : note && onOpen ? <button onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : folder?.name ? <span>{folder.name}</span> : null}
       {folder?.archivedAt ? <small>Archived folder</small> : null}{item.previousPlannedOn && item.previousPlannedOn !== item.plannedOn ? <small>From {displayDay(item.previousPlannedOn, { weekday: 'short', day: 'numeric' })}</small> : null}
       {item.dueOn ? <small>Due {displayDay(item.dueOn)}{item.dueOn < today && !item.completed ? ' · overdue' : ''}</small> : null}{item.pending ? <small>Pending sync</small> : null}{aside}

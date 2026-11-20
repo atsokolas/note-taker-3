@@ -1,18 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { publicSourceHref, sureLine } from '../../pages/editionModel';
-import { editionIssuePath, findingAnchor, findingHash } from './editionReadingState';
+import { editionClip, FINDING_LIMIT, findingAnchor } from './editionReadingState';
 import CopyClip from '../CopyClip';
 import AgentMark from './AgentMark';
 import EditionReadings from './EditionReadings';
 import { Figures, Held, Passage, SourceLink, Why } from './EditionLayer';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
-const findingLimit = 'What it doesn’t show';
-
 export const EditionBoundary = ({ children }) => (
   <aside className="reading-boundary">
-    <span>{findingLimit}</span>
+    <span>{FINDING_LIMIT}</span>
     <p>{children}</p>
   </aside>
 );
@@ -25,7 +23,7 @@ const HANDS = ['', 'one', 'two', 'three', 'four'];
  * margin says where it comes from and how sure to be. The choices are the
  * reader's: keep it, read the source, save it for later, or set it aside.
  */
-export default function EditionFinding({ editionId, item, number, section = '', zoomed, busy, receipt, onAct, onPeek, onSelection, clippingCredit }) {
+export default function EditionFinding({ editionId, item, number, section = '', zoomed, busy, receipt, onAct, onPeek, selectionTools, clippingCredit }) {
   const href = publicSourceHref(item.url);
   const heading = item.plain || item.title;
   if (item.readerStatus === 'dismissed') {
@@ -40,21 +38,13 @@ export default function EditionFinding({ editionId, item, number, section = '', 
   }
   /* The first reading is the passage a thought can quote from. */
   const prose = (text, first = true) => (
-    <div
-      className="reading-prose"
-      {...(first ? { 'data-finding-text': item.itemId, onMouseUp: onSelection, onKeyUp: onSelection } : {})}
-    >
+    <div className="reading-prose" data-finding-text={item.itemId} data-lead-reading={first ? '' : undefined}>
       <p>{text}</p>
     </div>
   );
   const readings = Boolean(item.readings?.length);
   const sure = sureLine(item);
-  const clip = editionId && item.finding?.trim() ? [
-    heading,
-    item.finding.trim(),
-    item.boundary?.trim() && `${findingLimit}\n${item.boundary.trim()}`,
-    [clippingCredit, `${window.location.origin}${editionIssuePath(editionId)}${findingHash(item.itemId)}`].filter(Boolean).join('\n')
-  ].filter(Boolean).join('\n\n') : '';
+  const clip = editionClip(item, editionId, clippingCredit);
   return (
     <article
       className={`edition-finding${zoomed ? ' is-zoomed' : ''}`}
@@ -81,6 +71,7 @@ export default function EditionFinding({ editionId, item, number, section = '', 
             {item.note ? <p className="reading-editorial-note">{item.note}</p> : null}
           </>
         )}
+        {selectionTools}
         <Passage item={item} />
         <div className="reading-actions">
           {item.savedArticleId ? (
