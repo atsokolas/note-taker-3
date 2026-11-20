@@ -8,6 +8,7 @@ import { Button, buttonClass } from '../../ui';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
 import { EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
+import HandOff from '../../handoff/HandOff';
 import EntryHistory from '../editor/EntryHistory';
 import { passageSlashItems } from '../editor/slashCommands';
 import { begunLine, countWords } from '../../../pages/thinkNotesModel';
@@ -1705,6 +1706,13 @@ const NotebookEditor = ({
           <Button variant="quiet" onClick={handleSettle} disabled={settlement.settling}>{settlement.action}</Button>
           <Button variant="quiet" onClick={() => setOrganizeOpen(previous => !previous)}>Structure</Button>
           <Button variant="quiet" onClick={openHistory}>History</Button>
+          <HandOff key={entry._id} context={{ kind: 'note', id: entry._id, title: entry.title || 'Untitled' }}
+            readExcerpt={() => {
+              const target = domNotebookTarget(editor) || selectionNotebookTarget(editor) || highlightedRef.current;
+              return target && resolveEditorTarget(editor, target, { requireSameText: true }).status === 'ready'
+                ? notebookTargetText(target) : targetFromEditor(editor)?.baseText || '';
+            }}
+          />
         </EntryBar>
         {stageControl}
         <div className="think-notebook-title-block">

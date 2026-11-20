@@ -20,7 +20,7 @@ const pressed = event => (event.metaKey || event.ctrlKey) && event.shiftKey && e
 /* Stepping away: one line of what should be done, handed to Noeis's own
    agent or to the next agent that connects. Where the reader was goes with
    it. ⌘⇧Return opens the line from anywhere on the page. */
-const HandOff = ({ context, shortcut = true }) => {
+const HandOff = ({ context, shortcut = true, readExcerpt }) => {
   const [open, setOpen] = useState(false);
   const [ask, setAsk] = useState('');
   const [to, setTo] = useState('noeis');
@@ -29,22 +29,31 @@ const HandOff = ({ context, shortcut = true }) => {
   const [passage, setPassage] = useState('');
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
+  const surface = useRef(null);
   const work = ['work_task', 'work_note'].includes(context?.kind);
   const recipient = to ? WHO[to] : work ? 'the next agent with Work access' : WHO[''];
   const begin = useCallback(() => {
-    setPassage((context?.excerpt ?? passageHere()).trim().slice(0, 4000));
+    const excerpt = context?.excerpt ?? (readExcerpt ? readExcerpt() : passageHere());
+    const menu = surface.current?.closest('details');
+    if (menu) menu.open = true;
+    if (open) {
+      surface.current?.querySelector('input')?.focus();
+      return;
+    }
+    setPassage(excerpt.trim().slice(0, 4000));
     setOpen(true);
-  }, [context?.excerpt]);
+  }, [context?.excerpt, open, readExcerpt]);
 
   useEffect(() => {
     const onKey = (event) => {
-      if (!shortcut || !pressed(event) || !context?.id) return;
+      if (!shortcut || event.defaultPrevented || !pressed(event) || !context?.id || handed || surface.current?.closest('[inert]')) return;
       event.preventDefault();
+      event.stopPropagation();
       begin();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [context?.id, begin, shortcut]);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [context?.id, begin, handed, shortcut]);
 
   if (!context?.id) return null;
 
@@ -59,11 +68,17 @@ const HandOff = ({ context, shortcut = true }) => {
 
   if (!open) {
     return (
-      <button type="button" className="handoff-open" title={shortcut ? '⌘⇧Return' : undefined} onClick={begin}>
+      <button ref={surface} type="button" className="handoff-open" title={shortcut ? '⌘⇧Return' : undefined} onClick={begin}>
         Hand off
       </button>
     );
   }
+
+  const cancel = () => {
+    setOpen(false);
+    setError('');
+    window.requestAnimationFrame(() => surface.current?.focus({ preventScroll: true }));
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -81,7 +96,12 @@ const HandOff = ({ context, shortcut = true }) => {
   };
 
   return (
-    <form className="handoff-form" onSubmit={submit} aria-label="Hand off">
+    <form ref={surface} className="handoff-form" onSubmit={submit} aria-label="Hand off" onKeyDown={event => {
+      if (event.key !== 'Escape' || busy) return;
+      event.preventDefault();
+      event.stopPropagation();
+      cancel();
+    }}>
       <div className="handoff-preview" aria-label="What will go with this handoff">
         {context.title ? <strong>{context.title}</strong> : null}
         {passage ? <blockquote>{passage}</blockquote> : null}
@@ -95,14 +115,13 @@ const HandOff = ({ context, shortcut = true }) => {
         maxLength={2000}
         disabled={busy}
         onChange={event => setAsk(event.target.value)}
-        onKeyDown={event => event.key === 'Escape' && setOpen(false)}
       />
       <select aria-label="Hand it to" value={to} disabled={busy} onChange={event => setTo(event.target.value)}>
         <option value="noeis">Noeis</option>
         <option value="">{work ? 'Next agent with Work access' : 'The next agent'}</option>
       </select>
       <button type="submit" disabled={busy || !ask.trim()}>{busy ? 'Handing off…' : 'Hand off'}</button>
-      <button type="button" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
+      <button type="button" disabled={busy} onClick={cancel}>Cancel</button>
       {error ? <span role="alert">{error}</span> : null}
     </form>
   );

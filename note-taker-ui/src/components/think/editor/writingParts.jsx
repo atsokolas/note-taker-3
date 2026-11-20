@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
 import HighlightBlock from '../../blocks/HighlightBlock';
@@ -176,19 +176,35 @@ const timeOf = (value) => {
 };
 
 /* Writing status stays in the same slot as the draft moves through saves. */
-export const EntryBar = ({ kind = 'note', saveState = 'idle', savedAt = null, onRetry, children }) => (
-  <div className="think-notebook-utility" aria-label="Note utilities">
-    <span className="think-notebook-utility__kind">{kind}</span>
-    <span className={`think-notebook-save-state is-${saveState}`} role="status" aria-live="polite">
-      {saveState === 'saving' ? 'Saving…'
-        : saveState === 'error' ? <>Not saved {onRetry ? <Button variant="quiet" onClick={onRetry}>Retry</Button> : null}</>
-          : savedAt ? <span title={`Saved at ${timeOf(savedAt)}`}>Saved</span> : null}
-    </span>
-    {children ? (
-      <details className="think-notebook-utility__more">
-        <summary className="ui-quiet-button" aria-label="More">…</summary>
-        <div>{children}</div>
-      </details>
-    ) : null}
-  </div>
-);
+export const EntryBar = ({ kind = 'note', saveState = 'idle', savedAt = null, onRetry, children }) => {
+  const menu = useRef(null);
+  useEffect(() => {
+    const closeOutside = event => {
+      if (menu.current?.open && !menu.current.contains(event.target)) menu.current.open = false;
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    return () => document.removeEventListener('pointerdown', closeOutside);
+  }, []);
+  return (
+    <div className="think-notebook-utility" aria-label="Note utilities">
+      <span className="think-notebook-utility__kind">{kind}</span>
+      <span className={`think-notebook-save-state is-${saveState}`} role="status" aria-live="polite">
+        {saveState === 'saving' ? 'Saving…'
+          : saveState === 'error' ? <>Not saved {onRetry ? <Button variant="quiet" onClick={onRetry}>Retry</Button> : null}</>
+            : savedAt ? <span title={`Saved at ${timeOf(savedAt)}`}>Saved</span> : null}
+      </span>
+      {children ? (
+        <details ref={menu} className="think-notebook-utility__more" onKeyDown={event => {
+          if (event.key !== 'Escape' || !event.currentTarget.open) return;
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget.open = false;
+          event.currentTarget.querySelector('summary')?.focus({ preventScroll: true });
+        }}>
+          <summary className="ui-quiet-button" aria-label="More">…</summary>
+          <div>{children}</div>
+        </details>
+      ) : null}
+    </div>
+  );
+};
