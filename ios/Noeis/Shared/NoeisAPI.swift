@@ -1,15 +1,19 @@
+import CryptoKit
 import Foundation
 
 enum NoeisAPIError: LocalizedError {
     case signedOut
     case offline
     case server(String)
+    /// Someone else wrote first; carries what the server holds now.
+    case conflict(JSON)
 
     var errorDescription: String? {
         switch self {
         case .signedOut: return "Your sign-in has ended. Sign in again to pick up where you were."
         case .offline: return "Noeis could not be reached. Check your connection and try again."
         case .server(let message): return message
+        case .conflict(let current): return current["error"]?.string ?? "This changed elsewhere."
         }
     }
 }
@@ -33,6 +37,8 @@ struct NoeisAPI {
         // The API sleeps when idle; waking it can take most of a minute.
         configuration.timeoutIntervalForRequest = 75
         configuration.waitsForConnectivity = true
+        // But not forever: past this, a read answers from the device instead.
+        configuration.timeoutIntervalForResource = 90
         return URLSession(configuration: configuration)
     }()
 
@@ -52,6 +58,17 @@ struct NoeisAPI {
         _ = try await send("DELETE", "/api/account", body: ["password": .string(password)])
     }
 
+    /// The theme the account wears, shared with the web.
+    func theme() async throws -> String {
+        try await send("GET", "/api/ui-settings")["theme"].text
+    }
+
+    /// Settings are saved whole, so the others go back as they were.
+    func setTheme(_ theme: String) async throws {
+        let settings = try await send("GET", "/api/ui-settings")
+        _ = try await send("PUT", "/api/ui-settings", body: settings.setting("theme", to: .string(theme)))
+    }
+
     // MARK: Wiki
 
     func wikiPages() async throws -> [JSON] {
@@ -68,6 +85,47 @@ struct NoeisAPI {
 
     func disagreements(pageId: String) async throws -> [JSON] {
         try await send("GET", "/api/wiki/contradictions", query: ["limit": "3", "pageId": pageId])["contradictions"]?.array ?? []
+    }
+
+    /// A new page, as the web's composer makes it: drafted from your whole
+    /// library, or a living thesis that leaves the conclusions to you.
+    func createWikiPage(_ topic: String, question: String? = nil) async throws -> JSON {
+        var body: [String: JSON] = [
+            "title": .string(topic), "pageType": "overview", "sourceScope": "entire_library",
+            "createdFrom": ["type": "idea", "objectId": .null, "objectIds": [], "text": .string(topic), "label": .string(topic)]
+        ]
+        if let question {
+            body["preset"] = "living_thesis"
+            body["governingQuestion"] = .string(question)
+        } else {
+            body["evidencePreflight"] = true
+        }
+        return try await send("POST", "/api/wiki/pages", body: .object(body))
+    }
+
+    /// Drafts a page from its sources, handing on the page as it fills. The
+    /// last event says whether the draft passed (`{ok, code}`).
+    func buildWikiPage(_ id: String, onPage: @escaping @MainActor (JSON) -> Void) async throws -> JSON {
+        #if DEBUG
+        if Self.standIn != nil { try? await Task.sleep(for: .seconds(2)); return ["ok": true] }
+        #endif
+        var done: JSON = .null
+        try await events("/api/wiki/pages/\(id)/ai/draft/stream", body: [:]) { event, payload in
+            if let page = payload["page"], page != .null { await onPage(page) }
+            if event == "error" { throw NoeisAPIError.server(payload["error"]?.string ?? "The page could not be drafted. Nothing was changed; try again.") }
+            if event == "done" { done = payload }
+        }
+        return done
+    }
+
+    /// A proposed change: `{candidate, summary: {reason}}`.
+    func proposedChange(pageId: String) async throws -> JSON {
+        try await send("GET", "/api/wiki/pages/\(pageId)/research-candidate")
+    }
+
+    /// Accepts or rejects a proposed change, which until then stays private.
+    func reviewProposedChange(pageId: String, accept: Bool) async throws {
+        try await send("POST", "/api/wiki/pages/\(pageId)/research-candidate/\(accept ? "accept" : "reject")", body: [:])
     }
 
     // MARK: Judgment
@@ -168,10 +226,17 @@ struct NoeisAPI {
     }
 
     /// Marks a passage. `prefix`/`suffix` let the web open the article at it.
-    func mark(articleId: String, text: String, prefix: String = "", suffix: String = "", offset: Int? = nil) async throws -> JSON {
+    func mark(articleId: String, text: String, prefix: String = "", suffix: String = "", offset: Int? = nil, color: String? = nil) async throws -> JSON {
         var anchor: [String: JSON] = ["text": .string(text), "prefix": .string(prefix), "suffix": .string(suffix)]
         if let offset { anchor["startOffsetApprox"] = .number(Double(offset)) }
-        return try await send("POST", "/articles/\(articleId)/highlights", body: ["text": .string(text), "anchor": .object(anchor)])["highlight"] ?? .null
+        var body: [String: JSON] = ["text": .string(text), "anchor": .object(anchor)]
+        if let color { body["color"] = .string(color) }
+        return try await send("POST", "/articles/\(articleId)/highlights", body: .object(body))["highlight"] ?? .null
+    }
+
+    /// A thought left on a highlight.
+    func note(articleId: String, highlightId: String, _ thought: String) async throws {
+        _ = try await send("PATCH", "/articles/\(articleId)/highlights/\(highlightId)", body: ["note": .string(thought)])
     }
 
     /// Saves a link; the server fetches and keeps the readable text.
@@ -181,6 +246,72 @@ struct NoeisAPI {
         if let title, !title.isEmpty { body["title"] = .string(title) }
         let reply = try await send("POST", "/api/import/url", body: .object(body))
         return reply.at("article._id").text
+    }
+
+    // MARK: Books
+
+    /// Every book on the shelf, each with its marks, newest reading first.
+    func books() async throws -> [JSON] {
+        try await send("GET", "/api/books")["books"]?.array ?? []
+    }
+
+    /// Starts a book by its title and author, or opens the one already on the
+    /// shelf by that title. Returns its id.
+    func startBook(title: String, author: String) async throws -> String {
+        try await send("POST", "/api/import/book", body: ["title": .string(title), "author": .string(author)]).at("article._id").text
+    }
+
+    /// A line typed at the desk. A passage already marked (on the Kindle, say)
+    /// takes the note instead of becoming a second mark, so the mark that
+    /// comes back may be one already on the page.
+    func write(bookId: String, text: String, note: String, page: Int?) async throws -> JSON {
+        var body: [String: JSON] = ["text": .string(text), "note": .string(note)]
+        if let page { body["page"] = .number(Double(page)) }
+        return try await send("POST", "/articles/\(bookId)/highlights", body: .object(body))["highlight"] ?? .null
+    }
+
+    /// Closes a book on a calendar day ("2026-10-19"), with the one sentence
+    /// you will remember, which may be none. Returns `{finishedOn, closingLine}`.
+    func close(bookId: String, line: String, on day: String) async throws -> JSON {
+        try await send("PUT", "/api/books/\(bookId)/closed", body: ["line": .string(line), "on": .string(day)])
+    }
+
+    /// Still reading it after all.
+    func reopen(bookId: String) async throws -> JSON {
+        try await send("DELETE", "/api/books/\(bookId)/closed")
+    }
+
+    /// Reading a finished book again: the reading just closed is kept in `readBefore`.
+    func readAgain(bookId: String) async throws -> JSON {
+        try await send("POST", "/api/books/\(bookId)/again", body: [:])
+    }
+
+    // MARK: Editions
+
+    /// The stand: every issue of every paper, newest first, without findings.
+    func editions() async throws -> [JSON] {
+        try await send("GET", "/api/editions", query: ["limit": "120"])["editions"]?.array ?? []
+    }
+
+    func edition(_ id: String) async throws -> JSON {
+        try await send("GET", "/api/editions/\(id)")
+    }
+
+    /// Keep (save to Library), Later (save and move to Later), or a reader
+    /// state: "opened", "dismissed", or "new" to undo. Returns the issue as it now stands.
+    func act(edition id: String, item itemId: String, _ action: String) async throws -> JSON {
+        let path = "/api/editions/\(id)/items/\(itemId)"
+        switch action {
+        case "keep": return try await send("POST", "\(path)/save")["edition"] ?? .null
+        case "later": return try await send("POST", "\(path)/later")["edition"] ?? .null
+        default: return try await send("POST", "\(path)/state", body: ["status": .string(action)])["edition"] ?? .null
+        }
+    }
+
+    /// The one highlight of yours a finding touches, or nil when none clears the bar.
+    func held(edition id: String, item itemId: String) async throws -> JSON? {
+        let held = try await send("GET", "/api/editions/\(id)/items/\(itemId)/held")["held"]
+        return held == nil || held == .null ? nil : held
     }
 
     // MARK: Think
@@ -194,13 +325,26 @@ struct NoeisAPI {
     }
 
     func createNote(title: String, text: String) async throws -> JSON {
-        try await send("POST", "/api/notebook", body: ["title": .string(title), "content": .string(Self.html(text)), "blocks": .array(Self.paragraphBlocks(text))])
+        let blocks = Self.paragraphBlocks(text)
+        return try await send("POST", "/api/notebook", body: ["title": .string(title), "content": .string(Self.html(blocks)), "blocks": .array(blocks)])
     }
 
-    /// Saves a note whose blocks are all paragraphs. The blocks travel with
-    /// the HTML so the server never flattens anything it did not have to.
-    func updateNote(_ id: String, title: String, text: String) async throws -> JSON {
-        try await send("PUT", "/api/notebook/\(id)", body: ["title": .string(title), "content": .string(Self.html(text)), "blocks": .array(Self.paragraphBlocks(text))])
+    /// Saves a note as the web does: its blocks, whole, in order, with the
+    /// passages set aside. The HTML is only a reading copy of the blocks.
+    func saveNote(_ id: String, title: String, blocks: [JSON], aside: [JSON]) async throws {
+        _ = try await send("PUT", "/api/notebook/\(id)", body: ["title": .string(title), "content": .string(Self.html(blocks)), "blocks": .array(blocks), "asidePieces": .array(aside)])
+    }
+
+    /// The note's private side state (wordings tried, where you were). It is
+    /// revisioned: a stale write comes back as `.conflict` with the newer state.
+    func saveWorkbench(_ id: String, _ state: JSON) async throws -> JSON {
+        let body: JSON = ["workingState": state, "expectedRevision": .number(state["revision"]?.double ?? 0)]
+        return try await send("PUT", "/api/notebook/\(id)/workbench", body: body)["workingState"] ?? state
+    }
+
+    /// Two or three other ways to say a passage, each with what it changed.
+    func wordingOptions(_ id: String, target: JSON) async throws -> [JSON] {
+        try await send("POST", "/api/notebook/\(id)/workbench/wording-options", body: ["target": target, "requestId": .string(UUID().uuidString)])["options"]?.array ?? []
     }
 
     func moveNote(_ id: String, stage: String? = nil, archived: Bool? = nil) async throws {
@@ -224,28 +368,139 @@ struct NoeisAPI {
         text.components(separatedBy: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-            .map { ["id": .string("ios-\(UUID().uuidString.prefix(8).lowercased())"), "type": "paragraph", "text": .string($0)] }
+            .map { ["id": .string(UUID().uuidString.lowercased()), "type": "paragraph", "text": .string($0)] }
     }
 
-    private static func html(_ text: String) -> String {
-        text.components(separatedBy: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-            .map { "<p>\($0.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;"))</p>" }
-            .joined()
+    private static func html(_ blocks: [JSON]) -> String {
+        func escaped(_ block: JSON) -> String {
+            block["text"]?.raw.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;") ?? ""
+        }
+        var html = "", list = false
+        for block in blocks {
+            let type = block["type"].text
+            if list && type != "bullet" { html += "</ul>"; list = false }
+            switch type {
+            case "bullet":
+                if !list { html += "<ul>"; list = true }
+                html += "<li>\(escaped(block))</li>"
+            case "heading":
+                let level = min(max(block["level"]?.int ?? 2, 1), 3)
+                html += "<h\(level)>\(escaped(block))</h\(level)>"
+            case "quote", "highlight_embed": html += "<blockquote><p>\(escaped(block))</p></blockquote>"
+            case "divider": html += "<hr>"
+            default: if !escaped(block).isEmpty { html += "<p>\(escaped(block))</p>" }
+            }
+        }
+        return list ? html + "</ul>" : html
+    }
+
+    // MARK: Concepts and questions
+
+    /// The concepts you name, by how much you have highlighted under each.
+    func concepts() async throws -> [JSON] {
+        try await send("GET", "/api/concepts").array.filter { concept in
+            !["hiddenFromHome", "debugOnly", "archived"].contains { concept[$0] == true }
+        }
+    }
+
+    /// A concept, what you highlighted and wrote under it, and its open questions.
+    func concept(_ name: String) async throws -> (meta: JSON, related: JSON, questions: [JSON]) {
+        async let meta = send("GET", "/api/concepts/\(name)")
+        async let related = send("GET", "/api/concepts/\(name)/related", query: ["limit": "20"])
+        async let questions = send("GET", "/api/concepts/\(name)/questions", query: ["status": "open"])
+        return (try await meta, try await related, (try? await questions)?.array ?? [])
+    }
+
+    /// Names a concept, or rewrites what you mean by it. Only the description
+    /// is sent, so its pins stay as they are.
+    func saveConcept(_ name: String, description: String) async throws {
+        try await send("PUT", "/api/concepts/\(name)", body: ["description": .string(description)])
+    }
+
+    func questions() async throws -> [JSON] {
+        try await send("GET", "/api/questions").array
+    }
+
+    func question(_ id: String) async throws -> JSON {
+        try await send("GET", "/api/questions/\(id)")
+    }
+
+    func createQuestion(_ text: String, concept: String = "") async throws -> JSON {
+        try await send("POST", "/api/questions", body: [
+            "text": .string(text), "settledBy": "", "status": "open",
+            "conceptName": .string(concept), "linkedTagName": .string(concept), "blocks": [], "linkedHighlightIds": []
+        ])
+    }
+
+    /// Changes only the fields named (`settledBy`, `status`, `text`).
+    func updateQuestion(_ id: String, _ fields: JSON) async throws {
+        try await send("PUT", "/api/questions/\(id)", body: fields)
     }
 
     // MARK: Partner
 
-    /// One turn with the Partner. Pass back the returned thread id so a
-    /// conversation stays one thread on every device.
-    func ask(_ message: String, threadId: String?, context: JSON) async throws -> JSON {
-        var body: [String: JSON] = ["message": .string(message), "persistThread": true, "context": context]
+    /// One turn with the Partner, streamed as the web streams it: what it is
+    /// doing (`agent-activity`), the reply as it is written (`agent-delta`),
+    /// then the whole turn (`agent-final`), which is returned.
+    func streamAsk(_ message: String, threadId: String?, context: JSON, history: [JSON],
+                   onActivity: @escaping @MainActor (String) -> Void,
+                   onDelta: @escaping @MainActor (String) -> Void) async throws -> JSON {
+        var body: [String: JSON] = ["message": .string(message), "persistThread": true, "context": context, "history": .array(history), "limit": 6.0]
         if let threadId { body["threadId"] = .string(threadId) }
-        return try await send("POST", "/api/agent/chat", body: .object(body))
+        #if DEBUG
+        if let standIn = Self.standIn {
+            await onActivity("Searched your library.")
+            try? await Task.sleep(for: .milliseconds(600))
+            let reply = standIn("POST", "/api/agent/chat", [:]) ?? .null
+            await onDelta(reply["reply"].text)
+            return reply
+        }
+        #endif
+        var final: JSON?
+        try await events("/api/agent/chat/stream", body: .object(body)) { event, payload in
+            switch event {
+            case "agent-activity": await onActivity(payload["summary"].text)
+            case "agent-delta": await onDelta(payload["delta"].text)
+            case "agent-final": final = payload
+            case "error": throw NoeisAPIError.server(payload["error"]?.string ?? "The Partner could not answer.")
+            default: break
+            }
+        }
+        guard let final else { throw NoeisAPIError.server("The Partner stopped before it finished. Nothing was changed; ask again.") }
+        return final
+    }
+
+    /// Reads a server-sent event stream, handing each event and its JSON on.
+    private func events(_ path: String, body: JSON, each: (String, JSON) async throws -> Void) async throws {
+        guard let token = NoeisAuthStore.shared.token else { throw signOut() }
+        var request = URLRequest(url: base.appendingPathComponent(path))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 300
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(body)
+        let (bytes, response): (URLSession.AsyncBytes, URLResponse)
+        do { (bytes, response) = try await session.bytes(for: request) } catch { throw NoeisAPIError.offline }
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 401 { throw signOut() }
+        guard (200..<300).contains(status) else { throw NoeisAPIError.server("Noeis could not do that (\(status)).") }
+        var event = "message"
+        for try await line in bytes.lines {
+            if line.hasPrefix("event:") {
+                event = line.dropFirst(6).trimmingCharacters(in: .whitespaces)
+            } else if line.hasPrefix("data:"), let data = line.dropFirst(5).trimmingCharacters(in: .whitespaces).data(using: .utf8) {
+                try await each(event, (try? JSONDecoder().decode(JSON.self, from: data)) ?? .null)
+            }
+        }
     }
 
     // MARK: Transport
+
+    #if DEBUG
+    /// Set by the app in the simulator to answer from sample data instead of the network.
+    nonisolated(unsafe) static var standIn: ((String, String, [String: String]) -> JSON?)?
+    #endif
 
     @discardableResult
     func send(_ method: String, _ path: String, query: [String: String] = [:], body: JSON? = nil, signedIn: Bool = true) async throws -> JSON {
@@ -260,35 +515,143 @@ struct NoeisAPI {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONEncoder().encode(body)
         }
-        if signedIn {
-            guard let token = NoeisAuthStore.shared.token else { throw signOut() }
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        if signedIn, !authorize(&request) { throw signOut() }
 
-        let (data, response) = try await perform(request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        // Every signed-in read is kept on the device, so a page can open from
+        // it at once and still opens with no connection or a sleeping server.
+        let key = method == "GET" && signedIn ? SavedCopies.key(request.url!) : nil
+        let reading = Self.reading
+        if reading?.saved == true {
+            guard let key, let copy = SavedCopies.read(key) else { throw NoeisAPIError.offline }
+            reading?.used(copy.date)
+            return copy.json
+        }
+        let data: Data, status: Int
+        do { (data, status) = try await perform(request) } catch NoeisAPIError.offline {
+            guard let key, let copy = SavedCopies.read(key) else { throw NoeisAPIError.offline }
+            reading?.used(copy.date)
+            return copy.json
+        }
         let json = (try? JSONDecoder().decode(JSON.self, from: data)) ?? .null
         if status == 401, signedIn { throw signOut() }
+        if status == 409 { throw NoeisAPIError.conflict(json) }
+        if status >= 500, let key, let copy = SavedCopies.read(key) {
+            reading?.used(copy.date)
+            return copy.json
+        }
         guard (200..<300).contains(status) else {
             throw NoeisAPIError.server(json["error"]?.string ?? json["message"]?.string ?? "Noeis could not do that (\(status)).")
         }
+        if let key { SavedCopies.write(key, data) }
         return json
+    }
+
+    /// Where a load's reads come from: the device only (`saved`), or the
+    /// network falling back to the device. Records the oldest copy it used.
+    final class Reading: @unchecked Sendable {
+        let saved: Bool
+        private let lock = NSLock()
+        private var oldest: Date?
+
+        init(saved: Bool) { self.saved = saved }
+
+        /// When the oldest saved copy this load showed was kept, or nil if every read was fresh.
+        var savedOn: Date? { lock.withLock { oldest } }
+
+        fileprivate func used(_ date: Date) { lock.withLock { oldest = min(oldest ?? date, date) } }
+    }
+
+    @TaskLocal static var reading: Reading?
+
+    /// Keeps the newest sources (and their marks) on the device while on Wi-Fi, so they can be
+    /// read later with no connection. Skipped on cellular and in Low Data Mode.
+    func keep(articleIds: [String]) async {
+        for path in articleIds.flatMap({ ["/articles/\($0)", "/api/articles/\($0)/highlights"] }) {
+            var request = URLRequest(url: base.appendingPathComponent(path))
+            let key = SavedCopies.key(request.url!)
+            guard SavedCopies.read(key) == nil else { continue }
+            guard authorize(&request) else { return }
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.allowsExpensiveNetworkAccess = false
+            request.allowsConstrainedNetworkAccess = false
+            guard let (data, status) = try? await perform(request) else { return }
+            if status == 200 { SavedCopies.write(key, data) }
+        }
+    }
+
+    /// Whether a source can be read here with no connection.
+    func isKept(articleId: String) -> Bool {
+        SavedCopies.has(SavedCopies.key(base.appendingPathComponent("/articles/\(articleId)")))
+    }
+
+    /// Signs a request with the session, if there is one.
+    private func authorize(_ request: inout URLRequest) -> Bool {
+        var token = NoeisAuthStore.shared.token
+        #if DEBUG
+        if Self.standIn != nil { token = "sample" }
+        #endif
+        guard let token else { return false }
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return true
     }
 
     private func signOut() -> NoeisAPIError {
         NoeisAuthStore.shared.clearToken()
+        SavedCopies.erase()
         NotificationCenter.default.post(name: .noeisSignedOut, object: nil)
         return .signedOut
     }
 
-    private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
+    /// The response's body and status code.
+    private func perform(_ request: URLRequest) async throws -> (Data, Int) {
+        #if DEBUG
+        if let standIn = Self.standIn {
+            try? await Task.sleep(for: .milliseconds(350))
+            // NOEIS_OFFLINE=1 cuts the sample network, to see the copies kept on the device.
+            if ProcessInfo.processInfo.environment["NOEIS_OFFLINE"] != nil { throw NoeisAPIError.offline }
+            let url = request.url!
+            let query = (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).reduce(into: [String: String]()) { $0[$1.name] = $1.value }
+            return (try JSONEncoder().encode(standIn(request.httpMethod ?? "GET", url.path, query) ?? .null), 200)
+        }
+        #endif
+        func status(_ reply: (Data, URLResponse)) -> (Data, Int) { (reply.0, (reply.1 as? HTTPURLResponse)?.statusCode ?? 0) }
         do {
-            return try await session.data(for: request)
+            return status(try await session.data(for: request))
         } catch let error as URLError where [URLError.networkConnectionLost, URLError.timedOut].contains(error.code) && request.httpMethod == "GET" {
             // One quiet retry for reads; a write is never repeated blind.
-            do { return try await session.data(for: request) } catch { throw NoeisAPIError.offline }
+            do { return status(try await session.data(for: request)) } catch { throw NoeisAPIError.offline }
         } catch let error as URLError where error.code != .cancelled {
             throw NoeisAPIError.offline
         }
+    }
+}
+
+/// The reads kept on the device, one file each, in Caches (iOS may clear it
+/// when space runs low; it is only ever a copy). Filed under the account, so
+/// one account's copies never show under another; erased on sign-out.
+enum SavedCopies {
+    static func key(_ url: URL) -> String { "\(NoeisAuthStore.shared.username ?? "")|\(url.absoluteString)" }
+
+    private static let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Saved copies", isDirectory: true)
+
+    static func read(_ key: String) -> (json: JSON, date: Date)? {
+        let file = url(key)
+        guard let data = try? Data(contentsOf: file), let json = try? JSONDecoder().decode(JSON.self, from: data) else { return nil }
+        let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+        return (json, date)
+    }
+
+    static func has(_ key: String) -> Bool { FileManager.default.fileExists(atPath: url(key).path) }
+
+    static func write(_ key: String, _ data: Data) {
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? data.write(to: url(key), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
+    static func erase() { try? FileManager.default.removeItem(at: folder) }
+
+    private static func url(_ key: String) -> URL {
+        folder.appendingPathComponent(SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined())
     }
 }

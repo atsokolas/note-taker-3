@@ -91,7 +91,6 @@ enum Inline {
             if let citations = claim?.citations, let first = citations.first {
                 var marker = AttributedString("\u{2009}[\(citations.map(String.init).joined(separator: ","))]")
                 marker.font = .caption
-                marker.foregroundColor = Ink.thread
                 marker.link = URL(string: "noeis-cite://\(first)")
                 out += marker
             }

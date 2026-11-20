@@ -4,7 +4,9 @@ import SwiftUI
 ///
 /// The API sleeps when nobody has used it for a while, and the first request
 /// after that can take most of a minute. A spinner that sits there silently
-/// reads as broken; after a few seconds this says what is happening.
+/// reads as broken; after a few seconds this says what is happening. A copy
+/// kept on the device shows at once, and stays, honestly dated, when the
+/// network can't be reached.
 struct Loaded<Value, Content: View>: View {
     let load: () async throws -> Value
     @ViewBuilder let content: (Value, _ reload: @escaping () async -> Void) -> Content
@@ -12,19 +14,27 @@ struct Loaded<Value, Content: View>: View {
     @State private var value: Value?
     @State private var error: String?
     @State private var waking = false
+    /// When the copy on screen was kept, if it isn't fresh from the server.
+    @State private var savedOn: Date?
 
     var body: some View {
         Group {
             if let value {
-                content(value, reload)
+                content(value, reload).arrives()
+                    .safeAreaInset(edge: .top, spacing: 0) {
+                        if let savedOn { SavedLine(date: savedOn).transition(.opacity) }
+                    }
             } else if let error {
-                ContentUnavailableView {
-                    Label("Could not load this", systemImage: "wifi.exclamationmark")
-                } description: {
-                    Text(error)
-                } actions: {
-                    Button("Try again") { Task { await reload() } }
+                VStack(spacing: 12) {
+                    Text(error == Self.unsaved ? "Not saved on this \(thisDevice) yet" : "Could not load this")
+                        .font(.system(.title2, design: .serif))
+                    Text(error).font(.callout).foregroundStyle(Ink.muted)
+                    Button("Try again") { Task { await reload() } }.buttonStyle(.ink).padding(.top, 8)
                 }
+                .multilineTextAlignment(.center)
+                .padding(32)
+                .frame(maxWidth: 420)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 12) {
                     ProgressView()
@@ -44,6 +54,8 @@ struct Loaded<Value, Content: View>: View {
         .task { if value == nil { await reload() } }
     }
 
+    private static var unsaved: String { "Noeis can’t be reached, and this hasn’t been opened here while connected. It opens once Noeis is back." }
+
     private func reload() async {
         error = nil
         let slow = Task {
@@ -51,14 +63,53 @@ struct Loaded<Value, Content: View>: View {
             calmly { waking = true }
         }
         defer { slow.cancel(); waking = false }
+        // First open: the copy on the device, at once, while the server answers.
+        var kept: Date?
+        if value == nil {
+            let saved = NoeisAPI.Reading(saved: true)
+            if let copy = try? await NoeisAPI.$reading.withValue(saved, operation: load) {
+                value = copy
+                kept = saved.savedOn
+            }
+        }
         do {
-            value = try await load()
+            let live = NoeisAPI.Reading(saved: false)
+            value = try await NoeisAPI.$reading.withValue(live, operation: load)
+            calmly { savedOn = live.savedOn }
         } catch is CancellationError {
         } catch NoeisAPIError.signedOut {
             // The session view takes over; nothing to show here.
+        } catch NoeisAPIError.offline {
+            if value == nil { self.error = Self.unsaved } else if let kept { calmly { savedOn = kept } }
         } catch {
-            if value == nil { self.error = error.localizedDescription }
+            if value == nil { self.error = error.localizedDescription } else if let kept { calmly { savedOn = kept } }
         }
+    }
+}
+
+/// What a saved copy is kept on, in words.
+private var thisDevice: String { UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone" }
+
+/// Says, in one quiet line, that what you're reading is the copy on this
+/// device, and from when.
+private struct SavedLine: View {
+    let date: Date
+
+    var body: some View {
+        Text("Noeis can’t be reached. This is the copy saved on this \(thisDevice) \(when).")
+            .font(.footnote)
+            .foregroundStyle(Ink.muted)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 6)
+            .background(Ink.canvas.opacity(0.92))
+    }
+
+    private var when: String {
+        if date.timeIntervalSinceNow > -60 { return "a moment ago" }
+        if Calendar.current.isDateInToday(date) { return "at \(date.formatted(date: .omitted, time: .shortened))" }
+        return "on \(date.shortDay)"
     }
 }
 

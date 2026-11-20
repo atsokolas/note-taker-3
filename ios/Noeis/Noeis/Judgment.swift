@@ -66,39 +66,32 @@ struct HeldView {
 // MARK: The list
 
 struct ViewsList: View {
-    @Binding var selection: Route?
     @State private var showingSetAside = false
-    @State private var holding = false
-    @State private var generation = 0
 
     var body: some View {
         Loaded(load: { try await NoeisAPI.shared.views().map(HeldView.init).filter { !$0.claim.isEmpty && !$0.judgment["currentJudgment"].text.isEmpty } }) { views, reload in
             let shown = views.filter { $0.setAside == showingSetAside }
                 .sorted { ($0.judgment["lastReviewedAt"]?.date ?? $0.page["updatedAt"]?.date ?? .distantPast) > ($1.judgment["lastReviewedAt"]?.date ?? $1.page["updatedAt"]?.date ?? .distantPast) }
-            List(selection: $selection) {
-                Section {
-                    ForEach(shown, id: \.id) { view in
-                        NavigationLink(value: Route.view(view.id)) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                if view.due { Kicker("Comes due", color: Ink.thread) }
-                                Text(view.claim).font(.system(.body, design: .serif))
-                                Text(view.card).font(.caption).foregroundStyle(Ink.subtle)
-                            }
-                            .padding(.vertical, 6)
+            RoomIndex {
+                if !showingSetAside { HoldField { await reload() } }
+                IndexHeading(showingSetAside ? "Set aside" : (shown.count == 1 ? "1 view you hold" : "\(shown.count) views you hold"))
+                ForEach(shown, id: \.id) { view in
+                    RouteRow(route: .view(view.id)) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if view.due { Kicker("Comes due", color: Ink.thread) }
+                            Text(view.claim).font(.rowTitle)
+                            Text(view.card).font(.meta).foregroundStyle(Ink.subtle)
                         }
-                    }
-                } footer: {
-                    if shown.isEmpty {
-                        Text(showingSetAside ? "Nothing set aside." : "Write down something you believe. Every passage you save is read against it, for or against.")
-                            .font(.callout).foregroundStyle(Ink.muted).padding(.top, 8)
+                        .padding(.vertical, 20)
                     }
                 }
+                if shown.isEmpty {
+                    Quiet(showingSetAside ? "Nothing set aside." : "Write down something you believe. Every passage you save is read against it, for or against.")
+                }
             }
-            .listStyle(.plain)
             .refreshable { await reload() }
-            .onChange(of: generation) { Task { await reload() } }
         }
-        .navigationTitle(showingSetAside ? "Set aside" : "Judgment")
+        .roomTitle(showingSetAside ? "Set aside" : "Judgment")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
@@ -109,14 +102,59 @@ struct ViewsList: View {
                 } label: { Image(systemName: "line.3.horizontal.decrease.circle") }
                     .accessibilityLabel("Show views you hold or set aside")
             }
-            ToolbarItem(placement: .primaryAction) {
-                Button { holding = true } label: { Image(systemName: "plus") }
-                    .accessibilityLabel("Hold a view")
-            }
             PartnerToolbarItem(context: ["type": "workspace", "id": "library", "title": "Judgment"])
         }
-        .sheet(isPresented: $holding, onDismiss: { generation += 1 }) { HoldViewSheet() }
         .paper()
+    }
+}
+
+/// The web's first line in Judgment: write what you believe, right here.
+private struct HoldField: View {
+    let held: () async -> Void
+    @State private var text = ""
+    @State private var receipt: String?
+    @StateObject private var writer = Writer()
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("What do you believe?", text: $text, axis: .vertical)
+                .font(.system(.title2, design: .serif))
+                .lineLimit(1...4)
+                .focused($focused)
+                .submitLabel(.done)
+                .onSubmit(hold)
+                .padding(.vertical, 12)
+                .overlay(alignment: .bottom) { Hairline(color: focused ? Ink.text : Ink.rule) }
+            HStack {
+                Text(receipt ?? "One sentence you would bet on, written so it could turn out wrong.")
+                    .font(.footnote)
+                    .foregroundStyle(receipt == nil ? Ink.subtle : Ink.living)
+                Spacer()
+                if !oneSentence(text).isEmpty {
+                    Button("Hold", action: hold)
+                        .buttonStyle(.ink)
+                        .disabled(writer.busy)
+                        .transition(.opacity)
+                }
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+        .calmAnimation(.easeOut(duration: 0.18), value: text.isEmpty)
+        .failureAlert(writer)
+    }
+
+    private func hold() {
+        let sentence = oneSentence(text)
+        guard !sentence.isEmpty else { return }
+        writer.run {
+            _ = try await NoeisAPI.shared.hold(sentence)
+            text = ""
+            focused = false
+            calmly { receipt = "Held. What you save is read against it from now on." }
+            await held()
+        }
     }
 }
 
@@ -162,6 +200,20 @@ struct ViewDetail: View {
                             }
                         }
                         .font(.footnote).foregroundStyle(Ink.subtle)
+                        // The web's two verbs on a view, always in reach.
+                        HStack(spacing: 10) {
+                            Button("Revise") { revising = true }
+                            Menu("Resolve") {
+                                Button("Held up") { act { _ = try await NoeisAPI.shared.recordVerdict(pageId: id, claim: view.claim, result: "held_up") } }
+                                Button("Broke") { act { _ = try await NoeisAPI.shared.recordVerdict(pageId: id, claim: view.claim, result: "broke") } }
+                                Button("Partly") { act { _ = try await NoeisAPI.shared.recordVerdict(pageId: id, claim: view.claim, result: "partly") } }
+                                Divider()
+                                Button("Too early to say", role: .cancel) {}
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .font(.subheadline)
+                        .padding(.top, 4)
                         if let words = view.verdictWords {
                             Text("You said it \(words).").font(.callout).foregroundStyle(Ink.living)
                         }
@@ -196,17 +248,16 @@ struct ViewDetail: View {
                             ForEach(candidates, id: \.self) { candidate in
                                 VStack(alignment: .leading, spacing: 10) {
                                     Passage(text: candidate["text"].text, source: candidate["sourceLabel"].text)
-                                    HStack {
-                                        Button("File for") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "why", candidate: candidate) } }
-                                        Button("File against") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "against", candidate: candidate) } }
+                                    Menu("File…") {
+                                        Button("For it") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "why", candidate: candidate) } }
+                                        Button("Against it") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "against", candidate: candidate) } }
                                         Button("Not about this") {
                                             let ids = (view.judgment["notAboutIds"]?.array ?? []) + [.string(candidate.id)]
                                             act { try await view.patch(["notAboutIds": .array(ids)]) }
                                         }
-                                        .foregroundStyle(Ink.muted)
                                     }
-                                    .buttonStyle(.bordered)
                                     .font(.subheadline)
+                                    .foregroundStyle(Ink.thread)
                                 }
                             }
                         }
@@ -220,14 +271,13 @@ struct ViewDetail: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text(challenge ? "Argues against it" : "Backs it up").font(.caption.weight(.semibold)).foregroundStyle(challenge ? Ink.danger : Ink.living)
                                     Passage(text: proposal.at("provenance.after").text, source: [proposal.at("provenance.author").text, proposal["sourceLabel"].text].filter { !$0.isEmpty }.joined(separator: ", "))
-                                    HStack {
-                                        Button("File for") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "why", proposalId: proposal.id) } }
-                                        Button("File against") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "against", proposalId: proposal.id) } }
+                                    Menu("File…") {
+                                        Button("For it") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "why", proposalId: proposal.id) } }
+                                        Button("Against it") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "against", proposalId: proposal.id) } }
                                         Button("Not relevant") { act { try await NoeisAPI.shared.dismissReading(pageId: id, proposalId: proposal.id) } }
-                                            .foregroundStyle(Ink.muted)
                                     }
-                                    .buttonStyle(.bordered)
                                     .font(.subheadline)
+                                    .foregroundStyle(Ink.thread)
                                 }
                             }
                         }
@@ -252,7 +302,6 @@ struct ViewDetail: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
-                        Button { revising = true } label: { Label("Hold this instead…", systemImage: "arrow.triangle.2.circlepath") }
                         if view.setAside {
                             Button { act { try await view.patch(["status": "monitoring", "parkedAt": .null]) } } label: { Label("Pick it back up", systemImage: "arrow.uturn.backward") }
                         } else {
@@ -267,8 +316,10 @@ struct ViewDetail: View {
                             }
                         }
                     } label: { Image(systemName: "ellipsis.circle") }
+                    .accessibilityLabel("More for this view")
                 }
-                PartnerToolbarItem(context: ["type": "wiki_page", "id": .string(id), "pageId": .string(id), "title": .string(view.claim)])
+                PartnerToolbarItem(context: ["type": "wiki_page", "id": .string(id), "pageId": .string(id), "title": .string(view.claim)],
+                                   holding: Held(pageId: id, claim: view.claim))
             }
             .sheet(isPresented: $editingTest) {
                 TestSheet(view: view) { criteria, by in

@@ -9,14 +9,19 @@
 /* Begin PBXBuildFile section */
 		BA0000020000000000000009 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000000A; };
 		BA000002000000000000000B /* Judgment.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000000C; };
+		BA00000200000000000000F3 /* BookDesk.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA00000200000000000000F4; };
+		BA00000200000000000000F5 /* Books.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA00000200000000000000F6; };
 		BA000002000000000000000D /* Library.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000000E; };
 		BA000002000000000000000F /* Loading.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000010; };
+		BA00000200000000000000F1 /* Notebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA00000200000000000000F2; };
 		BA0000020000000000000011 /* NoeisApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000012; };
 		BA0000020000000000000013 /* Partner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000014; };
 		BA0000020000000000000015 /* Rooms.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000016; };
 		BA0000020000000000000017 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000018; };
 		BA0000020000000000000019 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000001A; };
 		BA000002000000000000001B /* Think.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000001C; };
+		BA0000020000000000000079 /* Editions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000007A; };
+		BA000002000000000000007B /* Sample.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000007C; };
 		BA000002000000000000001D /* Wiki.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000001E; };
 		BA000002000000000000001F /* JSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000020; };
 		BA0000020000000000000021 /* NoeisAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000022; };
@@ -84,14 +89,19 @@
 /* Begin PBXFileReference section */
 		BA000002000000000000000A /* Document.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
 		BA000002000000000000000C /* Judgment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Judgment.swift; sourceTree = "<group>"; };
+		BA00000200000000000000F4 /* BookDesk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookDesk.swift; sourceTree = "<group>"; };
+		BA00000200000000000000F6 /* Books.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Books.swift; sourceTree = "<group>"; };
 		BA000002000000000000000E /* Library.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Library.swift; sourceTree = "<group>"; };
 		BA0000020000000000000010 /* Loading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loading.swift; sourceTree = "<group>"; };
+		BA00000200000000000000F2 /* Notebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notebook.swift; sourceTree = "<group>"; };
 		BA0000020000000000000012 /* NoeisApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoeisApp.swift; sourceTree = "<group>"; };
 		BA0000020000000000000014 /* Partner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Partner.swift; sourceTree = "<group>"; };
 		BA0000020000000000000016 /* Rooms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rooms.swift; sourceTree = "<group>"; };
 		BA0000020000000000000018 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		BA000002000000000000001A /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		BA000002000000000000001C /* Think.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Think.swift; sourceTree = "<group>"; };
+		BA000002000000000000007A /* Editions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Editions.swift; sourceTree = "<group>"; };
+		BA000002000000000000007C /* Sample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sample.swift; sourceTree = "<group>"; };
 		BA000002000000000000001E /* Wiki.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Wiki.swift; sourceTree = "<group>"; };
 		BA0000020000000000000020 /* JSON.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSON.swift; sourceTree = "<group>"; };
 		BA0000020000000000000022 /* NoeisAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoeisAPI.swift; sourceTree = "<group>"; };
@@ -179,16 +189,21 @@
 		BA0000020000000000000073 /* Noeis */ = {
 			isa = PBXGroup;
 			children = (
+				BA00000200000000000000F4,
+				BA00000200000000000000F6,
 				BA000002000000000000000A,
 				BA000002000000000000000C,
 				BA000002000000000000000E,
 				BA0000020000000000000010,
+				BA00000200000000000000F2,
 				BA0000020000000000000012,
 				BA0000020000000000000014,
 				BA0000020000000000000016,
 				BA0000020000000000000018,
 				BA000002000000000000001A,
 				BA000002000000000000001C,
+				BA000002000000000000007A,
+				BA000002000000000000007C,
 				BA000002000000000000001E,
 				BA0000020000000000000028,
 				BA000002000000000000002A,
@@ -388,16 +403,21 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BA00000200000000000000F3,
+				BA00000200000000000000F5,
 				BA0000020000000000000009,
 				BA000002000000000000000B,
 				BA000002000000000000000D,
 				BA000002000000000000000F,
+				BA00000200000000000000F1,
 				BA0000020000000000000011,
 				BA0000020000000000000013,
 				BA0000020000000000000015,
 				BA0000020000000000000017,
 				BA0000020000000000000019,
 				BA000002000000000000001B,
+				BA0000020000000000000079,
+				BA000002000000000000007B,
 				BA000002000000000000001D,
 				BA000002000000000000001F,
 				BA0000020000000000000021,
