@@ -201,7 +201,10 @@ test('real Mongo: export files land as books, saved articles and notes, and a se
     const paper = await Article.findOne({ userId, url: 'import://pdf/on-reading-slowly-ada-reader' }).lean();
     assert.equal(paper.title, 'On Reading Slowly');
     assert.match(paper.content, /^<p>A page read twice/);
-    assert.equal((await send(url, [['on-reading-slowly.pdf']])).body.summary, 'Everything in that export was already here.');
+    const pdfAgain = (await send(url, [['on-reading-slowly.pdf']])).body;
+    assert.equal(pdfAgain.summary, 'Everything in that export was already here.');
+    assert.deepEqual(pdfAgain.heldArticleIds, [String(paper._id)], 'the copy already here is named, so passages can go to it');
+    assert.deepEqual(pdf.body.heldArticleIds, [], 'a new file holds nothing already here');
     assert.deepEqual(fetched, [], 'a PDF is never fetched');
 
     // Silence: a file nobody recognises imports nothing and says only that.
