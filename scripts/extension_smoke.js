@@ -41,7 +41,7 @@ const NOEIS = `<!doctype html><html data-ui-theme="${THEME}"><head><link rel="st
 const THEME_CSS = fs.readFileSync(path.join(__dirname, '..', 'note-taker-ui/src/styles/semantic-theme.css'), 'utf8');
 
 const calls = [];
-const state = { saved: null, pushback: false };
+const state = { saved: null, pushback: false, expireCapture: false, captured: null };
 const answer = ({ method, url, body }) => {
   const { pathname, searchParams } = new URL(url);
   calls.push(`${method} ${pathname}`);
@@ -53,6 +53,7 @@ const answer = ({ method, url, body }) => {
     return { _id: 'a1', title: body.title, placement: body.placement };
   }
   if (pathname === '/articles/a1/highlights') {
+    if (body.captureId) state.captured = body;
     state.saved = { _id: 'a1', title: 'Why reading compounds', createdAt: '2026-10-16T00:00:00Z', highlights: [{ _id: 'h1', text: body.text }] };
     return { highlight: { _id: 'h1', text: body.text } };
   }
@@ -120,6 +121,10 @@ const shot = async (page, name) => {
   await context.route(`${API}/**`, async (route) => {
     const request = route.request();
     try {
+      if (state.expireCapture && new URL(request.url()).pathname === '/articles/a1/highlights') {
+        state.expireCapture = false;
+        return route.fulfill({ status: 401, json: { error: 'Session expired' } });
+      }
       await route.fulfill({ json: answer({ method: request.method(), url: request.url(), body: request.postDataJSON?.() || null }) });
     } catch (error) {
       errors.push(error.message);
@@ -245,6 +250,43 @@ const shot = async (page, name) => {
     await reader.waitForTimeout(3600);
     await shot(reader, 'margin-pushback');
     assert.ok((await inMargin(reader)).text.includes('This piece argues against your view that Membership models are fragile'));
+
+    /* An expired session between the article and the mark keeps the chosen
+       folder and passage, even after the page selection is gone. */
+    state.saved = null;
+    state.expireCapture = true;
+    await reader.reload();
+    const selected = await reader.evaluate(() => {
+      const phrase = document.querySelector('#lead em');
+      getSelection().selectAllChildren(phrase);
+      return phrase.textContent;
+    });
+    card = await popup();
+    await card.waitForSelector('#folder option[value="f1"]', { state: 'attached' });
+    await card.selectOption('#folder', 'f1');
+    await card.getByRole('button', { name: 'Put it on the nightstand' }).click();
+    const saves = calls.filter(call => call === 'POST /save-article').length;
+    await card.click('#save');
+    await card.waitForSelector('body[data-view="signin"] #signInCapture:visible');
+    const draft = await worker.evaluate(() => chrome.storage.local.get('noeis.capture:u1'));
+    assert.strictEqual(draft['noeis.capture:u1'].anchor.text, selected);
+    assert.strictEqual(draft['noeis.capture:u1'].placement, 'later');
+    assert.strictEqual(draft['noeis.capture:u1'].folderId, 'f1');
+    await card.close();
+    await reader.evaluate(() => getSelection().removeAllRanges());
+    await worker.evaluate(token => chrome.storage.local.set({ token }), TOKEN);
+    card = await popup();
+    await card.getByRole('button', { name: 'Finish save' }).waitFor();
+    await shot(card, 'popup-resume-passage');
+    await card.getByRole('button', { name: 'Finish save' }).click();
+    const openMark = card.getByRole('link', { name: 'Open saved passage' });
+    await openMark.waitFor();
+    assert.match(await openMark.getAttribute('href'), /articleId=a1&highlightId=h1/);
+    assert.strictEqual(state.captured.text, selected);
+    assert.match(state.captured.anchor.prefix, /passages that matter/);
+    assert.strictEqual(state.captured.captureId, draft['noeis.capture:u1'].captureId);
+    assert.strictEqual(calls.filter(call => call === 'POST /save-article').length, saves + 1);
+    await card.close();
 
     assert.deepStrictEqual(errors, [], 'no script errors in the popup or the worker');
     console.log(`Extension smoke passed (${calls.length} API calls).`);

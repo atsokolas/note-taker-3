@@ -15,6 +15,7 @@
   <section data-for="signin">
     <h1 class="title">Save this page, and anything you mark on it.</h1>
     <p class="meta">Signed in on noeis.io? You’re signed in here too.</p>
+    <p class="meta" id="signInCapture" hidden>After signing in, reopen the save card on this tab to finish.</p>
     <button type="button" class="primary" id="signIn">Sign in on noeis.io</button>
   </section>
 
@@ -29,6 +30,7 @@
     <h1 class="title" id="pageTitle"></h1>
 
     <form id="saveForm" class="save">
+      <blockquote id="pendingQuote" class="meta" hidden></blockquote>
       <label class="row">
         <span class="label">Folder</span>
         <select id="folder"><option value="">No folder</option><option value="new">New folder…</option></select>
@@ -43,6 +45,7 @@
         <div id="placement"></div>
       </div>
       <button type="submit" class="primary" id="save">Save to Library</button>
+      <button type="button" class="quiet" id="restartCapture" hidden>Start over</button>
     </form>
 
     <p class="receipt" id="receipt" role="status" aria-live="polite"></p>

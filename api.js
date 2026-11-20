@@ -11,9 +11,10 @@ export const APP = 'https://www.noeis.io';
 
 export const SIGNED_OUT = 'Your Noeis session ended. Open the Noeis button in the toolbar to sign in again.';
 
-export const request = async (path, { method = 'GET', body } = {}) => {
+export const request = async (path, { method = 'GET', body, session } = {}) => {
   const { token } = await chrome.storage.local.get('token');
   if (!token) throw new Error(SIGNED_OUT);
+  if (session && session !== token) throw new Error(SIGNED_OUT);
   const headers = { Authorization: `Bearer ${token}` };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
@@ -24,7 +25,7 @@ export const request = async (path, { method = 'GET', body } = {}) => {
   }).catch(() => null);
   if (!response) throw new Error('Noeis could not be reached. Check your connection and try again.');
   if (response.status === 401) {
-    await chrome.storage.local.remove('token');
+    if ((await chrome.storage.local.get('token')).token === token) await chrome.storage.local.remove('token');
     throw new Error(SIGNED_OUT);
   }
   const data = await response.json().catch(() => null);

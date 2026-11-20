@@ -37,9 +37,9 @@ const el = (tag, className, text) => {
  * here talks to a server, because on the save card the piece does not exist
  * yet and there is nothing to update.
  */
-export const mountSaveCardSwitch = (mount) => {
+export const mountSaveCardSwitch = (mount, { initial = 'stream', locked = false } = {}) => {
   if (!mount) return { placement: 'stream' };
-  let placement = 'stream';
+  let placement = initial;
 
   const capsule = el('div', 'placement-switch__capsule');
   /* A group of toggles, not a radio group — the reader's app made the same
@@ -57,6 +57,7 @@ export const mountSaveCardSwitch = (mount) => {
     switchPositions({ placement }).forEach(({ position, label, active, phrase }) => {
       const button = el('button', `placement-switch__position${active ? ' is-active' : ''}`, label);
       button.type = 'button';
+      button.disabled = locked;
       button.setAttribute('aria-pressed', String(active));
       button.setAttribute('aria-label', phrase);
       button.title = phrase;
