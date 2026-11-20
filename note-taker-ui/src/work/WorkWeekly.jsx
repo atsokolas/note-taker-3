@@ -124,7 +124,7 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
     if (!item) return <li className="work-weekly-missing" key={id}>Task unavailable. Its place in this plan is kept.</li>;
     const complete = past ? completionAtWeekEnd(item, week) : item.completed;
     return <li key={id} className={`work-weekly-task ${complete ? 'is-done' : ''} ${dropTarget === id ? 'is-drop-target' : ''}`} {...dragProps(item)} onDragOver={event => { if (!past && !disabled && acceptsTask(event)) { event.preventDefault(); event.stopPropagation(); setDropTarget(id); } }} onDrop={event => drop(event, priority.id, id)}>
-      <label><WorkTaskGrip item={item} {...dragProps(item)} /><input type="checkbox" aria-label={item.title} checked={complete} disabled={past || disabled} onChange={() => onAction(item.clientId, { type: complete ? 'reopen' : 'complete' })} /><span>{item.title}</span></label>{source(item)}
+      <label><WorkTaskGrip item={item} {...dragProps(item)} /><input type="checkbox" data-work-task={item.clientId} aria-label={item.title} checked={complete} disabled={past || disabled} onChange={() => onAction(item.clientId, { type: complete ? 'reopen' : 'complete' })} /><span>{item.title}</span></label>{source(item)}
       {!past ? <span className="work-weekly-task-actions"><button disabled={disabled} aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}><WorkIcon name="more" /></button><button disabled={disabled} aria-label={`Remove ${item.title} from priority`} onClick={() => link(id, '')}>Remove</button></span> : null}
     </li>;
   };

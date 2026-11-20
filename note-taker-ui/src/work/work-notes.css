@@ -369,9 +369,12 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-outstanding-back { display: inline-flex; align-items: baseline; gap: 6px; }
 .work-outstanding-back input { padding: 0; background: transparent; border: 0; color: var(--noeis-ink-muted); font: 12px var(--font-sans); }
 .work-ledger { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 16px; margin: 10px 0 0; font: 15px/1.6 var(--font-serif); }
-.work-ledger dt { font: 12px/2 var(--font-sans); color: var(--noeis-ink-subtle); }
+.work-ledger dt { padding-block-start: 10px; font: 12px/2 var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-ledger dd { margin: 0; color: var(--noeis-ink-muted); }
 .work-ledger s { text-decoration-color: var(--noeis-ink-subtle); }
+.work-ledger__line { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-block-size: 44px; overflow-wrap: anywhere; }
+.work-ledger__line + .work-ledger__line { border-block-start: 1px solid var(--noeis-rule); }
+.work-notes .work-ledger__line > button { flex: none; min-block-size: 44px; padding-inline: var(--space-2); }
 .work-outstanding-tally { margin: 10px 0 0; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-day-close { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--noeis-ink); }
 .work-owed { padding-top: 14px; border-top: 1px solid var(--noeis-rule); }

@@ -75,6 +75,22 @@ test('a new line from a note is sorted onto Waiting on with the person, on the s
   await waitFor(() => expect(records.find(x => x._id === 'task').workItem).toMatchObject({ list: 'waiting', waitingOn: 'Ana', noteId: 'note' }));
 });
 
+test('reopens a completed line from the ledger and puts focus back on its own to-do', async () => {
+  const task = records.find(record => record._id === 'task');
+  task.workItem.history = [{ operationId: 'closed-once', type: 'complete', actionAt: new Date().toISOString() }];
+  work('needs');
+  const needs = within(await screen.findByRole('region', { name: 'Needs you' }));
+  const reopen = await needs.findByRole('button', { name: `Reopen ${task.title}` });
+  expect(needs.queryByRole('checkbox', { name: new RegExp(task.title) })).toBeNull();
+  reopen.focus();
+  fireEvent.click(reopen);
+  const checkbox = await needs.findByRole('checkbox', { name: new RegExp(task.title) });
+  expect(checkbox).not.toBeChecked();
+  expect(checkbox).toHaveFocus();
+  expect(reopen).not.toBeInTheDocument();
+  await waitFor(() => expect(records.find(record => record._id === 'task').workItem.history.map(event => event.type)).toEqual(['complete', 'reopen']));
+});
+
 test('Today on a new line plans it for today and leaves it sorted', async () => {
   work('needs');
   fireEvent.click(within(await screen.findByRole('region', { name: /New from your notes/ })).getByRole('button', { name: 'Today' }));
