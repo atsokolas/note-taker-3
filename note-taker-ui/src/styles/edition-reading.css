@@ -87,6 +87,7 @@
 .edition-finding { display: grid; grid-template-columns: minmax(0, 1fr) 248px; gap: 48px; padding: 56px 0; border-top: 1px solid var(--reading-rule); scroll-margin-top: calc(var(--noeis-topbar-height, 88px) + 16px); }
 /* The scale already says which finding you are on; a focus box would say it twice. */
 .edition-finding:focus { outline: none; }
+.edition-finding:not(.is-zoomed):focus { border-block-start-color: var(--reading-thread); }
 .edition-finding__main { min-width: 0; max-width: 760px; }
 .edition-finding__kicker { margin: 0 0 14px; font: 13px/1.5 var(--reading-sans); color: var(--reading-muted); }
 .edition-finding__number { font-family: ui-monospace, 'SF Mono', Menlo, monospace; color: var(--reading-thread); }
