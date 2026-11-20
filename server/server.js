@@ -636,17 +636,6 @@ const chatgptOAuthReadiness = chatgptOAuthConfig ? createChatgptOAuthReadiness({
 const { buildEditionRouter } = require('./routes/editionRoutes');
 const { buildEditionThoughtRouter } = require('./routes/editionThoughtRoutes');
 
-/* An agent writes the paper; only its reader takes from it or throws it out. */
-const requireHumanReader = (req, res, next) => {
-  if (req.agentToken || req.authInfo?.tokenSource === 'agent-token') {
-    return res.status(403).json({ error: 'Only you can do that, not an agent.' });
-  }
-  return next();
-};
-// Your own desktop, approved with `capture`, may see the Library's lists (the nightstand).
-const requireHumanOrDesktop = (req, res, next) => (
-  (req.agentToken?.scopes || []).includes('capture') ? next() : requireHumanReader(req, res, next)
-);
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
 const { buildAgentConnectRouter } = require('./routes/agentConnectRoutes');
 const { buildAgentTaskLinkRouter } = require('./routes/agentTaskLinkRoutes');
@@ -666,6 +655,8 @@ const {
   normalizeAgentTokenScopes,
   sanitizeAgentToken,
   buildAuthenticateAgentToken,
+  requireHumanReader,
+  requireHumanOrDesktop,
   AGENT_TOKEN_PREFIX
 } = require('./services/agentTokenService');
 const { buildAgentWriteBoundaryRouter } = require('./routes/agentWriteBoundaryRoutes');
@@ -5493,7 +5484,7 @@ app.use(buildPersonalAgentRouter({
    an edition away stay human: an agent that could do either could quietly
    rewrite what it told you last week. */
 app.use(buildEditionThoughtRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Edition, Note }));
-app.use(buildArticleReadingStateRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Article, ArticleReadingState }));
+app.use(buildArticleReadingStateRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, ownDesktop: [authenticateCapture, requireHumanOrDesktop], Article, ArticleReadingState }));
 app.use(buildLibraryCollectionRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanOrDesktop, mongoose, Article, ArticleReadingState }));
 app.use(buildReadingRoomRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, mongoose, Article, ArticleReadingState }));
 
@@ -5961,6 +5952,7 @@ app.use(buildBulkExportRouter({
 app.use(buildHighlightMutationRouter({
   mongoose,
   authenticateToken: authenticateUserOrAgentToken,
+  authenticateCapture,
   Article,
   normalizeTags,
   enqueueHighlightEmbedding,

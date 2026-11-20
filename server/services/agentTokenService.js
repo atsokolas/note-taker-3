@@ -4,8 +4,8 @@ const { runtimeLabel } = require('./agentRuntime');
 
 const AGENT_TOKEN_PREFIX = 'ntk_at_';
 /* What each scope lets a token do. `capture` is a person's own desktop: it
-   brings links, files and text in and sees the nightstand, and writes
-   nothing else. `work` opens Work and is never implied by another scope:
+   brings links, files, text and passages in, sees the nightstand, and keeps
+   the place they stopped reading; it writes nothing else. `work` opens Work and is never implied by another scope:
    it is asked for by name, on top of read or agent-write. */
 const SCOPE_GRANTS = {
   read: ['read'],
@@ -89,6 +89,24 @@ const pencilOf = (req = {}) => {
   if (!token || !hasRequiredScope(token, 'agent-write')) return null;
   return { agent: token.label || runtimeLabel(token.runtime), tokenId: token.id, at: new Date() };
 };
+
+/* An agent writes the paper; only its reader takes from it or throws it out. */
+const requireHumanReader = (req, res, next) => {
+  if (req.agentToken || req.authInfo?.tokenSource === 'agent-token') {
+    return res.status(403).json({ error: 'Only you can do that, not an agent.' });
+  }
+  return next();
+};
+
+/* Your own desktop is a token approved for `capture` that cannot write as an
+   agent: it writes in ink, as you do. It may see the Library's lists (the
+   nightstand) and keep your place in a piece. */
+const isOwnDesktop = (token) => Boolean(token)
+  && normalizeAgentTokenScopes(token.scopes || []).includes('capture')
+  && !hasRequiredScope(token, 'agent-write');
+const requireHumanOrDesktop = (req, res, next) => (
+  isOwnDesktop(req.agentToken) ? next() : requireHumanReader(req, res, next)
+);
 
 const buildAuthenticateAgentToken = ({
   AgentToken,
@@ -195,6 +213,8 @@ module.exports = {
   hashAgentTokenSecret,
   normalizeAgentTokenScopes,
   pencilOf,
+  requireHumanReader,
+  requireHumanOrDesktop,
   sanitizeAgentToken,
   buildAuthenticateAgentToken,
   requiredScopeForRequest

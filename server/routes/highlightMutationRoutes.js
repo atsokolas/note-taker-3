@@ -17,6 +17,7 @@ const { marksOfReading } = require('../services/closedBooks');
 const buildHighlightMutationRouter = ({
   mongoose,
   authenticateToken,
+  authenticateCapture = authenticateToken,
   Article,
   normalizeTags,
   enqueueHighlightEmbedding,
@@ -88,7 +89,7 @@ const buildHighlightMutationRouter = ({
     }
   });
 
-  router.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
+  router.post('/articles/:id/highlights', authenticateCapture, async (req, res) => {
     try {
       const { id } = req.params;
       const { text, note, tags, anchor, color, captureId } = req.body;
