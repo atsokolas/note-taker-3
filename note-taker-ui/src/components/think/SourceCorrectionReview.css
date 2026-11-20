@@ -126,4 +126,16 @@
 
 .source-correction-review__reason { display: grid; gap: .3rem; margin-block: .8rem; }
 .source-correction-review__reason input { max-width: 100%; min-height: 44px; padding: .4rem; font: inherit; color: inherit; border: 1px solid var(--noeis-rule); background: transparent; }
-.source-correction-review__passages { margin: .5rem 0; padding-inline-start: 1.1rem; }
+.source-correction-review__passages { margin: .5rem 0; padding: 0; list-style: none; }
+.source-correction-review__passages button {
+  min-block-size: 44px;
+  padding: .4rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--noeis-action);
+  font: inherit;
+  text-align: start;
+  text-decoration: underline;
+  text-underline-offset: .22em;
+  cursor: pointer;
+}

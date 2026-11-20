@@ -48,7 +48,7 @@ import { resolveNotebookSource } from './notebookSourceModel';
 import useNotebookSourceEvergreen from './useNotebookSourceEvergreen';
 import NotebookArrangementRail from './NotebookArrangementRail';
 import NotebookWorkbenchPanel from './NotebookWorkbenchPanel';
-import NotebookAlternativesRail from './NotebookAlternativesRail';
+import NotebookAlternativesRail, { comparesPartnerWording } from './NotebookAlternativesRail';
 import useNotebookWorkbench from './useNotebookWorkbench';
 import useGhostQuote, { GhostQuote } from './useGhostQuote';
 import {
@@ -58,7 +58,7 @@ import {
 } from './notebookWorkbenchDecorations';
 import { readySavedTrialMarks, savedMarksBesidePreview } from '../../../utils/notebookSavedTrialMarks';
 import { dimmedWordCount, handleWriteOnKey, undoStash } from './writeOn';
-import NextSentence, { ArgumentReturn } from './NextSentence';
+import NextSentence, { ArgumentReturn, argumentContext } from './NextSentence';
 import {
   citationTargetsForMaterial,
   deleteEditorBlockById,
@@ -315,7 +315,7 @@ const NotebookEditor = ({
   const [ephemeralTrial, setEphemeralTrial] = useState(null);
   const [trialPreview, setTrialPreview] = useState('original');
   const [workbenchReceipt, setWorkbenchReceipt] = useState(null);
-  const [nextLineDismissed, setNextLineDismissed] = useState(false);
+  const [returnTarget, setReturnTarget] = useState(null);
   const [opposite, setOpposite] = useState(null);
   const workbench = useNotebookWorkbench(entry, { onEntryChange: onWorkingStateChange });
   const workbenchLatestRef = useRef(workbench);
@@ -502,7 +502,7 @@ const NotebookEditor = ({
      across would mean the second note you looked at was live before you had
      read a word of it. */
   useEffect(() => {
-    setEditingBody(Boolean(startWriting));
+    setEditingBody(startWriting === true);
     setBodyHasFocus(false);
     setHeldTarget(null);
     setActiveTrialId('');
@@ -510,19 +510,10 @@ const NotebookEditor = ({
     setTrialPreview('original');
     setWorkbenchView('material');
     setWorkbenchReceipt(null);
-    setNextLineDismissed(false);
+    setReturnTarget(null);
     setStageSelection(false);
-    const focusFrame = startWriting
-      ? window.requestAnimationFrame?.(() => {
-        if (startWriting === 'next') {
-          const next = workbenchLatestRef.current.state.nextTimeLine;
-          if (next?.text && focusEditorTarget(editor, next.target)) {
-            editor?.commands.scrollIntoView?.();
-            return;
-          }
-        }
-        editor?.commands.focus(startWriting === 'next' ? 'end' : 'start');
-      })
+    const focusFrame = startWriting === true
+      ? window.requestAnimationFrame?.(() => editor?.commands.focus('start'))
       : null;
     setSaveState('idle');
     saveSequenceRef.current += 1;
@@ -838,29 +829,21 @@ const NotebookEditor = ({
     continuityRestoredRef.current = entryId;
     const explicitIntent = [...new URLSearchParams(window.location.search).keys()]
       .some(key => !['tab', 'entryId'].includes(key));
-    const next = workbench.state.nextTimeLine;
-    const waiting = Boolean(next?.text && next.target?.blockId);
-    if (explicitIntent || (!waiting && !workbench.state.continuity?.target?.blockId)) return undefined;
-    // A line left for the next sentence wins over where the caret happened to stop.
+    if (explicitIntent || (stage !== 'done' && workbench.state.nextTimeLine?.text)
+      || !workbench.state.continuity?.target?.blockId) return undefined;
     const frame = window.requestAnimationFrame(() => {
-      if (waiting && focusEditorTarget(editor, next.target)) {
-        editor.commands.scrollIntoView?.();
-        return;
-      }
       focusEditorTarget(editor, workbench.state.continuity.target);
       window.scrollTo?.({ top: workbench.state.continuity.scrollY || 0, behavior: 'auto' });
     });
     return () => window.cancelAnimationFrame?.(frame);
   }, [editor, entry?._id, workbench.state.continuity]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* The line waits above its paragraph until the first word is written. */
   useEffect(() => {
-    if (!editor) return undefined;
-    const written = () => setNextLineDismissed(true);
-    const page = editor.view?.dom;
-    page?.addEventListener('beforeinput', written, { once: true });
-    return () => page?.removeEventListener('beforeinput', written);
-  }, [editor, entry?._id]);
+    if (!editor || !returnTarget) return undefined;
+    const edited = () => setReturnTarget(null);
+    editor.on('update', edited);
+    return () => editor.off('update', edited);
+  }, [editor, returnTarget]);
 
   /* Read on open and after each save, never per keystroke: the server asks
      only about sentences it has not read before. */
@@ -933,6 +916,16 @@ const NotebookEditor = ({
   const nextLine = workbench.state.nextTimeLine;
   const nextPiece = nextLine.target?.blockId ? arrangementPieces.find(piece =>
     piece.nodes.some(node => node.attrs?.blockId === nextLine.target.blockId)) : null;
+  const returnContext = stage !== 'done' && nextLine.text ? argumentContext(nextPiece, highlightMap) : null;
+  const sameReturnSource = returnContext?.href && returnContext.href === notebookSourceMeta?.href;
+  const keepSource = resolvedSourceEvergreen?.status === 'ready' ? (
+    <EvergreenToggle
+      className="think-notebook-editor-provenance__keep"
+      evergreen={resolvedSourceEvergreen.evergreen}
+      label={resolvedSourceEvergreen.evergreen ? 'Kept in Library' : 'Keep source'}
+      onChange={resolvedSourceEvergreen.setEvergreen}
+    />
+  ) : null;
   const correctionPieces = sourceCorrection?.sourceUseId ? arrangementPieces.filter(piece =>
     piece.nodes.some(node => node.attrs?.blockId === sourceCorrection.sourceUseId || (sourceCorrection.sourceType === 'highlight' &&
       sourceCorrection.sourceObjectId && node.attrs?.highlightId === sourceCorrection.sourceObjectId))) : [];
@@ -1450,6 +1443,7 @@ const NotebookEditor = ({
 
   const useTrial = async () => {
     if (!activeTrial?.alternative?.trim() || keepingTrial.current) return;
+    const trigger = document.activeElement;
     const partner = activeTrial.origin === 'partner';
     if (partner) {
       keepingTrial.current = true;
@@ -1478,6 +1472,9 @@ const NotebookEditor = ({
     setTrialPreview('original');
     setWorkbenchView('material');
     scheduleSave();
+    if (partner && trigger === document.activeElement) {
+      focusEditorTarget(editor, { blockId: activeTrial.target.blockId, offset: (activeTrial.target.rangeStart || 0) + activeTrial.alternative.length });
+    }
   };
 
   const reviewTrial = () => {
@@ -1529,13 +1526,13 @@ const NotebookEditor = ({
         ? { text, target: targetFromEditor(editor) || heldTarget || nowhere, updatedAt: new Date().toISOString() }
         : { text: '', target: nowhere, updatedAt: null }
     }));
-    setNextLineDismissed(true);
     setWorkbenchReceipt({ type: 'next-line', text: text ? 'It will be waiting at this spot next time.' : 'Next sentence cleared.', previous });
     scheduleSave();
   };
 
   const alternativesVisible = Boolean(workbenchView === 'trial' && activeTrial);
   const previewBlockId = workbenchView === 'trial' && trialPreview === 'trial' && activeTrialResolution.status === 'ready'
+    && !comparesPartnerWording(activeTrial, activeTrialResolution.status)
     ? activeTrial?.target?.blockId || ''
     : '';
   const savedTrialMarks = useMemo(() => {
@@ -1566,7 +1563,7 @@ const NotebookEditor = ({
   }, [openSavedAlternatives]);
 
   useEffect(() => {
-    const showingPreview = workbenchView === 'trial' && trialPreview === 'trial' && activeTrialResolution.status === 'ready';
+    const showingPreview = Boolean(previewBlockId);
     const bracketTarget = showingPreview ? null : workbenchView === 'trial' ? activeTrial?.target : activeContext === 'material' ? heldTarget : null;
     setNotebookWorkbenchDecorations(editor, {
       targetBlockId: bracketTarget?.blockId || '',
@@ -1576,12 +1573,10 @@ const NotebookEditor = ({
         : null,
       savedMarks: savedTrialMarks,
       dimmed: workbench.state.dimmed,
-      nextLine: startWriting !== 'next' && workbench.state.nextTimeLine?.text && !nextLineDismissed
-        ? { blockId: workbench.state.nextTimeLine.target?.blockId, text: workbench.state.nextTimeLine.text }
-        : null,
+      returnTarget,
       opposite
     });
-  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget, nextLineDismissed, opposite, savedTrialMarks, startWriting, trialPreview, workbench.state.dimmed, workbench.state.nextTimeLine, workbenchView]);
+  }, [activeContext, activeTrial, editor, heldTarget, opposite, previewBlockId, returnTarget, savedTrialMarks, workbench.state.dimmed, workbenchView]);
   useEffect(() => { onAlternativesOpenChange?.(alternativesVisible); }, [alternativesVisible, onAlternativesOpenChange]);
   useEffect(() => () => onAlternativesOpenChange?.(false), [onAlternativesOpenChange]);
   useEffect(() => () => partnerOptionsAbortRef.current?.abort?.(), []);
@@ -1746,10 +1741,18 @@ const NotebookEditor = ({
           <p className="think-notebook-title-meta" id={metaId}>{begunLine(entry.createdAt, wordCount)}</p>
           {settlement.lines}
         </div>
+        {returnContext ? <ArgumentReturn line={nextLine} context={returnContext} sourceAction={sameReturnSource && keepSource}
+          onResume={() => {
+            setEditingBody(true);
+            const found = focusEditorTarget(editor, nextLine.target);
+            setReturnTarget(found ? nextLine.target : null);
+            if (!found) editor?.commands.focus('end');
+            editor?.commands.scrollIntoView?.();
+          }} /> : null}
         {historyOpen ? (
           <EntryHistory kind="note" entryId={String(entry._id)} onRestore={restoreRevision} onClose={() => setHistoryOpen(false)} />
         ) : null}
-        {notebookSourceMeta && (
+        {notebookSourceMeta && !sameReturnSource && (
           <div className={`think-notebook-editor-provenance think-notebook-editor-provenance--${notebookSourceMeta.kind}`}>
             <span className="think-notebook-editor-provenance__eyebrow">
               {notebookSourceMeta.eyebrow}
@@ -1778,23 +1781,10 @@ const NotebookEditor = ({
                 <a className={buttonClass('quiet', 'think-notebook-editor-provenance__link')} href={notebookSourceMeta.href}>
                   {notebookSourceMeta.action}
                 </a>
-              ) : resolvedSourceEvergreen?.status === 'ready' ? (
-                <EvergreenToggle
-                  className="think-notebook-editor-provenance__keep"
-                  evergreen={resolvedSourceEvergreen.evergreen}
-                  label={resolvedSourceEvergreen.evergreen ? 'Kept in Library' : 'Keep source'}
-                  onChange={resolvedSourceEvergreen.setEvergreen}
-                />
-              ) : null}
+              ) : keepSource}
             </div>
           </div>
         )}
-        {startWriting === 'next' ? <ArgumentReturn line={nextLine} piece={nextPiece} highlights={highlightMap} expanded={!nextLineDismissed}
-          onResume={() => {
-            setEditingBody(true);
-            if (!focusEditorTarget(editor, nextLine.target)) editor?.commands.focus('end');
-            editor?.commands.scrollIntoView?.();
-          }} /> : null}
         <SourceCorrectionReview
           preview={sourceCorrection}
           keepReason
@@ -1819,7 +1809,7 @@ const NotebookEditor = ({
       {finishError && <p className="status-message error-message">{finishError}</p>}
       {workbenchReceipt ? (
         <p className={`notebook-workbench-receipt is-${workbenchReceipt.type}`} role="status">
-          {workbenchReceipt.text}
+          {workbenchReceipt.partner && saveState === 'saved' ? 'Wording kept.' : workbenchReceipt.text}
           {['insert', 'thought', 'trial', 'stash', 'next-line'].includes(workbenchReceipt.type) ? <Button variant="quiet" onClick={undoWorkbenchReceipt}>Undo</Button> : null}
           {workbenchReceipt.partner ? <Button variant="quiet" onClick={openHistory}>Open version history</Button> : null}
         </p>

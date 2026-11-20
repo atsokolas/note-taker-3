@@ -404,7 +404,7 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
 .think-notes__toggles { position: absolute; top: 0; left: 0; display: flex; gap: 16px; }
 .think-notes__shelf-toggle { min-height: 32px; padding: 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: var(--text-secondary); font: .72rem var(--noeis-ui-font, system-ui); cursor: pointer; }
 .think-notes__shelf-toggle[aria-pressed='true'] { border-bottom-color: currentColor; color: var(--text-primary); }
-.think-notes__alternatives { grid-column: 2; grid-row: 1; position: sticky; top: 104px; max-height: calc(100dvh - 120px); overflow: auto; min-width: 0; padding: 36px 20px 20px; border-right: 1px solid var(--vellum-line); }
+.think-notes__alternatives { grid-column: 2; grid-row: 1; position: sticky; top: 104px; max-height: calc(100dvh - 120px); overflow: auto; overscroll-behavior: contain; min-width: 0; padding: 36px 20px 20px; border-right: 1px solid var(--vellum-line); }
 .notebook-alternatives { outline: none; font: .78rem/1.55 ui-monospace, SFMono-Regular, monospace; }
 .notebook-alternatives header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 .notebook-alternatives header > span { padding-bottom: 5px; border-bottom: 1px solid var(--noeis-pointer, #6f87ff); }
@@ -418,6 +418,11 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
 .notebook-alternatives__edit { display: grid; gap: 6px; color: var(--text-secondary); font-size: .65rem; }
 .notebook-alternatives__edit textarea { width: 100%; resize: vertical; padding: 8px 0; border: 0; border-bottom: 1px solid var(--vellum-line); border-radius: 0; background: transparent; color: var(--text-primary); font: .82rem/1.55 ui-monospace, monospace; }
 .notebook-alternatives__actions { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px; }
+.notebook-partner-comparison :is(del, ins) { color: inherit; text-decoration-thickness: 1px; text-underline-offset: .17em; }
+.notebook-partner-comparison del { background: color-mix(in srgb, var(--noeis-danger, #9a4038) 13%, transparent); }
+.notebook-partner-comparison ins { background: color-mix(in srgb, var(--noeis-thread) 16%, transparent); }
+.notebook-alternatives__actions button { min-block-size: 44px; }
+.notebook-alternatives__actions button:first-child { text-decoration: underline; text-underline-offset: .22em; }
 .notebook-alternatives__choice-actions { display: flex; gap: 14px; margin: -6px 0 14px 18px; }
 .notebook-alternatives__choice-actions button { color: var(--text-secondary); font-size: .68rem; }
 .notebook-alternatives__more { margin-top: 22px; }
@@ -528,20 +533,16 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
 }
 
 .think-notes .think-notebook-utility {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(6.5rem, max-content) auto;
   align-items: center;
-  flex-wrap: wrap;
   gap: 12px;
   min-height: 36px;
   margin-bottom: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
   font-family: var(--font-sans);
 }
-.think-notes .think-notebook-utility:has(.think-notebook-utility__more[open]) {
-  align-items: flex-start;
-}
 .think-notebook-utility__kind {
-  margin-right: auto;
   color: var(--text-muted);
   font-size: 0.66rem;
   letter-spacing: 0.14em;
@@ -555,7 +556,9 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
   background: transparent;
   font-size: 0.72rem;
 }
-.think-notebook-utility__more > summary { cursor: pointer; list-style: none; }
+.think-notebook-utility__more > summary { cursor: pointer; list-style: none; text-align: center; }
+.think-notebook-utility > [role="status"] { text-align: end; }
+@media (pointer: coarse) { .think-notes .think-notebook-utility__more > summary { min-inline-size: 44px; min-block-size: 44px; align-content: center; } }
 .think-notebook-utility__more > summary::-webkit-details-marker { display: none; }
 .think-notebook-utility__more > div {
   display: grid;
@@ -840,8 +843,7 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
 body.think-rails-away .next-sentence { opacity: 0.35; }
 
 /* The line you left yourself, waiting above its paragraph until you write. */
-.ProseMirror .notebook-next-line { margin: 0 0 4px; color: var(--text-muted); font-style: italic; user-select: none; }
-.ProseMirror .notebook-next-line::before { content: 'Next: '; font: normal 0.72rem var(--font-sans); letter-spacing: 0.04em; }
+.ProseMirror .notebook-return-mark { background-color: color-mix(in srgb, var(--noeis-thread) 17%, transparent); }
 
 /* ---- Cuttings: everything dimmed or set aside -------------------------- */
 .notebook-cuttings__said { min-height: 1.6em; margin: 0 0 12px; color: var(--text-secondary); font-size: .8rem; }

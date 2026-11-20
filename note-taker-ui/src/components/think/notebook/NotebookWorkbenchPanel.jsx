@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Button } from '../../ui';
 import { sourceTitle } from '../../../utils/sourceDisplayText';
-import { PartnerWordingPreview } from './NotebookAlternativesRail';
+import { comparesPartnerWording, PartnerWordingPreview } from './NotebookAlternativesRail';
 
 const SourceRow = ({ item, used, targets, onInsert, onRemove, onGoTo }) => (
   <article className={`notebook-workbench__row${used ? ' is-used' : ''}`}>
@@ -56,6 +56,7 @@ const NotebookWorkbenchPanel = ({
   const simpleScratchpad = splitDrawer && mode === 'scratchpad';
 
   if (mode === 'trial' && activeTrial) {
+    const comparing = comparesPartnerWording(activeTrial, trialStatus);
     return (
       <section className="notebook-workbench" aria-label="Try another wording">
         <header>
@@ -70,15 +71,16 @@ const NotebookWorkbenchPanel = ({
         ) : trialStatus === 'missing' ? (
           <p className="notebook-workbench__notice" role="status">The original paragraph is gone. Keep your version, or pick another.</p>
         ) : null}
-        <label className="notebook-workbench__field">
+        {comparing ? <PartnerWordingPreview trial={activeTrial} /> : <label className="notebook-workbench__field">
           <span>Alternative</span>
           <textarea value={activeTrial.alternative || ''} onChange={(event) => onChangeTrial(event.target.value)} rows={8} />
-        </label>
-        <PartnerWordingPreview trial={activeTrial} status={trialStatus} />
+        </label>}
         <div className="notebook-workbench__actions">
-          <Button variant="quiet" onClick={() => onPreviewTrial('original')}>Original</Button>
-          <Button variant="quiet" onClick={() => onPreviewTrial('trial')}>Read it in place</Button>
-          <Button variant="quiet" disabled={!activeTrial.alternative?.trim() || trialStatus !== 'ready'} onClick={onUseTrial}>Use this version</Button>
+          {!comparing ? <>
+            <Button variant="quiet" onClick={() => onPreviewTrial('original')}>Original</Button>
+            <Button variant="quiet" onClick={() => onPreviewTrial('trial')}>Read it in place</Button>
+          </> : null}
+          <Button variant="quiet" disabled={!activeTrial.alternative?.trim() || trialStatus !== 'ready'} onClick={onUseTrial}>{comparing ? 'Keep wording' : 'Use this version'}</Button>
           <Button variant="quiet" onClick={onKeepOriginal}>Keep my original</Button>
           <Button variant="quiet" onClick={onDiscardTrial}>Discard</Button>
         </div>

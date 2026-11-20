@@ -3,13 +3,31 @@ import { notebookTargetText, notebookTrialText } from '../../../utils/notebookWo
 import Amendment from '../../Amendment';
 import { readTighterCuts, renderReadTighterOriginal } from '../../../utils/notebookReadTighter';
 
-export function PartnerWordingPreview({ trial, status }) {
-  if (trial.origin !== 'partner' || status !== 'ready' || !trial.alternative?.trim()) return null;
-  return <details className="think-argument" open>
-    <summary>See the affected paragraph</summary>
-    <Amendment before={trial.target.baseText} after={notebookTrialText(trial.target, trial.alternative)}
+export const comparesPartnerWording = (trial, status) =>
+  trial?.origin === 'partner' && status === 'ready' && Boolean(trial.alternative?.trim());
+
+export function PartnerWordingPreview({ trial }) {
+  const before = trial.target.baseText;
+  const after = notebookTrialText(trial.target, trial.alternative);
+  const old = before.match(/\S+\s*|\s+/gu) || [];
+  const proposed = after.match(/\S+\s*|\s+/gu) || [];
+  const shortest = Math.min(old.length, proposed.length);
+  let prefix = 0;
+  while (prefix < shortest && old[prefix] === proposed[prefix]) prefix += 1;
+  let suffix = 0;
+  while (prefix + suffix < shortest && old.at(-1 - suffix) === proposed.at(-1 - suffix)) suffix += 1;
+  const changed = Math.max(old.length, proposed.length) - prefix - suffix;
+  const local = changed > 0 && changed <= Math.max(1, Math.floor(shortest / 3)) && prefix + suffix > 0;
+  const mark = (words, Mark) => {
+    const end = words.length - suffix;
+    const middle = words.slice(prefix, end).join('');
+    const phrase = middle.trimEnd();
+    return <>{words.slice(0, prefix).join('')}{phrase && <Mark>{phrase}</Mark>}{middle.slice(phrase.length)}{words.slice(end).join('')}</>;
+  };
+  return <div className="notebook-partner-comparison">
+    <Amendment before={local ? mark(old, 'del') : before} after={local ? mark(proposed, 'ins') : after}
       beforeLabel="Your draft" afterLabel="Partner’s proposal" />
-  </details>;
+  </div>;
 }
 
 // The document owns the alternatives. This strip lists them and adds one more.
@@ -47,13 +65,19 @@ const NotebookAlternativesRail = ({
   }, [trial.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const choices = (trials.some(item => item.id === trial.id) ? trials : [...trials, trial])
     .filter(item => String(item.alternative || '').trim());
-  const selected = preview === 'original' ? 0 : Math.max(0, choices.findIndex(item => item.id === trial.id) + 1);
+  const comparing = comparesPartnerWording(trial, status);
+  const selected = !comparing && preview === 'original' ? 0 : Math.max(0, choices.findIndex(item => item.id === trial.id) + 1);
   const choose = (index) => index === 0 ? onPreview('original') : onChoose(choices[index - 1]);
   const ready = status === 'ready' && Boolean(String(trial.alternative || '').trim());
   const originalParts = tighter && trial.alternative.trim()
     ? renderReadTighterOriginal(originalText, trial.alternative)
     : null;
   const cuts = tighter && trial.alternative.trim() ? readTighterCuts(originalText, trial.alternative) : [];
+  const rescue = cuts.map(cut => (
+    <button type="button" key={cut.id} className="notebook-alternatives__rescue" onClick={() => onRescue?.(cut)}>
+      Rescue “{cut.phrase}”
+    </button>
+  ));
   const commitDraft = () => {
     const wording = draft.trim();
     if (!wording) return;
@@ -80,10 +104,14 @@ const NotebookAlternativesRail = ({
       if (event.isComposing || event.defaultPrevented) return;
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); leave(); return; }
       if (event.target.tagName === 'TEXTAREA') return;
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault();
-        choose((selected + (event.key === 'ArrowDown' ? 1 : -1) + choices.length + 1) % (choices.length + 1));
-      } else if (event.key === 'Enter' && (event.target === root.current || event.target.hasAttribute('data-compare')) && preview !== 'original' && ready) { event.preventDefault(); onKeep(); }
+      const direction = event.key === 'ArrowDown' ? 1 : -1;
+      const first = comparing ? 1 : 0;
+      const count = choices.length + 1 - first;
+      choose(first + ((selected - first + direction + count) % count));
+    } else if (event.key === 'Enter' && (event.target === root.current || event.target.hasAttribute('data-compare'))
+      && (comparing || preview !== 'original') && ready) { event.preventDefault(); onKeep(); }
     }}>
       <header>
         <span>{tighter ? 'Shorter' : 'Alternatives'}</span>
@@ -92,24 +120,29 @@ const NotebookAlternativesRail = ({
       {unsupportedReason ? <p role="status" className="notebook-workbench__notice">{unsupportedReason}</p> : null}
       {partnerOptionsNotice ? <p role="status" className="notebook-workbench__notice">{partnerOptionsNotice}</p> : null}
       {status !== 'ready' ? <p role="status" className="notebook-workbench__notice">{status === 'stale' ? 'This passage changed. Your alternatives are still here.' : 'The original passage is gone. Your alternatives are still here.'}{status === 'stale' ? <button type="button" onClick={onReview}>Review current passage</button> : null}</p> : null}
-      <div role="group" aria-label="Compare wording">
-        <button type="button" data-compare="" className="notebook-alternatives__choice" aria-pressed={preview === 'original'} onClick={() => onPreview('original')}>
+      {comparing ? <>
+        <PartnerWordingPreview trial={trial} />
+        {trial.partnerExplanation ? <p className="notebook-workbench__notice">{trial.partnerExplanation}</p> : null}
+        {rescue}
+        <div className="notebook-alternatives__actions">
+          <button type="button" onClick={onKeep}>{tighter ? 'Keep shorter' : 'Keep wording'}</button>
+          <button type="button" onClick={onDiscard}>Discard</button>
+        </div>
+      </> : null}
+      {!comparing || choices.length > 1 ? <div role="group" aria-label={comparing ? 'Other wording' : 'Compare wording'}>
+        {!comparing ? <button type="button" data-compare="" className="notebook-alternatives__choice" aria-pressed={preview === 'original'} onClick={() => onPreview('original')}>
           <span className="notebook-alternatives__passage">{renderOriginalBody()}</span>
           <small>original</small>
-        </button>
-        {cuts.map((cut) => (
-          <button type="button" key={cut.id} className="notebook-alternatives__rescue" onClick={() => onRescue?.(cut)}>
-            Rescue “{cut.phrase}”
-          </button>
-        ))}
-        {choices.map(item => (
+        </button> : null}
+        {!comparing && rescue}
+        {choices.filter(item => !comparing || item.id !== trial.id).map(item => (
           <div key={item.id} className="notebook-alternatives__row">
             <button type="button" data-compare="" className="notebook-alternatives__choice" aria-pressed={preview === 'trial' && item.id === trial.id} onClick={() => onChoose(item)}>
               <span>{item.alternative}</span>
               {item.partnerExplanation ? <small>{item.partnerExplanation}</small> : null}
               {item.origin === 'partner' && !item.partnerExplanation ? <small>Partner’s</small> : null}
             </button>
-            {preview === 'trial' && item.id === trial.id ? (
+            {!comparing && preview === 'trial' && item.id === trial.id ? (
               <div className="notebook-alternatives__choice-actions">
                 <button type="button" disabled={!ready} onClick={onKeep}>{tighter ? 'Keep shorter' : 'Keep wording'}</button>
                 <button type="button" onClick={onDiscard}>Discard</button>
@@ -117,8 +150,7 @@ const NotebookAlternativesRail = ({
             ) : null}
           </div>
         ))}
-      </div>
-      {preview === 'trial' ? <PartnerWordingPreview trial={trial} status={status} /> : null}
+      </div> : null}
       <label className="notebook-alternatives__edit">
         <span className="sr-only">Add another wording</span>
         <textarea

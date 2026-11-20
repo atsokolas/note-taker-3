@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../../utils/sourceRoutes';
 
-export function ArgumentReturn({ line, piece, highlights, onResume, expanded }) {
-  if (!line?.text) return null;
+export function argumentContext(piece, highlights) {
   const nodes = piece?.nodes || [];
   const question = nodes.find(node => node.type === 'questionRef' && node.attrs?.questionId)?.attrs;
   const source = nodes.find(node => ['highlightRef', 'articleRef', 'blockquote'].includes(node.type) && (
@@ -18,15 +17,25 @@ export function ArgumentReturn({ line, piece, highlights, onResume, expanded }) 
   const href = articleId && (attrs.highlightId
     ? buildCanonicalHighlightPath({ articleId, highlightId: attrs.highlightId }) : buildCanonicalArticlePath(articleId));
 
+  return { question, quote, href, title };
+}
+
+export function ArgumentReturn({ line, context, onResume, sourceAction }) {
+  const { question, quote, href, title } = context;
   return (
-    <details className="think-argument" open={expanded}>
-      <summary>Continue the argument</summary>
-      {question?.questionText ? <p className="think-argument__question">From your question <Link to={`/think?tab=questions&questionId=${encodeURIComponent(question.questionId)}`}>{question.questionText}</Link></p> : null}
-      {quote ? <blockquote>{quote}</blockquote> : null}
-      {href ? <Link to={href}>{title}</Link> : null}
-      <p className="think-argument__line">{line.text}</p>
-      <button type="button" onClick={onResume}>Go to the writing</button>
-    </details>
+    <section className="think-argument" aria-label="Where you left off">
+      <div className="think-argument__return">
+        <small>Where you left off</small>
+        <p className="think-argument__line">{line.text}</p>
+        <button type="button" onClick={onResume}>Continue writing</button>
+      </div>
+      {question?.questionText || quote || href ? <details key={line.target?.blockId}>
+        <summary>{question?.questionText && (quote || href) ? 'Question and source' : question?.questionText ? 'Question' : 'Source'}</summary>
+        {question?.questionText ? <p><Link to={`/think?tab=questions&questionId=${encodeURIComponent(question.questionId)}`}>{question.questionText}</Link></p> : null}
+        {quote ? <blockquote>{quote}</blockquote> : null}
+        {href ? <div className="think-argument__source"><Link to={href}>{title}</Link>{sourceAction}</div> : null}
+      </details> : null}
+    </section>
   );
 }
 

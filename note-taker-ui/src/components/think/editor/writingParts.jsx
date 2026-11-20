@@ -175,16 +175,14 @@ const timeOf = (value) => {
     : '';
 };
 
-/* The bar above an entry: what kind it is, when it last saved (a timestamp
-   that fades rather than a standing "Saved"), and one menu. The Partner is
-   the shell's, one ⌘J away. */
+/* Writing status stays in the same slot as the draft moves through saves. */
 export const EntryBar = ({ kind = 'note', saveState = 'idle', savedAt = null, onRetry, children }) => (
   <div className="think-notebook-utility" aria-label="Note utilities">
     <span className="think-notebook-utility__kind">{kind}</span>
     <span className={`think-notebook-save-state is-${saveState}`} role="status" aria-live="polite">
       {saveState === 'saving' ? 'Saving…'
         : saveState === 'error' ? <>Not saved {onRetry ? <Button variant="quiet" onClick={onRetry}>Retry</Button> : null}</>
-          : savedAt ? <span key={String(savedAt)} className="think-notebook-save-state__time">Saved {timeOf(savedAt)}</span> : null}
+          : savedAt ? <span title={`Saved at ${timeOf(savedAt)}`}>Saved</span> : null}
     </span>
     {children ? (
       <details className="think-notebook-utility__more">
