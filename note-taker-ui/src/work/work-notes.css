@@ -375,6 +375,8 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-ledger__line { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-block-size: 44px; overflow-wrap: anywhere; }
 .work-ledger__line + .work-ledger__line { border-block-start: 1px solid var(--noeis-rule); }
 .work-notes .work-ledger__line > button { flex: none; min-block-size: 44px; padding-inline: var(--space-2); }
+.work-ledger__title :is(a, button) { display: inline-flex; align-items: center; min-block-size: 44px; text-align: start; }
+.work-ledger__title :is(.work-item-source, .work-outstanding-source) { display: block; margin-inline: 0; }
 .work-outstanding-tally { margin: 10px 0 0; font: 12px var(--font-sans); color: var(--noeis-ink-subtle); }
 .work-day-close { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--noeis-ink); }
 .work-owed { padding-top: 14px; border-top: 1px solid var(--noeis-rule); }
