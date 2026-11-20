@@ -174,10 +174,14 @@
 }
 
 .books__tally {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9ch;
+  gap: 8px;
   color: var(--muted);
   font: 0.82rem/1.5 var(--font-sans);
   font-variant-numeric: oldstyle-nums;
 }
+.books__position { text-align: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .books__last {
   margin-top: var(--space-2);

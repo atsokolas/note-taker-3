@@ -30,6 +30,21 @@ test('⌘⇧Return opens one line; what is typed goes to Noeis with the page it 
   expect(screen.getByRole('link', { name: 'See' })).toHaveAttribute('href', '/away?handoff=h1');
 });
 
+test('the shortcut opens a closed menu with the selected excerpt and Escape restores the action', async () => {
+  handOff.mockClear();
+  render(<MemoryRouter><details><summary>More</summary>
+    <HandOff context={{ kind: 'note', id: 'n1', title: 'Hiring' }} readExcerpt={() => 'The qualifying sentence.'} />
+  </details></MemoryRouter>);
+  fireEvent.keyDown(window, { key: 'Enter', ctrlKey: true, shiftKey: true });
+  expect(screen.getByText('More').closest('details')).toHaveAttribute('open');
+  const input = screen.getByRole('textbox', { name: 'What should be done while you are away' });
+  expect(input).toHaveFocus();
+  expect(screen.getByText('The qualifying sentence.')).toBeVisible();
+  fireEvent.keyDown(input, { key: 'Escape' });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Hand off' })).toHaveFocus());
+  expect(handOff).not.toHaveBeenCalled();
+});
+
 test('coming back: what the agent did, what is open, what is next, and what it wrote, inked with i', async () => {
   const done = { id: 'h1', ask: 'Finish the base rates section.', status: 'done', takenBy: 'Noeis', finishedAt: at, context: { kind: 'note', id: 'n1', title: 'Hiring' }, did: 'Finished it.', open: 'Which study?', next: 'Find it.' };
   listHandoffs.mockResolvedValue([done]);

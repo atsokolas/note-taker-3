@@ -10,7 +10,7 @@ import BookDesk from '../components/reader/BookDesk.jsx';
 import PassageDoor from '../components/reader/PassageDoorView';
 import useSourceWhereabouts from '../components/reader/useSourceWhereabouts';
 import {
-  BOOK_SAYS, bookendsOf, dayOf, isEarlier, kindOf, lastTime, longDate, monthOf, readingSince, readingsOf, setDownOn, sittingsOf, spineOf, tallyLine
+  BOOK_SAYS, bookendsOf, dayOf, isEarlier, kindOf, lastTime, longDate, monthOf, pageNow, readingSince, readingsOf, setDownOn, sittingsOf, spineOf, tallyLine
 } from '../components/reader/bookDesk';
 import { bookFrom } from '../components/library/LibraryPasteLink';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
@@ -175,13 +175,16 @@ const Shelf = () => {
           {books.map(book => {
             const last = book.closingLine ? { words: book.closingLine, own: true } : lastTime(book.marks);
             const setDown = setDownOn(book, book.marks);
+            const since = readingSince(book);
+            const page = book.finishedOn ? null : pageNow((book.marks || []).filter(mark => !isEarlier(mark, since)));
             return (
               <li key={book._id}>
                 <Link to={`/books/${book._id}`} className="books__book">
                   <span className="books__title">{book.title || 'Untitled book'}</span>
                   {book.author ? <span className="books__author">{book.author}</span> : null}
                   <span className="books__tally">
-                    {[book.finishedOn ? `Finished ${monthOf(dayOf(book.finishedOn))}` : '', setDown ? `Set down in ${monthOf(setDown)}` : '', tallyLine(book.marks) || (book.finishedOn ? '' : 'Nothing written yet')].filter(Boolean).join(' · ')}
+                    <span>{[book.finishedOn ? `Finished ${monthOf(dayOf(book.finishedOn))}` : '', setDown ? `Set down in ${monthOf(setDown)}` : '', tallyLine(book.marks) || (book.finishedOn ? '' : 'Nothing written yet')].filter(Boolean).join(' · ')}</span>
+                    <span className="books__position">{page ? <><span className="sr-only">Last marked </span>p. {page}</> : null}</span>
                   </span>
                   {last ? <q className={last.own ? 'books__last is-own' : 'books__last'}>{last.words}</q> : null}
                 </Link>
