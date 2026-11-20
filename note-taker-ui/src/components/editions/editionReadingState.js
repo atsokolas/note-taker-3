@@ -23,12 +23,13 @@ export const writeEditionLocal = (issueId, kind, value) => {
 export const findingAnchor = (id) => `edition-item-${id}`;
 export const findingHash = (id) => `#${encodeURIComponent(findingAnchor(id))}`;
 export const editionIssuePath = (id) => `/editions/${encodeURIComponent(id)}`;
+export const editionFindingPath = (issueId, itemId) => `${editionIssuePath(issueId)}${findingHash(itemId)}`;
 export const FINDING_LIMIT = 'What it doesn’t show';
 export const editionClip = (item, issueId, credit, excerpt) => {
   const text = (excerpt ?? item.finding)?.trim();
   if (!text || !issueId) return '';
   const limit = excerpt == null && item.boundary?.trim();
-  const href = `${window.location.origin}${editionIssuePath(issueId)}${findingHash(item.itemId)}`;
+  const href = `${window.location.origin}${editionFindingPath(issueId, item.itemId)}`;
   return [item.plain || item.title, text, limit && `${FINDING_LIMIT}\n${limit}`, [credit, href].filter(Boolean).join('\n')]
     .filter(Boolean).join('\n\n');
 };

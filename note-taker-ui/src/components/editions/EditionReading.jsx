@@ -2,6 +2,7 @@ import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import useEvidenceReturnFocus from '../../hooks/useEvidenceReturnFocus';
 import { setEditionItemState } from '../../api/editions';
+import { createNotebookEntry } from '../../api/notebook';
 import {
   aheadLine,
   byHand,
@@ -22,7 +23,7 @@ import SectionSilence from './SectionSilence';
 import SourcePeek from './SourcePeek';
 import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
 import useEditionIssue from './useEditionIssue';
-import { editionClip, editionIssuePath, findingAnchor, findingHash, readingPosition, writeEditionLocal } from './editionReadingState';
+import { editionClip, editionFindingPath, editionIssuePath, findingAnchor, findingHash, readingPosition, writeEditionLocal } from './editionReadingState';
 
 const READ_AFTER_MS = 4000;
 
@@ -57,6 +58,8 @@ export default function EditionReading({
   const location = useLocation();
   const [peek, setPeek] = useState(null);
   const [selection, setSelection] = useState(null);
+  const [keptSelection, setKeptSelection] = useState(null);
+  const keeping = useRef(false);
   const thoughts = useEditionThoughts(issue._id);
   useEffect(() => {
     setSelection(null);
@@ -228,6 +231,27 @@ export default function EditionReading({
   const paperTitle = paper?.title || row.profileLabel || row.title || '';
   const coverage = windowLine(row);
   const clippingCredit = [paperTitle, issueName || coverage].filter(Boolean).join(' · ');
+  const selectionKey = selection && JSON.stringify([selection.itemId, selection.quote]);
+  const keepReceipt = keptSelection?.key === selectionKey ? keptSelection : null;
+  const keepSelection = async item => {
+    if (keeping.current || keepReceipt?.entryId) return;
+    keeping.current = true;
+    setKeptSelection({ key: selectionKey, phase: 'saving' });
+    try {
+      const note = await createNotebookEntry({
+        source: 'edition-selection',
+        title: item.plain || item.title,
+        blocks: [{ type: 'quote', text: selection.quote, articleTitle: clippingCredit,
+          sourcePath: editionFindingPath(issue._id, item.itemId) }]
+      });
+      if (!note?._id) throw new Error('Missing note receipt');
+      setKeptSelection({ key: selectionKey, entryId: note._id });
+    } catch {
+      setKeptSelection({ key: selectionKey, phase: 'failed' });
+    } finally {
+      keeping.current = false;
+    }
+  };
   const run = paper?.issues || [];
   const place = run.findIndex(other => other._id === issue._id);
   const before = place > 0 ? run[place - 1] : null;
@@ -265,11 +289,18 @@ export default function EditionReading({
         <div ref={selectionTools} className="reading-selection" role="group" aria-label="Selected text"
           onMouseDown={event => { if (event.target.closest('button')) event.preventDefault(); }}>
           <CopyClip clip={editionClip(item, issue._id, clippingCredit, selection.quote)} idleLabel="Copy selection" />
+          <button type="button" aria-disabled={keptSelection?.phase === 'saving' || Boolean(keepReceipt?.entryId)} onClick={() => keepSelection(item)}>
+            {keepReceipt?.entryId ? 'Kept in Notebook' : keepReceipt?.phase === 'saving' ? 'Keeping…' : 'Keep in Notebook'}
+          </button>
           {selection.lead ? <button type="button" onClick={() => {
             const origin = document.getElementById(findingAnchor(item.itemId))?.querySelector('.reading-actions button:last-child');
             openPeek(item, 'thought', origin, selection.quote);
             window.getSelection()?.removeAllRanges();
           }}>Leave a thought</button> : null}
+          <span role="status" className={keepReceipt?.phase === 'failed' ? 'reading-selection__receipt' : 'sr-only'}>
+            {keepReceipt?.entryId ? 'Kept in Notebook.' : keepReceipt?.phase === 'failed' ? 'That didn’t save. Try again.' : ''}
+          </span>
+          {keepReceipt?.entryId ? <Link className="reading-selection__receipt" to={`/think?tab=notebook&entryId=${encodeURIComponent(keepReceipt.entryId)}`}>Open note →</Link> : null}
         </div>
       ) : null}
     />

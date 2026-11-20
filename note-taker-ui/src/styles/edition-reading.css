@@ -185,6 +185,8 @@
 .reading-thought [role=alert] { color: var(--text-primary); font: 14px/1.6 var(--reading-sans); }
 .reading-selection { display: flex; flex-wrap: wrap; gap: 0 var(--space-3); margin-block: 0 var(--space-4); padding-inline: var(--space-3); border-inline-start: 2px solid var(--reading-thread); background: var(--reading-panel); font: 14px/1.5 var(--reading-sans); }
 .reading-selection > button { min-block-size: 44px; padding: 0; color: var(--reading-thread); text-decoration: underline; }
+.reading-selection button[aria-disabled="true"] { color: var(--reading-muted); text-decoration: none; }
+.reading-selection__receipt { flex-basis: 100%; display: flex; align-items: center; min-block-size: 44px; color: var(--reading-ink); }
 .reading-arrivals { position: fixed; z-index: 32; bottom: 24px; right: 24px; background: var(--reading-paper); border: 1px solid var(--reading-rule); border-radius: 4px; padding: 10px 16px; font: 13px/1.6 var(--reading-sans); }
 .reading-arrivals button { padding: 0; }
 .edition-peek { margin: 0; max-height: none; height: auto; color: var(--reading-ink); border: 0; position: fixed; inset: 96px 0 0 auto; z-index: 40; width: 340px; padding: 22px 24px 48px; overflow-y: auto; box-sizing: border-box; background: var(--reading-paper); border-left: 1px solid var(--reading-rule); box-shadow: -4px 0 18px #00000006; overscroll-behavior: contain; }

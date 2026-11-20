@@ -1772,7 +1772,7 @@ const NotebookEditor = ({
                     ? `Return to ${notebookSourceMeta.label}`
                     : notebookSourceMeta.label}
                 </a>
-                <p>
+                {notebookSourceMeta.kind !== 'edition' ? <p>
                   {notebookSourceMeta.kind === 'library' ? (
                     'This started from a highlight. Open it any time; you won’t lose your place.'
                   ) : (
@@ -1783,7 +1783,7 @@ const NotebookEditor = ({
                       {notebookSourceMeta.importedAt ? ` Started here on ${notebookSourceMeta.importedAt}.` : ''}
                     </>
                   )}
-                </p>
+                </p> : null}
               </div>
               {notebookSourceMeta.kind === 'concept' ? (
                 <a className={buttonClass('quiet', 'think-notebook-editor-provenance__link')} href={notebookSourceMeta.href}>
