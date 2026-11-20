@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { listWikiChanges, listWikiPages } from '../../api/wiki';
+import { getReadingContinuation } from '../../api/readingRoom';
 import { fileReadingProposal, getDueView, getPushesAgainst } from '../../api/judgmentResolution';
 import { formatLedgerDate } from '../../pages/judgmentModel';
 import { wikiReadPath } from '../../utils/wikiFeatureFlags';
-import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
+import { currentAccountId, purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
-import { buildPassagePath } from '../../utils/sourceRoutes';
+import { buildCanonicalArticlePath, buildPassagePath } from '../../utils/sourceRoutes';
+import { progressPhrase } from '../library/libraryReadingRoomModel';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiCreationComposer from './WikiCreationComposer';
@@ -29,6 +31,58 @@ import '../../styles/wiki-collection.css';
 const INDEX_PAGE_LIMIT = 500;
 const WIKI_FRONT_PAGE_CACHE_KEY = 'noeis.wiki.frontPageSnapshot.v1';
 const frontPageCacheKey = () => scopedKey(WIKI_FRONT_PAGE_CACHE_KEY);
+
+const ContinueReading = () => {
+  const account = currentAccountId();
+  const location = useLocation();
+  const [place, setPlace] = useState(null);
+  const link = useRef(null);
+  const dismissalKey = scopedKey('noeis.wiki.readingDismissed');
+  const visit = place && `${place.articleId}:${place.visitedAt}`;
+
+  useEffect(() => {
+    if (!account) return undefined;
+    let live = true;
+    getReadingContinuation().then(next => {
+      if (!live || account !== currentAccountId() || !next?.articleId) return;
+      try {
+        if (localStorage.getItem(dismissalKey) === `${next.articleId}:${next.visitedAt}`) return;
+      } catch (_) { /* The suggestion is still usable without browser storage. */ }
+      setPlace({ ...next, account });
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [account, dismissalKey]);
+
+  useEffect(() => {
+    if (place?.articleId === location.state?.readingArticleId) link.current?.focus({ preventScroll: true });
+  }, [location.state, place]);
+
+  if (!place || place.account !== account) return null;
+  const dismiss = () => {
+    try { localStorage.setItem(dismissalKey, visit); } catch (_) {}
+    setPlace(null);
+    const index = document.querySelector('.wiki-collection__pages .wiki-collection__title')
+      || document.querySelector('.wiki-collection__newpage');
+    index?.focus({ preventScroll: true });
+  };
+
+  return (
+    <section className="wiki-collection__resume" aria-labelledby="wiki-resume-title">
+      <div>
+        <h2 id="wiki-resume-title">Pick up where you left off</h2>
+        <p>{place.title} <span>· {progressPhrase(place.ratio)}</span></p>
+      </div>
+      <div className="wiki-collection__resume-actions">
+        <Link
+          ref={link}
+          to={buildCanonicalArticlePath(place.articleId)}
+          state={{ fromWikiReading: true }}
+        >Resume at passage <span aria-hidden="true">→</span></Link>
+        <button type="button" onClick={dismiss}>Dismiss</button>
+      </div>
+    </section>
+  );
+};
 
 const readFrontPageCache = () => {
   try {
@@ -481,6 +535,8 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             </>
           )}
         />
+
+        {showingSince && !composerOpen && !error ? <ContinueReading /> : null}
 
         {composerOpen && !emptyComposer ? (
           <section ref={composerRef} className="wiki-collection__composer" aria-label="Build a wiki page">

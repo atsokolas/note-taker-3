@@ -320,6 +320,7 @@ const articleReadingStateSchema = new mongoose.Schema({
   visitedAt: { type: Date, required: true }
 }, { timestamps: true });
 articleReadingStateSchema.index({ userId: 1, articleId: 1 }, { unique: true });
+articleReadingStateSchema.index({ userId: 1, visitedAt: -1, _id: -1 });
 const ArticleReadingState = mongoose.model('ArticleReadingState', articleReadingStateSchema);
 
 // --- NOTEBOOK: Schema for freeform notes with checklists ---
@@ -940,7 +941,11 @@ const wikiJudgmentSchema = new mongoose.Schema({
   heldHistory: {
     type: [new mongoose.Schema({
       text: { type: String, required: true, trim: true },
-      until: { type: Date, required: true }
+      until: { type: Date, required: true },
+      evidence: { type: new mongoose.Schema({
+        reasonId: String, text: String, sourceLabel: String, acceptedFrom: String,
+        sourceRefIds: [String]
+      }, { _id: false }), default: undefined }
     }, { _id: false })],
     default: []
   },
@@ -3062,6 +3067,8 @@ const integrationConnectionSchema = new mongoose.Schema({
   lastValidatedAt: { type: Date, default: null },
   lastPreviewAt: { type: Date, default: null },
   lastSyncResult: {
+    importedArticles: { type: Number },
+    importedHighlights: { type: Number },
     importedNotes: { type: Number, default: 0 },
     skippedRows: { type: Number, default: 0 },
     indexingQueued: { type: Number, default: 0 },
@@ -3562,7 +3569,8 @@ const handoffSchema = new mongoose.Schema({
     kind: { type: String, default: '' },
     id: { type: String, default: '' },
     title: { type: String, default: '' },
-    excerpt: { type: String, default: '', maxlength: 4000 }
+    excerpt: { type: String, default: '', maxlength: 4000 },
+    href: { type: String, default: '' }
   },
   // '' for any agent, 'noeis' for the built-in agent, else one connection's id.
   to: { type: String, default: '' },

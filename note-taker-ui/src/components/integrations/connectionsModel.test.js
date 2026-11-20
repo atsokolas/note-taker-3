@@ -2,10 +2,19 @@ import {
   createConnectionHandoff,
   projectAgentGrant,
   projectConnectionActivity,
-  projectSourceConnection
+  projectSourceConnection,
+  sourceImportSession
 } from './connectionsModel';
 
 describe('Connections production model', () => {
+  it('finds the failed import for this connection after reload and retires it after success', () => {
+    const connection = { id: 'rw-1', provider: 'readwise' };
+    const failed = { connectionId: 'rw-1', provider: 'readwise', status: 'failed', updatedAt: '2026-09-17T10:04:00Z' };
+    const otherGrant = { ...failed, connectionId: 'rw-2' };
+    expect(sourceImportSession(connection, null, [otherGrant, failed])).toBe(failed);
+    expect(sourceImportSession({ ...connection, lastSyncAt: '2026-09-17T10:05:00Z' }, null, [failed])).toBeNull();
+    expect(sourceImportSession({ ...connection, lastSyncAt: '2026-09-17T10:03:00Z' }, null, [failed])).toBe(failed);
+  });
   it('keeps authorization, import, and search readiness independent', () => {
     expect(projectSourceConnection({
       provider: 'readwise',

@@ -94,3 +94,17 @@ test('partner options request stays explicit and shows explanations', () => {
   expect(onRequest).toHaveBeenCalledTimes(1);
   expect(screen.getByText('States the point without padding.')).toBeInTheDocument();
 });
+
+test('a saved Partner option shows one comparison and marks only the local replacement', () => {
+  const original = 'Keep a spare hour close to the step that can hold up the whole team.';
+  const proposal = 'Keep a spare hour at the step that can hold up the whole team.';
+  const trial = { id: 'p1', target: { blockId: 'p1', baseText: original }, alternative: proposal, origin: 'partner' };
+  const props = setup({ trial, trials: [trial], preview: 'original' });
+  const pane = screen.getByRole('region', { name: 'Alternatives' });
+  expect(Array.from(pane.querySelectorAll('dd'), row => row.textContent)).toEqual([original, proposal]);
+  expect(pane.querySelector('del')).toHaveTextContent('close to');
+  expect(pane.querySelector('ins')).toHaveTextContent('at');
+  expect(screen.queryByRole('group', { name: 'Compare wording' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Keep wording' }));
+  expect(props.onKeep).toHaveBeenCalledTimes(1);
+});

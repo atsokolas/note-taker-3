@@ -2393,6 +2393,9 @@ describe('WikiPageReadView', () => {
     expect(screen.getByText('You were checking')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy these words + reference' })).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: /Back to the cited line/i }));
+    await waitFor(() => expect(citation).toHaveFocus());
+
     fireEvent.click(within(ref).getByRole('link', { name: 'Jump back to citation 1' }));
     expect(citation.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   });

@@ -91,7 +91,7 @@ const buildHighlightMutationRouter = ({
   router.post('/articles/:id/highlights', authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
-      const { text, note, tags, anchor, color } = req.body;
+      const { text, note, tags, anchor, color, captureId } = req.body;
       const userId = req.user.id;
 
       const typed = typeof text === 'string' ? text.trim() : '';
@@ -100,6 +100,9 @@ const buildHighlightMutationRouter = ({
       // A passage, or a thought written beside a book with no passage under it.
       if (typed ? typed.length < 3 : !thought) {
         return res.status(400).json({ error: "Highlight text is required." });
+      }
+      if (captureId !== undefined && (typeof captureId !== 'string' || !/^[a-f0-9]{24}$/.test(captureId) || !typed || !anchor)) {
+        return res.status(400).json({ error: 'That saved passage is missing its capture details.' });
       }
 
       const article = await Article.findOne({ _id: id, userId });
@@ -121,13 +124,31 @@ const buildHighlightMutationRouter = ({
           highlight: serializeHighlightWithArticle(article, held, { includeAnchor: true, normalizeItemType })
         });
       }
-      article.highlights.push({
+      const highlight = {
         ...buildHighlightDocument({ text: typed, note: thought, tags, color, anchor, page, normalizeTags }),
         pencil: pencilOf(req)
-      });
-      const updatedArticle = await article.save();
+      };
+      let updatedArticle;
+      if (captureId) {
+        // Claim the mark once even if the first acknowledgement never arrives.
+        const markId = createHash('sha256').update(JSON.stringify([userId, id, captureId])).digest('hex').slice(0, 24);
+        updatedArticle = await Article.findOneAndUpdate(
+          { _id: id, userId, 'highlights._id': { $ne: markId } },
+          { $push: { highlights: { ...highlight, _id: markId } } },
+          { new: true, runValidators: true }
+        );
+        if (!updatedArticle) {
+          const latest = await Article.findOne({ _id: id, userId });
+          const saved = latest?.highlights?.find(row => String(row._id) === markId);
+          if (!saved || saved.text !== typed) return res.status(409).json({ error: 'That saved passage changed. Open the article to check it.' });
+          return res.status(200).json({ article: latest, highlight: serializeHighlightWithArticle(latest, saved, { includeAnchor: true, normalizeItemType }) });
+        }
+      } else {
+        article.highlights.push(highlight);
+        updatedArticle = await article.save();
+      }
 
-      const createdHighlight = updatedArticle.highlights?.[updatedArticle.highlights.length - 1];
+      const createdHighlight = updatedArticle.highlights?.at(-1);
       if (createdHighlight) {
         enqueueHighlightEmbedding({ highlight: createdHighlight, article: updatedArticle });
         await markTourSignal(req.user.id, 'firstHighlightCaptured', 'highlight_captured');

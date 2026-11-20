@@ -11,9 +11,10 @@ import {
   buildEvernoteConnectionReceipt,
   buildNotionConnectionReceipt,
   buildReadwiseConnectionReceipt,
-  describeReadwiseCadence
+  describeReadwiseCadence,
+  completedSourceSync
 } from '../components/integrations/connectionReceiptModel';
-import { projectSourceConnection } from '../components/integrations/connectionsModel';
+import { projectSourceConnection, sourceImportSession } from '../components/integrations/connectionsModel';
 import SurfaceNotice from '../components/feedback/SurfaceNotice';
 import { normalizeSystemReceipt } from '../system/systemStatusModel';
 import { updateConcept, getConcepts } from '../api/concepts';
@@ -27,6 +28,7 @@ import {
   exportToNotionPage,
   getActiveImportSession,
   listImportConnections,
+  listImportSessions,
   previewNotionConnection,
   previewReadwiseConnection,
   startNotionOAuth,
@@ -625,6 +627,7 @@ const DataIntegrations = () => {
   }, [systemStatus]);
   const explicitSourceSelectionRef = useRef(Boolean(getRequestedSourceFromLocation()));
   const [chosenSource, setChosenSource] = useState(getRequestedSourceFromLocation);
+  const [chosenReadwiseId, setChosenReadwiseId] = useState('');
   const selectSource = useCallback((source) => {
     if (SOURCE_OPTIONS.some(option => option.key === source)) {
       explicitSourceSelectionRef.current = true;
@@ -632,8 +635,9 @@ const DataIntegrations = () => {
       setPreviewPassageOpen(false);
     }
   }, []);
-  const selectSourceFromAction = useCallback((source) => {
+  const selectSourceFromAction = useCallback((source, connectionId = '') => {
     selectSource(source);
+    setChosenReadwiseId(source === 'readwise' ? connectionId : '');
     const next = `${window.location.pathname}${window.location.search}#${source}`;
     window.history.pushState({}, '', next);
   }, [selectSource]);
@@ -641,6 +645,7 @@ const DataIntegrations = () => {
   const [importStats, setImportStats] = useState(null);
   const [lastImportSourceLabel, setLastImportSourceLabel] = useState('');
   const [currentSession, setCurrentSession] = useState(null);
+  const [recentFailures, setRecentFailures] = useState([]);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [embeddingJobStatus, setEmbeddingJobStatus] = useState(null);
   const [indexRetryingId, setIndexRetryingId] = useState('');
@@ -698,6 +703,9 @@ const DataIntegrations = () => {
 
   useEffect(() => {
     let cancelled = false;
+    listImportSessions({ status: 'failed' }).then(sessions => {
+      if (!cancelled) setRecentFailures(sessions);
+    }).catch(error => console.error('Failed to load recent import failures:', error));
     const loadActiveSession = async () => {
       setSessionLoading(true);
       try {
@@ -1059,11 +1067,12 @@ const DataIntegrations = () => {
     }
   };
 
-  const createSessionForImport = async ({ provider, mode, sourceLabel, sourceType }) => {
+  const createSessionForImport = async ({ provider, mode, sourceLabel, sourceType, connectionId }) => {
     const session = await createImportSession({
       provider,
       mode,
       sourceLabel,
+      ...(connectionId ? { connectionId } : {}),
       status: 'draft',
       config: {
         sourceType,
@@ -1101,12 +1110,13 @@ const DataIntegrations = () => {
     return nextSession;
   };
 
-  const ensureSessionForSource = async ({ provider, mode, sourceLabel, sourceType }) => {
+  const ensureSessionForSource = async ({ provider, mode, sourceLabel, sourceType, connectionId }) => {
     if (
       currentSession?.id
       && currentSession.provider === provider
       && ['draft', 'preview_ready'].includes(currentSession.status)
       && (!sourceLabel || currentSession.sourceLabel === sourceLabel)
+      && (!connectionId || currentSession.connectionId === connectionId)
     ) {
       return currentSession;
     }
@@ -1114,7 +1124,8 @@ const DataIntegrations = () => {
       provider,
       mode,
       sourceLabel,
-      sourceType
+      sourceType,
+      connectionId
     });
   };
 
@@ -1443,11 +1454,13 @@ const DataIntegrations = () => {
         provider: 'readwise',
         mode: 'api_token',
         sourceLabel: readwiseSyncConnection.accountLabel || 'Readwise',
-        sourceType: 'api'
+        sourceType: 'api',
+        connectionId: readwiseSyncConnection.id
       });
       if (session?.id) {
         setCurrentSession({
           ...session,
+          connectionId: readwiseSyncConnection.id,
           status: 'importing',
           sourceLabel: readwiseSyncConnection.accountLabel || session.sourceLabel || 'Readwise',
           progress: {
@@ -1509,25 +1522,29 @@ const DataIntegrations = () => {
       }
     } catch (error) {
       console.error('Readwise sync failed:', error);
+      const message = error.response?.data?.error || 'Failed to sync from Readwise.';
+      const unavailable = error.response?.status === 409;
       if (session?.id) {
         setCurrentSession((previous) => {
           if (!previous || previous.id !== session.id) return previous;
           return {
             ...previous,
             status: 'failed',
+            lastError: message,
+            updatedAt: new Date().toISOString(),
             progress: {
               ...(previous.progress || {}),
-              stage: 'failed'
+              stage: unavailable ? 'readwise_sync_unavailable' : 'failed'
             }
           };
         });
       }
-      setStatus(error.response?.data?.error || 'Failed to sync from Readwise.', 'error');
+      setStatus(message, 'error');
       systemStatus.setRecoverableFailure({
         stage: 'Readwise sync',
-        message: error.response?.data?.error || 'Failed to sync from Readwise.',
-        retryable: true,
-        retry: () => { handleReadwiseSync(); }
+        message,
+        retryable: !unavailable,
+        retry: unavailable ? null : handleReadwiseSync
       });
     } finally {
       setReadwiseSyncing(false);
@@ -1693,11 +1710,13 @@ const DataIntegrations = () => {
         provider: 'notion',
         mode: 'oauth',
         sourceLabel: notionConnection.accountLabel || 'Notion',
-        sourceType: 'oauth'
+        sourceType: 'oauth',
+        connectionId: notionConnection.id
       });
       if (session?.id) {
         setCurrentSession({
           ...session,
+          connectionId: notionConnection.id,
           status: 'importing',
           sourceLabel: notionConnection.accountLabel || session.sourceLabel || 'Notion',
           progress: {
@@ -1761,12 +1780,15 @@ const DataIntegrations = () => {
       }
     } catch (error) {
       console.error('Notion sync failed:', error);
+      const message = error.response?.data?.error || 'Failed to sync from Notion.';
       if (session?.id) {
         setCurrentSession((previous) => {
           if (!previous || previous.id !== session.id) return previous;
           return {
             ...previous,
             status: 'failed',
+            lastError: message,
+            updatedAt: new Date().toISOString(),
             progress: {
               ...(previous.progress || {}),
               stage: 'failed'
@@ -1774,10 +1796,10 @@ const DataIntegrations = () => {
           };
         });
       }
-      setStatus(error.response?.data?.error || 'Failed to sync from Notion.', 'error');
+      setStatus(message, 'error');
       systemStatus.setRecoverableFailure({
         stage: 'Notion sync',
-        message: error.response?.data?.error || 'Failed to sync from Notion.',
+        message,
         retryable: true,
         retry: () => { handleNotionSync(); }
       });
@@ -2401,7 +2423,8 @@ const DataIntegrations = () => {
   // no longer discards an mcp_remote connection. The direct one still wins when both
   // exist: a personal token is what Readwise documents for export and it does not
   // expire partway through a long archive.
-  const readwiseSyncConnection = readwiseDirectConnection || readwiseConnection || null;
+  const readwiseSyncConnection = readwiseConnections.find(connection => connection.id === chosenReadwiseId)
+    || readwiseDirectConnection || readwiseConnection || null;
   const busy = importing.manual
     || importing.paste
     || importing.csv
@@ -2457,7 +2480,7 @@ const DataIntegrations = () => {
       : 'Connect with Readwise and your whole archive comes across.';
   const notionReceipt = buildNotionConnectionReceipt({
     connection: notionConnection,
-    session: currentSession,
+    session: sourceImportSession(notionConnection, currentSession, recentFailures),
     importStats,
     lastImportSourceLabel,
     syncing: notionSyncing,
@@ -2467,7 +2490,7 @@ const DataIntegrations = () => {
     readwiseAgentConnection,
     readwiseSyncConnection,
     connection: readwiseConnection,
-    session: currentSession,
+    session: sourceImportSession(readwiseSyncConnection, currentSession, recentFailures),
     importStats,
     lastImportSourceLabel,
     syncing: readwiseSyncing,
@@ -2540,15 +2563,12 @@ const DataIntegrations = () => {
     ...uniqueReadwiseConnections.map(connection => projectSourceConnection({
       provider: 'readwise',
       connection,
-      session: currentSession?.provider === 'readwise'
-        && (!currentSession.connectionId || String(currentSession.connectionId) === String(connection.id))
-        ? currentSession
-        : null
+      session: sourceImportSession(connection, currentSession, recentFailures)
     })),
     ...(notionConnection?.id ? [projectSourceConnection({
       provider: 'notion',
       connection: notionConnection,
-      session: currentSession?.provider === 'notion' ? currentSession : null
+      session: sourceImportSession(notionConnection, currentSession, recentFailures)
     })] : [])
   ];
   const connectedProviderKeys = new Set(connectedSourceRows.map(row => row.provider));
@@ -2569,17 +2589,19 @@ const DataIntegrations = () => {
         {connectedSourceRows.length ? (
           <div className="connections-rows">
             {connectedSourceRows.map((source, index) => {
+              const isSelected = selectedSource === source.provider
+                && (source.provider !== 'readwise' || readwiseSyncConnection?.id === source.id);
               const sourceOption = SOURCE_OPTIONS.find(option => option.key === source.provider);
               return (
                 <button
                   key={source.id}
                   type="button"
-                  className={`connections-row connections-source-row connections-row--${source.tone} import-source-card import-source-card--${getSourceCardTone(source.provider)} ${selectedSource === source.provider ? 'is-active' : ''}`}
-                  aria-pressed={selectedSource === source.provider}
+                  className={`connections-row connections-source-row connections-row--${source.tone} import-source-card import-source-card--${getSourceCardTone(source.provider)} ${isSelected ? 'is-active' : ''}`}
+                  aria-pressed={isSelected}
                   data-testid={index === connectedSourceRows.findIndex(row => row.provider === source.provider)
                     ? `import-source-card-${source.provider}`
                     : undefined}
-                  onClick={() => selectSourceFromAction(source.provider)}
+                  onClick={() => selectSourceFromAction(source.provider, source.id)}
                 >
                   <span className="connections-row-title">
                     <strong>{source.label}</strong>
@@ -2591,6 +2613,12 @@ const DataIntegrations = () => {
                     <span className="connections-state-dot" aria-hidden="true" />
                     <strong>{source.stateLabel}</strong>
                     <small>{source.detail}</small>
+                    {source.completedSync ? (
+                      <small>
+                        Last completed import <time dateTime={source.completedSync.at}>{source.completedSync.label}</time>
+                        {source.tone === 'connected' || !source.completedSync.summary ? '' : ` · ${source.completedSync.summary}`}
+                      </small>
+                    ) : null}
                   </span>
                   <span className="connections-text-button connections-row-action">{source.nextAction} →</span>
                 </button>
@@ -2897,6 +2925,7 @@ const DataIntegrations = () => {
               receipt={readwiseReceipt}
               testId="readwise-sync-receipt"
               providerLabel="Readwise"
+              completedSync={completedSourceSync(readwiseSyncConnection)}
               onNextAction={handleReadwiseSync}
               nextActionBusy={readwiseSyncing}
             />
@@ -2958,17 +2987,17 @@ const DataIntegrations = () => {
               </div>
             </div>
           </details>
-          {readwiseConnection ? (
+          {readwiseSyncConnection ? (
             <div className="import-summary" style={{ marginBottom: 16 }}>
               <p className="muted-label">Connected account</p>
-              <p>Label: {readwiseConnection.accountLabel || 'Readwise'}</p>
-              <p>{readwiseConnection.mode === 'mcp_remote' ? 'Connected in the browser.' : 'Connected with an access token.'}</p>
-              {readwiseConnection.status === 'connected' ? (
+              <p>Label: {readwiseSyncConnection.accountLabel || 'Readwise'}</p>
+              <p>{readwiseSyncConnection.mode === 'mcp_remote' ? 'Connected in the browser.' : 'Connected with an access token.'}</p>
+              {readwiseSyncConnection.status === 'connected' ? (
                 <button
                   type="button"
                   className="connections-text-button connections-danger"
                   onClick={() => setDisconnectCandidate({
-                    ...readwiseConnection,
+                    ...readwiseSyncConnection,
                     provider: 'readwise'
                   })}
                 >
@@ -3010,6 +3039,7 @@ const DataIntegrations = () => {
               receipt={notionReceipt}
               testId="notion-sync-receipt"
               providerLabel="Notion"
+              completedSync={completedSourceSync(notionConnection)}
               onNextAction={handleNotionSync}
               nextActionBusy={notionSyncing}
             />

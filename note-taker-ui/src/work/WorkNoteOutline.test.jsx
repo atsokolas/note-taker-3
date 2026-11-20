@@ -51,6 +51,13 @@ test('a removed source passage opens the note with an honest fallback', () => {
   expect(writing()).toHaveTextContent('Updated writing.');
 });
 
+test('a project-log date opens its entry without changing the note', () => {
+  const changed = jest.fn();
+  render(<WorkNoteEditor note={{ _id: 'dated', content }} sourceDay="2026-11-04" onChange={changed} />);
+  expect(writing().editor.state.selection.$from.parent.textContent).toBe('4 November 2026');
+  expect(changed).not.toHaveBeenCalled();
+});
+
 test('folding a long note never serializes hidden content away and undo still edits the complete document', () => {
   const content = Array.from({ length: 80 }, (_, index) => `<h2 data-block-id="h-${index}">Topic ${index + 1}</h2><p data-block-id="p-${index}">Original words ${index + 1}.</p>`).join('');
   const changed = jest.fn(); render(<WorkNoteEditor note={{ _id: 'long', content }} onChange={changed} />);

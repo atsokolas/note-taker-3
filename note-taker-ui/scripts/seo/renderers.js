@@ -233,6 +233,7 @@ const renderHomeFallback = (content) => `
         <p class="lede">${escapeHtml(content.home.lede)}</p>
         <div class="cta-row">
           <a class="button primary" href="${escapeHtml(buildMarketingHref(content.home.primaryCta.href, { entry: 'home', cta: 'hero', pageType: 'home' }))}">${escapeHtml(content.home.primaryCta.label)}</a>
+          <a class="button" href="${escapeHtml(content.home.evidenceCta.href)}">${escapeHtml(content.home.evidenceCta.label)}</a>
         </div>
       </header>
       <section class="card" id="how-it-works">

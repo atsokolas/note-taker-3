@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useEditor } from '@tiptap/react';
 import { createDocument, Extension, Mark, mergeAttributes, markPasteRule } from '@tiptap/core';
 import EditorDraftShell from '../components/think/editor/EditorDraftShell';
@@ -68,7 +68,7 @@ const WorkEntryDates = Extension.create({
   }
 });
 
-export default function WorkNoteEditor({ note, onChange, onMakeOpen, fresh = false, sourceBlock = null, today = dayInZone(), heading = null, footer = null, onRename = null, onTrash = null }) {
+export default function WorkNoteEditor({ note, onChange, onMakeOpen, fresh = false, sourceBlock = null, sourceDay = null, today = dayInZone(), heading = null, footer = null, onRename = null, onTrash = null }) {
   const surface = useRef(null), contents = useRef(null), change = useRef(onChange), slashKey = useRef(null), returnPoint = useRef(null), composing = useRef(false);
   change.current = onChange;
   const [url, setUrl] = useState('');
@@ -157,7 +157,7 @@ export default function WorkNoteEditor({ note, onChange, onMakeOpen, fresh = fal
   const entries = editor ? noteEntries(editor.state.doc) : [];
   const outline = editor ? noteOutline(editor.state.doc) : [];
   const folded = editor ? foldedHeadings(editor) : new Set();
-  const openEntry = (entry, writing = false) => {
+  const openEntry = useCallback((entry, writing = false) => {
     let position = entry.position + 1, hasBody = false;
     if (writing) editor.state.doc.nodesBetween(entry.position + entry.size, entry.end, (node, at) => {
       if (node.isTextblock) { position = at + node.nodeSize - 1; hasBody = true; }
@@ -170,7 +170,12 @@ export default function WorkNoteEditor({ note, onChange, onMakeOpen, fresh = fal
     editor.chain().focus(null, { scrollIntoView: false }).setMeta(outlineKey, { type: 'reveal', position: entry.position + entry.size }).setTextSelection(position).run();
     scrollToWriting(editor, writing ? editor.state.doc.resolve(position).before() : entry.position, writing ? 'end' : 'start');
     if (contents.current) contents.current.open = false;
-  };
+  }, [editor]);
+  useLayoutEffect(() => {
+    if (!editor || (sourceBlock && !sourceMissing) || !sourceDay) return;
+    const entry = noteEntries(editor.state.doc).find(item => item.day === sourceDay);
+    if (entry) openEntry(entry);
+  }, [editor, openEntry, sourceBlock, sourceDay, sourceMissing]);
   const addEntry = (existingWriting = false) => {
     if (!editor || !validDay(day)) return;
     const existing = noteEntries(editor.state.doc).find(entry => entry.day === day);

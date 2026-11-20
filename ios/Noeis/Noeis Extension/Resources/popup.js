@@ -401,7 +401,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(backgroundResponse?.error || "Background service failed.");
             }
 
-            setStatus("Article saved.", 'success');
+            setStatus("Saved to your Library.", 'success');
+            const savedId = backgroundResponse.data?._id;
+            if (savedId) {
+                const open = document.createElement('a');
+                open.href = `https://www.noeis.io/library?articleId=${encodeURIComponent(savedId)}`;
+                open.target = '_blank';
+                open.rel = 'noopener noreferrer';
+                open.textContent = 'Open saved article';
+                statusMessage.append(' ', open);
+            }
         } catch (error) {
             setStatus(error.message, 'error');
             console.error("[ERROR - Popup.js] Error saving article:", error);

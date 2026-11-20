@@ -202,7 +202,7 @@ html[data-ui-motion=reduced] .work-notes *, html[data-ui-motion=reduced] .work-d
 .work-day-header { margin: 12px 0 8px; }
 .work-day-header p { margin: 8px 0 0; font: 19px/1.5 var(--font-serif); color: var(--noeis-ink-muted); }
 .work-calendar-picker { margin: 0 0 24px; }
-.work-calendar-picker > summary { display: flex; align-items: center; gap: 6px; width: fit-content; min-height: 32px; margin-left: auto; font: 12px var(--font-sans); color: var(--noeis-ink-muted); cursor: pointer; list-style: none; }
+.work-calendar-picker > summary { display: flex; align-items: center; gap: 6px; width: fit-content; min-height: 44px; margin-left: auto; font: .75rem var(--font-sans); color: var(--noeis-ink-muted); cursor: pointer; list-style: none; white-space: nowrap; }
 .work-calendar-picker > summary::-webkit-details-marker { display: none; }
 .work-calendar-picker > summary .work-icon { width: 14px; height: 14px; }
 .work-calendar-picker[open] { padding-bottom: 8px; border-bottom: 1px solid var(--noeis-rule); }
@@ -258,23 +258,23 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 
 .work-notes .work-writing .ProseMirror > :last-child, .work-notes .work-writing .ProseMirror > :last-child :last-child { margin-bottom: 0; }
 
-/* The week line: bold is today, the underline is the day this page is about, a dot means something is planned. */
-.work-calendar { --work-step: 28px; --work-toggle: 56px; }
-.work-calendar-heading { display: grid; grid-template-columns: var(--work-step) 1fr var(--work-step) var(--work-toggle); align-items: center; margin: 0 0 44px; padding: 4px 0; border-bottom: 1px solid var(--noeis-rule); }
-.work-week-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); justify-items: center; }
-.work-notes .work-day-heading { position: relative; min-height: 40px; padding: 6px 8px; font: 15px/1.3 var(--font-serif); color: var(--noeis-ink-muted); }
-.work-day-heading span { color: var(--noeis-ink-subtle); }
-.work-day-heading[aria-current=date] { color: var(--noeis-ink); font-weight: 600; }
-.work-day-heading[aria-pressed=true]::after { position: absolute; left: 8px; right: 8px; bottom: -5px; height: 2px; background: var(--noeis-thread-strong); content: ''; }
+/* Today rings its number. The selected day tints its whole cell. */
+.work-calendar-heading { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px auto; align-items: center; margin: 0 0 20px; padding: 4px 0; }
+.work-week-range { margin: 0; text-align: center; color: var(--noeis-ink-muted); font: .875rem/1.4 var(--font-sans); font-variant-numeric: tabular-nums; }
+.work-week-days { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.work-notes .work-day-heading { position: relative; display: grid; justify-items: center; gap: 1px; min-height: 48px; padding: 3px 0 7px; border-radius: var(--noeis-radius-sm); color: var(--noeis-ink-muted); font: .8125rem/1.3 var(--font-sans); }
+.work-day-number { display: grid; place-items: center; min-inline-size: 1.65em; min-block-size: 1.65em; border: 1px solid transparent; border-radius: 50%; font: .9375rem/1 var(--font-serif); font-variant-numeric: tabular-nums; }
+.work-notes .work-day-heading[aria-pressed=true] { background: var(--noeis-paper-muted); color: var(--noeis-ink); box-shadow: inset 0 -2px var(--noeis-thread-strong); }
+.work-day-heading[aria-current=date] .work-day-number { border-color: var(--noeis-thread-strong); color: var(--noeis-ink); }
 .work-day-heading[data-busy]::before { position: absolute; left: 50%; bottom: 3px; width: 3px; height: 3px; margin-left: -1.5px; border-radius: 50%; background: var(--noeis-ink-subtle); content: ''; }
-.work-notes .work-week-step { padding: 8px 6px; color: var(--noeis-ink-muted); }
+.work-notes .work-week-step { display: grid; place-items: center; min-block-size: 44px; padding: 0; color: var(--noeis-ink-muted); }
 .work-week-step .work-icon { width: 14px; height: 14px; flex-basis: 14px; }
 .work-notes .work-week-toggle { margin-left: 12px; padding: 8px 4px; font-size: 12px; color: var(--noeis-ink-muted); }
 .work-week-toggle[aria-pressed=true] { color: var(--noeis-ink); text-decoration: underline; text-decoration-color: var(--noeis-thread-strong); text-underline-offset: 5px; }
 .work-week-columns .work-appointment { min-width: 0; }
 .work-week-columns .work-appointment > button:first-child { min-width: 0; flex-direction: column; overflow-wrap: anywhere; }
 .work-week-columns .work-appointment small { display: block; margin-top: 3px; color: var(--noeis-ink-muted); font-size: 11px; }
-.work-week-columns { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin: 0 calc(var(--work-step) + var(--work-toggle)) 44px var(--work-step); border-bottom: 1px solid var(--noeis-rule); }
+.work-week-columns { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; margin: 0 0 44px; border-bottom: 1px solid var(--noeis-rule); }
 .work-page > .work-calendar.mode-week { max-width: 1240px; }
 .work-calendar.mode-week .work-calendar-heading { margin-bottom: 0; }
 .work-calendar.mode-week .work-day-page { max-width: 820px; margin-top: 44px; }
@@ -311,10 +311,8 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
   .work-appointments .work-appointment time { flex-basis: 6.5em; font-size: 11px; }
   .work-appointments .work-appointment > button:first-child > span { padding-left: 10px; }
   .work-appointments .work-appointment strong { font-size: 16px; }
-  .work-calendar-heading { grid-template-columns: var(--work-step) 1fr var(--work-step); }
+  .work-calendar-heading { grid-template-columns: 44px minmax(0, 1fr) 44px; }
   .work-week-toggle { display: none; }
-  .work-notes .work-day-heading { padding: 6px 2px; font-size: 13px; }
-  .work-day-heading span { display: block; font-size: 11px; }
   .work-page-title { font-size: 28px; }
 
 }
@@ -333,7 +331,9 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-open-drafts { display: grid; gap: 4px; margin-bottom: 8px; color: var(--noeis-ink-muted); font: 12px var(--font-sans); }
 .work-open-drafts select { min-width: 0; width: 100%; min-height: 44px; background: var(--noeis-paper); border: 1px solid var(--noeis-rule); color: var(--noeis-ink); font: inherit; }
 
-.work-open-link { display: block; margin-top: 8px; color: var(--noeis-ink-muted); font: 12px var(--font-serif); }
+.work-open-link { margin-top: 12px; padding-inline-start: 12px; border-inline-start: 1px solid var(--noeis-rule); color: var(--noeis-ink-muted); }
+.work-open-link small { font: 12px var(--font-sans); }
+.work-open-link blockquote { margin: 4px 0 0; font: 14px/1.5 var(--font-serif); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Outstanding: the rail's second part, under one rule. Same serif places, same single ink mark. */
 .work-outstanding h3 { margin: 22px 0 2px; font: 12px/1.4 var(--font-sans); color: var(--noeis-ink-subtle); }
@@ -522,12 +522,6 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-menu-body :is(form,label) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .work-menu-body > :is(button,nav,label,form) { margin-bottom: 8px; }
 .work-menu-body .work-place-line { font: inherit; margin: 8px 0 16px; }
-.work-menu-body .work-calendar-heading { grid-template-columns: 44px minmax(0, 1fr) 44px; }
-.work-menu-body .work-week-days { grid-column: 1 / -1; grid-row: 2; }
-.work-menu-body .work-week-step:first-child { grid-column: 1; grid-row: 1; }
-.work-menu-body .work-week-step:not(:first-child) { grid-column: 3; grid-row: 1; }
-.work-menu-body .work-day-heading { padding-inline: 2px; font: 12px/1.4 var(--font-sans); }
-.work-menu-body .work-week-toggle { grid-column: 1 / -1; }
 .work-save-state { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font: 13px var(--font-sans); color: var(--noeis-ink-muted); }
 .work-note-location { margin-right: auto; }
 /* Each dated entry opens under a quiet date line, so the writing stays the loudest thing on the page. The entry's chevron, like Open's, hangs in the margin so dates and writing share one edge. */

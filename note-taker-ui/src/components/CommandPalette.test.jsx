@@ -22,7 +22,9 @@ import { SystemStatusProvider } from '../system/SystemStatusContext';
 const mockNavigate = jest.fn();
 
 jest.mock('react-router-dom', () => ({
-  useNavigate: () => mockNavigate
+  useNavigate: () => mockNavigate,
+  useLocation: () => ({ key: 'mock' }),
+  useNavigationType: () => 'POP'
 }));
 
 jest.mock('../api', () => ({
@@ -463,6 +465,10 @@ describe('CommandPalette', () => {
   it('does not advertise unavailable dump shortcut', async () => {
     await renderPalette();
 
+    const guide = screen.getByText('Keyboard shortcuts').closest('details');
+    expect(guide).not.toHaveAttribute('open');
+    fireEvent.click(guide.querySelector('summary'));
+    expect(guide).toHaveAttribute('open');
     expect(screen.getByText('Cmd/Ctrl+K: Open')).toBeInTheDocument();
     expect(screen.queryByText('Cmd/Ctrl+Shift+D: Dump to memory')).not.toBeInTheDocument();
   });

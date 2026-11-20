@@ -82,7 +82,7 @@ describe('SharedWikiCollectionPage', () => {
     expect(document.body).toHaveClass('noeis-public-share');
     expect(await screen.findByRole('heading', { name: 'Thinking Foundations' })).toBeInTheDocument();
     expect(screen.getByText('A safe public starting point.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Adopt shared wiki')).toHaveTextContent('Keep these pages and their public sources. Original unchanged.');
+    expect(screen.getByLabelText('Adopt shared wiki')).toHaveTextContent('Copy 2 pages into your Wiki, with their public sources in your Library. Private reading stays with the owner.');
     expect(screen.getByText(/Backlinks, highlights, source notes, and agent work stay private/i)).toBeInTheDocument();
     expect(screen.getByText('Public sharing details').closest('details')).not.toHaveAttribute('open');
     expect(screen.getByText("Maintained by the owner's agent.")).toBeInTheDocument();

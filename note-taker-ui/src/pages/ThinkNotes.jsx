@@ -327,9 +327,9 @@ const ThinkNotes = () => {
 
   const registerSave = useCallback(save => { saveCurrent.current = save; }, []);
 
-  const openEntry = async (item) => {
+  const openEntry = async (item, { write = false } = {}) => {
     if (await saveCurrent.current?.() === false) return;
-    setSearchParams(targetParams(item));
+    setSearchParams({ ...targetParams(item), ...(write && item.kind === 'note' ? { write: '1' } : {}) });
   };
 
   const openView = async (key) => {
@@ -614,7 +614,7 @@ const ThinkNotes = () => {
               error={error}
               onSave={saveEntry}
               onRegisterSave={registerSave}
-              startWriting={freshId === openId}
+              startWriting={searchParams.get('write') === '1' ? 'next' : freshId === openId}
               onInvokeAgentSkill={queuePartner}
               agentContextType="notebook"
               agentContextId={openId}

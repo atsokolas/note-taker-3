@@ -32,6 +32,7 @@ export default function useArticleReadingPlace({
   contentRef,
   contentKey,
   explicitDestination,
+  focusOnArrival,
   enabled
 }) {
   const explicit = useRef(explicitDestination);
@@ -54,6 +55,7 @@ export default function useArticleReadingPlace({
       fade,
       frame,
       marked = [],
+      focused,
       lastKey = '',
       pending = null,
       inFlight = false;
@@ -120,7 +122,7 @@ export default function useArticleReadingPlace({
         const found = resolveReadingPlace(root, place);
         if (!found) return arrive('none');
         lastKey = keyOf(place);
-        if (!placeWorthReturning(root, found.node)) return arrive('none');
+        if (!focusOnArrival && !placeWorthReturning(root, found.node)) return arrive('none');
         const candidates = readingCandidates(root);
         const before = candidates[candidates.indexOf(found.node) - 1];
         found.node.classList.add('is-reading-place');
@@ -128,6 +130,13 @@ export default function useArticleReadingPlace({
         before?.classList.add('is-reading-before');
         marked = [found.node, before].filter(Boolean);
         found.node.scrollIntoView?.({ block: 'start', behavior: 'instant' });
+        if (focusOnArrival) {
+          if (!found.node.hasAttribute('tabindex')) {
+            found.node.tabIndex = -1;
+            focused = found.node;
+          }
+          found.node.focus({ preventScroll: true });
+        }
         baselineKey = keyOf({ anchor: anchorForReadingNode(root, found.node) });
         fade = window.setTimeout(() => found.node.classList.add('is-stopped-faded'), LINE_MS);
         arrive('shown');
@@ -192,6 +201,7 @@ export default function useArticleReadingPlace({
       window.clearTimeout(timer);
       window.cancelAnimationFrame(frame);
       unmark();
+      focused?.removeAttribute('tabindex');
       window.removeEventListener('pointerdown', arm);
       window.removeEventListener('wheel', arm);
       window.removeEventListener('touchmove', arm);
@@ -201,6 +211,6 @@ export default function useArticleReadingPlace({
       document.removeEventListener('visibilitychange', hide);
       document.removeEventListener('visibilitychange', resume);
     };
-  }, [articleId, contentKey, contentRef, enabled]);
+  }, [articleId, contentKey, contentRef, enabled, focusOnArrival]);
   return arrival.articleId === articleId ? arrival.value : 'pending';
 }

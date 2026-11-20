@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { importPastedUrl, startBook } from '../../api/imports';
 import { setArticlePlacement } from '../../api/articles';
+import { savedPlacement } from '../../pages/placementModel';
 
 /* What a person pastes is rarely a clean URL: a bare domain, a trailing space,
    a link copied with its angle brackets. Anything that reads as a web address
@@ -42,9 +43,6 @@ const savedOn = value => {
 
 /* Where a link goes, said as the sentence under the field; tapping the
    phrase moves it to the other place. */
-const GOES = { later: 'on your nightstand', stream: 'in your Library, already read' };
-const PLACE = { later: 'on your nightstand', stream: 'in your Library', setAside: 'on your desk' };
-const capital = text => text.replace(/^./, c => c.toUpperCase());
 
 /**
  * The nightstand: paste a link you mean to come back to, and it waits there;
@@ -76,6 +74,7 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
       onSaved?.(article);
     } catch (error) {
       const status = error?.response?.status;
+      setValue(raw);
       setState({
         phase: 'problem',
         line: status === 422 || status === 400
@@ -96,6 +95,7 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
       onSaved?.(article);
       onOpen?.(article._id);
     } catch (_) {
+      setValue([book.title, book.author].filter(Boolean).join(' by '));
       setState({ phase: 'problem', line: 'That book did not start. Try it again.' });
     }
   };
@@ -104,18 +104,19 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
      and a slow page holds up nothing but itself. */
   const saveAll = async (links) => {
     const landed = [];
-    let missed = 0;
+    const missed = [];
     for (const url of links) {
-      setState({ phase: 'many', landed: [...landed], missed, total: links.length });
+      setState({ phase: 'many', landed: [...landed], missed: missed.length, total: links.length });
       try {
         const { article } = await saveOne(url);
         landed.push(article);
         onSaved?.(article);
       } catch (_) {
-        missed += 1;
+        missed.push(url);
       }
     }
-    setState({ phase: 'many', landed, missed, total: links.length, done: true });
+    setValue(missed.join(' '));
+    setState({ phase: 'many', landed, missed: missed.length, total: links.length, done: true });
   };
 
   const handedIn = useRef(false);
@@ -142,8 +143,9 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
     </button>
   );
   const since = phase === 'existing' ? savedOn(article?.createdAt) : '';
-  const place = [PLACE[article?.placement] || '', article?.folder?.name ? `in ${article.folder.name}` : '']
+  const place = [savedPlacement(article), article?.folder?.name ? `in ${article.folder.name}` : '']
     .filter(Boolean).join(', ');
+  const destination = savedPlacement({ placement: where }) + (where === 'stream' ? ', already read' : '');
   const waiting = article?.placement === 'later';
   const nightstand = waiting && onShowNightstand ? (
     <> <button type="button" className="library-paste-link__more" onClick={onShowNightstand}>See the nightstand</button></>
@@ -162,13 +164,13 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
   const many = phase === 'many' ? (
     <>
       {state.done
-        ? (state.landed.length ? `${state.landed.length} ${PLACE[where]}` : 'None of those saved')
+        ? (state.landed.length ? `${state.landed.length} in your Library` : 'None of those saved')
         : `Saving ${state.landed.length + state.missed + 1} of ${state.total}…`}
       {state.landed.length ? ': ' : ''}
       {state.landed.map((piece, index) => (
         <React.Fragment key={piece._id}>{index ? ' · ' : ''}{titleOf(piece)}</React.Fragment>
       ))}
-      {state.done && state.missed ? `. ${state.missed} could not be read.` : ''}
+      {state.done && state.missed ? `. ${state.missed} could not be read. Retry the remaining links above.` : ''}
     </>
   ) : null;
 
@@ -197,7 +199,9 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
             save(pasted);
           }}
         />
-        {value.trim() && !['saving', 'starting'].includes(phase) ? <button type="submit" className="library-paste-link__save">{book ? 'Start' : 'Save'}</button> : null}
+        {value.trim() && !['saving', 'starting'].includes(phase) ? (
+          <button type="submit" className="library-paste-link__save">{phase === 'problem' || (phase === 'many' && state.missed) ? 'Retry' : book ? 'Start' : 'Save'}</button>
+        ) : null}
       </div>
       {book ? (
         <p className="library-paste-link__route">
@@ -209,10 +213,10 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
         <button
           type="button"
           className="library-paste-link__choice"
-          aria-label={`Goes ${GOES[where]}. Change`}
+          aria-label={`Goes ${destination}. Change`}
           onClick={() => setWhere(where === 'later' ? 'stream' : 'later')}
         >
-          {GOES[where]}
+          {destination}
         </button>
         {sorted.length ? (
           <>
@@ -232,8 +236,8 @@ export default function LibraryPasteLink({ folders = [], folderId = '', link = '
       <p className="library-paste-link__receipt" role="status" aria-live="polite">
         {phase === 'saving' ? 'Reading the page…' : null}
         {phase === 'starting' ? 'Finding the book…' : null}
-        {phase === 'saved' ? <>{capital(place)}: {titleOf(article)}{reason}{nightstand}</> : null}
-        {phase === 'existing' ? <>Already yours{since ? ` since ${since}` : ''}{place ? `, ${place}` : ''}: {titleOf(article)}{reason}{nightstand}</> : null}
+        {phase === 'saved' ? <>Saved {place}: {titleOf(article)}{reason}{nightstand}</> : null}
+        {phase === 'existing' ? <>Already saved{since ? ` since ${since}` : ''}, {place}: {titleOf(article)}{reason}{nightstand}</> : null}
         {many}
         {phase === 'problem' ? line : null}
       </p>

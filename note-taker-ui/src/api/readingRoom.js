@@ -6,6 +6,9 @@ const tz = () => new Date().getTimezoneOffset();
 export const getReadingRoom = async () =>
   (await api.get(`/api/library/reading-room?tz=${tz()}`, getAuthHeaders())).data;
 
+export const getReadingContinuation = async () =>
+  (await api.get('/api/library/reading-room/resume', getAuthHeaders())).data?.resume || null;
+
 export const getWorthSayingPhrasing = async () =>
   (await api.get(`/api/library/reading-room/said?tz=${tz()}`, getAuthHeaders())).data?.said || null;
 

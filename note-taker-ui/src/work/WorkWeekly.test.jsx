@@ -10,6 +10,55 @@ beforeEach(() => {
   session = { weeks: () => records, loading: () => false, error: () => '', saveWeek: jest.fn(async (week, priorities, revision) => { const value = { _id: week, revision: (revision ?? -1) + 1, workItem: { kind: 'week', plannedOn: week, priorities } }; records = [...records.filter(x => x.workItem.plannedOn !== week), value]; return value; }) };
   props = { session, today: '2026-11-16', timeZone: 'UTC', items: [a, b], folders: [{ _id: 'f', name: 'NOEIS' }], notes: [], onAction: jest.fn(), onEdit: jest.fn(), onNew: jest.fn(), onOpen: jest.fn() };
 });
+
+test('closes a week through the existing plan and only shows acknowledged Monday work', async () => {
+  session.flush = jest.fn().mockResolvedValue(true);
+  props.onAction.mockReturnValue('plan-op');
+  const { rerender } = render(<WorkWeekly {...props} today="2026-11-20" />);
+  const review = screen.getByText('Close the week · 2 to review').closest('details');
+  fireEvent.click(within(review).getByText('Close the week · 2 to review'));
+  const plans = await within(review).findAllByRole('button', { name: 'Plan for Monday' });
+  plans[0].focus();
+  let finish;
+  session.flush.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  fireEvent.click(plans[0]);
+  expect(props.onAction).toHaveBeenCalledWith('a', { type: 'plan', plannedOn: '2026-11-23' });
+  const pending = { ...a, plannedOn: '2026-11-23', plan: { operationId: 'plan-op', actionAt: '2026-11-20T16:00:00Z', pending: true } };
+  rerender(<WorkWeekly {...props} today="2026-11-20" items={[pending, b]} />);
+  expect(within(review).queryByRole('region', { name: 'Monday starts here' })).toBeNull();
+  const saved = { ...pending, plan: { ...pending.plan, pending: false } };
+  rerender(<WorkWeekly {...props} today="2026-11-20" items={[saved, b]} />);
+  await act(async () => finish(true));
+  const row = within(review).getByRole('heading', { name: a.title }).closest('li');
+  expect(within(row).getByRole('status')).toHaveTextContent('Planned for Mon 23 Nov');
+  expect(plans[1]).toHaveFocus();
+  expect(within(review).getByRole('region', { name: 'Monday starts here' })).toHaveTextContent(a.title);
+  fireEvent.click(within(row).getByRole('button', { name: 'Undo' }));
+  expect(props.onAction).toHaveBeenLastCalledWith('a', { type: 'undo', undoOf: 'plan-op' });
+  await act(async () => {});
+});
+
+test('retries the same operation from its row and leaves intervening focus alone', async () => {
+  let finish;
+  session.flush = jest.fn().mockResolvedValueOnce(false).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  props.onAction.mockReturnValue('plan-op');
+  const { rerender } = render(<WorkWeekly {...props} today="2026-11-20" />);
+  const summary = screen.getByText('Close the week · 2 to review');
+  fireEvent.click(summary);
+  const row = (await screen.findAllByRole('button', { name: 'Plan for Monday' }))[0].closest('li');
+  const plan = within(row).getByRole('button', { name: 'Plan for Monday' });
+  plan.focus();
+  fireEvent.click(plan);
+  const retry = await within(row).findByRole('button', { name: 'Retry sync' });
+  expect(retry).toHaveFocus();
+  fireEvent.click(retry);
+  summary.focus();
+  rerender(<WorkWeekly {...props} today="2026-11-20" items={[{ ...a, plannedOn: '2026-11-23', plan: { operationId: 'plan-op' } }, b]} />);
+  await act(async () => finish(true));
+  expect(within(row).getByRole('status')).toHaveTextContent('Planned for Mon 23 Nov');
+  expect(summary).toHaveFocus();
+  expect(props.onAction).toHaveBeenCalledTimes(1);
+});
 test('shows all priorities, original sources, and supports keyboard assignment and removal', async () => {
   render(<WorkWeekly {...props} />);
   expect(screen.getByRole('heading', { name: 'Apply to accelerators' })).toBeInTheDocument();

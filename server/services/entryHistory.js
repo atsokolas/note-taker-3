@@ -7,7 +7,8 @@ const mongoose = require('mongoose');
    belongs to rewrites that stretch's revision instead of adding one; the next
    save after a pause begins a new one. A restore always stands on its own, so
    it can be undone, and so does a save in another hand, so an agent's
-   rewrite never overwrites the reader's own last version. The first save an
+   rewrite never overwrites the reader's own last version. Accepting Partner
+   wording also starts a new stretch. The first save an
    entry ever records also keeps what the entry said before it, so the oldest
    words are never lost to the history that began after them. Only the newest
    few dozen are kept.
@@ -33,19 +34,21 @@ const isBlank = (snapshot) => !snapshot.title.trim()
 
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
-const recordRevision = async ({ EntryRevision, userId, kind, entryId, before, beforeAt, after, restoredFrom, hand = '', beforeHand = '', now = new Date() }) => {
+const recordRevision = async ({ EntryRevision, userId, kind, entryId, before, beforeAt, after, restoredFrom, separate = false, hand = '', beforeHand = '', now = new Date() }) => {
   if (!EntryRevision || !KINDS.includes(kind) || !after) return null;
   try {
     const scope = { userId, kind, entryId };
     const stamped = (fields, at = now) => new EntryRevision({ ...scope, hand, ...fields, createdAt: at, updatedAt: at }).save({ timestamps: false });
     const latest = await EntryRevision.findOne(scope).sort({ createdAt: -1 });
     if (latest ? same(latest.snapshot, after) : !before || same(before, after)) return latest;
-    if (!latest && !isBlank(before)) await stamped({ reason: 'before', hand: beforeHand, snapshot: before }, beforeAt ? new Date(beforeAt) : now);
+    if (before && !isBlank(before) && (!latest || (separate && !same(latest.snapshot, before)))) {
+      await stamped({ reason: 'before', hand: beforeHand, snapshot: before }, beforeAt ? new Date(beforeAt) : now);
+    }
     const restored = mongoose.isValidObjectId(restoredFrom)
       ? await EntryRevision.findOne({ ...scope, _id: restoredFrom }).select('updatedAt')
       : null;
     // A stretch is one hand's: an agent writing straight after the reader starts its own.
-    if (!restored && latest?.reason === 'edit' && (latest.hand || '') === hand && now - latest.createdAt < STRETCH_MS) {
+    if (!separate && !restored && latest?.reason === 'edit' && (latest.hand || '') === hand && now - latest.createdAt < STRETCH_MS) {
       latest.set({ snapshot: after, updatedAt: now });
       latest.markModified('snapshot');
       return await latest.save({ timestamps: false });

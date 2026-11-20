@@ -188,22 +188,26 @@ describe('the view', () => {
     expect(screen.getByRole('button', { name: 'Sure' })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('revises the sentence and keeps the old one struck through in the record', async () => {
+  it('revises a sentence and keeps both wordings with the chosen passage', async () => {
     proposeJudgmentChange.mockResolvedValue({ id: 'proposal-1' });
     resolveJudgmentChange.mockResolvedValue({
       page: viewPage({
         currentJudgment: 'Costco holds up in a mild recession.',
-        heldHistory: [{ text: CLAIM, until: '2026-10-20T12:00:00.000Z' }]
+        heldHistory: [{ text: CLAIM, until: '2026-10-20T12:00:00.000Z', evidence: viewPage().judgment.why[0] }]
       })
     });
     openView();
     fireEvent.click(await screen.findByRole('button', { name: 'Revise' }));
     fireEvent.change(screen.getByLabelText('The view, revised'), { target: { value: 'Costco holds up in a mild recession.' } });
+    fireEvent.change(screen.getByLabelText('Passage behind this change'), { target: { value: 'why:why-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Hold this instead' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Costco holds up in a mild recession.' })).toBeInTheDocument();
-    expect(proposeJudgmentChange).toHaveBeenCalledWith('view-1', 'Costco holds up in a mild recession.');
+    expect(proposeJudgmentChange).toHaveBeenCalledWith('view-1', 'Costco holds up in a mild recession.', 'why:why-1');
     expect(resolveJudgmentChange).toHaveBeenCalledWith('view-1', 'proposal-1', 'accept');
-    expect(screen.getByText(CLAIM).tagName).toBe('S');
+    const record = within(screen.getByRole('region', { name: 'Record' }));
+    expect(record.getByText(CLAIM)).toBeVisible();
+    expect(record.getByText('Costco holds up in a mild recession.')).toBeVisible();
+    expect(record.getByRole('link', { name: 'Costco FY09 10-K' })).toHaveAttribute('href', expect.stringContaining('highlightId=highlight-1'));
   });
 
   it('resolves through the verdict path in plain words', async () => {

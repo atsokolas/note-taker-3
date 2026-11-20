@@ -902,6 +902,8 @@ const buildImportRouter = ({
   const sanitizeLastSyncResult = (value) => {
     if (!value || typeof value !== 'object') return null;
     return {
+      ...(value.importedArticles != null ? { importedArticles: Number(value.importedArticles) } : {}),
+      ...(value.importedHighlights != null ? { importedHighlights: Number(value.importedHighlights) } : {}),
       importedNotes: Number(value.importedNotes || 0),
       skippedRows: Number(value.skippedRows || 0),
       indexingQueued: Number(value.indexingQueued || 0),
@@ -1027,12 +1029,16 @@ const buildImportRouter = ({
   };
 
   const buildConnectionLastSyncResult = ({
+    importedArticles,
+    importedHighlights,
     importedNotes = 0,
     skippedRows = 0,
     indexingQueued = 0,
     indexingFailures = 0,
     completedAt = new Date()
   } = {}) => ({
+    importedArticles,
+    importedHighlights,
     importedNotes: Number(importedNotes) || 0,
     skippedRows: Number(skippedRows) || 0,
     indexingQueued: Number(indexingQueued) || 0,
@@ -1046,13 +1052,7 @@ const buildImportRouter = ({
       ? summary.completedAt
       : new Date(summary.completedAt || Date.now());
     connection.lastSyncAt = completedAt;
-    connection.lastSyncResult = buildConnectionLastSyncResult({
-      importedNotes: summary.importedNotes,
-      skippedRows: summary.skippedRows,
-      indexingQueued: summary.indexingQueued,
-      indexingFailures: summary.indexingFailures,
-      completedAt
-    });
+    connection.lastSyncResult = buildConnectionLastSyncResult({ ...summary, completedAt });
     return connection.lastSyncResult;
   };
 
@@ -2796,10 +2796,7 @@ const buildImportRouter = ({
         : null
     });
     persistConnectionLastSyncResult(connection, {
-      importedNotes: 0,
-      skippedRows,
-      indexingQueued: indexing.indexingQueued,
-      indexingFailures: indexing.indexingFailures,
+      ...resultPayload,
       completedAt: resultPayload.receipt.completedAt
     });
     connection.lastSyncAt = checkedAt;
@@ -2852,6 +2849,7 @@ const buildImportRouter = ({
         mutate: (session) => {
           session.status = 'importing';
           session.sourceLabel = connection.accountLabel || 'Readwise';
+          session.connectionId = connection._id;
           clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),
@@ -3235,6 +3233,7 @@ const buildImportRouter = ({
         mutate: (session) => {
           session.status = 'importing';
           session.sourceLabel = connection.accountLabel || 'Notion';
+          session.connectionId = connection._id;
           clearImportOrganizationOffer(session);
           session.progress = {
             ...(session.progress || {}),

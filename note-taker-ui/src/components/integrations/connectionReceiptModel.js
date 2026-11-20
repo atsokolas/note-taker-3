@@ -145,17 +145,33 @@ export const formatProviderSyncSummary = (result, provider = '') => {
   return `${pieces.join(' · ')}.`;
 };
 
+export const completedSourceSync = (connection) => {
+  if (!connection || !['readwise', 'notion'].includes(connection.provider)) return null;
+  const result = connection.lastSyncResult;
+  const date = toValidDate(result?.completedAt || (connection.provider === 'readwise' ? connection.lastSyncAt : null));
+  if (!date) return null;
+  const known = connection.provider === 'readwise'
+    ? result?.importedArticles != null && result?.importedHighlights != null
+    : result?.importedNotes != null;
+  return {
+    at: date.toISOString(),
+    label: date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }),
+    summary: known ? formatProviderSyncSummary(result, connection.provider) : ''
+  };
+};
+
 const resolveFailure = ({ session, provider, connection, fallbackMessage = '' }) => {
-  if (session?.provider === provider && session?.status === 'failed') {
-    const stage = session?.progress?.stage || 'import';
+  if (session?.provider === provider && session?.status === 'failed'
+    && (!session.connectionId || !connection?.id || String(session.connectionId) === String(connection.id))) {
+    const stage = session.progress?.stage === 'failed' ? 'import' : session.progress?.stage || 'import';
     const message = session?.lastError || fallbackMessage || `${provider} import failed.`;
-    return { stage, message, retryable: true };
+    return { stage, message, retryable: stage !== 'readwise_sync_unavailable' };
   }
   if (connection?.lastError) {
     return {
       stage: 'connection',
       message: connection.lastError,
-      retryable: true
+      retryable: false
     };
   }
   return null;
@@ -205,7 +221,9 @@ export const buildNotionConnectionReceipt = ({
       detail: failure.message,
       failureStage: failure.stage,
       failureMessage: failure.message,
-      nextAction: { label: connection?.id ? 'Sync from Notion' : 'Connect Notion' },
+      nextAction: failure.retryable && connection?.status === 'connected'
+        ? { label: 'Retry Notion sync', kind: 'import' }
+        : { label: connection?.id ? 'Check Notion access' : 'Connect Notion' },
       isLive: true,
       liveMessage: `Notion sync failed — ${failure.message}`
     };
@@ -345,7 +363,9 @@ export const buildReadwiseConnectionReceipt = ({
       detail: failure.message,
       failureStage: failure.stage,
       failureMessage: failure.message,
-      nextAction: { label: syncConnection?.id ? 'Sync from Readwise' : 'Connect with Readwise' },
+      nextAction: failure.retryable && syncConnection?.status === 'connected'
+        ? { label: 'Retry Readwise sync', kind: 'import' }
+        : { label: syncConnection?.id ? 'Check Readwise access' : 'Connect with Readwise' },
       isLive: true,
       liveMessage: `Readwise sync failed — ${failure.message}`
     };
@@ -385,7 +405,7 @@ export const buildReadwiseConnectionReceipt = ({
       statusLabel: completedWithWarnings || withWarnings(result) ? 'Synced with warnings' : 'Synced into Noeis',
       tone: completedWithWarnings || withWarnings(result) ? 'warning' : 'success',
       headline: describeReadwiseCadence(syncConnection),
-      summary,
+      summary: result === syncConnection.lastSyncResult ? completedSourceSync(syncConnection)?.summary || '' : summary,
       nextAction: { label: 'Sync again' },
       isLive: false
     };

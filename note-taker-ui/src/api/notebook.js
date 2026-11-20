@@ -97,10 +97,11 @@ export const exportNotebookMarkdown = async (id) => {
   return res.data;
 };
 
-export const disposeNotebookSourceCorrection = async (id, { eventId, action }) => {
+export const disposeNotebookSourceCorrection = async (id, { eventId, action, reason }) => {
   const res = await api.post(`/api/notebook/${encodeURIComponent(id)}/source-correction`, {
     eventId,
-    action
+    action,
+    ...(reason ? { reason } : {})
   }, getAuthHeaders());
   return res.data;
 };

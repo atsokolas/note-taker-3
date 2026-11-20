@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { libraryReturnLink } from '../utils/sourceRoutes';
 import { Button } from './ui';
 import { createHighlight } from '../api/highlights';
 import { fileReadingProposal, getPushesAgainst } from '../api/judgmentResolution';
@@ -58,6 +59,14 @@ const highlightIdsOf = (highlights = []) => (
 const PASSAGE_SELECTOR = 'p, li, blockquote, h2, h3';
 
 const passageText = (node) => String(node?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+
+const revealCitedPassage = (target, reducedMotion, focusEvidence) => {
+  target.scrollIntoView?.({ behavior: reducedMotion ? 'auto' : 'smooth', block: focusEvidence ? 'start' : 'center' });
+  if (focusEvidence) {
+    target.tabIndex = -1;
+    target.focus({ preventScroll: true });
+  }
+};
 
 const scrollParentOf = (node) => {
   let scroller = node?.parentElement;
@@ -185,6 +194,8 @@ const ArticleReader = ({
   const thoughtRequest = useRef('');
   useEffect(() => { setThought(null); }, [article?._id]);
   const articleId = article?._id;
+  const readerReturn = libraryReturnLink(location.state, articleId);
+  const focusEvidence = Boolean(readerReturn && location.state?.evidenceOrigin);
   const modelReads = useModelReads(articleId);
   const asking = useMarginAsk(articleId, modelReads);
   const reading = useReadFresh(readerRootRef, articleId, PASSAGES);
@@ -376,23 +387,23 @@ const ArticleReader = ({
       `[data-highlight-id="highlight-${focusedHighlightId}"]`
     );
     if (!target) return undefined;
-    target.scrollIntoView?.({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+    revealCitedPassage(target, reducedMotion, focusEvidence);
     target.classList.add('is-cited-passage');
     const timeout = window.setTimeout(() => target.classList.remove('is-cited-passage'), 1600);
     return () => window.clearTimeout(timeout);
-  }, [focusedHighlightId, focusedPassage, html, reducedMotion]);
+  }, [focusedHighlightId, focusedPassage, html, focusEvidence, reducedMotion]);
 
   useEffect(() => {
     if (passageReturn.status !== 'found' || !contentRef.current) return undefined;
     const targets = [...contentRef.current.querySelectorAll('[data-transient-passage="true"]')];
     const target = targets[0];
     if (!target) return undefined;
-    target.scrollIntoView?.({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+    revealCitedPassage(target, reducedMotion, focusEvidence);
     const timeout = window.setTimeout(() => {
       targets.forEach((node) => node.classList.remove('is-cited-passage'));
     }, 1600);
     return () => window.clearTimeout(timeout);
-  }, [passageReturn, reducedMotion]);
+  }, [passageReturn, focusEvidence, reducedMotion]);
 
   const passageReturnStatus = (() => {
     if (passageReturn.status === 'missing') {
@@ -409,6 +420,7 @@ const ArticleReader = ({
 
   const arrival = useArticleReadingPlace({
     articleId, contentRef, contentKey: article?.content,
+    focusOnArrival: Boolean(location.state?.fromWikiReading),
     explicitDestination: Boolean(focusedHighlightId || location.hash || new URLSearchParams(location.search).has('searchMissing') || location.state?.explicitPassage),
     enabled: Boolean(articleId && hasReadableContent(article?.content))
   });
@@ -690,7 +702,17 @@ const ArticleReader = ({
         </ul>
       ) : null}
       {/* How much is left is the book's to know; the desk has no length. */}
-      <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
+      <MagneticReadingRail
+        rootRef={readerRootRef}
+        contentRef={contentRef}
+        returnLink={readerReturn ? (
+          <Link
+            className="magnetic-reading-rail__btn"
+            to={readerReturn.to}
+            state={readerReturn.state}
+          >{readerReturn.label}</Link>
+        ) : null}
+      />
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>
   );

@@ -447,11 +447,6 @@ body.think-rails-away .think-notes__shelf {
   pointer-events: none;
 }
 
-/* "Saved 3:42" says it once and fades; hover the bar to read it again. */
-.think-notebook-save-state__time { animation: think-saved-fade 2.4s ease 1.6s forwards; }
-.think-notebook-utility:hover .think-notebook-save-state__time { animation: none; opacity: 1; }
-@keyframes think-saved-fade { to { opacity: 0; } }
-
 /* Written on a day: the begun line sits under the title in small caps. */
 .think-notebook-title-meta {
   font-variant-caps: all-small-caps;
@@ -568,7 +563,17 @@ body.think-rails-away .think-notes__shelf {
 @keyframes think-history-in { from { opacity: 0; transform: translateY(-3px); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .think-notebook-save-state__time { animation: none; opacity: 0.6; }
   .notebook-arrangement { transition: none; }
   .think-entry-history { animation: none; }
 }
+
+.think-argument { margin-block: 1rem; overflow-wrap: anywhere; }
+.think-argument__return { border-inline-start: 2px solid var(--noeis-thread); padding-inline-start: .8rem; }
+.think-argument__return small { color: var(--noeis-ink-muted); }
+.think-argument details { margin-block-start: .6rem; border-block: 1px solid var(--noeis-rule); }
+.think-argument summary { min-block-size: 44px; padding-block: .8rem; cursor: pointer; font: 500 .9rem var(--font-sans); }
+.think-argument p, .think-argument blockquote { margin: .6rem 0; }
+.think-argument blockquote { padding-inline-start: .8rem; border-inline-start: 1px solid var(--noeis-rule); color: var(--noeis-ink-muted); font-family: var(--font-serif); }
+.think-argument__line { font: 1.23rem/1.4 var(--font-serif); }
+.think-argument__return button { padding: .4rem 0; min-height: 44px; border: 0; background: transparent; color: inherit; text-decoration: underline; text-underline-offset: .22em; cursor: pointer; }
+.think-argument__source { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 .8rem; padding-block: .4rem; }

@@ -146,12 +146,42 @@ body.noeis-editorial .magnetic-reading-rail__hint {
   text-transform: none;
 }
 
+@media (max-width: 720px) {
+  body.noeis-editorial .magnetic-reading-rail.has-return {
+    align-items: flex-start;
+    bottom: env(safe-area-inset-bottom, 0px);
+    max-width: calc(100vw - var(--magnetic-rail-left, 0px) - 116px);
+  }
+
+  body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+
+  body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__pill {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  body.noeis-editorial .magnetic-reading-rail.has-return .magnetic-reading-rail__hint {
+    display: none;
+  }
+}
+
 /* Two inks, one warm pen. The saved passage is human ink; a note on it
    is the agent's half-step warmer. Capture itself is one yellow wash,
    never a crayon box and never the old cool blue. */
 body.noeis-editorial .article-reader-content mark.highlight {
   background: color-mix(in srgb, var(--highlight-color, #f6e27a) calc(62% + var(--ink-deepen, 0%)), transparent) !important;
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--highlight-color, #f6e27a) 40%, transparent);
+}
+
+.article-reader-content :is([data-transient-passage], mark.highlight[data-highlight-id]),
+.article-cited-passage[data-highlight-id] {
+  scroll-margin-block-start: clamp(10rem, 25dvh, 14rem);
 }
 
 html[data-ui-scheme='dark'] body.noeis-editorial .article-reader-content mark.highlight {

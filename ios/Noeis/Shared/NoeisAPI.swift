@@ -168,19 +168,64 @@ struct NoeisAPI {
     }
 
     /// Marks a passage. `prefix`/`suffix` let the web open the article at it.
-    func mark(articleId: String, text: String, prefix: String = "", suffix: String = "", offset: Int? = nil) async throws -> JSON {
+    func mark(articleId: String, text: String, prefix: String = "", suffix: String = "", offset: Int? = nil,
+              captureId: String? = nil, sessionToken: String? = nil) async throws -> JSON {
         var anchor: [String: JSON] = ["text": .string(text), "prefix": .string(prefix), "suffix": .string(suffix)]
         if let offset { anchor["startOffsetApprox"] = .number(Double(offset)) }
-        return try await send("POST", "/articles/\(articleId)/highlights", body: ["text": .string(text), "anchor": .object(anchor)])["highlight"] ?? .null
+        var body: [String: JSON] = ["text": .string(text), "anchor": .object(anchor)]
+        if let captureId { body["captureId"] = .string(captureId) }
+        return try await send("POST", "/articles/\(articleId)/highlights", body: .object(body), sessionToken: sessionToken)["highlight"] ?? .null
     }
 
-    /// Saves a link; the server fetches and keeps the readable text.
-    /// Returns the article id.
-    func save(url: URL, title: String? = nil) async throws -> String {
+    struct SavedLink: Equatable {
+        let id: String
+        let placement: String
+        let existing: Bool
+
+        var message: String {
+            if existing { return "Already saved" }
+            switch placement {
+            case "later": return "Saved to your nightstand"
+            case "setAside": return "Saved on your desk"
+            default: return "Saved to your Library"
+            }
+        }
+
+        var href: URL? { href(at: nil) }
+
+        func href(at highlightId: String?) -> URL? {
+            var url = URLComponents(url: NoeisAPI.shared.site.appending(path: "library"), resolvingAgainstBaseURL: false)
+            url?.queryItems = [URLQueryItem(name: "articleId", value: id)]
+            if let highlightId { url?.queryItems?.append(URLQueryItem(name: "highlightId", value: highlightId)) }
+            return url?.url
+        }
+    }
+
+    func save(url: URL, title: String? = nil, sessionToken: String? = nil) async throws -> SavedLink {
         var body: [String: JSON] = ["url": .string(url.absoluteString)]
         if let title, !title.isEmpty { body["title"] = .string(title) }
-        let reply = try await send("POST", "/api/import/url", body: .object(body))
-        return reply.at("article._id").text
+        let reply = try await send("POST", "/api/import/url", body: .object(body), sessionToken: sessionToken)
+        let id = reply.at("article._id").text
+        guard !id.isEmpty else { throw NoeisAPIError.server("Noeis couldn’t confirm the save. Try again.") }
+        return SavedLink(id: id, placement: reply.at("article.placement").text, existing: reply["existing"]?.bool == true)
+    }
+
+    func finishShare(_ draft: PendingShare) async throws -> (SavedLink, String?) {
+        let auth = NoeisAuthStore.shared
+        guard let token = auth.token, let owner = auth.accountId,
+              draft.ownerId == nil || draft.ownerId == owner else { throw NoeisAPIError.signedOut }
+        var claimed = draft
+        claimed.ownerId = owner
+        try auth.hold(claimed)
+        let receipt = try await save(url: draft.url, title: draft.title, sessionToken: token)
+        var highlightId: String?
+        if let selection = draft.selection?.trimmingCharacters(in: .whitespacesAndNewlines), selection.count >= 3 {
+            let mark = try await mark(articleId: receipt.id, text: selection, prefix: draft.prefix ?? "", suffix: draft.suffix ?? "", captureId: draft.id, sessionToken: token)
+            highlightId = mark["_id"]?.string
+            guard highlightId?.isEmpty == false else { throw NoeisAPIError.server("The article is saved. Try again to finish marking its passage.") }
+        }
+        auth.clearShare(claimed)
+        return (receipt, highlightId)
     }
 
     // MARK: Think
@@ -248,7 +293,7 @@ struct NoeisAPI {
     // MARK: Transport
 
     @discardableResult
-    func send(_ method: String, _ path: String, query: [String: String] = [:], body: JSON? = nil, signedIn: Bool = true) async throws -> JSON {
+    func send(_ method: String, _ path: String, query: [String: String] = [:], body: JSON? = nil, signedIn: Bool = true, sessionToken: String? = nil) async throws -> JSON {
         var components = URLComponents(url: base.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty {
             components.queryItems = query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }
@@ -260,15 +305,21 @@ struct NoeisAPI {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONEncoder().encode(body)
         }
+        var authorizedToken: String?
         if signedIn {
             guard let token = NoeisAuthStore.shared.token else { throw signOut() }
+            if let sessionToken, sessionToken != token { throw NoeisAPIError.signedOut }
+            authorizedToken = token
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
         let (data, response) = try await perform(request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         let json = (try? JSONDecoder().decode(JSON.self, from: data)) ?? .null
-        if status == 401, signedIn { throw signOut() }
+        if status == 401, signedIn {
+            if authorizedToken == NoeisAuthStore.shared.token { throw signOut() }
+            throw NoeisAPIError.signedOut
+        }
         guard (200..<300).contains(status) else {
             throw NoeisAPIError.server(json["error"]?.string ?? json["message"]?.string ?? "Noeis could not do that (\(status)).")
         }

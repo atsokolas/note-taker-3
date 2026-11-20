@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import Amendment from '../Amendment';
 import {
   getJudgmentLibraryEvidence,
   getWikiPage,
@@ -16,7 +17,8 @@ import {
 } from '../../api/judgmentResolution';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { rememberOpenedJudgment } from '../reader/folioModel';
-import { buildPassagePath, buildSourceOriginPath, parseSourceOrigin } from '../../utils/sourceRoutes';
+import { buildPassagePath, buildSourceOriginPath, isLibraryHref, parseSourceOrigin } from '../../utils/sourceRoutes';
+import useEvidenceReturnFocus from '../../hooks/useEvidenceReturnFocus';
 import { buildJudgmentSurfaceDescriptor } from '../../pages/judgmentSurfaceModel';
 import {
   CONFIDENCE,
@@ -88,13 +90,17 @@ export const UndoLine = ({ pending, onUndo, at }) => (
   ) : null
 );
 
-const SourceLink = ({ href, children }) => {
+const SourceLink = ({ href, focusId, origin, children }) => {
   if (!href) return <span>{children}</span>;
-  if (href.startsWith('/')) return <Link to={href}>{children}</Link>;
+  if (href.startsWith('/')) {
+    return <Link id={focusId} to={href} state={isLibraryHref(href) ? { evidenceOrigin: { to: origin, focusId } } : undefined}>
+      {children}
+    </Link>;
+  }
   return <a href={href} target="_blank" rel="noreferrer">{children}</a>;
 };
 
-const PassageColumn = ({ title, passages }) => (
+const PassageColumn = ({ title, passages, origin }) => (
   <section className="judgment-column" aria-label={title}>
     <h2>{title}</h2>
     {passages.length ? (
@@ -104,7 +110,9 @@ const PassageColumn = ({ title, passages }) => (
             <blockquote>{passage.text}</blockquote>
             {passage.source || passage.at ? (
               <p className="judgment-column__cite">
-                {passage.source ? <SourceLink href={passage.href}>{passage.source}</SourceLink> : null}
+                {passage.source ? (
+                  <SourceLink href={passage.href} focusId={`judgment-${title}-${passage.id}`} origin={origin}>{passage.source}</SourceLink>
+                ) : null}
                 {passage.source && passage.at ? ' · ' : null}
                 {passage.at ? <time dateTime={passage.at}>{formatLedgerDate(passage.at)}</time> : null}
               </p>
@@ -237,21 +245,34 @@ const TheTest = ({ test, onSave, children }) => {
   );
 };
 
-const Record = ({ lines }) => (
+const Record = ({ lines, origin }) => (
   <ol className="judgment-record">
     {lines.map(line => (
       <li key={line.id}>
         <time dateTime={line.at}>{formatLedgerDate(line.at)}</time>
-        <span>
-          {line.text}
-          {line.was ? <> <s>{line.was}</s></> : null}
-        </span>
+        <div>
+          <span>{line.text}</span>
+          {line.amendment?.before && line.amendment.after ? (
+            <Amendment before={line.amendment.before} after={line.amendment.after}>
+              {line.amendment.evidence ? (
+                <div className="judgment-amendment-source">
+                  <small>Passage behind this change</small>
+                  <blockquote>{line.amendment.evidence.text}</blockquote>
+                  {line.amendment.evidence.href ? <SourceLink origin={origin} focusId={`amendment-${line.id}`} href={line.amendment.evidence.href}>
+                    {line.amendment.evidence.source || 'Open source'}
+                  </SourceLink> : null}
+                </div>
+              ) : null}
+            </Amendment>
+          ) : null}
+        </div>
       </li>
     ))}
   </ol>
 );
 
 const JudgmentView = ({ pageId, initialPage = null }) => {
+  const { pathname, search } = useLocation();
   const [page, setPage] = useState(initialPage);
   const [reading, setReading] = useState([]);
   const [library, setLibrary] = useState([]);
@@ -259,6 +280,7 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
   const [error, setError] = useState('');
   const [revising, setRevising] = useState(false);
   const [draft, setDraft] = useState('');
+  const [draftEvidence, setDraftEvidence] = useState('');
   // Unasked, a view that has come due opens on its question.
   const [resolving, setResolving] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -296,6 +318,7 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
   }, [pageId, rereadPassages]);
 
   const view = useMemo(() => (page ? projectView(page) : null), [page]);
+  useEvidenceReturnFocus(Boolean(view));
   const mergeJudgment = useCallback((judgment) => {
     if (judgment) setPage(current => ({ ...current, judgment }));
   }, []);
@@ -339,7 +362,7 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
       return;
     }
     run(async () => {
-      const proposal = await proposeJudgmentChange(pageId, next);
+      const proposal = await proposeJudgmentChange(pageId, next, draftEvidence);
       const resolved = await resolveJudgmentChange(pageId, proposal.id, 'accept');
       if (resolved?.page) setPage(resolved.page);
       setRevising(false);
@@ -475,6 +498,18 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
                 if (event.key === 'Escape') setRevising(false);
               }}
             />
+            {['why', 'against'].some(field => page.judgment?.[field]?.some(line => line.text && line.reasonId)) ? (
+              <label className="judgment-amendment-pick">Passage behind this change
+                <select value={draftEvidence} onChange={event => setDraftEvidence(event.target.value)}>
+                  <option value="">Choose a filed passage (optional)</option>
+                  {['why', 'against'].flatMap(field => (page.judgment?.[field] || []).filter(line => line.text && line.reasonId).map(line => (
+                    <option key={`${field}:${line.reasonId}`} value={`${field}:${line.reasonId}`}>
+                      {line.sourceLabel ? `${line.sourceLabel} · ` : ''}{line.text.slice(0, 95)}
+                    </option>
+                  )))}
+                </select>
+              </label>
+            ) : null}
             <span className="judgment-actions">
               <button type="submit" disabled={busy || !oneSentence(draft)}>{busy ? 'Holding it…' : 'Hold this instead'}</button>
               <button type="button" className="is-quiet" onClick={() => setRevising(false)} disabled={busy}>Never mind</button>
@@ -525,8 +560,8 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
       ) : null}
 
       <div className="judgment-view__columns">
-        <PassageColumn title="For" passages={view.forPassages} />
-        <PassageColumn title="Against" passages={view.againstPassages} />
+        <PassageColumn title="For" passages={view.forPassages} origin={pathname + search} />
+        <PassageColumn title="Against" passages={view.againstPassages} origin={pathname + search} />
       </div>
 
       <TheTest key={`${view.test.text}:${view.test.by}`} test={view.test} onSave={saveTest}>
@@ -539,7 +574,7 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
 
       <section className="judgment-view__record" aria-labelledby="judgment-record-title">
         <h2 id="judgment-record-title">Record</h2>
-        <Record lines={view.record} />
+        <Record lines={view.record} origin={pathname + search} />
         <UndoLine pending={pending} onUndo={undo} at="record" />
         {pending?.at === 'record' ? null : (
           <p className="judgment-view__record-foot">
@@ -570,7 +605,7 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
         </div>
       ) : (
         <div className="judgment-view__actions">
-          <button type="button" onClick={() => { setDraft(view.claim); setRevising(true); }} disabled={busy || revising}>Revise</button>
+          <button type="button" onClick={() => { setDraft(view.claim); setDraftEvidence(''); setRevising(true); }} disabled={busy || revising}>Revise</button>
           <button type="button" onClick={() => setResolving(true)} disabled={busy}>Resolve</button>
         </div>
       )}

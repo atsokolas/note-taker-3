@@ -5,6 +5,7 @@ import renderTiptapDoc, { extractTocItems, firstParagraphText } from '../compone
 import WikiRepoDossierBody from '../components/wiki/WikiRepoDossierBody';
 import WikiRepoDossierOverview from '../components/wiki/WikiRepoDossierOverview';
 import WikiInvestmentValuation from '../components/wiki/WikiInvestmentValuation';
+import PublicWikiReferences, { usePublicCitationReturn } from '../components/wiki/PublicWikiReferences';
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
 import {
   applyRepoDossierSectionAnchors,
@@ -451,24 +452,7 @@ const SharedWikiPage = () => {
     handleAdopt();
   }, [handleAdopt, page, shouldAutoAdopt]);
 
-  const handleCitationClick = useCallback((event) => {
-    const target = event.target.closest?.('.wiki-claim-citation');
-    if (!target) return;
-    const refId = target.getAttribute('data-footnote-target') || '';
-    const reference = refId ? document.getElementById(refId) : null;
-    if (!reference) return;
-    event.preventDefault();
-    const reduceMotion = typeof window.matchMedia === 'function'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    reference.scrollIntoView?.({
-      behavior: reduceMotion ? 'auto' : 'smooth',
-      block: 'center'
-    });
-    reference.focus?.({ preventScroll: true });
-    if (window.history?.replaceState) {
-      window.history.replaceState(window.history.state, '', `#${refId}`);
-    }
-  }, []);
+  const citation = usePublicCitationReturn(idOrSlug);
 
   return (
     <main className={`shared-wiki-page${repoDossierMode ? ' is-repo-dossier' : ''}${companyDossierMode ? ' is-company-dossier' : ''}${weekendReadingsMode ? ' is-weekend-readings' : ''}${casebook ? ' is-casebook' : ''}`}>
@@ -487,7 +471,7 @@ const SharedWikiPage = () => {
       ) : casebook ? (
         <PublicCasebook casebook={casebook} idOrSlug={idOrSlug} location={location} />
       ) : page ? (
-        <article className="shared-wiki-page__article" onClick={handleCitationClick}>
+        <article className="shared-wiki-page__article" onClick={citation.openCitation}>
           <header className="shared-wiki-page__hero">
             <p className="shared-wiki-page__eyebrow">
               {weekendReadingsMode
@@ -639,32 +623,7 @@ const SharedWikiPage = () => {
             </div>
           </div>
 
-          {Array.isArray(page.sourceRefs) && page.sourceRefs.length > 0 ? (
-            <section className="shared-wiki-page__sources" aria-label="References">
-              <h2>References</h2>
-              <p className="shared-wiki-page__sources-note">
-                These are static references for the shared page. They do not open the private Noeis graph.
-              </p>
-              <ol>
-                {page.sourceRefs.map((source, index) => (
-                  <li
-                    key={source._id || source.id || index}
-                    id={`wiki-ref-${index + 1}`}
-                    tabIndex="-1"
-                  >
-                    {source.url ? (
-                      <a href={source.url} target="_blank" rel="noopener noreferrer">
-                        {source.title || source.url}
-                      </a>
-                    ) : (
-                      <span>{source.title || source.type || 'Source'}</span>
-                    )}
-                    {source.snippet ? <p>{source.snippet}</p> : null}
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ) : null}
+          <PublicWikiReferences sources={page.sourceRefs} citation={citation} anchors />
         </article>
       ) : null}
     </main>

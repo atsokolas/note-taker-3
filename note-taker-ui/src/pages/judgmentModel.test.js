@@ -107,16 +107,16 @@ describe('the view', () => {
     expect(view.againstPassages.map(p => p.text)).toEqual(['The best objection.']);
   });
 
-  it('keeps a record in dated plain sentences, with the old wording struck', () => {
+  it('keeps a record in dated plain sentences and pairs both versions of a revision', () => {
     const record = viewRecord(page());
     expect(record.map(line => line.text)).toEqual([
       'Held.',
-      'Revised. Was:',
+      'Revised.',
       'Filed a passage for, from Costco FY09 10-K.',
       'Said what would change my mind, by Jun 30.',
       'Filed a passage against, from Ben Carlson.'
     ]);
-    expect(record[1].was).toBe('Costco cannot lose members.');
+    expect(record[1].amendment).toMatchObject({ before: 'Costco cannot lose members.', after: page().judgment.currentJudgment });
   });
 
   it('says on the index card only what is true', () => {

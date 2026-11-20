@@ -432,7 +432,8 @@ const buildNotebookRouter = ({
         objectType: 'notebook',
         object: entry,
         eventId: req.body?.eventId,
-        action: req.body?.action
+        action: req.body?.action,
+        reason: req.body?.reason
       });
       const payload = entry.toObject ? entry.toObject() : entry;
       payload.sourceCorrection = result.preview;
@@ -883,7 +884,8 @@ const buildNotebookRouter = ({
       const updated = await existing.save();
       await recordRevision({
         EntryRevision, userId, kind: 'note', entryId: updated._id,
-        before, beforeAt, beforeHand, hand: String(updated.pencil?.tokenId || ''), after: snapshotOf('note', updated), restoredFrom: req.body.restoredFrom
+        before, beforeAt, beforeHand, hand: String(updated.pencil?.tokenId || ''), after: snapshotOf('note', updated),
+        restoredFrom: req.body.restoredFrom, separate: req.body.revisionBoundary === true
       });
       if (updates.blocks !== undefined) {
         try {

@@ -5,6 +5,7 @@ const notes = [{ _id: 'recent', takenOn: '2026-10-26' }, { _id: 'old', takenOn: 
 
 test('a line from a recent note is new until sorted; older lines and lines added here are Next', () => {
   expect(listOf({ noteId: 'recent' }, notes, '2026-10-30')).toBe('new');
+  expect(listOf({ noteId: 'recent', plannedOn: '2026-11-02' }, notes, '2026-10-30')).toBe('next');
   expect(listOf({ noteId: 'old' }, notes, '2026-10-30')).toBe('next');
   expect(listOf({}, notes, '2026-10-30')).toBe('next');
   expect(listOf({ noteId: 'recent', list: 'waiting' }, notes, '2026-10-30')).toBe('waiting');

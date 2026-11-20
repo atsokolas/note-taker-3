@@ -11,6 +11,7 @@ export default function ConnectionReceiptCard({
   receipt,
   testId,
   providerLabel = 'Connection',
+  completedSync,
   onNextAction = null,
   nextActionBusy = false
 }) {
@@ -34,17 +35,22 @@ export default function ConnectionReceiptCard({
           <strong>{statusText}</strong>
         </p>
       ) : null}
-      {receipt.headline ? <p>{receipt.headline}</p> : null}
+      {receipt.headline && !receipt.failureStage ? <p>{receipt.headline}</p> : null}
       {receipt.summary ? (
         <p className="muted small" data-testid={testId ? `${testId}-summary` : undefined}>
           {receipt.summary}
         </p>
       ) : null}
-      {receipt.detail ? <p className="muted small">{receipt.detail}</p> : null}
+      {receipt.detail && !receipt.failureStage ? <p className="muted small">{receipt.detail}</p> : null}
+      {completedSync && receipt.isLive ? (
+        <p className="muted small">
+          Last completed import <time dateTime={completedSync.at}>{completedSync.label}</time>
+          {completedSync.summary ? ` · ${completedSync.summary}` : ''}
+        </p>
+      ) : null}
       {receipt.failureStage ? (
         <p className="muted small" data-testid={testId ? `${testId}-failure` : undefined}>
           Stage: {receipt.failureStage.replace(/_/g, ' ')}
-          {receipt.failureMessage ? ` — ${receipt.failureMessage}` : ''}
         </p>
       ) : null}
       {/*

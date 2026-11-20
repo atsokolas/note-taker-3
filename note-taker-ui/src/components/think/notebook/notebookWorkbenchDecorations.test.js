@@ -37,20 +37,16 @@ describe('notebook workbench marks on a real editor', () => {
     setSavedTrialMarkHandler(null);
   });
 
-  it('shows the next sentence above its paragraph without entering the text', () => {
+  it('marks the word by the exact saved caret and clears the mark when the passage changes', () => {
     ({ editor, element } = mount({
       type: 'doc',
       content: [paragraph('p1', 'Opening line'), paragraph('p2', 'Where it stopped')]
     }, [StarterKit, BlockId, NotebookWorkbenchDecorations]));
-    setNotebookWorkbenchDecorations(editor, { nextLine: { blockId: 'p2', text: 'Begin with the exception.' } });
-
-    const line = element.querySelector('.notebook-next-line');
-    expect(line.textContent).toBe('Begin with the exception.');
-    expect(line.nextElementSibling.textContent).toBe('Where it stopped');
-    expect(editor.getText()).not.toContain('Begin with the exception.');
-
-    setNotebookWorkbenchDecorations(editor, { nextLine: null });
-    expect(element.querySelector('.notebook-next-line')).toBeNull();
+    setNotebookWorkbenchDecorations(editor, { returnTarget: { blockId: 'p2', baseText: 'Where it stopped', offset: 8 } });
+    expect(element.querySelector('.notebook-return-mark').textContent).toBe('it');
+    const at = editor.state.doc.firstChild.nodeSize + 1;
+    editor.view.dispatch(editor.state.tr.insertText('This is ', at));
+    expect(element.querySelector('.notebook-return-mark')).toBeNull();
   });
 
   it('revalidates a saved mark after edits and never hides the prose', () => {

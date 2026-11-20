@@ -247,8 +247,9 @@ export const claimTextOnPage = (doc, claimId) => String(claimMarkOnPage(doc, cla
 
 const earlierFromRevisions = (revisions, claimId, now) => {
   const list = Array.isArray(revisions) ? revisions : [];
+  let fallback = null;
   for (const revision of list) {
-    if (revision?.snapshotPrunedAt) continue;
+    if (revision?.snapshotPrunedAt || (revision?.promotionStatus && revision.promotionStatus !== 'promoted')) continue;
     const before = revision?.before;
     if (!before) continue;
     const mark = claimMarkOnPage(before.body, claimId);
@@ -256,14 +257,19 @@ const earlierFromRevisions = (revisions, claimId, now) => {
       .find((claim) => idsMatch(claim?.claimId, claimId));
     const text = String(mark?.text || fromClaims?.text || '').trim();
     if (text && text !== now) {
-      return {
+      const found = {
         text,
         before,
         mark: mark || { claimId, text }
       };
+      const after = revision.after;
+      const afterMark = claimMarkOnPage(after?.body, claimId);
+      const afterClaim = (Array.isArray(after?.claims) ? after.claims : []).find(claim => idsMatch(claim?.claimId, claimId));
+      if (String(afterMark?.text || afterClaim?.text || '').trim() === now) return { ...found, after, afterMark };
+      fallback ||= found;
     }
   }
-  return null;
+  return fallback;
 };
 
 const earlierClaimTextFromHistory = (history, now) => {
@@ -280,7 +286,7 @@ const snapshotForClaim = (found, claimId) => {
   const ledgerClaim = (Array.isArray(found.before.claims) ? found.before.claims : [])
     .find((claim) => idsMatch(claim?.claimId, claimId));
   return {
-    claimMark: found.mark,
+    claimMark: found.mark || { claimId },
     ledgerClaim,
     citations: found.before.citations || [],
     sourceRefs: found.before.sourceRefs || []
@@ -295,6 +301,8 @@ const pickAttachedLine = (attached, type) => {
 const recordedPassage = (bound) => (
   bound && bound.available !== false && String(bound.passage || '').trim() ? bound : null
 );
+
+const revisionPassages = snapshot => snapshot ? distinctBoundPassages(snapshot).filter(recordedPassage) : [];
 
 const sceneFromBefore = (found, claimId) => {
   const snapshot = snapshotForClaim(found, claimId);
@@ -324,9 +332,14 @@ export const recordedThen = ({ claimId, currentText, revisions, history } = {}) 
   const text = fromRevision?.text || earlierClaimTextFromHistory(history, now);
   if (!text) return null;
   const scene = sceneFromBefore(fromRevision, claimId);
+  const sourceKey = source => JSON.stringify([source.href || source.originalHref || source.title, source.passage]);
+  const before = new Set(revisionPassages(snapshotForClaim(fromRevision, claimId)).map(sourceKey));
+  const after = snapshotForClaim({ before: fromRevision?.after, mark: fromRevision?.afterMark }, claimId);
+  const addedSources = revisionPassages(after).filter(source => !before.has(sourceKey(source)));
   return {
     text,
     ...scene,
+    ...(addedSources.length ? { addedSources } : {}),
     draft: scene.draft || thenDraftFromHistory(history, text)
   };
 };

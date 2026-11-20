@@ -79,7 +79,8 @@ const buildJudgmentChangeProposalRouter = ({
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       const proposal = buildJudgmentChangeProposal({
         page,
-        proposedJudgment: req.body?.proposedJudgment
+        proposedJudgment: req.body?.proposedJudgment,
+        evidenceId: req.body?.evidenceId
       });
       const existing = NoeisReceipt.findOne
         ? serializeStoredReceipt(await NoeisReceipt.findOne({ userId: req.user.id, receiptId: proposal.id }))
@@ -129,7 +130,8 @@ const buildJudgmentChangeProposalRouter = ({
             input: planned.judgment,
             existing: page.judgment,
             actorType: 'user',
-            pageId: serializeId(page._id)
+            pageId: serializeId(page._id),
+            revisionEvidence: planned.receipt.provenance?.evidence
           });
           page.markModified?.('judgment');
           await page.save(activeSession ? { session: activeSession } : undefined);

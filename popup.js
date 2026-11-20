@@ -1,5 +1,6 @@
 import { APP, request } from './api.js';
 import { mountSaveCardSwitch } from './save-card-switch.js';
+import { savedPlacement } from './note-taker-ui/src/pages/placementModel.js';
 
 /* The save card.
  *
@@ -29,11 +30,11 @@ const paletteForMargin = () => {
     .map(name => [`--noeis-${name}`, style.getPropertyValue(`--noeis-${name}`).trim()]));
 };
 
-const usernameOf = token => {
+const claimsOf = token => {
   try {
-    return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).username || '';
+    return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
   } catch (_unreadable) {
-    return '';
+    return {};
   }
 };
 
@@ -67,12 +68,13 @@ const fillFolders = (folders, selected = '') => {
 
 const tell = (tab, message) => chrome.tabs.sendMessage(tab.id, message);
 
-const signIn = () => {
-  $('signIn').addEventListener('click', async () => {
+const signIn = (resuming = false) => {
+  $('signInCapture').hidden = !resuming;
+  $('signIn').onclick = async () => {
     await chrome.storage.local.remove('signedOut');
     chrome.tabs.create({ url: `${APP}/login` });
     window.close();
-  });
+  };
   show('signin');
 };
 
@@ -83,7 +85,15 @@ const open = async () => {
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const site = domainOf(tab?.url);
-  $('who').textContent = usernameOf(token) ? `Signed in as ${usernameOf(token)}` : '';
+  const { id: account, username } = claimsOf(token);
+  const captureKey = account ? `noeis.capture:${account}` : '';
+  const stored = captureKey ? (await chrome.storage.local.get(captureKey))[captureKey] : null;
+  let capture = stored?.url === tab?.url ? stored : null;
+  const hold = async (draft) => {
+    capture = draft;
+    if (captureKey) await chrome.storage.local.set({ [captureKey]: draft });
+  };
+  $('who').textContent = username ? `Signed in as ${username}` : '';
   $('signOut').addEventListener('click', async () => {
     await chrome.storage.local.set({ signedOut: true });
     await chrome.storage.local.remove('token');
@@ -110,30 +120,43 @@ const open = async () => {
     saved = await request(`/api/articles/by-url?brief=1&url=${encodeURIComponent(tab.url)}`);
   } catch (error) {
     say(error.message, { error: true });
-    if (!(await chrome.storage.local.get('token')).token) signIn();
+    if (!(await chrome.storage.local.get('token')).token) signIn(Boolean(capture));
     return;
   }
 
-  if (saved) {
+  if (saved && !capture) {
     const marks = saved.highlights || [];
     $('saveForm').hidden = true;
     $('pageTitle').textContent = saved.title || $('pageTitle').textContent;
     $('libraryLink').href = `${APP}/library?articleId=${encodeURIComponent(saved._id)}`;
     $('libraryLink').textContent = 'Open in Noeis';
-    say(`Saved on ${onDay(saved.createdAt)}${marks.length ? `, ${count(marks.length, 'highlight')}` : ''}. Select text to mark it.`);
+    say(`Already saved · ${onDay(saved.createdAt)}${marks.length ? `, ${count(marks.length, 'highlight')}` : ''}. Select text to mark it.`);
     tell(tab, { type: 'open', article: { id: saved._id, title: saved.title }, marks, palette: colors });
     return;
   }
 
-  const placement = mountSaveCardSwitch($('placement'));
-  const habit = habitFor(tab.url);
+  const placement = mountSaveCardSwitch($('placement'), { initial: capture?.placement, locked: Boolean(capture) });
+  const habit = capture ? null : habitFor(tab.url);
   request('/api/folders').then((folders) => {
-    fillFolders(folders || [], habit?.folderId || '');
+    fillFolders(folders || [], capture?.folderId || habit?.folderId || '');
     if (habit && $('folder').value === habit.folderId) {
       $('habit').hidden = false;
       $('habit').textContent = `Filed here the last ${habit.times} times from ${site}.`;
     }
   }, error => say(error.message, { error: true }));
+
+  if (capture) {
+    $('folder').disabled = true;
+    $('save').textContent = 'Finish save';
+    $('pendingQuote').textContent = capture.anchor?.text || '';
+    $('pendingQuote').hidden = !capture.anchor;
+    $('restartCapture').hidden = false;
+    $('restartCapture').onclick = async () => {
+      if (captureKey) await chrome.storage.local.remove(captureKey);
+      window.location.reload();
+    };
+    say('Your selection and destination are ready to finish saving.');
+  }
 
   $('folder').addEventListener('change', () => {
     const naming = $('folder').value === 'new';
@@ -159,26 +182,53 @@ const open = async () => {
 
   $('saveForm').addEventListener('submit', async (event) => {
     event.preventDefault();
-    const folderId = $('folder').value === 'new' ? '' : $('folder').value;
     $('save').disabled = true;
     say('Saving…');
     try {
-      const page = await tell(tab, { type: 'read' });
-      if (!page?.content) throw new Error('This page has no article Noeis can read. Try the article’s own page.');
-      const article = await request('/save-article', {
-        method: 'POST',
-        body: { ...page, url: tab.url, folderId, placement: placement.placement }
-      });
-      remember(tab.url, folderId);
+      if (!capture) {
+        const anchor = await tell(tab, { type: 'selection' });
+        await hold({
+          url: tab.url, anchor,
+          folderId: $('folder').value === 'new' ? '' : $('folder').value,
+          folderName: $('folder').value ? $('folder').selectedOptions[0]?.text : '',
+          placement: placement.placement,
+          captureId: crypto.randomUUID().replace(/-/g, '').slice(0, 24)
+        });
+      }
+      let article = capture.article || saved;
+      if (!article) {
+        const page = await tell(tab, { type: 'read' });
+        if (!page?.content) throw new Error('This page has no article Noeis can read. Try the article’s own page.');
+        article = await request('/save-article', {
+          method: 'POST', session: token,
+          body: { ...page, url: capture.url, folderId: capture.folderId, placement: capture.placement }
+        });
+        if (!article?._id) throw new Error('Noeis could not confirm the save. Try again.');
+        await hold({ ...capture, article: { _id: article._id, title: article.title, placement: article.placement } });
+        remember(capture.url, capture.folderId);
+      }
+      let mark;
+      if (capture.anchor) {
+        const result = await request(`/articles/${encodeURIComponent(article._id)}/highlights`, {
+          method: 'POST', session: token,
+          body: { text: capture.anchor.text, anchor: capture.anchor, captureId: capture.captureId }
+        });
+        mark = result?.highlight;
+        if (!mark?._id) throw new Error('The article is saved. Noeis could not confirm the passage. Try again.');
+      }
+      const query = new URLSearchParams({ articleId: article._id, ...(mark ? { highlightId: mark._id } : {}) });
+      const destination = capture.folderId && capture.folderName ? ` · ${capture.folderName}` : '';
+      if (captureKey) await chrome.storage.local.remove(captureKey);
+      capture = null;
+      await tell(tab, { type: 'open', article: { id: article._id, title: article.title }, marks: [...(saved?.highlights || []), ...(mark ? [mark] : [])], palette: colors, fresh: !saved }).catch(() => {});
       $('saveForm').hidden = true;
-      $('libraryLink').href = `${APP}/library?articleId=${encodeURIComponent(article._id)}`;
-      $('libraryLink').textContent = 'Open in Noeis';
-      const folder = folderId ? $('folder').selectedOptions[0].text : '';
-      say(`Saved${folder ? ` to ${folder}` : ' to your Library'}. Select text to mark it.`);
-      tell(tab, { type: 'open', article: { id: article._id, title: article.title }, marks: [], palette: colors, fresh: true });
+      $('libraryLink').href = `${APP}/library?${query}`;
+      $('libraryLink').textContent = mark ? 'Open saved passage' : 'Open in Noeis';
+      say(`Saved ${savedPlacement(article)}${destination}. ${mark ? 'Passage marked.' : 'Select text to mark it.'}`);
     } catch (error) {
       $('save').disabled = false;
       say(error.message, { error: true });
+      if ((await chrome.storage.local.get('token')).token !== token) signIn(Boolean(capture));
     }
   });
 };

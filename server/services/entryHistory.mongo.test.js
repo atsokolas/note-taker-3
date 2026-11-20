@@ -118,10 +118,18 @@ test('real Mongo: saving a note through its route keeps its history, read back t
     assert.deepEqual(rows.map(row => row.reason), ['edit', 'before']);
     assert.deepEqual(rows[0].snapshot.blocks.map(block => block.text), ['Members renew.', 'Fees.']);
 
-    assert.equal((await put({ title: 'Costco', blocks: rows[1].snapshot.blocks, restoredFrom: rows[1].id })).status, 200);
+    const adopted = [{ ...rows[0].snapshot.blocks[0], text: 'Members come back.' }, rows[0].snapshot.blocks[1]];
+    assert.equal((await put({ title: 'Costco', blocks: adopted, revisionBoundary: true })).status, 200);
+    const withPartner = await read();
+    assert.deepEqual(withPartner.map(row => row.reason), ['edit', 'edit', 'before']);
+    assert.equal(withPartner[0].snapshot.blocks[0].text, 'Members come back.');
+    assert.equal(withPartner[1].id, rows[0].id);
+    assert.equal(withPartner[1].snapshot.blocks[0].text, 'Members renew.');
+
+    assert.equal((await put({ title: 'Costco', blocks: withPartner[1].snapshot.blocks, restoredFrom: withPartner[1].id })).status, 200);
     const after = await read();
     assert.equal(after[0].reason, 'restore');
-    assert.equal((await NotebookEntry.findById(entry._id)).blocks.length, 1);
+    assert.equal((await NotebookEntry.findById(entry._id)).blocks[0].text, 'Members renew.');
     assert.equal((await fetch(`${url}/api/think/history/wiki/${entry._id}`)).status, 400);
   } finally {
     server?.close();

@@ -5,8 +5,13 @@ import WikiFrontPage from './WikiFrontPage';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import * as api from '../../api/wiki';
 import { fileReadingProposal, getDueView, getPushesAgainst } from '../../api/judgmentResolution';
+import { getReadingContinuation } from '../../api/readingRoom';
 
 const { listWikiPages } = api;
+
+jest.mock('../../api/readingRoom', () => ({
+  getReadingContinuation: jest.fn()
+}));
 
 jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn(),
@@ -77,6 +82,27 @@ describe('WikiFrontPage collection', () => {
   });
 
   afterEach(() => jest.restoreAllMocks());
+
+  it('offers one private reading place and remembers its dismissal without hiding the Wiki', async () => {
+    localStorage.setItem('token', `test.${btoa(JSON.stringify({ id: 'reader' }))}.test`);
+    getReadingContinuation.mockResolvedValue({
+      articleId: 'article-1', title: 'A long article', ratio: 0.52, visitedAt: '2026-11-19T12:00:00Z'
+    });
+
+    const first = render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    const resume = await screen.findByRole('link', { name: 'Resume at passage' });
+    expect(resume).toHaveAttribute('href', '/library?articleId=article-1');
+    expect(screen.getByText('about halfway', { exact: false })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByRole('link', { name: 'Resume at passage' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: pages[0].title })).toHaveFocus();
+    first.unmount();
+
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    expect(await screen.findByRole('link', { name: 'Opportunity Cost' })).toBeInTheDocument();
+    await waitFor(() => expect(getReadingContinuation).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('link', { name: 'Resume at passage' })).not.toBeInTheDocument();
+  });
 
   it('prints a quiet collection: search plus one list, without the paper', async () => {
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);

@@ -2,6 +2,7 @@ import {
   buildEvernoteConnectionReceipt,
   buildNotionConnectionReceipt,
   buildReadwiseConnectionReceipt,
+  completedSourceSync,
   describeReadwiseCadence,
   formatProviderSyncSummary
 } from './connectionReceiptModel';
@@ -57,6 +58,28 @@ describe('connectionReceiptModel', () => {
     expect(receipt.isLive).toBe(true);
     expect(receipt.failureStage).toBe('fetching_readwise');
     expect(receipt.failureMessage).toBe('Token expired');
+  });
+
+  it('keeps the completed check separate from a failed retry and the last material arrival', () => {
+    const completedAt = '2026-09-17T10:04:00.000Z';
+    const readwiseSyncConnection = {
+      id: 'rw-1', provider: 'readwise', status: 'connected',
+      lastSyncResult: { completedAt, importedArticles: 0, importedHighlights: 0 },
+      lastReceipt: { metrics: { importedHighlights: 12 } }
+    };
+    const session = {
+      provider: 'readwise', connectionId: 'rw-1', status: 'failed',
+      progress: { stage: 'fetching_readwise' }, lastError: 'Readwise did not respond'
+    };
+    expect(completedSourceSync(readwiseSyncConnection)).toMatchObject({
+      at: completedAt, summary: 'Sync completed with no new highlights.'
+    });
+    expect(buildReadwiseConnectionReceipt({ readwiseSyncConnection, session }).nextAction)
+      .toEqual({ label: 'Retry Readwise sync', kind: 'import' });
+    expect(buildReadwiseConnectionReceipt({ readwiseSyncConnection, session: { ...session, connectionId: 'rw-2' } }).failureStage)
+      .toBeUndefined();
+    expect(completedSourceSync({ provider: 'readwise', lastSyncAt: completedAt }).summary).toBe('');
+    expect(completedSourceSync({ provider: 'notion', lastSyncAt: completedAt })).toBeNull();
   });
 
   it('prefers durable Readwise lastReceipt over legacy sync counts', () => {

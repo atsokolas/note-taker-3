@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
 import MoveToFolderModal from '../components/library/MoveToFolderModal';
@@ -39,7 +39,7 @@ import { takeFirstPaint } from '../motion/columnMotion';
 import LibraryCollection from '../components/library/LibraryCollection';
 import LibraryReadingRoom from '../components/library/LibraryReadingRoom';
 import LibraryPasteLink from '../components/library/LibraryPasteLink';
-import { buildArticlePassageHref } from '../utils/sourceRoutes';
+import { buildArticlePassageHref, libraryReturnLink } from '../utils/sourceRoutes';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
 import LibraryActions from '../components/library/LibraryActions';
 import ScreenWord from '../components/library/ScreenWord';
@@ -61,6 +61,7 @@ const clearBrowseSelectionParams = (params) => {
 };
 
 const Library = () => {
+  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const scope = searchParams.get('scope') || 'all';
@@ -872,6 +873,7 @@ const Library = () => {
 
 
   const isReadingView = Boolean(selectedArticleId);
+  const readerReturn = libraryReturnLink(location.state, selectedArticleId);
   const articleHighlightCount = Array.isArray(articleHighlights) ? articleHighlights.length : 0;
   const articleReferenceCount = (
     (Array.isArray(references?.notebookBlocks) ? references.notebookBlocks.length : 0)
@@ -1095,8 +1097,12 @@ const Library = () => {
         className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
       />
       <div className="library-page-shell__column">
-        {isReadingView ? <div className="library-page-shell__column-head">
-          <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>← Back to collection</button>
+        {isReadingView && (!readerReturn || !selectedArticle) ? <div className="library-page-shell__column-head">
+          {readerReturn ? (
+            <Link className="library-reader__back" to={readerReturn.to} state={readerReturn.state}>← {readerReturn.label}</Link>
+          ) : (
+            <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>← Back to collection</button>
+          )}
         </div> : null}
         <div className={`library-reader ${!isReadingView ? 'is-shelf' : ''}`} data-testid="library-main">
           {collectionView && ['all', 'later', 'folder'].includes(scope) && !isReadingView ? <LibraryPasteLink

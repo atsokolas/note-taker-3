@@ -1228,9 +1228,10 @@ describe('NotebookEditor', () => {
       expect(screen.getByRole('status')).toHaveTextContent('');
     });
 
-    it('says when it last saved as a quiet time, not a label', () => {
+    it('keeps Saved as a short label with the time available beside it', () => {
       render(<NotebookEditor entry={{ _id: 'note-1', title: 'Dated', blocks: [], updatedAt: '2026-10-07T15:42:00.000Z', createdAt: '2026-10-07T09:00:00.000Z' }} onSave={jest.fn()} />);
-      expect(screen.getByRole('status')).toHaveTextContent(/^Saved \d{1,2}:42/);
+      expect(screen.getByRole('status')).toHaveTextContent(/^Saved$/);
+      expect(screen.getByTitle(/^Saved at \d{1,2}:42/)).toHaveTextContent('Saved');
       expect(screen.getByText(/^Begun Wednesday 7 October/)).toBeInTheDocument();
     });
 

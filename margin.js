@@ -157,6 +157,23 @@
 
   const editable = node => node?.parentElement?.closest?.('input, textarea, [contenteditable=""], [contenteditable="true"]');
 
+  const selectionAnchor = () => {
+    const selection = getSelection();
+    const text = selection?.toString().trim();
+    if (!text || text.length < 3 || !selection.rangeCount || editable(selection.anchorNode)) return null;
+    const range = selection.getRangeAt(0);
+    const node = range.commonAncestorContainer;
+    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    const block = element?.closest('p,li,blockquote,h1,h2,h3') || node;
+    const before = range.cloneRange();
+    const after = range.cloneRange();
+    before.selectNodeContents(block);
+    after.selectNodeContents(block);
+    before.setEnd(range.startContainer, range.startOffset);
+    after.setStart(range.endContainer, range.endOffset);
+    return { text, prefix: before.toString().slice(-60), suffix: after.toString().slice(0, 60) };
+  };
+
   const offer = () => {
     const selection = getSelection();
     const text = selection.toString().trim();
@@ -380,6 +397,7 @@
 
   chrome.runtime.onMessage.addListener((message, _sender, reply) => {
     if (message?.type === 'read') reply(readPage());
+    if (message?.type === 'selection') reply(selectionAnchor());
     if (message?.type === 'open') reply(start(message));
     return false;
   });

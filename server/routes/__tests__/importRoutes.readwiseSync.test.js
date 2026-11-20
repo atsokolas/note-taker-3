@@ -380,6 +380,8 @@ const run = async () => {
     assert.ok(connections.connection.lastReceipt, 'Readwise connection should persist a durable receipt.');
     assert.strictEqual(connections.connection.lastReceipt.source, 'readwise');
     assert.strictEqual(connections.connection.lastReceipt.sourceLabel, 'Readwise');
+    assert.strictEqual(connections.connection.lastSyncResult.importedArticles, 1);
+    assert.strictEqual(connections.connection.lastSyncResult.importedHighlights, 1);
     assert.strictEqual(importSessions.session.receipt.source, 'readwise');
     assert.strictEqual(importSessions.session.status, 'completed', 'The import session should finish successfully.');
     assert.strictEqual(importSessions.session.result.invalidSkips, 1, 'The session result should persist invalid skip counts.');
@@ -450,6 +452,9 @@ const run = async () => {
     assert.strictEqual(quiet.result.importedHighlights, 0, 'A highlight already in the library is never added twice.');
     assert.strictEqual(quiet.result.duplicateSkips, 1);
     assert.strictEqual(connection.lastReceipt, receiptBeforeQuietCheck, 'A check that found nothing keeps the last real result.');
+    assert.strictEqual(connection.lastSyncResult.importedArticles, 0);
+    assert.strictEqual(connection.lastSyncResult.importedHighlights, 0);
+    assert.strictEqual(connection.lastSyncResult.completedAt.toISOString(), quiet.result.receipt.completedAt);
     assert.strictEqual(savedReceipts.length, receiptsBeforeQuietCheck, 'A check that found nothing records nothing.');
     assert.ok(connection.lastSyncAt >= previousCheck, 'The check itself is still remembered.');
 

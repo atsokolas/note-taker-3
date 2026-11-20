@@ -3,13 +3,14 @@ import WorkIcon from './WorkIcon';
 import WorkNoteActions from './WorkNoteActions';
 import { WorkTaskRow, WorkAppointmentRow } from './WorkPlanItem';
 import { matchesQuery, noteTitle } from './workSession';
-import { deviceTimeZone, displayDay, shiftDay, weekDays, writtenDay } from './workPlannerModel';
+import { deviceTimeZone, displayDay, displayRange, shiftDay, weekDays, writtenDay } from './workPlannerModel';
 import WorkDayTasks, { dayTasks } from './WorkDayTasks';
 
 // The week line sits over every Work page. On Today it is followed by the day itself, read top to bottom like a page in a day book:
 // its appointments and to-dos, what is carried from earlier, what was written, the margin.
-export default function WorkCalendar({ day, today, mode, onMode, onDay, items, notes, query, folders, projects = [], timeZone = deviceTimeZone(), page, mark, drag, onOpen, onRenameNote, onTrashNote, onStart, onEdit, onAction, onNew, onPlan, margin, oneThing, sense, showTasks = true }) {
+export default function WorkCalendar({ day, today, mode, onMode, onDay, pickerOpen, onPicker, focusRequest, items, notes, query, folders, projects = [], timeZone = deviceTimeZone(), page, mark, drag, onOpen, onRenameNote, onTrashNote, onStart, onEdit, onAction, onNew, onPlan, margin, oneThing, sense, showTasks = true }) {
   const frame = useRef(null), contents = useRef(null), animation = useRef(null), origin = useRef(null);
+  const navigation = useRef(null);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const clock = window.setInterval(() => setNow(new Date()), 30000); return () => window.clearInterval(clock); }, []);
   // "in 4 min" or "now" on today's meetings, and a way into the note for one that has none yet.
@@ -20,7 +21,7 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, n
     const from = minutes(item.startTime) - minutes(clock);
     return from <= 0 && from > -(minutes(item.endTime || item.startTime) - minutes(item.startTime)) ? ' · now' : from > 0 && from <= 15 ? ` · in ${from} min` : '';
   };
-  // The underlined day is the one this page is about: the chosen day on Today, the written day on a note.
+  // The chosen day on Today, or the written day on a note.
   const marked = mark || (page ? day : null);
   const days = weekDays(day), appointments = items.filter(item => item.kind === 'appointment');
   const onDate = (list, date) => list.filter(item => item.plannedOn === date);
@@ -29,6 +30,23 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, n
   const written = notes.filter(note => writtenDay(note) === day && matchesQuery(note, query));
   const folderName = note => folders.find(folder => folder._id === (note.folder?._id || note.folder))?.name || 'Inbox';
   const selectedAppointments = onDate(appointments, day).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+  const walkDays = (event, date) => {
+    const offset = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
+    const next = event.key === 'Home' ? days[0] : event.key === 'End' ? days.at(-1) : offset ? shiftDay(date, offset) : null;
+    if (!next || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    event.preventDefault();
+    if (next !== date) onDay(next, next);
+  };
+  const step = (event, offset, control) => onDay(shiftDay(day, offset),
+    event.detail === 0 || document.activeElement === event.currentTarget ? control : null);
+  useLayoutEffect(() => {
+    const request = focusRequest?.current;
+    if (request?.day !== day || !navigation.current) return;
+    focusRequest.current = null;
+    const control = navigation.current.querySelector(`[data-calendar-control="${request.control}"]`);
+    control?.focus({ preventScroll: true });
+    control?.scrollIntoView?.({ block: 'nearest' });
+  });
   const selectMode = next => {
     const selection = window.getSelection?.();
     const selectionRange = selection?.rangeCount && selection.getRangeAt(0);
@@ -67,8 +85,25 @@ export default function WorkCalendar({ day, today, mode, onMode, onDay, items, n
   const daySentence = parts.length ? `${parts.join(', ').replace(/, ([^,]*)$/, ' and $1').replace(/^./, c => c.toUpperCase())}.` : 'A clear day.';
   return <section className={`work-calendar mode-${mode}`} aria-label="Work planner">
     {page ? <header className="work-day-header"><h1 className="work-page-title">{day === today ? 'Today' : displayDay(day)}</h1>{day === today ? <p><time dateTime={day}>{displayDay(day)}</time></p> : null}</header> : null}
-    <details className="work-calendar-picker" open={mode === 'week' || undefined}><summary><WorkIcon name="calendar" />Choose a day</summary>
-    <header className="work-calendar-heading"><button className="work-week-step" aria-label="Previous week" onClick={() => onDay(shiftDay(day, -7))}><WorkIcon name="previous" /></button><div className="work-week-days" role="group" aria-label="Calendar navigation">{days.map(date => <button key={date} className="work-day-heading" data-day={date} aria-label={displayDay(date)} aria-pressed={date === marked} aria-current={date === today ? 'date' : undefined} data-busy={onDate(items, date).some(item => item.kind !== 'jot' && !item.completed) ? true : undefined} onKeyDown={event => { const offset = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key]; if (!offset) return; event.preventDefault(); const next = shiftDay(date, offset); onDay(next); window.requestAnimationFrame(() => document.querySelector(`[data-day="${next}"]`)?.focus({ preventScroll: true })); }} onClick={() => onDay(date)}><span>{displayDay(date, { weekday: 'short' })}</span> {displayDay(date, { day: 'numeric' })}</button>)}</div><button className="work-week-step" aria-label="Next week" onClick={() => onDay(shiftDay(day, 7))}><WorkIcon name="next" /></button><button className="work-week-toggle" aria-pressed={mode === 'week'} onClick={() => selectMode(mode === 'week' ? 'compact' : 'week')}>Week</button></header>
+    <details className="work-calendar-picker" open={mode === 'week' || pickerOpen} onToggle={event => onPicker?.(event.currentTarget.open)}>
+      <summary><WorkIcon name="calendar" />Choose a day</summary>
+      <header className="work-calendar-heading" ref={navigation}>
+        <button className="work-week-step" data-calendar-control="previous" aria-label="Previous week" onClick={event => step(event, -7, 'previous')}><WorkIcon name="previous" /></button>
+        <p className="work-week-range" aria-live="polite">{displayRange(days[0], days.at(-1))}</p>
+        <button className="work-week-step" data-calendar-control="next" aria-label="Next week" onClick={event => step(event, 7, 'next')}><WorkIcon name="next" /></button>
+        <button className="work-week-toggle" data-calendar-control="mode" aria-pressed={mode === 'week'} onClick={() => selectMode(mode === 'week' ? 'compact' : 'week')}>Week</button>
+        <div className="work-week-days" role="group" aria-label="Calendar navigation">
+          {days.map(date => (
+            <button key={date} className="work-day-heading" data-calendar-control={date} aria-label={displayDay(date)}
+              tabIndex={date === (marked || day) ? 0 : -1} aria-pressed={date === marked} aria-current={date === today ? 'date' : undefined}
+              data-busy={onDate(items, date).some(item => item.kind !== 'jot' && !item.completed) ? true : undefined}
+              onKeyDown={event => walkDays(event, date)} onClick={event => onDay(date, event.detail === 0 ? date : null)}>
+              <span>{displayDay(date, { weekday: 'short' })}</span>
+              <span className="work-day-number">{displayDay(date, { day: 'numeric' })}</span>
+            </button>
+          ))}
+        </div>
+      </header>
     <div className="work-calendar-fold" ref={frame}>
       <div ref={contents} className="work-calendar-content">
         {mode === 'week' ? <div className="work-week-columns">{days.map((date, index) => <div className={`work-day ${date === day ? 'is-selected' : ''} ${index > 4 ? 'is-weekend' : ''}`} key={date}>{date === marked && page ? null : <div className="work-day-plan">{onDate(appointments, date).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || '')).map(appointmentRow)}{plan(date).map(item => taskRow(item))}<button className="work-day-add" aria-label={`Plan work for ${displayDay(date)}`} onClick={() => onNew({ plannedOn: date })}><WorkIcon name="plus" /></button></div>}</div>)}</div> : null}

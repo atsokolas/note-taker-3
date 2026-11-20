@@ -29,9 +29,9 @@ class JudgmentChangeProposalError extends Error {
   }
 }
 
-const proposalKey = ({ pageId, before, after }) => crypto
+const proposalKey = ({ pageId, before, after, evidence }) => crypto
   .createHash('sha256')
-  .update(JSON.stringify([clean(pageId, 100), clean(before), clean(after)]))
+  .update(JSON.stringify([clean(pageId, 100), clean(before), clean(after), ...(evidence ? [evidence.field, evidence.reasonId] : [])]))
   .digest('hex')
   .slice(0, 24);
 
@@ -83,7 +83,7 @@ const buildReadingProposal = ({ page, article, stance, quote, falsifier = '', ev
 
 const isReading = proposal => clean(proposal?.provenance?.change, 24) === 'evidence';
 
-const buildJudgmentChangeProposal = ({ page, proposedJudgment, now = new Date() } = {}) => {
+const buildJudgmentChangeProposal = ({ page, proposedJudgment, evidenceId, now = new Date() } = {}) => {
   const pageId = id(page);
   const before = clean(page?.judgment?.currentJudgment);
   const after = clean(proposedJudgment);
@@ -96,7 +96,15 @@ const buildJudgmentChangeProposal = ({ page, proposedJudgment, now = new Date() 
   if (after === before) {
     throw new JudgmentChangeProposalError('The proposed judgment is unchanged.', 409);
   }
-  const proposalId = proposalKey({ pageId, before, after });
+  let evidence;
+  if (evidenceId) {
+    const [field, ...parts] = clean(evidenceId, 240).split(':');
+    const reasonId = parts.join(':');
+    const line = ['why', 'against'].includes(field) && (page.judgment[field] || []).find(row => row.reasonId === reasonId);
+    if (!line?.text) throw new JudgmentChangeProposalError('That passage is no longer filed on this judgment.', 409);
+    evidence = { field, reasonId, text: line.text, sourceLabel: line.sourceLabel, acceptedFrom: line.acceptedFrom, sourceRefIds: line.sourceRefIds || [] };
+  }
+  const proposalId = proposalKey({ pageId, before, after, evidence });
   return {
     id: `judgment-change-proposal:${pageId}:${proposalId}`,
     kind: 'judgment_change_proposal',
@@ -110,7 +118,8 @@ const buildJudgmentChangeProposal = ({ page, proposedJudgment, now = new Date() 
       proposalId,
       before,
       after,
-      proposedAt: now
+      proposedAt: now,
+      ...(evidence ? { evidence } : {})
     },
     touched: [{ type: 'wiki_page', id: pageId, title: clean(page?.title, 240) }],
     nextAction: { type: 'open_judgment', id: pageId, title: 'Review the proposed change' },
@@ -131,7 +140,7 @@ const assertBinding = ({ receipt, page }) => {
   const after = clean(stored.provenance?.after);
   const expectedId = isReading(stored)
     ? readingKey({ pageId, articleId: stored.provenance?.articleId })
-    : proposalKey({ pageId, before, after });
+    : proposalKey({ pageId, before, after, evidence: stored.provenance?.evidence });
   if (!before || !after || clean(stored.provenance?.proposalId, 100) !== expectedId) {
     throw new JudgmentChangeProposalError('The proposal identity is incomplete or corrupt.', 409);
   }

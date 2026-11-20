@@ -3983,6 +3983,19 @@ a.wiki-read__reference-title:focus-visible {
   color: var(--text-primary);
 }
 
+.shared-wiki-page__citation-return {
+  display: block;
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  color: var(--text-primary);
+  background: none;
+  font: 500 13px/1.4 var(--font-sans, sans-serif);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 .shared-wiki-page__state {
   width: min(720px, calc(100% - 48px));
   margin: 20vh auto 0;

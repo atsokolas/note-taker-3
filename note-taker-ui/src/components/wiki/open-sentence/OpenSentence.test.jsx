@@ -1777,7 +1777,7 @@ describe('OpenSentence', () => {
       }
     })));
     expect(screen.getByRole('button', { name: STORYBOARD_THEN_NOW })).toBeInTheDocument();
-    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_THEN_NOW);
+    expect(screen.getByText('Revised wording').nextElementSibling).toHaveTextContent(STORYBOARD_THEN_NOW);
     const then = document.querySelector('.open-sentence-pocket__then');
     expect(then).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
     expect(then).toHaveTextContent(STORYBOARD_THEN_QUOTATION);

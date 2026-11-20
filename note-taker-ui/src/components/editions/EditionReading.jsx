@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import useEvidenceReturnFocus from '../../hooks/useEvidenceReturnFocus';
 import { setEditionItemState } from '../../api/editions';
 import {
   aheadLine,
@@ -82,6 +83,7 @@ export default function EditionReading({
     element?.focus({ preventScroll: true });
   }, []);
   const loaded = Boolean(edition);
+  const location = useLocation();
   const latest = useRef(edition);
   latest.current = edition;
   useEffect(() => {
@@ -112,6 +114,7 @@ export default function EditionReading({
       document.removeEventListener('visibilitychange', dwell);
     };
   }, [loaded, focusItem, issue._id]);
+  useEvidenceReturnFocus(loaded);
   /* A link to a column opens at its first finding. */
   useEffect(() => {
     const first = !focusItem && focusSection && latest.current?.items.find(row => row.section === focusSection);
@@ -232,6 +235,13 @@ export default function EditionReading({
   const sourceDoor = id => document.getElementById(findingAnchor(id))?.querySelector('.reading-open');
   const side = peek || (source && focusItem ? { itemId: focusItem, view: 'source', origin: sourceDoor(focusItem) } : null);
   const sideItem = side && edition?.items.find(item => item.itemId === side.itemId);
+  const findingLocation = new URLSearchParams(location.search);
+  findingLocation.delete('source');
+  if (sideItem) findingLocation.set('item', sideItem.itemId);
+  const evidenceOrigin = sideItem ? {
+    to: `${location.pathname}?${findingLocation}`,
+    focusId: `${findingAnchor(sideItem.itemId)}-source`
+  } : null;
   const focused = focusItem ? shown.findIndex(({ item }) => item.itemId === focusItem) : -1;
 
   const finding = ({ item, section }, index) => (
@@ -418,6 +428,7 @@ export default function EditionReading({
           key={`${sideItem.itemId}:${side.view}`}
           item={sideItem}
           {...side}
+          evidenceOrigin={evidenceOrigin}
           onClose={() => (peek ? setPeek(null) : onItem(focusItem))}
           thoughtProps={thoughts}
         />

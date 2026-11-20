@@ -1465,11 +1465,17 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   background: var(--accent-soft);
 }
 
+.palette-shortcut-guide > summary {
+  padding-block: 9px;
+  color: var(--text-muted);
+  font-size: .83rem;
+  cursor: pointer;
+}
 .palette-shortcuts {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin: 8px 0 12px;
+  margin: 0 0 10px;
 }
 
 .legal-shell {

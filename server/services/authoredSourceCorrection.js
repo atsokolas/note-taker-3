@@ -168,6 +168,7 @@ const buildPreview = ({
     sourceUpdatedAt: event?.sourceUpdatedAt || event?.createdAt || null,
     sourceUpdatedOn: datedLabel(event?.sourceUpdatedAt || event?.createdAt),
     reviewedOn: receipt?.completedAt ? datedLabel(receipt.completedAt) : '',
+    ...(receipt?.provenance?.reviewReason ? { reviewReason: receipt.provenance.reviewReason } : {}),
     whatChanged: 'The saved passage was corrected.',
     whatItAffects: clean(object?.title || object?.draft?.title || 'this work', 240),
     whatINeed: 'Keep this work, change the quotation, or record no change — including when you cannot tell.',
@@ -390,9 +391,11 @@ const disposeAuthoredSourceCorrection = async ({
   object,
   eventId,
   action,
+  reason,
   now = new Date()
 } = {}) => {
   const selected = String(action || '').trim().toLowerCase().replace(/-/g, '_');
+  const reviewReason = selected === 'keep' && typeof reason === 'string' ? clean(reason, 500) : '';
   if (!ACTIONS.includes(selected)) {
     throw new AuthoredSourceCorrectionError('Choose keep, change, or no change.', 400, 'invalid_disposition');
   }
@@ -456,6 +459,7 @@ const disposeAuthoredSourceCorrection = async ({
         oldQuotation: preview.oldQuotation,
         newEvidence: preview.newEvidence,
         disposition: selected,
+        ...(reviewReason ? { reviewReason } : {}),
         snapshotUnchanged: selected !== 'change',
         writingRewritten: false,
         resolvedAt: now

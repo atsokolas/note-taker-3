@@ -117,16 +117,16 @@ const decorations = (doc, state = {}) => {
     const located = locatePassage(doc, { blockId: passage.blockId, sentence: passage.text, near: passage.offset });
     if (located) rows.push(Decoration.inline(located.from, located.to, { class: 'notebook-dimmed' }));
   });
-  const next = state.nextLine?.text ? findBlock(doc, state.nextLine.blockId) : null;
-  if (next) {
-    rows.push(Decoration.widget(next.pos, () => {
-      const line = document.createElement('p');
-      line.className = 'notebook-next-line';
-      line.contentEditable = 'false';
-      line.textContent = state.nextLine.text;
-      line.setAttribute('aria-label', `The next sentence you left yourself: ${state.nextLine.text}`);
-      return line;
-    }, { key: `next-line-${state.nextLine.blockId}-${state.nextLine.text}`, side: -1 }));
+  const target = state.returnTarget;
+  const returned = target ? findBlock(doc, target.blockId) : null;
+  if (target?.baseText && returned?.node.isTextblock && returned.node.textContent === target.baseText
+    && returned.node.content.size === target.baseText.length) {
+    const words = [...target.baseText.matchAll(/\S+/gu)];
+    const word = words.find(part => part.index + part[0].length >= target.offset) || words.at(-1);
+    if (word) {
+      const from = returned.pos + 1 + word.index;
+      rows.push(Decoration.inline(from, from + word[0].length, { class: 'notebook-return-mark' }));
+    }
   }
   const opposite = locatePassage(doc, state.opposite || {});
   if (opposite) rows.push(Decoration.inline(opposite.from, opposite.to, { class: 'notebook-opposite-sentence' }));
@@ -139,7 +139,7 @@ export const NotebookWorkbenchDecorations = Extension.create({
     return [new Plugin({
       key,
       state: {
-        init: () => ({ targetBlockId: '', targetRange: null, preview: null, savedMarks: [], dimmed: [], nextLine: null, opposite: null }),
+        init: () => ({ targetBlockId: '', targetRange: null, preview: null, savedMarks: [], dimmed: [], returnTarget: null, opposite: null }),
         apply: (tr, previous) => tr.getMeta(key) || previous
       },
       props: {
@@ -172,7 +172,7 @@ export const setNotebookWorkbenchDecorations = (editor, state = {}) => {
     } : null,
     savedMarks: Array.isArray(state.savedMarks) ? state.savedMarks.map(identity) : [],
     dimmed: Array.isArray(state.dimmed) ? state.dimmed : [],
-    nextLine: state.nextLine?.blockId && state.nextLine?.text ? { blockId: String(state.nextLine.blockId), text: String(state.nextLine.text) } : null,
+    returnTarget: state.returnTarget || null,
     opposite: state.opposite?.sentence
       ? { blockId: String(state.opposite.blockId || ''), sentence: String(state.opposite.sentence) }
       : null

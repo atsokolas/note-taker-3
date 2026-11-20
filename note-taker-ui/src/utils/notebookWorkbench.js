@@ -49,11 +49,25 @@ export const targetFromEditor = (editor) => {
   };
 };
 
+const rangeNotebookTarget = (from, to, fullRange) => {
+  const parent = from?.parent;
+  if (!parent?.isTextblock || parent !== to?.parent) return null;
+  const blockId = text(parent.attrs?.blockId);
+  const baseText = text(parent.textContent);
+  const rangeStart = from.parentOffset;
+  const rangeEnd = to.parentOffset;
+  if (!blockId || !Number.isInteger(rangeStart) || !Number.isInteger(rangeEnd)
+    || rangeStart < 0 || rangeEnd <= rangeStart || rangeEnd > baseText.length) return null;
+  const point = { blockId, offset: rangeStart, baseText };
+  return !fullRange && rangeStart === 0 && rangeEnd === baseText.length
+    ? point : { ...point, scope: 'range', rangeStart, rangeEnd };
+};
+
 // A highlight is the exact offsets inside one text block. A whole paragraph
 // stays unscoped. A selection that crosses blocks is not a single passage.
 // The DOM selection can stay a phrase after ProseMirror has collapsed it to a
 // word. Read it while the editor is still focused.
-export const domNotebookTarget = (editor) => {
+export const domNotebookTarget = (editor, { fullRange = false } = {}) => {
   const view = editor?.view;
   const selection = typeof window !== 'undefined' ? window.getSelection() : null;
   if (!view?.posAtDOM || !view?.dom || !selection || selection.isCollapsed || selection.rangeCount !== 1) return null;
@@ -68,19 +82,8 @@ export const domNotebookTarget = (editor) => {
     return null;
   }
   if (!Number.isInteger(from) || !Number.isInteger(to) || from === to) return null;
-  const start = Math.min(from, to);
-  const end = Math.max(from, to);
-  const $from = editor.state.doc.resolve(start);
-  const $to = editor.state.doc.resolve(end);
-  if (!$from.parent?.isTextblock || $from.parent !== $to.parent) return null;
-  const blockId = text($from.parent.attrs?.blockId);
-  if (!blockId) return null;
-  const baseText = text($from.parent.textContent);
-  const rangeStart = $from.parentOffset;
-  const rangeEnd = $to.parentOffset;
-  if (rangeEnd <= rangeStart || rangeEnd > baseText.length) return null;
-  if (rangeStart === 0 && rangeEnd === baseText.length) return { blockId, offset: rangeStart, baseText };
-  return { blockId, offset: rangeStart, baseText, scope: 'range', rangeStart, rangeEnd };
+  const doc = editor.state.doc;
+  return rangeNotebookTarget(doc.resolve(Math.min(from, to)), doc.resolve(Math.max(from, to)), fullRange);
 };
 
 // Focus leaving the writing can shrink the live selection before Try wording
@@ -93,20 +96,9 @@ export const rememberNotebookHighlight = (editor, previous, { settled = true } =
   return selectionNotebookTarget(editor) || null;
 };
 
-export const selectionNotebookTarget = (editor) => {
+export const selectionNotebookTarget = (editor, { fullRange = false } = {}) => {
   const selection = editor?.state?.selection;
-  const from = selection?.$from;
-  const to = selection?.$to;
-  const parent = from?.parent;
-  if (!selection || selection.empty || !parent?.isTextblock || parent !== to?.parent) return null;
-  const blockId = text(parent.attrs?.blockId);
-  if (!blockId) return null;
-  const baseText = text(parent.textContent);
-  const rangeStart = Math.max(0, Number(from.parentOffset) || 0);
-  const rangeEnd = Math.max(0, Number(to.parentOffset) || 0);
-  if (!Number.isInteger(rangeStart) || !Number.isInteger(rangeEnd) || rangeEnd <= rangeStart || rangeEnd > baseText.length) return null;
-  if (rangeStart === 0 && rangeEnd === baseText.length) return { blockId, offset: rangeStart, baseText };
-  return { blockId, offset: rangeStart, baseText, scope: 'range', rangeStart, rangeEnd };
+  return !selection || selection.empty ? null : rangeNotebookTarget(selection.$from, selection.$to, fullRange);
 };
 
 // Offsets belong to a stable block and its exact base text. Any intervening
@@ -201,10 +193,14 @@ export const resolveEditorTarget = (editor, savedTarget, { requireSameText = fal
   };
 };
 
-export const focusEditorTarget = (editor, savedTarget) => {
+export const focusEditorTarget = (editor, savedTarget, { selection = false } = {}) => {
   const found = resolveEditorTarget(editor, savedTarget);
   if (found.status !== 'ready') return false;
-  editor.commands?.setTextSelection?.(found.caret);
+  const range = selection && !found.stale && savedTarget.scope ? {
+    from: found.from + savedTarget.rangeStart,
+    to: found.from + savedTarget.rangeEnd
+  } : found.caret;
+  editor.commands?.setTextSelection?.(range);
   editor.commands?.focus?.();
   return true;
 };

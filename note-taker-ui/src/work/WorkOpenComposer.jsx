@@ -37,7 +37,12 @@ export default function WorkOpenComposer({ noteId, session, timeZone, request, o
       <label className="work-open-destination">Notebook<select aria-label="To-do notebook" disabled={Boolean(draft.submission)} value={draft.folder !== undefined ? draft.folder : session.entry(noteId)?.folder?._id || session.entry(noteId)?.folder || ''} onChange={event => session.open.change(noteId, { folder: event.target.value })}><option value="">Work inbox</option>{folders.filter(folder => !folder.archivedAt).map(folder => <option key={folder._id} value={folder._id}>{folder.name}</option>)}</select></label>
       <div className="work-open-actions"><button type="button" onClick={() => { if (draft.submission || session.open.cancel(noteId)) collapse(); }}>{draft.submission ? 'Close' : 'Cancel'}</button><button className="work-open-add" type="submit" disabled={!draft.title.trim()}>{draft.submission ? 'Retry' : 'Add'}</button></div>
     </div>
-    <small className="work-open-link">Source words stay in this note</small>
+    {draft.origin?.quote && draft.origin.quote !== draft.title ? (
+      <div className="work-open-link">
+        <small>From your note</small>
+        <blockquote>{draft.origin.quote}</blockquote>
+      </div>
+    ) : null}
     {error ? <p className="work-open-error" role="alert">{error}</p> : null}
   </form>;
 }

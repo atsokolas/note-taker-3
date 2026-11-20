@@ -142,10 +142,10 @@ export const trackCompanyDossierInJudgment = async (pageId) => {
   return res.data || {};
 };
 
-export const proposeJudgmentChange = async (pageId, proposedJudgment) => {
+export const proposeJudgmentChange = async (pageId, proposedJudgment, evidenceId) => {
   const res = await api.post(
     `${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-change-proposals`,
-    { proposedJudgment },
+    { proposedJudgment, ...(evidenceId ? { evidenceId } : {}) },
     getAuthHeaders()
   );
   return res.data?.proposal || null;

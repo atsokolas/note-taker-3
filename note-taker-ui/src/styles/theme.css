@@ -7329,3 +7329,8 @@ html[data-ui-scheme='dark'] {
 @media (prefers-reduced-motion: reduce) {
   .wfp-anim { animation: none; opacity: 1; transform: none; }
 }
+
+.reading-amendment > dl { display: grid; gap: 12px; margin: 0 0 12px; }
+.reading-amendment > dl > div { padding-inline-start: 12px; border-inline-start: 1px solid var(--noeis-rule); }
+.reading-amendment dt { color: var(--noeis-ink-muted); font: 0.8rem var(--font-sans); }
+.reading-amendment dd { margin: 4px 0 0; font-family: var(--font-serif); overflow-wrap: anywhere; }

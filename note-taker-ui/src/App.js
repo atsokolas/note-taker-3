@@ -720,13 +720,19 @@ function App() {
 
   useEffect(() => {
     if (!paletteOpen) return undefined;
+    const overlay = document.querySelector('.palette-overlay');
+    let lastInside = overlay?.contains(document.activeElement) ? document.activeElement : null;
     const getFocusable = () => Array.from(document.querySelectorAll(
       '.palette-overlay button, .palette-overlay [href], .palette-overlay input, .palette-overlay textarea, .palette-overlay select, .palette-overlay [tabindex]:not([tabindex="-1"])'
     )).filter((node) => !node.disabled && node.getAttribute('aria-hidden') !== 'true');
     const handlePointerDown = (event) => {
-      if (event.target === document.querySelector('.palette-overlay')) {
+      if (event.target === overlay) {
         closePalette();
       }
+    };
+    const keepFocusInPalette = (event) => {
+      if (overlay?.contains(event.target)) lastInside = event.target;
+      else if (overlay?.isConnected) (lastInside?.isConnected ? lastInside : getFocusable()[0])?.focus();
     };
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
@@ -747,9 +753,11 @@ function App() {
       }
     };
     document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('focusin', keepFocusInPalette);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('focusin', keepFocusInPalette);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [paletteOpen, closePalette]);
@@ -781,7 +789,7 @@ function App() {
 
     const routes = (
       <Page className="page-area">
-        <CommandPalette open={paletteOpen} onClose={closePalette} />
+        <CommandPalette open={paletteOpen} onOpen={openPalette} onClose={closePalette} />
         <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
         <ProductFeedbackModal open={productFeedbackOpen} onClose={() => setProductFeedbackOpen(false)} />
 

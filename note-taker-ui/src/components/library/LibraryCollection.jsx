@@ -154,6 +154,7 @@ export default function LibraryCollection({
           items: offset ? [...current.items, ...items] : items,
           loading: false,
           error: '',
+          identity,
           total: payload.total,
           nextOffset: next
         }));
@@ -210,26 +211,27 @@ export default function LibraryCollection({
     fetchPage(0, Math.max(40, loaded.current));
   }, [revision, fetchPage]);
   useLayoutEffect(() => {
-    if (selectedArticleId || state.loading || !restore.current) return;
-    restore.current = false;
+    if (selectedArticleId || state.loading || state.error || state.identity !== identity || !restore.current) return;
     const held = placeRef.current;
     const frame = requestAnimationFrame(() => {
+      restore.current = false;
       scrollerFor(root.current).scrollTo?.({
         top: held.top || 0,
         behavior: 'instant'
       });
-      const node = root.current?.querySelector(
-        `[data-source-id="${held.focusId}"] .library-source-title`
-      );
-      node?.focus({ preventScroll: true });
-      setReturned(held.focusId || '');
+      const row = Array.from(root.current?.querySelectorAll('[data-source-id]') || [])
+        .find(item => item.dataset.sourceId === String(held.focusId || ''));
+      const node = row?.querySelector('.library-source-title');
+      (node || search.current)?.focus({ preventScroll: true });
+      node?.scrollIntoView?.({ block: 'nearest' });
+      setReturned(node ? held.focusId : '');
     });
     const timer = setTimeout(() => setReturned(''), 2200);
     return () => {
       cancelAnimationFrame(frame);
       clearTimeout(timer);
     };
-  }, [selectedArticleId, state.loading]);
+  }, [identity, selectedArticleId, state.error, state.identity, state.loading]);
   useEffect(() => {
     const key = (event) => {
       if (

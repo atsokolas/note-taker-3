@@ -1818,7 +1818,8 @@ const WikiPageReadView = ({
     checking = '',
     claimId = '',
     citationIndex = 0,
-    returnTo = ''
+    returnTo = '',
+    citationAnchorId = ''
   } = {}) => {
     const reading = previewPage || page;
     const occurrence = citedSourceOccurrence({
@@ -1839,6 +1840,7 @@ const WikiPageReadView = ({
       revisionId: reading?.rev || occurrence.revisionId || '',
       claimId,
       citationIndex,
+      citationAnchorId,
       historical: previewMode === 'history',
       proposed: previewMode === 'candidate'
     }));
@@ -1882,7 +1884,9 @@ const WikiPageReadView = ({
       source,
       checking,
       claimId,
-      citationIndex
+      citationIndex,
+      returnTo: target.id ? 'citation' : '',
+      citationAnchorId: target.id
     });
     const refId = target.getAttribute('data-footnote-target') || '';
     if (refId && scrollToElementId(refId)) highlightReference(refId);
@@ -2160,12 +2164,13 @@ const WikiPageReadView = ({
   }, []);
 
   const handleContextBack = useCallback(() => {
-    setPanelTrail((current) => {
-      const next = popReaderPanel(current);
-      setSurroundingOpen(false);
-      return next.trail;
-    });
-  }, []);
+    setPanelTrail(current => popReaderPanel(current).trail);
+    setSurroundingOpen(false);
+    if (contextPanel?.citationAnchorId) {
+      const anchor = contextPanel.citationAnchorId;
+      window.requestAnimationFrame(() => scrollToElementId(anchor));
+    }
+  }, [contextPanel]);
 
   const exitIsolatedPreview = useCallback(() => {
     setPreviewMode(null);

@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   buildReadingRoom,
+  buildReadingContinuation,
   loadWorthSaying,
   phraseWorthSaying,
   explainItBack,
@@ -19,7 +20,7 @@ const buildReadingRoomRouter = ({
   mongoose,
   Article,
   ArticleReadingState,
-  room = { buildReadingRoom, loadWorthSaying, phraseWorthSaying, explainItBack, canExplainBack }
+  room = { buildReadingRoom, buildReadingContinuation, loadWorthSaying, phraseWorthSaying, explainItBack, canExplainBack }
 }) => {
   const router = express.Router();
   const owner = (req) => new mongoose.Types.ObjectId(req.user.id);
@@ -31,6 +32,15 @@ const buildReadingRoomRouter = ({
       res.json(await room.buildReadingRoom({ models, userId: owner(req), offset: offsetFrom(req.query.tz) }));
     } catch (_) {
       res.status(503).json({ error: 'The reading room could not open. The list below still works.' });
+    }
+  });
+
+  router.get('/api/library/reading-room/resume', auth, humanOnly, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    try {
+      res.json({ resume: await room.buildReadingContinuation({ models, userId: owner(req) }) });
+    } catch (_) {
+      res.sendStatus(503);
     }
   });
 

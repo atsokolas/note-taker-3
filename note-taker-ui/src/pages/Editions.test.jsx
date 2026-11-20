@@ -8,6 +8,7 @@ let mockSearch;
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
+  useLocation: () => ({ pathname: `/editions/${mockId}`, search: mockSearch }),
   useNavigate: () => mockNavigate, useParams: () => ({ id: mockId }),
   useSearchParams: () => [new URLSearchParams(mockSearch)]
 }));
