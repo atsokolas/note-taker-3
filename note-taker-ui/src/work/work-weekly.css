@@ -152,7 +152,15 @@
 .work-week-close ul { list-style: none; padding: 0; margin: 0; }
 .work-week-close li { padding-block: 10px; border-block-start: 1px solid var(--noeis-rule); overflow-wrap: anywhere; }
 .work-week-close h3 { margin: 0 0 4px; font: 1rem/1.4 var(--font-serif); }
-.work-week-close :is(form, section) { margin-block-start: 8px; }
+.work-week-close :is(.work-week-close__decision, section) { margin-block-start: 8px; }
+.work-week-close__decision { display: grid; }
+.work-week-close__decision > * { grid-area: 1 / 1; align-self: start; }
+.work-week-close__decision form[inert] { visibility: hidden; }
 .work-week-close form { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
 .work-week-close form input { max-width: min(14rem, 100%); }
+.work-week-close__decision :is(form > button, .work-week-close__receipt > button) { padding-inline: 0; }
+.work-week-close form > button[data-review-action] { color: var(--noeis-action); text-decoration: underline; text-underline-offset: .22em; }
+.work-week-close__receipt { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; min-block-size: 44px; color: var(--noeis-ink-muted); }
+.work-week-close__decision form:not([inert]) + .work-week-close__receipt { pointer-events: none; }
+.work-week-close button[aria-disabled="true"] { cursor: wait; }
 .work-week-close__source { text-decoration: underline; text-underline-offset: .2em; }
