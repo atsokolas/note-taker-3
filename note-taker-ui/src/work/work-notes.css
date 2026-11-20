@@ -202,7 +202,7 @@ html[data-ui-motion=reduced] .work-notes *, html[data-ui-motion=reduced] .work-d
 .work-day-header { margin: 12px 0 8px; }
 .work-day-header p { margin: 8px 0 0; font: 19px/1.5 var(--font-serif); color: var(--noeis-ink-muted); }
 .work-calendar-picker { margin: 0 0 24px; }
-.work-calendar-picker > summary { display: flex; align-items: center; gap: 6px; width: fit-content; min-height: 32px; margin-left: auto; font: 12px var(--font-sans); color: var(--noeis-ink-muted); cursor: pointer; list-style: none; }
+.work-calendar-picker > summary { display: flex; align-items: center; gap: 6px; width: fit-content; min-height: 44px; margin-left: auto; font: 12px var(--font-sans); color: var(--noeis-ink-muted); cursor: pointer; list-style: none; white-space: nowrap; }
 .work-calendar-picker > summary::-webkit-details-marker { display: none; }
 .work-calendar-picker > summary .work-icon { width: 14px; height: 14px; }
 .work-calendar-picker[open] { padding-bottom: 8px; border-bottom: 1px solid var(--noeis-rule); }
