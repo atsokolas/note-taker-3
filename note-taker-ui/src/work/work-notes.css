@@ -333,7 +333,9 @@ body.noeis-editorial .work-notes .work-return textarea, body.noeis-editorial .wo
 .work-open-drafts { display: grid; gap: 4px; margin-bottom: 8px; color: var(--noeis-ink-muted); font: 12px var(--font-sans); }
 .work-open-drafts select { min-width: 0; width: 100%; min-height: 44px; background: var(--noeis-paper); border: 1px solid var(--noeis-rule); color: var(--noeis-ink); font: inherit; }
 
-.work-open-link { display: block; margin-top: 8px; color: var(--noeis-ink-muted); font: 12px var(--font-serif); }
+.work-open-link { margin-top: 12px; padding-inline-start: 12px; border-inline-start: 1px solid var(--noeis-rule); color: var(--noeis-ink-muted); }
+.work-open-link small { font: 12px var(--font-sans); }
+.work-open-link blockquote { margin: 4px 0 0; font: 14px/1.5 var(--font-serif); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Outstanding: the rail's second part, under one rule. Same serif places, same single ink mark. */
 .work-outstanding h3 { margin: 22px 0 2px; font: 12px/1.4 var(--font-sans); color: var(--noeis-ink-subtle); }
