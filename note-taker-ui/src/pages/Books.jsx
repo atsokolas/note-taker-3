@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { updateHighlight } from '../api/highlights';
 import {
   askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook, takeBookBack
@@ -23,6 +23,9 @@ import '../styles/books.css';
 
 // A book's paragraphs are what you marked in it and wrote beside it.
 const MARK_BLOCKS = '.book-desk__mark > blockquote, .book-desk__mark > .book-desk__own';
+const shelfRowId = id => `shelf-book-${id}`;
+const followsInThisTab = event => !event.defaultPrevented && event.button === 0
+  && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 
 /* The books you are reading, paper or Kindle, each with a page of its own:
    the desk you type at while the book is open beside you. */
@@ -125,6 +128,7 @@ const Shelf = () => {
   const [error, setError] = useState('');
   const [name, setName] = useState('');
   const [starting, setStarting] = useState(false);
+  const [place] = useState(() => window.history.state?.bookshelfPlace);
   useDocumentTitle('Books');
 
   useEffect(() => {
@@ -134,6 +138,22 @@ const Shelf = () => {
       .catch(() => { if (!cancelled) setError('Your books could not be read just now.'); });
     return () => { cancelled = true; };
   }, []);
+
+  useLayoutEffect(() => {
+    if (!place || (!books && !error)) return;
+    const frame = requestAnimationFrame(() => {
+      const row = document.getElementById(shelfRowId(place.id));
+      (row || document.getElementById('books-title'))?.focus({ preventScroll: true });
+      if (row) window.scrollBy({ top: row.getBoundingClientRect().top - place.top, behavior: 'instant' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [books, error, place]);
+
+  const remember = (event, id) => {
+    if (!followsInThisTab(event)) return;
+    const top = event.currentTarget.getBoundingClientRect().top;
+    window.history.replaceState({ ...window.history.state, bookshelfPlace: { id, top } }, '');
+  };
 
   const start = async (event) => {
     event.preventDefault();
@@ -149,9 +169,10 @@ const Shelf = () => {
     }
   };
 
+  const returning = books?.find(book => book.returning);
   return (
     <main className="books" aria-labelledby="books-title" aria-busy={!books && !error}>
-      <h1 id="books-title">Books</h1>
+      <h1 id="books-title" tabIndex={-1}>Books</h1>
       <form className="books__start" onSubmit={start}>
         <input
           aria-label="The book you are reading"
@@ -168,7 +189,7 @@ const Shelf = () => {
         <p className="books__quiet">Name a book above and it gets a page here. Books from your Kindle or Readwise arrive here too.</p>
       ) : null}
 
-      {books?.find(book => book.returning) ? <Returning book={books.find(book => book.returning)} /> : null}
+      {returning ? <Returning book={returning} /> : null}
 
       {books?.length ? (
         <ol className="books__shelf">
@@ -179,7 +200,9 @@ const Shelf = () => {
             const page = book.finishedOn ? null : pageNow((book.marks || []).filter(mark => !isEarlier(mark, since)));
             return (
               <li key={book._id}>
-                <Link to={`/books/${book._id}`} className="books__book">
+                <Link to={`/books/${book._id}`} id={shelfRowId(book._id)} className="books__book"
+                  state={{ fromShelf: true }} onClick={event => remember(event, book._id)}
+                  data-shelf-bookmark={place?.id === book._id ? '' : undefined}>
                   <span className="books__title">{book.title || 'Untitled book'}</span>
                   {book.author ? <span className="books__author">{book.author}</span> : null}
                   <span className="books__tally">
@@ -565,6 +588,8 @@ const isSaved = mark => !mark.unsent && !String(mark._id).startsWith('desk-');
 /* One book, at its desk. A link to a passage opens the desk at that mark. */
 const Book = ({ id }) => {
   const [searchParams] = useSearchParams();
+  const { state } = useLocation();
+  const navigate = useNavigate();
   const asked = searchParams.get('highlight') || '';
   const { article, highlights, error, addHighlightOptimistic, replaceHighlight, removeHighlight } = useArticleDetail(id);
   // What changes on the book while it is open: closing it, lending it.
@@ -599,7 +624,11 @@ const Book = ({ id }) => {
   return (
     <main ref={frameRef} className="books books--one" aria-labelledby="book-title" aria-busy={!article && !error}>
       <nav className="books__tools" aria-label="Book">
-        <Link to="/books">← Books</Link>
+        <Link to="/books" onClick={state?.fromShelf ? event => {
+          if (!followsInThisTab(event)) return;
+          event.preventDefault();
+          navigate(-1);
+        } : undefined}>← Books</Link>
         {book ? <Lend book={book} onChange={change} /> : null}
         {book ? <AddToProject kind="book" id={id} title={book.title} className="books__quiet-button" /> : null}
         {highlights.some(mark => mark.text) ? <button type="button" className="books__quiet-button" onClick={() => window.print()}>Print as cards</button> : null}

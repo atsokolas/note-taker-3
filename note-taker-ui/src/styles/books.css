@@ -153,10 +153,22 @@
 
 .books .books__book {
   display: grid;
+  position: relative;
   gap: 4px;
   padding: var(--space-4) 0;
   color: var(--text) !important;
   text-decoration: none;
+}
+
+.books__book[data-shelf-bookmark]::before {
+  content: '';
+  position: absolute;
+  inset-block-start: var(--space-4);
+  inset-inline-start: -10px;
+  inline-size: 5px;
+  block-size: 15px;
+  background: var(--noeis-action);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
 }
 
 .books__title {

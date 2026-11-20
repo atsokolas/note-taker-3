@@ -68,6 +68,17 @@ test('a book has a page of its own: its name, and the desk', () => {
   expect(screen.getByRole('link', { name: '← Books' })).toHaveAttribute('href', '/books');
 });
 
+test('a book opened from the shelf goes back to that history entry', () => {
+  const location = jest.spyOn(Router, 'useLocation').mockReturnValue({ state: { fromShelf: true } });
+  try {
+    at('b2');
+    fireEvent.click(screen.getByRole('link', { name: '← Books' }));
+    expect(Router.useNavigate()).toHaveBeenCalledWith(-1);
+  } finally {
+    location.mockRestore();
+  }
+});
+
 test('a book closed a year ago this week comes back at the top of the shelf with its sentence', async () => {
   listBooks.mockResolvedValue([
     { _id: 'b1', title: 'Persuasion', marks: [] },
