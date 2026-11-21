@@ -4,7 +4,8 @@ import Quickshell.Io
 import "Model.js" as Model
 
 // Noeis for the whole shell, once: the connection, the one door to the API,
-// the nightstand, saving, the reading window and the evening note. The bar's
+// the nightstand and its pieces kept on disk, saving, the reading window,
+// the evening note and the day's passage. The bar's
 // panel and the reading window both read this instance, and
 // `omarchy-shell noeis …` reaches it whether or not the mark is on the bar.
 //
@@ -12,7 +13,7 @@ import "Model.js" as Model
 // you approve it at noeis.io in your browser, and the token is kept in
 // ~/.config/noeis/omarchy.json, a 0600 file in a 0700 directory. It can
 // bring links, files and text in, search, read, and see the nightstand,
-// nothing more, and lasts until you sign out here or revoke it under
+// keep passages and your place in a piece, nothing more, and lasts until you sign out here or revoke it under
 // Connected agents. Requests go through XMLHttpRequest, over https only, so
 // the token never sits in a process's arguments.
 Item {
@@ -31,6 +32,7 @@ Item {
   readonly property string appUrl: Model.httpsOr(Quickshell.env("NOEIS_APP_URL"), Model.APP)
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string sessionDir: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/noeis"
+  readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/noeis"
 
   property var session: Model.sessionFrom("", Date.now())
   readonly property bool signedIn: session.token !== ""
@@ -38,6 +40,8 @@ Item {
   property var nightstand: []
   property int nightstandTotal: 0
   property string lastSaved: ""
+  // What fits tonight, if anything: the evening note says it, the mark shows it.
+  readonly property var tonight: Model.tonight(nightstand)
 
   // ---- The one door to the API. Every answer comes back as (status, body);
   //      a refused token ends the session here, once, for every caller. A
@@ -92,7 +96,7 @@ Item {
     Quickshell.execDetached([noeisOpen, "--web", path])
   }
 
-  // ---- Session. Read here, written only by sessionWriter.
+  // ---- Session. Read here, written only by sessionFile.
   FileView {
     path: root.sessionDir + "/omarchy.json"
     watchChanges: true
@@ -102,26 +106,14 @@ Item {
     onLoadFailed: root.session = Model.sessionFrom("", Date.now())
   }
 
-  // The directory is made private (0700) whatever it was before. The session
-  // goes into a new 0600 file beside the old one, from stdin so the token is
-  // in no process's arguments, and is renamed over it: the token never enters
-  // a file someone may already hold open. A write asked for while one runs
-  // follows it.
-  Process {
-    id: sessionWriter
-    property string pending: ""
-    command: ["sh", "-c", "umask 077 && mkdir -p \"$1\" && chmod 700 \"$1\" && tmp=$(mktemp \"$1/.omarchy.json.XXXXXX\") && chmod 600 \"$tmp\" && IFS= read -r line && printf '%s\\n' \"$line\" >\"$tmp\" && mv -f \"$tmp\" \"$1/omarchy.json\" || { rm -f \"$tmp\"; exit 1; }", "noeis-session", root.sessionDir]
-    stdinEnabled: true
-    onStarted: {
-      sessionWriter.write(pending + "\n")
-      pending = ""
-    }
-    onExited: if (pending) running = true
+  PrivateFile {
+    id: sessionFile
+    dir: root.sessionDir
+    name: "omarchy.json"
   }
 
   function write() {
-    sessionWriter.pending = JSON.stringify(signedIn ? { token: session.token } : {})
-    sessionWriter.running = true
+    sessionFile.save(JSON.stringify(signedIn ? { token: session.token } : {}))
   }
 
   function keep(token) {
@@ -145,18 +137,58 @@ Item {
   onSignedInChanged: {
     nightstand = []
     nightstandTotal = 0
+    if (!signedIn) stock({})
     loadNightstand()
   }
 
-  // ---- The nightstand, newest first; its count rides on the bar's tooltip.
+  // ---- The nightstand, newest first; its count rides on the bar's mark.
   function loadNightstand(then) {
     if (!signedIn) return
     request("GET", "/api/library/collection?scope=later&limit=40", null, function(status, reply) {
       if (status !== 200) return
       root.nightstand = Model.nightstandRows(reply)
       root.nightstandTotal = Number(reply.total || 0)
+      root.fetchPieces()
       if (then) then()
     })
+  }
+
+  // ---- The nightstand's pieces, downloaded ahead into a private cache, so
+  //      the reading window opens them at once, online or not. A piece that
+  //      leaves the nightstand leaves the cache; signing out empties it.
+  property var pieces: ({})
+
+  FileView {
+    path: root.cacheDir + "/nightstand.json"
+    printErrors: false
+    onLoaded: {
+      try { root.pieces = JSON.parse(text()) || {} } catch (e) { root.pieces = {} }
+    }
+  }
+
+  PrivateFile {
+    id: cacheFile
+    dir: root.cacheDir
+    name: "nightstand.json"
+  }
+
+  function stock(next) {
+    pieces = next
+    cacheFile.save(JSON.stringify(next))
+  }
+
+  function fetchPieces() {
+    var waiting = {}
+    nightstand.forEach(function(row) { if (pieces[row.id]) waiting[row.id] = pieces[row.id] })
+    var missing = nightstand.filter(function(row) { return !waiting[row.id] })
+    if (!missing.length && Object.keys(waiting).length === Object.keys(pieces).length) return
+    ;(function next(rows) {
+      if (!rows.length) return root.stock(waiting)
+      root.request("GET", Model.pieceSource(rows[0]), null, function(status, reply) {
+        if (status === 200) waiting[rows[0].id] = Model.pieceFrom(rows[0], reply)
+        next(rows.slice(1))
+      })
+    })(missing)
   }
 
   // ---- Bringing things in. `done(saved, line, id)` hears the receipt.
@@ -229,6 +261,8 @@ Item {
 
     function readArticle(id: string): void { root.reader.openArticle(id) }
 
+    function readKept(): void { if (root.dayRow) root.reader.open([root.dayRow], 0) }
+
     function save(url: string): void { root.saveQuietly(url, "That is not a link Noeis can save.") }
 
     function saveClipboard(): void {
@@ -251,26 +285,30 @@ Item {
   // ---- The reading window, tiled like any app's.
   readonly property Reader reader: Reader { service: root }
 
-  // ---- The evening: at the hour you chose, what fits tonight, if anything
-  //      short waits. The click opens it in the reading window.
-  readonly property bool evening: setting("evening", true) !== false
-  readonly property int hour: Math.max(0, Math.min(23, Number(setting("hour", 20)) || 0))
+  // ---- Once a day each, at the hour you chose: in the evening, what fits
+  //      tonight, if anything short waits; and a passage you kept, if one
+  //      stands on its own. Silence otherwise. A click opens the piece.
+  function hourOf(name, fallback) { return Math.max(0, Math.min(23, Number(setting(name, fallback)) || 0)) }
 
-  onHourChanged: eveningTimer.arm()
+  Daily {
+    hour: root.hourOf("hour", 20)
+    running: root.setting("evening", true) !== false && root.signedIn
+    onCame: root.loadNightstand(function() {
+      if (root.tonight) root.notify(root.tonight.text, root.readAt(root.tonight.id), false)
+    })
+  }
 
-  Timer {
-    id: eveningTimer
-    repeat: true
-    running: root.evening && root.signedIn
-    function arm() { interval = Model.untilHour(root.hour, Date.now() + 1000) }
-    onRunningChanged: arm()
-    onTriggered: {
-      arm()
-      root.loadNightstand(function() {
-        var note = Model.tonight(root.nightstand)
-        if (note) root.notify(note.text, root.readAt(note.id), false)
-      })
-    }
+  property var dayRow: null
+
+  Daily {
+    hour: root.hourOf("passageHour", 9)
+    running: root.setting("passage", true) !== false && root.signedIn
+    onCame: root.request("GET", "/api/resurface", null, function(status, reply) {
+      var day = status === 200 ? Model.dayPassage(reply) : null
+      if (!day) return
+      root.dayRow = day.row
+      root.notify(day.text, ["omarchy-shell", "noeis", "readKept"], false)
+    })
   }
 
   // ---- The theme's palette, read from colors.toml and kept current: the

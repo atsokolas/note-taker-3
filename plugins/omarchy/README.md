@@ -79,11 +79,23 @@ window rules like any app.
 | Key | |
 |---|---|
 | `j` `k` | Next and previous paragraph; the one you are on is marked in the margin |
+| `h` | Keep the paragraph you are on as a passage in your Library |
+| `a` | Keep it with a note: type, then Enter (Esc lets it go) |
 | `n` `p` | Next and previous piece in the list |
 | `o` | Open the piece on noeis.io |
 | `1`–`5` | Library, Think, Wiki, Judgment, Editions in the Noeis app |
 | `q` `Esc` | Close |
 | `?` | These keys |
+
+An article opens where you stopped reading it, in this window or on
+noeis.io, and the window keeps your place there as you go. Passages you kept
+are marked in the margin, more faintly than the paragraph you are on. A
+passage from a search opens at the passage instead.
+
+Everything on your nightstand is downloaded ahead into
+`~/.cache/noeis/nightstand.json` (`0600`, in a `0700` directory), so it opens
+at once and reads offline. A piece leaves the cache when it leaves the
+nightstand, and signing out empties it.
 
 The window follows a theme change at once.
 
@@ -101,7 +113,8 @@ The window follows a theme change at once.
 - **Open the panel with a link on your clipboard** and it is already in the
   field, selected, so Enter saves it and typing replaces it.
 - **With the field empty** it lists your nightstand, newest first, so Enter
-  reads the next thing. The mark's tooltip says how many wait there.
+  reads the next thing. The number beside the mark says how many wait there,
+  and the mark takes your theme's accent when something short fits tonight.
 - Library, Think, Wiki, Judgment and Editions on noeis.io are one click away
   at the foot. **Sign out** ends the connection on the server as well as
   forgetting it here.
@@ -132,6 +145,15 @@ says so: "Two short pieces fit tonight. Notes on craft has waited longest,
 nothing short waits it says nothing. Clicking it opens that piece in the
 reading window.
 
+## A passage you kept
+
+Once a day (9 am unless you say otherwise), Noeis brings back one passage
+from your Library with the piece it came from: "“Hire for slope, not
+intercept, and the team compounds.” — Who". Only a passage that stands on its
+own comes, eight words or more; when none does, it says nothing. Clicking it
+opens the passage in the reading window. Turn it off, or move it, in the
+widget's settings.
+
 ## Moving around the app
 
 The Noeis window has no address bar and no back button, so the app answers
@@ -157,9 +179,9 @@ The first time, the panel offers **Connect in your browser**. It opens
 noeis.io, where you approve this desktop the way you approve the Noeis CLI.
 The token is kept in `~/.config/noeis/omarchy.json`, which is written `0600`
 in a directory made `0700` before anything goes in; the CLI's own
-`config.json` beside it is left alone. The token may bring links, files and
-text in, search and read what you keep, and see your nightstand, and nothing
-else. It lasts until you sign out in the panel or revoke it under Connected
+`config.json` beside it is left alone. The token may bring links, files,
+text and passages in, search and read what you keep, see your nightstand, and
+keep your place in a piece, and nothing else. It lasts until you sign out in the panel or revoke it under Connected
 agents on noeis.io; then the panel asks to connect again.
 
 Every request goes to Noeis's API over https only, with a deadline, and an
@@ -195,7 +217,7 @@ session:
 ```bash
 ~/.config/omarchy/plugins/io.noeis/bin/noeis-setup --remove
 omarchy plugin remove io.noeis --yes
-rm -f ~/.config/noeis/omarchy.json
+rm -rf ~/.config/noeis/omarchy.json ~/.cache/noeis
 ```
 
 ## Files
@@ -203,8 +225,10 @@ rm -f ~/.config/noeis/omarchy.json
 | File | What it is |
 |---|---|
 | `manifest.json` | The plugin's id (`io.noeis`), kinds (`service`, `bar-widget`), entry points and settings |
-| `Service.qml` | Noeis for the whole shell: the connection, the API, the nightstand, saving, `omarchy-shell noeis …`, the evening note, the theme |
-| `Reader.qml` | The reading window |
+| `Service.qml` | Noeis for the whole shell: the connection, the API, the nightstand and its cache, saving, `omarchy-shell noeis …`, the evening note and the day's passage, the theme |
+| `Reader.qml` | The reading window: reading, keeping passages, your place |
+| `PrivateFile.qml` | Writes the session and the cache: a new `0600` file renamed over the old |
+| `Daily.qml` | A moment once a day, at an hour on the clock |
 | `BarWidget.qml` | The mark in the bar; hosts the panel and hands the Service its settings |
 | `Panel.qml` | The panel: connecting, the field, search results, the nightstand, receipts |
 | `NoeisMark.qml` | The three-ring mark, drawn natively at bar size |

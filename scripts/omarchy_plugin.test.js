@@ -129,9 +129,36 @@ assert.deepStrictEqual(plain(results.map(r => Model.pieceSource(r))), [
   '/articles/a1', '/articles/a2', '/api/notebook/n1'
 ]);
 const passage = Model.pieceFrom(results[5], { title: 'Who', siteName: 'Essays', content: '<p>Intro.</p><p>Then: Hire for slope. Always.</p>' });
-assert.deepStrictEqual(plain(passage), { title: 'Who', byline: 'Essays', cursor: 1,
-  blocks: [{ kind: 'paragraph', text: 'Intro.' }, { kind: 'paragraph', text: 'Then: Hire for slope. Always.' }] },
-  'a passage opens at the paragraph that holds it');
+assert.deepStrictEqual(plain(passage), { title: 'Who', byline: 'Essays',
+  blocks: [{ kind: 'paragraph', text: 'Intro.' }, { kind: 'paragraph', text: 'Then: Hire for slope. Always.' }] });
+assert.strictEqual(Model.openAt(passage, results[5], null), 1, 'a passage opens at the paragraph that holds it');
+
+// An article opens where you stopped; a passage you asked for wins over it.
+const essay = Model.pieceFrom({ kind: 'Nightstand', id: 'a3' }, { title: 'E', content: '<p>One.</p><p>Two, longer.</p><p>Three.</p>' });
+const there = Model.placeOf(essay, 1);
+assert.deepStrictEqual(plain(there), { anchor: { text: 'Two, longer.', prefix: 'One.', suffix: 'Three.', startOffsetApprox: 6 }, ratio: 0.5 },
+  'a place is the paragraph, a little either side, and how far down');
+assert.strictEqual(Model.placeOf(essay, 0).anchor.startOffsetApprox, 0);
+assert.strictEqual(Model.openAt(essay, { kind: 'Nightstand', id: 'a3' }, there), 1, 'it opens where you stopped');
+assert.strictEqual(Model.openAt(essay, { kind: 'Passage', id: 'a3', passage: 'Three.' }, there), 2, 'a passage named wins');
+assert.strictEqual(Model.openAt(essay, { kind: 'Nightstand', id: 'a3' }, { anchor: { text: 'Gone.' } }), 0, 'a place no longer there is the top');
+assert.deepStrictEqual(plain(Model.keptIn(essay, [{ text: 'Three.' }, { text: 'Not here.' }, { text: '' }])), [2], 'what you kept is marked where it is');
+assert.deepStrictEqual(plain(Model.keptIn(essay, { error: 'x' })), []);
+assert.deepStrictEqual(['Nightstand', 'Source', 'Passage', 'Note', 'Wiki', 'View'].map(kind => Model.articleOf({ kind, id: 7 })),
+  ['7', '7', '7', '', '', ''], 'only an article holds passages and a place');
+assert.strictEqual(Model.problem(403, { error: 'Agent token requires agent-write scope.' }, 'keep'),
+  'This Noeis server does not keep passages from the desktop yet.');
+
+// The day's passage stands on its own, or there is none.
+const day = Model.dayPassage({ dailyRandomHighlights: [
+  { _id: 'h0', articleId: 'a1', text: 'Too short.' },
+  { _id: 'h1', articleId: 'a2', articleTitle: 'Who', text: 'Hire for slope, not intercept, and the team compounds.' }
+] });
+assert.deepStrictEqual(plain(day), { text: '“Hire for slope, not intercept, and the team compounds.” — Who',
+  row: { kind: 'Passage', id: 'a2', passage: 'Hire for slope, not intercept, and the team compounds.', title: 'Hire for slope, not intercept, and the team compounds.',
+    detail: 'Who', path: '/library?articleId=a2&highlightId=h1' } }, 'a fragment is passed over for a passage that stands');
+assert.strictEqual(Model.dayPassage({ dailyRandomHighlights: [{ articleId: 'a', text: 'A fragment.' }] }), null, 'only fragments is silence');
+assert.strictEqual(Model.dayPassage(null), null);
 const view = Model.pieceFrom(results[0], { title: 'Hiring bar', judgment: { currentJudgment: 'Slope beats intercept.' },
   body: { type: 'doc', content: [
     { type: 'heading', content: [{ type: 'text', text: 'Why' }] },
@@ -205,7 +232,8 @@ for (const file of ['bin/noeis-open', 'bin/noeis-setup']) {
   }
 }
 assert.doesNotMatch(read('Service.qml'), /setText\(/, 'the session is written only by its private writer');
-assert.match(read('Service.qml'), /umask 077 [^\n]*chmod 700 [^\n]*mktemp [^\n]*chmod 600 [^\n]*read -r[^\n]*mv -f /, 'the token goes into a new private file that replaces the session, never into the old one');
+assert.match(read('PrivateFile.qml'), /umask 077 [^\n]*chmod 700 [^\n]*mktemp [^\n]*chmod 600 [^\n]*read -r[^\n]*mv -f /, 'a private file is a new 0600 file renamed over the old one, never written into it');
+assert.strictEqual((read('Service.qml').match(/PrivateFile \{/g) || []).length, 2, 'the session and the cache are both private files');
 
 // noeis-open hands the app to omarchy-launch-or-focus, which evals it: the app
 // is a bare https origin, a page only a path, and the command is quoted.

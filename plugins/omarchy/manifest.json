@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "io.noeis",
   "name": "Noeis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "atsokolas",
   "license": "ISC",
-  "description": "Read your Noeis nightstand in a tiled window, save links and highlighted text, and search your Library, Wiki and views",
+  "description": "Read your Noeis nightstand in a tiled window, keep passages as you read, save links and highlighted text, and search your Library, Wiki and views",
   "kinds": [
     "service",
     "bar-widget"
@@ -22,7 +22,9 @@
     "defaultSection": "right",
     "defaults": {
       "evening": true,
-      "hour": 20
+      "hour": 20,
+      "passage": true,
+      "passageHour": 9
     },
     "schema": [
       {
@@ -40,6 +42,23 @@
         "max": 23,
         "step": 1,
         "defaultValue": 20,
+        "description": "The hour it comes, on the clock."
+      },
+      {
+        "key": "passage",
+        "type": "boolean",
+        "label": "A passage you kept",
+        "defaultValue": true,
+        "description": "Once a day, one passage from your Library that stands on its own, with the piece it came from. Clicking it opens the passage in the reading window."
+      },
+      {
+        "key": "passageHour",
+        "type": "integer",
+        "label": "At",
+        "min": 0,
+        "max": 23,
+        "step": 1,
+        "defaultValue": 9,
         "description": "The hour it comes, on the clock."
       }
     ]
