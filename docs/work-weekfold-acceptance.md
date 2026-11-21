@@ -33,3 +33,11 @@ Approved build: 26 October 2026. Reference: Library `libfile_6c3a50ebef1881919e7
 ## Code craft
 
 The old flat shelf/page CSS and markup were replaced by focused shelf, calendar, index, item form and follow-up views. Completion lists, counts, dates, carried-from labels and save status are derived from the existing records and action history. The existing Tiptap reconciliation, revision fences and durable draft machinery remain the only paths for writing and recovery.
+
+## Today, Actions and Review
+
+- Today shows the selected day's to-dos, schedule, calendar and notes. Earlier and completed to-dos fold independently. Daily notes, appointment capture, and calendar keyboard navigation use their existing controls and save paths.
+- Actions opens on Next. Switch between To sort, Waiting on, Someday and Upcoming. The existing list rules qualify tasks and questions, including items due back from Someday. Next folds dated tasks into Scheduled. Upcoming qualifies open appointments, tasks and questions with a future plan or deadline. Empty lists show a short empty state. Historic URLs land in their matching list.
+- The dated This week link opens weekly priorities. Priority labels come from the weekly plan's task IDs. Opening a future date can preview carried priorities without writing a future plan. The actual rollover remains revision-checked.
+- In Review, open Waiting on, choose **I have it**, edit the next action, and choose **Plan for Monday**. The title, list and plan event save on the same task. **Open Monday** appears only after acknowledgment and focuses that task. Check that the due date and exact source link survive the move, the date preview, and reload. The day shows when the plan was recorded. Undo restores the previous title, list and date.
+- Confirm that the weekly ledger reopens a task at its canonical row and restores focus. Check draft retry, assignment by keyboard and drag, dated notes, and Deleted recovery at 1440px, 1320px and 430px. Use `npm run test:ui -- src/work --maxWorkers=2` and `node scripts/smoke_work_rail_deleted.cjs` after a CI-mode web build.

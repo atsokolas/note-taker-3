@@ -16,7 +16,7 @@ test('Someday keeps a line until its day comes back, then it is new again', () =
   expect(listOf({ list: 'someday', returnOn: '2026-12-01' }, notes, '2026-12-01')).toBe('new');
 });
 
-test('quiet lines, the week ledger, what came back and today’s one thing are read from the lines', () => {
+test('the ledger includes only this week and the focus and quiet lists use the task records', () => {
   const items = [
     { id: 'a', kind: 'task', list: 'next', sortedOn: '2026-10-01', title: 'Read the memo' },
     { id: 'b', kind: 'task', list: 'next', sortedOn: '2026-10-28', title: 'Draft the post', oneThingOn: '2026-10-30' },
@@ -26,12 +26,10 @@ test('quiet lines, the week ledger, what came back and today’s one thing are r
     done('2026-10-21', { id: 'f', title: 'Last week' })
   ];
   const lists = outstanding(items, notes, '2026-10-30');
-  expect(lists.total).toBe(2);
   expect(lists.quiet.map(item => item.id)).toEqual(['a']);
   expect(lists.oneThing.id).toBe('b');
   expect(lists.ledger.map(entry => [entry.day, entry.items.map(item => item.id)])).toEqual([['2026-10-27', ['d']], ['2026-10-29', ['e']]]);
-  expect(lists.done).toBe(2); expect(lists.lastWeek).toBe(1);
-  expect(lists.gotBack).toEqual([{ item: items[3], days: 5 }]);
+  expect(lists.done).toBe(2);
 });
 
 test('one typed line names who owes it, the day it is planned, or that it is for someday', () => {

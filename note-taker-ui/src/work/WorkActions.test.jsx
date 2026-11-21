@@ -3,8 +3,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WorkNotes from './WorkNotes';
-import { WorkDayClose, morning } from './WorkNeedsYou.jsx';
-import WorkCalendar from './WorkCalendar';
+import { WorkDayClose } from './WorkActions';
 import { weekDays } from './workPlannerModel';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
@@ -24,6 +23,12 @@ beforeEach(() => {
     const record = { ...body, _id: 'new-' + records.length, revision: 0 }; records.push(record); return { data: record };
   });
   api.put.mockImplementation(async (path, body) => {
+    if (path.includes('/weeks/')) {
+      const day = path.split('/').at(-1), current = records.find(record => record.workItem?.kind === 'week' && record.workItem.plannedOn === day);
+      const saved = { _id: current?._id || day, revision: (current?.revision ?? -1) + 1, workItem: { kind: 'week', plannedOn: day, priorities: body.priorities } };
+      if (current) records.splice(records.indexOf(current), 1, saved); else records.push(saved);
+      return { data: saved };
+    }
     const list = path.includes('/folders/') ? folders : records, index = list.findIndex(x => x._id === path.split('/').pop()), current = list[index];
     if (body.expectedRevision !== current.revision) throw { response: { status: 409, data: { current } } };
     const next = { ...current, ...body, revision: current.revision + 1 };
@@ -35,56 +40,38 @@ beforeEach(() => {
 const work = view => render(<MemoryRouter initialEntries={[`/work?view=${view}`]}><WorkNotes /></MemoryRouter>);
 const rail = () => within(screen.getByRole('complementary', { name: 'Work notes' }));
 
-test('Today is the home: its margin is Needs you, the rail counts it, and old Needs you and Outstanding links open it', async () => {
-  for (const view of ['needs', 'outstanding']) {
+test('legacy action links open the appropriate list and only show that list', async () => {
+  for (const [view, name] of [['needs', 'To sort'], ['outstanding', 'Next'], ['waiting', 'Waiting on'], ['someday', 'Someday'], ['upcoming', 'Upcoming']]) {
     const { unmount } = work(view);
-    await waitFor(() => expect(rail().getByRole('button', { name: /Today/ })).toHaveTextContent('Today2'));
-    expect(rail().queryByRole('button', { name: /Needs you/ })).toBeNull();
-    expect(await screen.findByRole('heading', { name: 'Today', level: 1 })).toBeInTheDocument();
-    expect(within(screen.getByRole('region', { name: 'Needs you' })).getByRole('region', { name: 'Owed to you' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Actions' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name })).toBeInTheDocument();
+    expect(within(screen.getByRole('navigation', { name: 'Action lists' })).getAllByRole('button', { pressed: true })).toHaveLength(1);
     unmount();
   }
 });
 
-test('the morning sentence says the day and crosses out each part as it is done', () => {
-  const needs = { waiting: [{ title: 'The data room login', waitingOn: 'Priya', sortedOn: '2026-11-04' }], fresh: [{}, {}], silent: [{ name: 'Pricing' }] };
-  const items = [
-    { kind: 'appointment', title: 'Call with Priya', plannedOn: '2026-11-13', startTime: '10:00', endTime: '10:45' },
-    { kind: 'appointment', title: 'Jo', plannedOn: '2026-11-13', startTime: '15:30', endTime: '16:00' },
-    { kind: 'task', title: 'Draft the risk section', plannedOn: '2026-11-13', oneThingOn: '2026-11-13', completed: true },
-    { kind: 'task', title: 'Send Sam the bands', plannedOn: '2026-11-13' }];
-  expect(morning(items, [], needs, '2026-11-13', '11:00')).toEqual([
-    { text: 'Call with Priya at 10:00.', done: true }, { text: 'Jo at 15:30.', done: false },
-    { text: 'Your one thing: draft the risk section.', done: true }, { text: 'One more line is planned.', done: false },
-    { text: 'Priya has owed you the data room login for 9 days.' }, { text: '2 lines from your notes need a place.' },
-    { text: 'Pricing has gone quiet.' }, { text: 'It’s Friday: read the week back.' }]);
-  const next = { kind: 'task', title: 'Call the auditor', plannedOn: '2026-11-13', oneThingOn: '2026-11-13' };
-  expect(morning([...items, next], [], { ...needs, oneThing: next }, '2026-11-13', '11:00')).toContainEqual({ text: 'Your one thing: call the auditor.', done: undefined });
-  expect(morning([], [], { waiting: [], fresh: [], silent: [] }, '2026-11-12', '09:00')).toEqual([{ text: 'A clear day, and nothing needs you.' }]);
-  const carried = [{ kind: 'task', title: 'Send the deck', plannedOn: '2026-11-10' }, { kind: 'task', title: 'Book the room', plannedOn: '2026-11-11' }];
-  expect(morning(carried, [], { waiting: [], fresh: [], silent: [] }, '2026-11-12', '09:00')).toEqual([{ text: '2 lines are carried from earlier.' }]);
-});
 
-test('a new line from a note is sorted onto Waiting on with the person, on the same record', async () => {
+test('sorting a note follow-up saves the person on the same record', async () => {
   work('needs');
-  const fresh = within(await screen.findByRole('region', { name: /New from your notes/ }));
-  expect(fresh.getByText('From Fieldwell · pilot follow-up')).toBeInTheDocument();
-  fireEvent.click(fresh.getByRole('button', { name: 'Waiting on…' }));
-  fireEvent.change(fresh.getByRole('textbox', { name: 'Who is Confirm service-training dates waiting on?' }), { target: { value: 'Ana' } });
-  fireEvent.click(fresh.getByRole('button', { name: 'Save' }));
+  const list = within(await screen.findByRole('region', { name: 'To sort' }));
+  fireEvent.click(await list.findByLabelText('Actions for Confirm service-training dates'));
+  fireEvent.click(list.getByRole('button', { name: 'Waiting on…' }));
+  fireEvent.change(list.getByRole('textbox', { name: 'Who is Confirm service-training dates waiting on?' }), { target: { value: 'Ana' } });
+  fireEvent.click(list.getByRole('button', { name: 'Save' }));
   await waitFor(() => expect(records.find(x => x._id === 'task').workItem).toMatchObject({ list: 'waiting', waitingOn: 'Ana', noteId: 'note' }));
+  expect(records[0].content).toBe(original);
 });
 
 test('reopens a completed line from the ledger and puts focus back on its own to-do', async () => {
   const task = records.find(record => record._id === 'task');
   task.workItem.history = [{ operationId: 'closed-once', type: 'complete', actionAt: new Date().toISOString() }];
-  work('needs');
-  const needs = within(await screen.findByRole('region', { name: 'Needs you' }));
-  const reopen = await needs.findByRole('button', { name: `Reopen ${task.title}` });
-  expect(needs.queryByRole('checkbox', { name: new RegExp(task.title) })).toBeNull();
+  work('review');
+  fireEvent.click(await screen.findByText('Done this week'));
+  const reopen = await screen.findByRole('button', { name: `Reopen ${task.title}` });
+  expect(screen.queryByRole('checkbox', { name: new RegExp(task.title) })).toBeNull();
   reopen.focus();
   fireEvent.click(reopen);
-  const checkbox = await needs.findByRole('checkbox', { name: new RegExp(task.title) });
+  const checkbox = await screen.findByRole('checkbox', { name: new RegExp(task.title) });
   expect(checkbox).not.toBeChecked();
   expect(checkbox).toHaveFocus();
   expect(reopen).not.toBeInTheDocument();
@@ -96,46 +83,54 @@ test('the finished ledger keeps the original passage link beside a completed tas
   const day = task.takenOn;
   task.workItem.origin = { noteId: 'note', blockId: 'pilot-words', day, noteTitle: records[0].title, notebookName: folders[0].name };
   task.workItem.history = [{ operationId: 'closed-once', type: 'complete', actionAt: new Date().toISOString() }];
-  work('needs');
+  work('review');
+  fireEvent.click(await screen.findByText('Done this week'));
   const ledger = (await screen.findByRole('button', { name: `Reopen ${task.title}` })).closest('dl');
   expect(within(ledger).getByRole('link', { name: /From Customer discovery/ })).toHaveAttribute('href', `/work?note=note&block=pilot-words&entry=${day}`);
 });
 
 test('Today on a new line plans it for today and leaves it sorted', async () => {
   work('needs');
-  fireEvent.click(within(await screen.findByRole('region', { name: /New from your notes/ })).getByRole('button', { name: 'Today' }));
+  const list = within(await screen.findByRole('region', { name: 'To sort' }));
+  fireEvent.click(await list.findByLabelText('Actions for Confirm service-training dates'));
+  fireEvent.click(list.getByRole('button', { name: 'Move to today' }));
   const today = new Date().toISOString().slice(0, 10);
   await waitFor(() => expect(records.find(x => x._id === 'task').workItem).toMatchObject({ list: 'next', sortedOn: today, history: [expect.objectContaining({ type: 'plan', plannedOn: today })] }));
 });
 
 test('one typed line with @name lands in Owed to you, and Nudge drafts a message from it', async () => {
-  work('needs');
+  work('today');
   fireEvent.click(await screen.findByRole('button', { name: 'Add to-do' }));
   const line = await screen.findByRole('textbox', { name: 'Add a line' });
   fireEvent.change(line, { target: { value: '@Priya data room access' } }); fireEvent.submit(line.closest('form'));
   await waitFor(() => expect(records.at(-1)).toMatchObject({ title: 'data room access', workItem: { kind: 'task', list: 'waiting', waitingOn: 'Priya' } }));
-  const owed = within(screen.getByRole('region', { name: 'Owed to you' }));
+  fireEvent.click(rail().getByRole('button', { name: /Actions/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Waiting on' }));
+  const owed = within(screen.getByRole('region', { name: 'Waiting on' }));
   expect(await owed.findByText('data room access')).toBeInTheDocument();
   expect(owed.getByText('Waiting on Priya')).toBeInTheDocument();
-  fireEvent.click(owed.getAllByRole('button', { name: 'Nudge' })[0]);
+  const nudgeMenu = owed.getByLabelText('Actions for The pilot numbers');
+  fireEvent.click(nudgeMenu);
+  fireEvent.click(within(nudgeMenu.closest('details')).getByRole('button', { name: 'Draft a nudge' }));
   expect(screen.getByText('Hi Mira, any news on the pilot numbers? No rush if it’s in hand.')).toBeInTheDocument();
 });
 
-test('ticking a line draws it through and keeps it a moment with Undo', async () => {
+test('completing an action offers undo and restores the same item', async () => {
   work('needs');
-  fireEvent.click(within(await screen.findByRole('region', { name: /New from your notes/ })).getByRole('button', { name: 'Done' }));
-  await waitFor(() => expect(document.querySelector('.is-struck')).toHaveTextContent('Confirm service-training dates'));
-  expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'Confirm service-training dates' }));
+  expect(await screen.findByText('Confirm service-training dates completed.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+  expect(await screen.findByRole('checkbox', { name: 'Confirm service-training dates' })).not.toBeChecked();
 });
 
 test('a project untouched for three weeks is Gone quiet, and Pause sets it aside', async () => {
   const old = new Date(Date.now() - 30 * 86400000).toISOString();
   folders.push({ _id: 'p', name: 'Pricing', kind: 'project', revision: 0, updatedAt: old });
   records.push({ _id: 'price', revision: 0, title: 'Annual discount', project: 'p', takenOn: old.slice(0, 10), updatedAt: old, workItem: { kind: 'task', list: 'next', sortedOn: old.slice(0, 10), priority: 0, history: [] } });
-  work('needs');
-  const quiet = within(await screen.findByRole('region', { name: 'Gone quiet' }));
-  expect(quiet.getByText('Untouched for 4 weeks. Next: Annual discount.')).toBeInTheDocument();
-  fireEvent.click(quiet.getByRole('button', { name: 'Pause' }));
+  work('review');
+  fireEvent.click(await screen.findByText('Inactive projects and tasks'));
+  expect(within(screen.getByRole('main')).getByRole('button', { name: 'Pricing' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Pause project' }));
   await waitFor(() => expect(api.put).toHaveBeenCalledWith('/api/work-notes/folders/p', expect.objectContaining({ paused: true }), expect.anything()));
 });
 
@@ -157,28 +152,24 @@ test('the check-in reads the week back as a new Work note, and offers the one it
     records.push(draft); return { data: { note: draft } };
   });
   work('review');
-  await within(await screen.findByRole('region', { name: 'Needs you' })).findByText('Confirm service-training dates');
-  expect(screen.getByText('Only Claude reads these notes, and the draft stays here in Work.')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Read the week back' }));
+  fireEvent.click((await screen.findByRole('button', { name: 'Draft a weekly recap' })));
   expect(await screen.findByText('Agreed the pilot sites. · Fieldwell, 9 Nov')).toBeInTheDocument();
   expect(api.post).toHaveBeenCalledWith('/api/work-notes/week-edition', expect.anything(), expect.anything());
-  fireEvent.click(rail().getByRole('button', { name: /Today/ }));
-  expect(await screen.findByText(/Week of 5–11 Nov 2026 is drafted\./)).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Open it' })).toBeInTheDocument();
+  fireEvent.click(rail().getByRole('button', { name: 'Review' }));
+  expect(await screen.findByRole('button', { name: 'Open weekly recap' })).toBeInTheDocument();
 });
 
 test('a quiet week says so, and a failed draft keeps the page in place', async () => {
   const post = api.post.getMockImplementation();
   let answer = async () => ({ data: { silence: 'No Work entries between 5 Nov and 11 Nov. Nothing to draft.' } });
   api.post.mockImplementation(async (path, body) => path.endsWith('/week-edition') ? answer() : post(path, body));
-  work('needs');
-  await within(await screen.findByRole('region', { name: 'Needs you' })).findByText('Confirm service-training dates');
-  fireEvent.click(screen.getByRole('button', { name: 'Read the week back' }));
+  work('review');
+  fireEvent.click((await screen.findByRole('button', { name: 'Draft a weekly recap' })));
   expect(await screen.findByText('No Work entries between 5 Nov and 11 Nov. Nothing to draft.')).toHaveAttribute('role', 'status');
   answer = async () => { throw { response: { status: 502, data: { error: 'Claude could not draft the week just now. Your notes are unchanged. Try again.' } } }; };
-  fireEvent.click(screen.getByRole('button', { name: 'Read the week back' }));
+  fireEvent.click((await screen.findByRole('button', { name: 'Draft a weekly recap' })));
   expect(await screen.findByText('Claude could not draft the week just now. Your notes are unchanged. Try again.')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Today', level: 1 })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Weekly review', level: 1 })).toBeInTheDocument();
 });
 
 test('closing the day moves what is left to tomorrow, Monday or Someday, and says how tomorrow starts', () => {
@@ -202,54 +193,78 @@ test('moving the last line leaves the closing sentence on the page', () => {
   expect(screen.getByText('Tomorrow starts with reply to the auditor.')).toBeInTheDocument();
 });
 
-test('a line set aside for someday is not carried on the day page until its day comes back', () => {
-  const note = { _id: 'n', clientId: 'n', takenOn: '2026-10-26' };
-  const line = { id: 'a', clientId: 'a', kind: 'task', title: 'Plan the offsite', noteId: 'n', list: 'someday', returnOn: '2026-11-03' };
-  const calendar = today => <WorkCalendar page day={today} today={today} mode="day" onMode={() => {}} onDay={() => {}} items={[line]} notes={[note]} query="" folders={[]} drag={() => ({})} onOpen={() => {}} onStart={() => {}} onEdit={() => {}} onAction={() => {}} onNew={() => {}} onPlan={() => {}} margin={null} />;
-  const { rerender } = render(calendar('2026-10-29'));
-  expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
-  rerender(calendar('2026-11-03'));
-  fireEvent.click(screen.getByText('Earlier'));
-  expect(within(screen.getByRole('region', { name: 'Carried from earlier' })).getByText('Plan the offsite')).toBeInTheDocument();
+test('Someday returns an item to To sort on its review date', async () => {
+  const date = records[1].takenOn;
+  records[1].workItem = { ...records[1].workItem, list: 'someday', returnOn: date };
+  work('someday');
+  const list = await screen.findByRole('region', { name: 'Someday' });
+  expect(within(list).queryByText('Confirm service-training dates')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: /To sort/ }));
+  const unsorted = await screen.findByRole('region', { name: 'To sort' });
+  expect(await within(unsorted).findByText('Confirm service-training dates')).toBeInTheDocument();
 });
 
-test('the dashboard opens Next, Someday and Done without extra clicks, including on return', async () => {
-  const today = new Date().toISOString().slice(0, 10);
-  records.push(
-    { _id: 'next-visible', revision: 0, title: 'Next visible task', takenOn: today, workItem: { kind: 'task', list: 'next', sortedOn: today, history: [] } },
-    { _id: 'someday-visible', revision: 0, title: 'Someday visible task', takenOn: today, workItem: { kind: 'task', list: 'someday', sortedOn: today, history: [] } },
-    { _id: 'done-visible', revision: 0, title: 'Done visible task', takenOn: today, workItem: { kind: 'task', list: 'next', history: [{ type: 'complete', operationId: 'done', actionAt: new Date().toISOString(), timeZone: 'UTC' }] } }
-  );
-  const view = work('today');
-  await within(await screen.findByRole('region', { name: 'Needs you' })).findByText('Next visible task');
-  const sections = () => [...document.querySelectorAll('.work-needs-rest')];
-  expect(sections()).toHaveLength(3);
-  sections().forEach(section => expect(section.open).toBe(true));
-  sections().forEach(section => fireEvent.click(section.querySelector('summary')));
-  sections().forEach(section => expect(section.open).toBe(false));
-  view.unmount();
-  work('today');
-  await within(await screen.findByRole('region', { name: 'Needs you' })).findByText('Next visible task');
-  sections().forEach(section => expect(section.open).toBe(true));
+test('Next keeps scheduled actions reachable behind one disclosure', async () => {
+  const day = records[1].takenOn;
+  records[1].workItem = { ...records[1].workItem, list: 'next', plannedOn: day };
+  work('actions');
+  await screen.findByRole('region', { name: 'Next' });
+  const scheduled = await screen.findByText('Scheduled');
+  expect(screen.getByLabelText('Confirm service-training dates')).not.toBeVisible();
+  fireEvent.click(scheduled);
+  expect(screen.getByRole('checkbox', { name: 'Confirm service-training dates' })).toBeVisible();
 });
 
-test('a task linked to a weekly priority shows under that priority, not again in Next', async () => {
-  const today = new Date().toISOString().slice(0, 10);
-  records.push(
-    { _id: 'linked', revision: 0, title: 'Linked task', takenOn: today, workItem: { kind: 'task', list: 'next', sortedOn: today, history: [] } },
-    { _id: 'loose', revision: 0, title: 'Loose task', takenOn: today, workItem: { kind: 'task', list: 'next', sortedOn: today, history: [] } },
-    { _id: 'week', revision: 0, title: 'Week', takenOn: today, workItem: { kind: 'week', plannedOn: weekDays(today)[0], priorities: [{ id: 'p', title: 'Ship the pilot', taskIds: ['linked'], status: 'active', reviewed: true, carriedFrom: null }], history: [] } }
-  );
-  work('today');
-  const needs = within(await screen.findByRole('region', { name: 'Needs you' }));
-  await needs.findByText('Loose task');
-  expect(needs.queryByText('Linked task')).toBeNull();
-  expect(within(screen.getByRole('region', { name: 'Ship the pilot' })).getByText('Linked task')).toBeInTheDocument();
+test('Next shows the linked priority once on the canonical task row', async () => {
+  const day = records[1].takenOn;
+  records[1].workItem.list = 'next';
+  records.push({ _id: 'week', revision: 0, title: 'Week', workItem: { kind: 'week', plannedOn: weekDays(day)[0], priorities: [{ id: 'p', title: 'Ship the pilot', taskIds: ['task'], status: 'active', reviewed: true }] } });
+  work('actions');
+  const list = within(await screen.findByRole('region', { name: 'Next' }));
+  expect(await list.findAllByRole('checkbox', { name: 'Confirm service-training dates' })).toHaveLength(1);
+  fireEvent.click(list.getByRole('button', { name: 'Ship the pilot' }));
+  expect(await screen.findByRole('region', { name: 'Ship the pilot' })).toHaveTextContent('Confirm service-training dates');
 });
+
 test('a Next row offers one way to plan it for today', async () => {
   const today = new Date().toISOString().slice(0, 10);
   records.push({ _id: 'next-once', revision: 0, title: 'Plan me once', takenOn: today, workItem: { kind: 'task', list: 'next', sortedOn: today, history: [] } });
-  work('today');
+  work('actions');
   const menu = (await screen.findByLabelText('Actions for Plan me once')).closest('details');
-  expect(within(menu).getAllByRole('button').map(button => button.textContent).filter(label => /today/i.test(label))).toEqual(['Move to today', 'Make it today’s one thing']);
+  expect(within(menu).getAllByRole('button').map(button => button.textContent).filter(label => /today/i.test(label))).toEqual(['Move to today', 'Make today’s focus']);
+});
+
+test('a Friday waiting follow-up opens on Monday with its source, due date and priority', async () => {
+  jest.useFakeTimers('modern');
+  jest.setSystemTime(new Date('2026-11-20T18:00:00Z'));
+  const task = records.find(record => record._id === 'owed');
+  const origin = { noteId: 'note', blockId: 'pilot-words', day: '2026-11-18', noteTitle: records[0].title, notebookName: folders[0].name };
+  task.takenOn = '2026-11-18';
+  task.workItem = { ...task.workItem, noteId: 'note', dueOn: '2026-11-24', sortedOn: '2026-11-18', origin };
+  records.push({ _id: 'week', revision: 0, workItem: { kind: 'week', plannedOn: '2026-11-16', priorities: [{ id: 'p', title: 'Ship the pilot', taskIds: ['owed'], status: 'active', reviewed: true }] } });
+  try {
+    const { unmount } = work('review');
+    fireEvent.click(await screen.findByText('Waiting on', { selector: 'summary' }));
+    fireEvent.click(screen.getByRole('button', { name: 'I have it' }));
+    const title = screen.getByRole('textbox', { name: 'Next action' });
+    fireEvent.change(title, { target: { value: 'Check the pilot numbers' } });
+    fireEvent.submit(title.form);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Monday' }));
+    const checkbox = await screen.findByRole('checkbox', { name: 'Check the pilot numbers' });
+    expect(checkbox).toHaveFocus();
+    expect(screen.getByText('Planned Friday')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ship the pilot' })).toBeInTheDocument();
+    expect(screen.getByText('Due Tue 24 Nov')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /From Customer discovery/ })).toHaveAttribute('href', '/work?note=note&block=pilot-words&entry=2026-11-18');
+    expect(records.find(record => record._id === 'owed')).toMatchObject({ title: 'Check the pilot numbers', workItem: { list: 'next', waitingOn: '', dueOn: '2026-11-24', origin, history: [expect.objectContaining({ type: 'plan', plannedOn: '2026-11-23' })] } });
+    unmount();
+    forgetWorkSession('owner');
+    jest.setSystemTime(new Date('2026-11-23T18:00:00Z'));
+    work('today');
+    expect(await screen.findByRole('checkbox', { name: 'Check the pilot numbers' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ship the pilot' })).toBeInTheDocument();
+    await waitFor(() => expect(records.find(record => record.workItem?.kind === 'week' && record.workItem.plannedOn === '2026-11-23').workItem.priorities[0].taskIds).toEqual(['owed']));
+  } finally {
+    jest.useRealTimers();
+  }
 });
