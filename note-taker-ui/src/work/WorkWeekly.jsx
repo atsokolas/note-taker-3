@@ -3,21 +3,20 @@ import { WorkTaskAssignment, WorkTaskRow } from './WorkPlanItem';
 import WorkIcon from './WorkIcon';
 import WorkMenu from './WorkMenu';
 import WorkItemSource from './WorkItemSource';
-import WorkWeekClose from './WorkWeekClose';
 import { operationId, noteTitle } from './workSession';
 import { displayDay, displayRange, shiftDay, weekDays, writtenDay } from './workPlannerModel';
-import { assignTask, carryWeek, completionAtWeekEnd, weekRecord } from './workWeeklyModel';
+import { assignTask, carryWeek, completionAtWeekEnd, lastWeekBefore, weekRecord } from './workWeeklyModel';
 import './work-weekly.css';
 
 import { TASK_DRAG, acceptsTask, taskDragProps, WorkTaskGrip } from './workTaskDrag';
 const shortDate = day => displayDay(day, { day: 'numeric', month: 'short' });
 
-export default function WorkWeekly({ session, today, timeZone, items, folders, notes, onAction, onSort, onEdit, onNew, onOpen, children, margin }) {
+export default function WorkWeekly({ session, today, day = today, timeZone, items, folders, notes, onAction, onEdit, onNew, onOpen, onWeek, showPlan = true, children }) {
   const disclosureId = useId();
   const [collapsed, setCollapsed] = useState({});
-  const currentWeek = weekDays(today)[0];
+  const currentWeek = weekDays(today)[0], shownWeek = weekDays(day)[0];
   const restored = useRef(session.weeklyDraft?.()).current;
-  const [week, setWeek] = useState(restored?.week && restored.week > currentWeek ? restored.week : currentWeek);
+  const [week, setWeek] = useState(showPlan ? shownWeek : currentWeek);
   const [saved, setSaved] = useState({});
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState(restored?.pending || null);
@@ -39,9 +38,11 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
     if (index < 0) records.push(record);
     else if (records[index].revision <= record.revision) records[index] = record;
   });
-  const record = weekRecord(records, week), priorities = record?.workItem.priorities || [];
-  const past = week < currentWeek, disabled = busy || Boolean(pending) || session.loading() || Boolean(session.error());
+  const record = weekRecord(records, week);
+  const past = week < currentWeek, future = week > currentWeek, readOnly = week !== currentWeek;
   const tasks = items.filter(item => ['task', 'question'].includes(item.kind));
+  const priorities = record?.workItem.priorities ?? (future ? carryWeek(lastWeekBefore(records, week), tasks, week) : []);
+  const disabled = busy || Boolean(pending) || session.loading() || Boolean(session.error());
   const active = priorities.filter(priority => past || priority.status === 'active');
   const retain = value => { if (value) setSaved(current => ({ ...current, [value.workItem.plannedOn]: value })); };
   const cache = value => session.setWeeklyDraft?.(taskDraftRef.current ? { ...value, week, taskDraft: taskDraftRef.current } : value);
@@ -62,11 +63,16 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
     } finally { inFlight.current = false; setBusy(false); }
   };
   useEffect(() => {
+    if (showPlan && !pending && !taskDraftRef.current && !newTitle.trim() && !editing) setWeek(shownWeek);
+    // Opening This week follows the date in the URL; navigation within the page stays local.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPlan, shownWeek]);
+  useEffect(() => {
     if (previousWeek.current !== currentWeek) { const prior = previousWeek.current; previousWeek.current = currentWeek; setWeek(value => value === prior ? currentWeek : value); }
   }, [currentWeek]);
   useEffect(() => {
     if (session.loading() || session.error() || inFlight.current || pending || attempted.current.has(currentWeek) || weekRecord(records, currentWeek)) return;
-    const prior = records.filter(value => value.workItem.plannedOn < currentWeek).sort((a, b) => b.workItem.plannedOn.localeCompare(a.workItem.plannedOn))[0];
+    const prior = lastWeekBefore(records, currentWeek);
     if (!prior) return;
     attempted.current.add(currentWeek);
     // Save even an empty rollover to stop old priorities resurfacing after a quiet week.
@@ -79,10 +85,13 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
   // While one priority's title is being edited or a to-do is being added, the other priorities' menus wait, so no save drops that draft.
   const held = priority => disabled || Boolean(taskDraft) || Boolean(editing && editing !== priority.id);
   const changePriority = (id, patch) => save(priorities.map(priority => priority.id === id ? { ...priority, ...patch } : priority), week, record?.revision ?? null);
-  const link = (taskId, priorityId, beforeId) => {
+  const link = (taskId, priorityId, beforeId, target = week) => {
     if (editing) { setMessage('Save or cancel the priority title before moving tasks.'); return; }
-    if (past || disabled || !tasks.some(item => item._id === taskId) || (priorityId && !priorities.some(priority => priority.id === priorityId && priority.status === 'active'))) return;
-    save(assignTask(priorities, taskId, priorityId, beforeId));
+    const plan = weekRecord(records, target);
+    if (target !== currentWeek || disabled || !plan || !tasks.some(item => item._id === taskId)) return;
+    const entries = plan.workItem.priorities;
+    if (priorityId && !entries.some(priority => priority.id === priorityId && priority.status === 'active')) return;
+    save(assignTask(entries, taskId, priorityId, beforeId), target, plan.revision);
   };
   const drop = (event, priorityId, beforeId) => {
     event.preventDefault(); event.stopPropagation();
@@ -90,8 +99,8 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
     setDragging(''); setDropTarget(''); if (id) link(id, priorityId, beforeId);
   };
   const dragProps = item => ({
-    ...taskDragProps(item, disabled || past),
-    onDragStart: event => { taskDragProps(item, disabled || past).onDragStart(event); setDragging(item._id); },
+    ...taskDragProps(item, disabled || readOnly),
+    onDragStart: event => { taskDragProps(item, disabled || readOnly).onDragStart(event); setDragging(item._id); },
     onDragEnd: () => { setDragging(''); setDropTarget(''); }
   });
   const createTask = async event => {
@@ -123,9 +132,9 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
     const item = tasks.find(value => value._id === id);
     if (!item) return <li className="work-weekly-missing" key={id}>Task unavailable. Its place in this plan is kept.</li>;
     const complete = past ? completionAtWeekEnd(item, week) : item.completed;
-    return <li key={id} className={`work-weekly-task ${complete ? 'is-done' : ''} ${dropTarget === id ? 'is-drop-target' : ''}`} {...dragProps(item)} onDragOver={event => { if (!past && !disabled && acceptsTask(event)) { event.preventDefault(); event.stopPropagation(); setDropTarget(id); } }} onDrop={event => drop(event, priority.id, id)}>
-      <label><WorkTaskGrip item={item} {...dragProps(item)} /><input type="checkbox" data-work-task={item.clientId} aria-label={item.title} checked={complete} disabled={past || disabled} onChange={() => onAction(item.clientId, { type: complete ? 'reopen' : 'complete' })} /><span>{item.title}</span></label>{source(item)}
-      {!past ? <span className="work-weekly-task-actions"><button disabled={disabled} aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}><WorkIcon name="more" /></button><button disabled={disabled} aria-label={`Remove ${item.title} from priority`} onClick={() => link(id, '')}>Remove</button></span> : null}
+    return <li key={id} className={`work-weekly-task ${complete ? 'is-done' : ''} ${dropTarget === id ? 'is-drop-target' : ''}`} {...dragProps(item)} onDragOver={event => { if (!readOnly && !disabled && acceptsTask(event)) { event.preventDefault(); event.stopPropagation(); setDropTarget(id); } }} onDrop={event => drop(event, priority.id, id)}>
+      <label><WorkTaskGrip item={item} {...dragProps(item)} /><input type="checkbox" data-work-task={item.clientId} aria-label={item.title} checked={complete} disabled={readOnly || disabled} onChange={() => onAction(item.clientId, { type: complete ? 'reopen' : 'complete' })} /><span>{item.title}</span></label>{source(item)}
+      {!readOnly ? <span className="work-weekly-task-actions"><button disabled={disabled} aria-label={`Edit ${item.title}`} onClick={() => onEdit(item)}><WorkIcon name="more" /></button><button disabled={disabled} aria-label={`Remove ${item.title} from priority`} onClick={() => link(id, '')}>Remove</button></span> : null}
     </li>;
   };
   const describePlan = values => values.map(priority => `${priority.title} (${priority.status})\n${priority.taskIds.map(id => `  • ${tasks.find(item => item._id === id)?.title || 'Unavailable task'}`).join('\n')}`).join('\n\n') || 'No priorities.';
@@ -138,21 +147,30 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
     <button type="button" disabled={busy} onClick={() => { taskDraftRef.current = null; setTaskDraft(null); }}>Cancel</button>
   </form>;
 
+  const shownPriorities = weekRecord(records, shownWeek)?.workItem.priorities
+    ?? carryWeek(lastWeekBefore(records, shownWeek), tasks, shownWeek);
+  const assignment = {
+    priorities: (showPlan ? active : shownPriorities).filter(priority => priority.status === 'active'),
+    disabled: disabled || (showPlan ? week : shownWeek) !== currentWeek,
+    link: (id, priorityId) => link(id, priorityId, undefined, showPlan ? week : shownWeek),
+    onWeek
+  };
+
+  if (!showPlan) return <WorkTaskAssignment.Provider value={assignment}>{children}</WorkTaskAssignment.Provider>;
+
   return <section className="work-weekly" aria-label="Weekly priorities">
-    <div className="work-weekly-main"><header className="work-weekly-heading"><h1 className="work-page-title">{week === currentWeek ? 'This week' : 'Week of ' + shortDate(week)}</h1><div className="work-weekly-dateline"><p>{displayRange(week, shiftDay(week, 6))}</p><nav aria-label="Priority weeks"><button disabled={disabled} aria-label="Previous priority week" onClick={() => navigate(shiftDay(week, -7))}><WorkIcon name="previous" /></button>{week !== currentWeek ? <button disabled={disabled} onClick={() => navigate(currentWeek)}>This week</button> : null}<button disabled={disabled || week >= currentWeek} aria-label="Next priority week" onClick={() => navigate(shiftDay(week, 7))}><WorkIcon name="next" /></button></nav>{!past && priorities.some(priority => priority.carriedFrom && !priority.reviewed) ? <button disabled={disabled} aria-expanded={review} onClick={() => setReview(value => !value)}>Review last week</button> : null}</div></header>
+    <div className="work-weekly-main"><header className="work-weekly-heading"><h1 className="work-page-title">{week === currentWeek ? 'This week' : 'Week of ' + shortDate(week)}</h1><div className="work-weekly-dateline"><p>{displayRange(week, shiftDay(week, 6))}</p><nav aria-label="Priority weeks"><button disabled={disabled} aria-label="Previous priority week" onClick={() => navigate(shiftDay(week, -7))}><WorkIcon name="previous" /></button>{week !== currentWeek ? <button disabled={disabled} onClick={() => navigate(currentWeek)}>This week</button> : null}<button disabled={disabled || week >= currentWeek} aria-label="Next priority week" onClick={() => navigate(shiftDay(week, 7))}><WorkIcon name="next" /></button></nav>{!readOnly && priorities.some(priority => priority.carriedFrom && !priority.reviewed) ? <button disabled={disabled} aria-expanded={review} onClick={() => setReview(value => !value)}>Review last week</button> : null}</div></header>
       {message ? <div className="work-weekly-receipt" role={pending ? 'alert' : 'status'}><p>{message}</p>{pending ? <><p>Your proposed plan for the week of {shortDate(pending.week)} is still on this page. {pending.current ? 'The saved plan changed elsewhere. Review it before replacing it.' : 'Keep this page open until it saves.'}</p>{pending.current ? <><details open><summary>Saved plan</summary><pre>{describePlan(pending.current.workItem.priorities)}</pre></details><details open><summary>Your proposed plan</summary><pre>{describePlan(pending.priorities)}</pre></details><button disabled={busy} onClick={() => { retain(pending.current); setPending(null); setMessage('Using the saved plan.'); }}>Use saved plan</button><button disabled={busy} onClick={() => save(pending.priorities, pending.week, pending.current.revision, pending.clearNewTitle)}>Save my version</button></> : <><button disabled={busy} onClick={() => save(pending.priorities, pending.week, pending.revision, pending.clearNewTitle)}>Retry save</button><button disabled={busy} onClick={() => { setPending(null); setMessage('Unsaved change discarded.'); }}>Discard change</button></>}</> : null}</div> : null}
-      {past ? <p className="work-weekly-history">Past weeks keep their plan. Checkboxes show completion by that week’s end.</p> : null}
-      {week === currentWeek && !session.loading() && !session.error() ? <WorkWeekClose week={week} today={today} timeZone={timeZone} items={tasks} notes={notes} session={session} onAction={onAction} onSort={onSort} onOpen={onOpen} /> : null}
-      {review && !past ? <section className="work-weekly-review" aria-label="Rollover review"><h2>A fresh look at the week</h2><p>Keep what matters. Deferring or dropping a priority never deletes its tasks.</p>{priorities.filter(priority => priority.carriedFrom || priority.status !== 'active').map(reviewRow)}{!priorities.some(priority => priority.carriedFrom || priority.status !== 'active') ? <p>Nothing carried forward to review.</p> : null}<button onClick={() => setReview(false)}>Close review</button></section> : null}
-      {!past ? adding ? <form className="work-weekly-add" onSubmit={event => { event.preventDefault(); const title = newTitle.trim(); if (title && !disabled && !editing) save([...priorities, { id: operationId(), title, taskIds: [], status: 'active', reviewed: true, carriedFrom: null }], week, record?.revision ?? null, true); }}><input autoFocus aria-label="New weekly priority" placeholder="Name a priority…" maxLength={300} value={newTitle} disabled={disabled || Boolean(editing)} onChange={event => setNewTitle(event.target.value)} /><button disabled={disabled || Boolean(editing) || !newTitle.trim()}>Add priority</button><button type="button" disabled={busy} onClick={() => { setNewTitle(''); setAdding(false); window.requestAnimationFrame(() => addTrigger.current?.focus()); }}>Cancel</button></form> : <button ref={addTrigger} className="work-weekly-add-trigger" disabled={disabled || Boolean(editing)} onClick={() => setAdding(true)}><WorkIcon name="plus" />Add priority</button> : null}
+      {past ? <p className="work-weekly-history">Past weeks show the plan and its progress at the time.</p> : future ? <p className="work-weekly-history">Preview of priorities carried into this week.</p> : null}
+      {review && !readOnly ? <section className="work-weekly-review" aria-label="Rollover review"><h2>A fresh look at the week</h2><p>Keep what matters. Deferring or dropping a priority never deletes its tasks.</p>{priorities.filter(priority => priority.carriedFrom || priority.status !== 'active').map(reviewRow)}{!priorities.some(priority => priority.carriedFrom || priority.status !== 'active') ? <p>Nothing carried forward to review.</p> : null}<button onClick={() => setReview(false)}>Close review</button></section> : null}
+      {!readOnly ? adding ? <form className="work-weekly-add" onSubmit={event => { event.preventDefault(); const title = newTitle.trim(); if (title && !disabled && !editing) save([...priorities, { id: operationId(), title, taskIds: [], status: 'active', reviewed: true, carriedFrom: null }], week, record?.revision ?? null, true); }}><input autoFocus aria-label="New weekly priority" placeholder="Name a priority…" maxLength={300} value={newTitle} disabled={disabled || Boolean(editing)} onChange={event => setNewTitle(event.target.value)} /><button disabled={disabled || Boolean(editing) || !newTitle.trim()}>Add priority</button><button type="button" disabled={busy} onClick={() => { setNewTitle(''); setAdding(false); window.requestAnimationFrame(() => addTrigger.current?.focus()); }}>Cancel</button></form> : <button ref={addTrigger} className="work-weekly-add-trigger" disabled={disabled || Boolean(editing)} onClick={() => setAdding(true)}><WorkIcon name="plus" />Add priority</button> : null}
       {taskDraft && !active.some(priority => priority.id === taskDraft.priorityId) ? taskComposer(null) : null}
-      <ol className="work-weekly-priorities">{active.map((priority, index) => {
+      <ol className="work-weekly-priorities">{active.map(priority => {
         const linked = priority.taskIds.map(id => tasks.find(task => task._id === id));
         const done = linked.filter(task => task && (past ? completionAtWeekEnd(task, week) : task.completed)).length;
         const settled = linked.length > 0 && done === linked.length && linked.every(task => !task.pending);
-        return <li key={priority.id}><section aria-label={priority.title} className={`work-weekly-priority ${dropTarget === priority.id ? 'is-drop-target' : ''}`} onDragOver={event => { if (!past && !disabled && acceptsTask(event)) { event.preventDefault(); setDropTarget(priority.id); } }} onDrop={event => drop(event, priority.id)}>
-        {linked.length ? <span className="work-priority-ink" aria-hidden="true" style={{ '--done': done / linked.length }} /> : null}
-        <header><h2><button className="work-priority-toggle" aria-expanded={!collapsed[`${week}:${priority.id}`]} aria-controls={`${disclosureId}-${priority.id}`} onClick={() => setCollapsed(value => ({ ...value, [`${week}:${priority.id}`]: !value[`${week}:${priority.id}`] }))}><WorkIcon name={collapsed[`${week}:${priority.id}`] ? 'right' : 'down'} /><span className="work-weekly-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>{priority.title}</button></h2>{!past ? <WorkMenu actions label={`Manage ${priority.title}`} icon="more" className="work-weekly-manage">
+        return <li key={priority.id}><section aria-label={priority.title} className={`work-weekly-priority ${dropTarget === priority.id ? 'is-drop-target' : ''}`} onDragOver={event => { if (!readOnly && !disabled && acceptsTask(event)) { event.preventDefault(); setDropTarget(priority.id); } }} onDrop={event => drop(event, priority.id)}>
+        <header><h2><button className="work-priority-toggle" aria-expanded={!collapsed[`${week}:${priority.id}`]} aria-controls={`${disclosureId}-${priority.id}`} onClick={() => setCollapsed(value => ({ ...value, [`${week}:${priority.id}`]: !value[`${week}:${priority.id}`] }))}><WorkIcon name={collapsed[`${week}:${priority.id}`] ? 'right' : 'down'} />{priority.title}</button></h2>{!readOnly ? <WorkMenu actions label={`Manage ${priority.title}`} icon="more" className="work-weekly-manage">
           <button disabled={held(priority)} onClick={() => { setCollapsed(value => ({ ...value, [`${week}:${priority.id}`]: false })); setEditing(priority.id); setEditTitle(priority.title); }}>Rename</button>
           <button disabled={held(priority)} onClick={() => changePriority(priority.id, { status: 'complete', reviewed: true })}>Complete priority</button>
           <button disabled={held(priority)} onClick={() => changePriority(priority.id, { status: 'deferred', reviewed: true })}>Move to next week</button>
@@ -163,15 +181,14 @@ export default function WorkWeekly({ session, today, timeZone, items, folders, n
         {past && priority.status !== 'active' ? <p className="work-weekly-carried">{priority.status === 'complete' ? 'Completed priority' : priority.status === 'deferred' ? 'Deferred' : 'Dropped from plan'}</p> : null}
         {editing === priority.id ? <form className="work-weekly-edit" onSubmit={event => { event.preventDefault(); const title = event.currentTarget.elements.title.value.trim(); if (title) changePriority(priority.id, { title }); }}><input name="title" aria-label={`Rename ${priority.title}`} value={editTitle} onChange={event => setEditTitle(event.target.value)} maxLength={300} autoFocus /><button disabled={disabled}>Save title</button><button type="button" onClick={() => setEditing('')}>Cancel</button></form> : null}
         <ul>{priority.taskIds.map(id => taskRow(id, priority))}</ul>{!priority.taskIds.length ? <p className="work-weekly-empty">{past ? 'No tasks linked.' : 'Drag a to-do here or add one below.'}</p> : null}
-        <footer className="work-priority-foot">{!past ? taskDraft?.priorityId === priority.id ? taskComposer(priority) : <button className="work-weekly-task-new" disabled={disabled || Boolean(editing) || Boolean(taskDraft)} aria-label={`Add to-do to ${priority.title}`} onClick={() => setTaskDraft({ priorityId: priority.id, title: '' })}><WorkIcon name="plus" />Add to-do</button> : null}
+        <footer className="work-priority-foot">{!readOnly ? taskDraft?.priorityId === priority.id ? taskComposer(priority) : <button className="work-weekly-task-new" disabled={disabled || Boolean(editing) || Boolean(taskDraft)} aria-label={`Add to-do to ${priority.title}`} onClick={() => setTaskDraft({ priorityId: priority.id, title: '' })}><WorkIcon name="plus" />Add to-do</button> : null}
         {linked.length ? <p className={`work-priority-progress ${settled ? 'is-settled' : ''}`} role="status" aria-live="polite" aria-atomic="true">{settled ? <><WorkIcon name="check" /><span>Every linked to-do is done.</span></> : `${done}/${linked.length} done${linked.some(task => task?.pending) ? ' · saving' : ''}`}</p> : null}</footer>
         </div>
       </section></li>; })}</ol>
       {!active.length ? <p className="work-weekly-empty">{session.loading() ? 'Loading your week…' : past ? 'No plan saved for this week.' : 'What do you want to get done this week?'}</p> : null}
 
-      {!past && priorities.some(priority => priority.status !== 'active') ? <details className="work-weekly-set-aside"><summary>Finished & postponed</summary>{priorities.filter(priority => priority.status !== 'active').map(reviewRow)}</details> : null}
-      {week === currentWeek ? <div className="work-weekly-today">{children}</div> : null}
+      {!readOnly && priorities.some(priority => priority.status !== 'active') ? <details className="work-weekly-set-aside"><summary>Finished & postponed</summary>{priorities.filter(priority => priority.status !== 'active').map(reviewRow)}</details> : null}
     </div>
-    {!past ? <WorkTaskAssignment.Provider value={{ priorities: active, disabled, link }}><aside className="work-weekly-tray" aria-label="Open to-dos">{margin ? <div className="work-weekly-more">{margin}</div> : <details className="work-rail-next" open><summary>Next</summary>{tasks.filter(item => !item.completed && !priorities.some(priority => ['active', 'complete'].includes(priority.status) && priority.taskIds.includes(item._id))).map(item => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} notes={notes} onOpen={onOpen} onEdit={onEdit} onAction={onAction} />)}<button disabled={disabled} onClick={() => onNew({ kind: 'task' })}>Add to-do</button></details>}</aside></WorkTaskAssignment.Provider> : null}
+    {!readOnly ? <WorkTaskAssignment.Provider value={assignment}><aside className="work-weekly-tray" aria-label="Open to-dos"><details className="work-needs-rest" open><summary>Unassigned</summary>{tasks.filter(item => !item.completed && !priorities.some(priority => ['active', 'complete'].includes(priority.status) && priority.taskIds.includes(item._id))).map(item => <WorkTaskRow key={item.id} item={item} today={today} folders={folders} notes={notes} onOpen={onOpen} onEdit={onEdit} onAction={onAction} />)}<button disabled={disabled} onClick={() => onNew({ kind: 'task' })}>Add to-do</button></details></aside></WorkTaskAssignment.Provider> : null}
   </section>;
 }

@@ -1,4 +1,14 @@
-import { dayInZone, shiftDay } from './workPlannerModel';
+import { dayInZone, shiftDay, weekDays } from './workPlannerModel';
+
+export const lastWeekBefore = (records, week) => records
+  .filter(record => record.workItem.plannedOn < week)
+  .sort((a, b) => b.workItem.plannedOn.localeCompare(a.workItem.plannedOn))[0];
+
+export function plannedBeforeMonday(item, monday, timeZone) {
+  if (weekDays(monday)[0] !== monday || item.completed || item.pending || item.plan?.pending || item.plannedOn !== monday || !item.plan?.actionAt) return '';
+  const planned = dayInZone(item.plan.actionAt, timeZone);
+  return planned >= shiftDay(monday, -7) && planned < monday ? planned : '';
+}
 
 export const weekRecord = (records, week) => records.find(record => record.workItem.plannedOn === week);
 

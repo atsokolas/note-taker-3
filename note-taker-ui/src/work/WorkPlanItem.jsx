@@ -8,20 +8,22 @@ import { displayDay } from './workPlannerModel';
 
 // The week owns linking; every canonical task row offers the same keyboard alternative to dragging.
 export const WorkTaskAssignment = createContext(null);
-export function WorkTaskRow({ item, today, folders = [], notes = [], onOpen, onAction, onEdit, aside = null, actions = null }) {
+export function WorkTaskRow({ item, today, folders = [], notes = [], onOpen, onAction, onEdit, aside = null, actions = null, canPlan = true }) {
   const assignment = useContext(WorkTaskAssignment);
+  const priority = assignment?.priorities.find(priority => priority.taskIds.includes(item._id));
   const folder = folders.find(folder => folder._id === (item.folder?._id || item.folder));
   const note = notes.find(note => item.noteId && [note._id, note.clientId].includes(item.noteId));
   return <div {...taskDragProps(item)} className={`work-planner-task work-rail-task ${item.completed ? 'is-done' : ''}`}>
     <WorkTaskGrip item={item} /><label><input type="checkbox" data-work-task={item.clientId} aria-label={item.title} checked={Boolean(item.completed)} onChange={() => onAction(item.clientId, { type: item.completed ? 'reopen' : 'complete' })} /><span>{item.title}</span></label>
     <div className="work-rail-source">{item.origin ? <WorkItemSource origin={item.origin} /> : note && onOpen ? <button onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : folder?.name ? <span>{folder.name}</span> : null}
       {folder?.archivedAt ? <small>Archived folder</small> : null}{item.previousPlannedOn && item.previousPlannedOn !== item.plannedOn ? <small>From {displayDay(item.previousPlannedOn, { weekday: 'short', day: 'numeric' })}</small> : null}
+      {priority && assignment.onWeek ? <button className="work-task-priority" onClick={assignment.onWeek}>{priority.title}</button> : null}
       {item.dueOn ? <small>Due {displayDay(item.dueOn)}{item.dueOn < today && !item.completed ? ' · overdue' : ''}</small> : null}{item.pending ? <small>Pending sync</small> : null}{aside}
     </div>
     <WorkMenu actions label={`Actions for ${item.title}`} icon="more" className="work-task-menu">
       {onEdit ? <button onClick={() => onEdit(item)}>{item.conflicted ? 'Review both versions' : 'Edit to-do'}</button> : null}
-      {!item.completed && item.plannedOn !== today ? <button onClick={() => onAction(item.clientId, { type: 'plan', plannedOn: today })}>Move to today</button> : null}
-      {assignment ? <label className="work-weekly-assignment">Priority<select aria-label={`Priority for ${item.title}`} value={assignment.priorities.find(priority => priority.taskIds.includes(item._id))?.id || ''} disabled={assignment.disabled || !item._id} onChange={event => assignment.link(item._id, event.target.value)}><option value="">{item._id ? 'No priority' : 'Save task to link it'}</option>{assignment.priorities.map(priority => <option key={priority.id} value={priority.id}>{priority.title}</option>)}</select></label> : null}
+      {canPlan && !item.completed && item.plannedOn !== today ? <button onClick={() => onAction(item.clientId, { type: 'plan', plannedOn: today })}>Move to today</button> : null}
+      {assignment ? <label className="work-weekly-assignment">Priority<select aria-label={`Priority for ${item.title}`} value={priority?.id || ''} disabled={assignment.disabled || !item._id} onChange={event => assignment.link(item._id, event.target.value)}><option value="">{item._id ? 'No priority' : 'Save task to link it'}</option>{assignment.priorities.map(priority => <option key={priority.id} value={priority.id}>{priority.title}</option>)}</select></label> : null}
       {actions}
     </WorkMenu>
   </div>;

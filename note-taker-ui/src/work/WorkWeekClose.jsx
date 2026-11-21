@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import WorkItemSource from './WorkItemSource';
-import { dayInZone, displayDay, shiftDay, writtenDay } from './workPlannerModel';
+import { displayDay, shiftDay, writtenDay } from './workPlannerModel';
+import { plannedBeforeMonday } from './workWeeklyModel';
 import { noteTitle } from './workSession';
 
 const stillApplies = (item, receipt) => {
@@ -10,24 +11,29 @@ const stillApplies = (item, receipt) => {
 };
 const mondayHeading = 'Monday starts here';
 
-export default function WorkWeekClose({ week, today, timeZone, items, notes, session, onAction, onSort, onOpen }) {
+export default function WorkWeekClose({ week, today, timeZone, items, notes, session, onAction, onSort, onOpen, onMonday, initiallyOpen = false }) {
   const monday = shiftDay(week, 7);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
+  const [receiving, setReceiving] = useState('');
   const [receipts, setReceipts] = useState({});
   const list = useRef(null);
   const inFlight = useRef(false);
   const focusAfter = useRef(null);
-  const rows = items.flatMap(item => {
+  const ready = [], waiting = [];
+  items.forEach(item => {
     const receipt = stillApplies(item, receipts[item.clientId]) ? receipts[item.clientId] : null;
     const eligible = item.title?.trim() && !item.completed && item.list !== 'waiting' && item.list !== 'someday'
       && (!item.plannedOn || item.plannedOn <= today) && (!writtenDay(item) || writtenDay(item) <= today);
-    return eligible || receipt ? [{ item, receipt }] : [];
-  }).sort((a, b) => writtenDay(b.item).localeCompare(writtenDay(a.item)) || a.item.clientId.localeCompare(b.item.clientId));
+    if (receipt?.kind === 'received' || (onMonday && item.list === 'waiting' && item.title?.trim() && !item.completed && !receipt)) waiting.push({ item, receipt });
+    else if (eligible || receipt) ready.push({ item, receipt });
+  });
+  const recentFirst = (a, b) => writtenDay(b.item).localeCompare(writtenDay(a.item)) || a.item.clientId.localeCompare(b.item.clientId);
+  const rows = ready.sort(recentFirst);
+  waiting.sort(recentFirst);
   const left = rows.filter(({ receipt }) => receipt?.phase !== 'saved').length;
   const filed = rows.length - left;
-  const busy = rows.some(({ receipt }) => ['saving', 'retrying'].includes(receipt?.phase));
-  const carried = items.filter(item => item.title?.trim() && !item.completed && !item.pending && !item.plan?.pending && item.plannedOn === monday
-    && item.plan?.actionAt && dayInZone(item.plan.actionAt, timeZone) >= week);
+  const busy = [...rows, ...waiting].some(({ receipt }) => ['saving', 'retrying'].includes(receipt?.phase));
+  const carried = items.filter(item => item.title?.trim() && plannedBeforeMonday(item, monday, timeZone));
   const [firstMondayTask] = carried;
 
   const update = (id, receipt) => setReceipts(current => ({ ...current, [id]: receipt }));
@@ -36,12 +42,12 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
     if (!focusAfter.current) return;
     const { id, undo, retry } = focusAfter.current;
     focusAfter.current = null;
-    const elements = [...(list.current?.children || [])];
+    const elements = [...(list.current?.querySelectorAll('li[data-item-id]') || [])];
     const index = elements.findIndex(row => row.dataset.itemId === id);
     if (index < 0) return;
     const row = elements[index];
     const candidates = undo || retry ? [row] : [...elements.slice(index + 1), ...elements.slice(0, index)];
-    const next = candidates.map(element => element.querySelector('[data-review-action]:not([inert] *)')).find(Boolean)
+    const next = candidates.filter(element => !element.closest('details:not([open])')).map(element => element.querySelector('[data-review-action]:not([inert] *)')).find(Boolean)
       || row.querySelector('[data-review-receipt]');
     next?.focus({ preventScroll: true });
     next?.scrollIntoView?.({ block: 'nearest' });
@@ -63,7 +69,9 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
         if (decision.phase !== 'failed' || !decision.operation) {
           const values = decision.undo ? { type: 'undo', undoOf: decision.operation }
             : decision.kind === 'done' ? { type: 'complete' } : { type: 'plan', plannedOn: monday };
-          const operation = onAction(id, values);
+          const patch = decision.kind === 'received' ? decision.undo ? decision.previous
+            : { title: decision.title, list: 'next', waitingOn: '', sortedOn: today, returnOn: null } : undefined;
+          const operation = patch ? onAction(id, values, patch) : onAction(id, values);
           if (!operation) {
             update(id, decision.undo ? { ...decision, undo: false, phase: 'saved' } : null);
             return;
@@ -73,6 +81,7 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
         saved = await session.flush(id);
       }
       if (heldFocus && document.activeElement === trigger) focusAfter.current = { id, undo: saved && decision.undo, retry: !saved };
+      if (saved && decision.kind === 'received') setReceiving('');
       update(id, saved && decision.undo ? null : { ...decision, phase: saved ? 'saved' : 'failed' });
     } catch {
       if (heldFocus && document.activeElement === trigger) focusAfter.current = { id, retry: true };
@@ -89,13 +98,13 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
   };
 
   return (
-    <details className="work-weekly-review work-week-close" onToggle={event => setOpen(event.currentTarget.open)}>
+    <details className="work-weekly-review work-week-close" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
       <summary>
         Close the week{left ? ` · ${left} to review` : ''}
         {!open && firstMondayTask ? <span className="work-week-close__preview">{mondayHeading} · {firstMondayTask.title}</span> : null}
       </summary>
-      {open ? <>
-        {rows.length ? <ul ref={list}>{rows.map(({ item, receipt }) => {
+      {open ? <div ref={list}>
+        {rows.length ? <ul>{rows.map(({ item, receipt }) => {
           const retrying = receipt?.phase === 'retrying';
           const saving = receipt?.phase === 'saving' || retrying;
           const failed = receipt?.phase === 'failed';
@@ -137,11 +146,28 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
             </li>
           );
         })}</ul> : !carried.length ? <p>Nothing needs a decision.</p> : null}
+        {waiting.length ? <details className="work-needs-rest"><summary>Waiting on <small>{waiting.length}</small></summary><ul>{waiting.map(({ item, receipt }) => {
+          const pending = receipt?.phase === 'saving' || receipt?.phase === 'retrying';
+          return <li key={item.id} data-item-id={item.clientId}>
+            <h3>{item.title}</h3>{source(item)}{!receipt ? <p>Waiting on {item.waitingOn}</p> : null}
+            {receipt?.phase === 'saved' ? <div className="work-week-close__receipt">
+              <span role="status">Planned for {displayDay(monday)}</span><button data-review-receipt aria-disabled={busy} onClick={event => decide(item, { ...receipt, undo: true }, event)}>Undo</button>
+            </div> : receipt ? <div className="work-week-close__receipt"><span role="status">{pending ? 'Saving…' : 'Sync interrupted.'}</span>
+              {!pending ? <button data-review-action aria-disabled={busy} onClick={event => decide(item, receipt, event)}>Retry sync</button> : null}</div>
+              : receiving === item.id ? <form className="work-outstanding-ask" onSubmit={event => {
+                event.preventDefault();
+                const title = event.currentTarget.elements.title.value.trim();
+                if (title) decide(item, { kind: 'received', title, previous: { title: item.title, list: item.list, waitingOn: item.waitingOn, sortedOn: item.sortedOn ?? null, returnOn: item.returnOn ?? null } }, event);
+              }}><label>Next action<input name="title" defaultValue={item.title} maxLength={500} required autoFocus /></label>
+                <button aria-disabled={busy} data-review-action>Plan for Monday</button><button type="button" onClick={() => setReceiving('')}>Cancel</button>
+              </form> : <button data-review-action aria-disabled={busy} onClick={() => setReceiving(item.id)}>I have it</button>}
+          </li>;
+        })}</ul></details> : null}
         {carried.length ? <section aria-label={mondayHeading}><h3>{mondayHeading}</h3><ul>{carried.map(item => (
           <li key={item.id}>{item.title}{' '}{source(item)}</li>
-        ))}</ul></section> : null}
+        ))}</ul>{onMonday ? <button onClick={() => onMonday(firstMondayTask)}>Open Monday</button> : null}</section> : null}
         {filed > 0 && left === 0 ? <p className="work-week-close__colophon">That’s the week. {filed} {filed === 1 ? 'decision' : 'decisions'} filed.</p> : null}
-      </> : null}
+      </div> : null}
     </details>
   );
 }

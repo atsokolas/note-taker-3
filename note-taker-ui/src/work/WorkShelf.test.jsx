@@ -4,11 +4,11 @@ import userEvent from '@testing-library/user-event';
 import WorkShelf from './WorkShelf';
 
 const notes = Array.from({ length: 6 }, (_, i) => ({ clientId: `n${i}`, title: `Note ${i}`, folder: i === 1 ? { _id: 'f' } : 'f', project: i === 1 ? { _id: 'p' } : 'p', takenOn: '2026-11-04' }));
-const props = { notes, folders: [{ _id: 'f', name: 'Meetings' }], projects: [{ _id: 'p', name: 'Launch' }, { _id: 'paused', name: 'Later', pausedAt: '2026-11-01' }], needs: { total: 3, hills: { p: 0.3 } }, current: () => false, drag: () => ({}), onScope: jest.fn(), onOpen: jest.fn(), onQuery: jest.fn(), onDropNote: jest.fn(), timeZone: 'UTC', day: '2026-11-04', query: '', place: null, view: 'today' };
+const props = { notes, folders: [{ _id: 'f', name: 'Meetings' }], projects: [{ _id: 'p', name: 'Launch' }, { _id: 'paused', name: 'Later', pausedAt: '2026-11-01' }], unsorted: 3, current: () => false, drag: () => ({}), onScope: jest.fn(), onOpen: jest.fn(), onQuery: jest.fn(), onDropNote: jest.fn(), timeZone: 'UTC', day: '2026-11-04', query: '', place: null, view: 'today' };
 
 test('the rail is Today, Projects and Notes, and a note is listed once, in its folder', () => {
   render(<WorkShelf {...props} />);
-  expect(within(screen.getByRole('navigation', { name: 'Work navigation' })).getAllByRole('button').map(button => button.textContent)).toEqual(['Today3']);
+  expect(within(screen.getByRole('navigation', { name: 'Work navigation' })).getAllByRole('button').map(button => button.textContent)).toEqual(['Today', 'Actions3', 'Review']);
   fireEvent.click(screen.getByRole('button', { name: /Today/ }));
   expect(props.onScope).toHaveBeenCalledWith('today');
   for (const gone of ['Upcoming', 'Outstanding', 'More', 'All notes']) expect(screen.queryByText(gone)).toBeNull();

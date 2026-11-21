@@ -311,10 +311,10 @@ export function createWorkSession({ token, api = apiClient, storage = localStora
         return null;
       }
     },
-    action(id, action) {
+    action(id, action, patch) {
       const note = entry(id); if (!isCurrent() || !note?.workItem) return null;
       const next = { operationId: operationId(), actionAt: new Date().toISOString(), timeZone: note.timeZone || deviceTimeZone(), ...action };
-      edit(id, { workActions: [...(note.workActions || []), next] }); return next.operationId;
+      edit(id, { ...patch, workActions: [...(note.workActions || []), next] }); return next.operationId;
     },
     rebaseItem(id) {
       const draft = drafts[id], current = draft?.conflict;
