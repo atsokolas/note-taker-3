@@ -112,6 +112,7 @@ export const buildThinkEntries = ({ notes = [], concepts = [], questions = [], f
     nextTimeLine: normalizeSpaces(entry?.workingState?.nextTimeLine?.text),
     stage: stageOf(entry?.board),
     board: entry?.board || null,
+    createdAt: entry?.createdAt || null,
     updatedAt: entry?.updatedAt || entry?.createdAt || null
   })) : []),
   ...(filter === 'all' || filter === 'concept' ? list(concepts)

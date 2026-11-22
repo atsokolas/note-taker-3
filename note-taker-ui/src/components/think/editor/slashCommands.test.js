@@ -132,4 +132,20 @@ describe('slashCommands', () => {
     expect(mockChain.deleteRange).toHaveBeenCalledWith({ from: 2, to: 10 });
     expect(onSelect).toHaveBeenCalledWith({ editor });
   });
+
+  it('reads the piece aloud where the browser can speak, and stops when asked again', () => {
+    expect(getSlashCommandItems('full').map(item => item.id)).not.toContain('readAloud');
+    const speak = jest.fn();
+    const cancel = jest.fn();
+    window.speechSynthesis = { speaking: false, speak, cancel };
+    window.SpeechSynthesisUtterance = function Utterance(text) { this.text = text; };
+    const read = getSlashCommandItems('full').find(item => item.id === 'readAloud');
+    read.onSelect({ editor: { getText: () => 'The first sentence.' } });
+    expect(speak.mock.calls[0][0].text).toBe('The first sentence.');
+    window.speechSynthesis.speaking = true;
+    read.onSelect({ editor: { getText: () => 'The first sentence.' } });
+    expect(cancel).toHaveBeenCalled();
+    delete window.speechSynthesis;
+    delete window.SpeechSynthesisUtterance;
+  });
 });

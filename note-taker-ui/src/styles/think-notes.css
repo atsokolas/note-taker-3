@@ -979,6 +979,8 @@ body.think-rails-away .next-sentence { opacity: 0.35; }
 .think-desk__lately blockquote { margin: 0 0 6px; color: var(--text-primary); font: italic 1.2rem/1.45 var(--font-serif); }
 .think-desk__lately p { margin: 0; color: var(--text-secondary); font-size: 0.84rem; }
 .think-notes .think-desk__lately p button { min-height: 0; font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.think-notes .think-desk__year { font-style: italic; font-family: var(--font-serif); }
+.think-notes .think-desk__year button { min-height: 0; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---- One way of looking, as a ruled list --------------------------------- */
 .think-index { display: grid; gap: 18px; padding: 40px 0 96px; font-family: var(--font-sans); }
