@@ -175,6 +175,11 @@ export const previewReadwiseConnection = async ({ connectionId, importSessionId 
   return response.data || {};
 };
 
+// The provider's approval, finished by the account signed in here.
+export const finishImportOAuth = async ({ provider, code, state }) => {
+  await api.post(`/api/import/${provider}/oauth/finish`, { code, state }, getAuthHeaders());
+};
+
 export const startNotionOAuth = async () => {
   const response = await api.post('/api/import/notion/oauth/start', {}, getAuthHeaders());
   return response.data?.authUrl || '';

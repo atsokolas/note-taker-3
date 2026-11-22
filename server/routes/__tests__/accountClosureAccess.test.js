@@ -46,7 +46,7 @@ test('actual personal-agent and bridge middleware distinguish healthy, inactive 
   }
 });
 
-test('valid old import states cannot reconnect an inactive account or reach a provider', async () => {
+test('a provider approval reaches no provider until the account that started it finishes it', async () => {
   const previousSecret = process.env.JWT_SECRET;
   const nativeFetch = global.fetch;
   let externalRequests = 0; let connectionReads = 0;
@@ -56,17 +56,23 @@ test('valid old import states cannot reconnect an inactive account or reach a pr
     if (String(url).startsWith('http://127.0.0.1:')) return nativeFetch(url, options);
     externalRequests++; throw new Error('External provider call is forbidden in this test.');
   };
+  const someoneElse = (req, _res, next) => { req.user = { id: 'another-account' }; next(); };
   const app = express();
-  app.use(buildImportRouter({ authenticateToken: () => {}, isAccountActive: async () => false, upload: { single: () => (_req, _res, next) => next() }, IntegrationConnection: { findOne: () => { connectionReads++; throw new Error('No connection query is permitted.'); } }, env: {} }));
+  app.use(express.json());
+  app.use(buildImportRouter({ authenticateToken: someoneElse, isAccountActive: async () => true, upload: { single: () => (_req, _res, next) => next() }, IntegrationConnection: { findOne: () => { connectionReads++; throw new Error('No connection query is permitted.'); } }, env: {} }));
   const { server, base } = await listen(app);
   try {
     for (const provider of ['notion', 'readwise']) {
       const payload = { provider, userId: id };
       if (provider === 'readwise') payload.oauthPayload = encryptSecret(JSON.stringify({ codeVerifier: 'unusable-synthetic-verifier', clientId: 'synthetic-client' }));
       const state = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '10m' });
-      const result = await global.fetch(`${base}/api/import/${provider}/oauth/callback?${new URLSearchParams({ state, code: 'unusable-synthetic-code' })}`, { redirect: 'manual' });
+      const code = 'unusable-synthetic-code';
+      const result = await global.fetch(`${base}/api/import/${provider}/oauth/callback?${new URLSearchParams({ state, code })}`, { redirect: 'manual' });
       assert.equal(result.status, 302);
-      assert.equal(new URL(result.headers.get('location')).searchParams.get(provider), 'error');
+      const back = new URL(result.headers.get('location')).searchParams;
+      assert.deepEqual([back.get(provider), back.get('code'), back.get('state')], ['finish', code, state]);
+      const finished = await global.fetch(`${base}/api/import/${provider}/oauth/finish`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, state }) });
+      assert.equal(finished.status, 400, 'another signed-in account cannot finish it');
     }
     assert.equal(externalRequests, 0); assert.equal(connectionReads, 0);
   } finally {
