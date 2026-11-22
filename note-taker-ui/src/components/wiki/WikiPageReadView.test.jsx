@@ -1809,7 +1809,7 @@ describe('WikiPageReadView', () => {
 
     await flushDeferredWikiReadWork();
 
-    expect(screen.getByRole('status', { name: 'Changes since your last visit' })).toHaveTextContent('1 new claim');
+    expect(screen.getByRole('status', { name: 'Changes since your last visit' })).toHaveTextContent('Claims added');
   });
 
   it('keeps pending signal state out of the page-level ambient presence', async () => {
