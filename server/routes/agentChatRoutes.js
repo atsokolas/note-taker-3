@@ -422,6 +422,7 @@ const buildAgentChatRouter = ({
     source,
     requestId,
     signal,
+    onStep,
     proposalActor,
     canPropose,
     beforeRecord = async result => result
@@ -434,7 +435,8 @@ const buildAgentChatRouter = ({
       limit: body.limit,
       premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
       skillInvocation: body.skillInvocation || {},
-      signal
+      signal,
+      onStep
     });
     const prepared = await prepareLibraryStructurePlan({
       result: generated,
@@ -620,8 +622,11 @@ const buildAgentChatRouter = ({
         source: 'native_chat_stream',
         requestId: req.requestId,
         signal: streamController.signal,
+        onStep: step => emitActivity(res, activityReceipts, step),
         beforeRecord: async (result) => {
-          if (result?.retrieval?.searchedWorkspace) {
+          // A reader who watched the search happen is not told about it again.
+          const watched = activityReceipts.some(receipt => ['search', 'read_source'].includes(receipt.stage));
+          if (!watched && result?.retrieval?.searchedWorkspace) {
             const relatedCount = Array.isArray(result?.relatedItems) ? result.relatedItems.length : 0;
             emitActivity(res, activityReceipts, { stage: 'search', summary: 'Searched the workspace context.' });
             emitActivity(res, activityReceipts, {
@@ -630,7 +635,7 @@ const buildAgentChatRouter = ({
                 ? `Retrieved ${relatedCount} related workspace item${relatedCount === 1 ? '' : 's'}.`
                 : 'No additional related workspace items were needed.'
             });
-          } else if (context?.pageId) {
+          } else if (!watched && context?.pageId) {
             emitActivity(res, activityReceipts, { stage: 'retrieve', summary: 'Answered from the selected wiki page.' });
           }
           emitActivity(res, activityReceipts, {
