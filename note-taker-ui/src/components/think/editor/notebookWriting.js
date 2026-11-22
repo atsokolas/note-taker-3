@@ -3,6 +3,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { Extension } from '@tiptap/core';
 import { BlockIdExtension } from './writingParts';
 import { UniqueBlockIds } from '../notebook/uniqueBlockIds';
+import { PencilLines } from './pencilLines';
 
 const ListIndentExtension = Extension.create({
   name: 'listIndent',
@@ -28,5 +29,5 @@ const ListIndentExtension = Extension.create({
 export const notebookWritingExtensions = () => [
   StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
   Placeholder.configure({ placeholder: 'Start writing…', showOnlyWhenEditable: false }),
-  ListIndentExtension, BlockIdExtension, UniqueBlockIds
+  ListIndentExtension, BlockIdExtension, UniqueBlockIds, PencilLines
 ];

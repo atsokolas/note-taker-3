@@ -67,7 +67,7 @@ describe('notebook workbench model', () => {
 
   it('normalizes missing private state with migration-compatible defaults', () => {
     expect(normalizeNotebookWorkingState()).toEqual({
-      revision: 0, materials: [], trials: [], looseThoughts: [], dimmed: [],
+      revision: 0, materials: [], trials: [], looseThoughts: [], dimmed: [], outline: [],
       nextTimeLine: { text: '', target: { blockId: '', offset: 0, baseText: '' }, updatedAt: null },
       continuity: { target: { blockId: '', offset: 0, baseText: '' }, scrollY: 0, updatedAt: null }
     });

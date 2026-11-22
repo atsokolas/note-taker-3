@@ -368,7 +368,9 @@ const notebookBlockSchema = new mongoose.Schema({
   conceptName: { type: String, default: '' },
   questionId: { type: mongoose.Schema.Types.ObjectId, default: null },
   questionText: { type: String, default: '' },
-  status: { type: String, enum: ['open', 'answered'], default: 'open' }
+  status: { type: String, enum: ['open', 'answered'], default: 'open' },
+  // A line written out from the outline and not yet written over.
+  pencil: { type: Boolean }
 }, { _id: false });
 
 const notebookAsidePieceSchema = new mongoose.Schema({
@@ -431,6 +433,14 @@ const notebookWorkbenchDimmedSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { _id: false });
 
+const notebookWorkbenchOutlinePointSchema = new mongoose.Schema({
+  id: { type: String, required: true, maxlength: 160 },
+  text: { type: String, default: '', maxlength: 500 },
+  depth: { type: Number, default: 0, min: 0, max: 5 },
+  folded: { type: Boolean, default: false },
+  blockId: { type: String, default: '', maxlength: 160 }
+}, { _id: false });
+
 const notebookWorkbenchNextLineSchema = new mongoose.Schema({
   text: { type: String, default: '', maxlength: 4000 },
   target: { type: notebookWorkbenchTargetSchema, default: () => ({}) },
@@ -449,6 +459,7 @@ const notebookWorkbenchSchema = new mongoose.Schema({
   trials: { type: [notebookWorkbenchTrialSchema], default: [] },
   looseThoughts: { type: [notebookWorkbenchThoughtSchema], default: [] },
   dimmed: { type: [notebookWorkbenchDimmedSchema], default: [] },
+  outline: { type: [notebookWorkbenchOutlinePointSchema], default: [] },
   nextTimeLine: { type: notebookWorkbenchNextLineSchema, default: () => ({}) },
   continuity: { type: notebookWorkbenchContinuitySchema, default: () => ({}) }
 }, { _id: false });

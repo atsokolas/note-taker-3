@@ -1003,3 +1003,97 @@ body.think-rails-away .next-sentence { opacity: 0.35; }
 .think-index__list button > span { flex: 1; min-width: 0; }
 .think-index__list small { max-width: 45%; color: var(--text-secondary); font: 0.82rem/1.4 var(--font-sans); text-align: right; }
 .think-notes .think-index__list button:hover > span { text-decoration: underline; text-underline-offset: 4px; }
+
+/* The outline beside the draft: ruled lines of points. A point still in
+   pencil is not in the draft yet; once written out it is in ink. Each line's
+   rule inks while you write on it, as every field does. */
+.notebook-outline { font-family: var(--font-sans); }
+.notebook-outline header { margin-bottom: 18px; }
+.notebook-outline h2 { margin: 0; color: var(--text-primary); font: 400 1.35rem var(--font-serif); }
+.notebook-outline header p { margin: 5px 0 0; color: var(--text-secondary); font-size: 0.78rem; line-height: 1.55; }
+.notebook-outline__points { margin: 0; padding: 0; list-style: none; }
+.notebook-outline__points > li {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding-left: calc(var(--depth, 0) * 18px);
+}
+.notebook-outline__points > li.is-drop-before::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: calc(var(--depth, 0) * 18px);
+  right: 0;
+  height: 2px;
+  background: var(--noeis-pointer, #6f87ff);
+}
+.notebook-outline__mark {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: grab;
+}
+.notebook-outline__mark::before {
+  content: "";
+  display: block;
+  width: 5px;
+  height: 5px;
+  margin: auto;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+.notebook-outline .is-folded .notebook-outline__mark::before { background: currentColor; }
+.notebook-outline .is-written .notebook-outline__mark { color: var(--text-primary); }
+body.noeis-editorial .notebook-outline__points textarea,
+.notebook-outline__points textarea {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  resize: none;
+  padding: 7px 0 6px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--vellum-line) 70%, transparent);
+  background: transparent;
+  color: var(--text-muted) !important;
+  font: 400 0.98rem/1.4 var(--font-serif);
+}
+body.noeis-editorial .notebook-outline__points .is-written textarea,
+body.noeis-editorial .notebook-outline__points textarea:focus { color: var(--text-primary) !important; }
+/* A folded point's rule doubles, like a crease. */
+body.noeis-editorial .notebook-outline__points .is-folded textarea { border-bottom: 3px double color-mix(in srgb, var(--vellum-line) 90%, transparent) !important; }
+.notebook-outline__actions {
+  position: absolute;
+  top: 8px;
+  right: 0;
+  padding-left: 10px;
+  background: var(--vellum-bg, var(--surface));
+  opacity: 0;
+}
+.notebook-outline__points > li:is(:hover, :focus-within) .notebook-outline__actions { opacity: 1; }
+.notebook-outline__actions button,
+.notebook-outline__end button {
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: 0.72rem var(--font-sans);
+  cursor: pointer;
+}
+.notebook-outline__end { padding: 10px 0 0 22px; }
+.notebook-outline__actions button:hover,
+.notebook-outline__end button:hover { color: var(--text-primary); }
+
+/* Written out from the outline and not yet written over: graphite. */
+body.noeis-editorial .ProseMirror p[data-pencil],
+.ProseMirror p[data-pencil] {
+  color: var(--text-muted) !important;
+  font-style: italic;
+  text-decoration: underline dotted 1px color-mix(in srgb, var(--text-muted) 45%, transparent);
+  text-underline-offset: 0.4em;
+}
