@@ -239,7 +239,8 @@ const buildImportRouter = ({
           importedAt: new Date()
         }
       });
-    } else {
+    } else if (!pencil || article.pencil) {
+      // An agent refreshes only what it brought in; your copy stays yours.
       article.title = safeTitle || article.title;
       article.content = safeContent || article.content;
       Object.assign(article, byline);
