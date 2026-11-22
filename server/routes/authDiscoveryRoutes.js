@@ -80,6 +80,7 @@ const buildAuthDiscoveryRouter = ({
   TourState = null,
   trackEvent = () => {},
   EVENT_NAMES = {},
+  takeSharesDown,
   loginThrottle = createLoginThrottle()
 }) => {
   const router = express.Router();
@@ -205,6 +206,7 @@ const buildAuthDiscoveryRouter = ({
         { _id: user._id, accountDisabledAt: null },
         { $set: { accountDisabledAt: now, accountDeletionRequestedAt: now, 'morningPaper.enabled': false } }
       );
+      await takeSharesDown(user._id);
       return res.status(200).json({ closed: true, erasureRequestedAt: now.toISOString() });
     } catch (error) {
       console.error('❌ Error deleting account:', error);

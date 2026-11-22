@@ -35,6 +35,7 @@ const {
 dotenv.config();
 
 const { onBehalfOf } = require('./ai/modelBudget');
+const { takeSharesDown } = require('./services/accountShares');
 const app = express();
 const PORT = process.env.PORT || 3000;
 // Where the server reaches its own API, as an agent would: the hosted MCP and the built-in agent.
@@ -4725,7 +4726,8 @@ app.use(buildAuthDiscoveryRouter({
   Article,
   TourState,
   trackEvent,
-  EVENT_NAMES
+  EVENT_NAMES,
+  takeSharesDown: userId => takeSharesDown({ models: require('./models'), userId })
 }));
 
 app.use(buildMarketingAnalyticsRouter({

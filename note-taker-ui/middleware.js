@@ -42,7 +42,7 @@ export default async function middleware(request) {
     if (!snapshot) return passThrough();
     return new Response(injectSnapshot(shell, snapshot), {
       status: 200,
-      headers: { ...headers, 'cache-control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600' }
+      headers: { ...headers, 'cache-control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=60' }
     });
   } catch (error) {
     return passThrough();
