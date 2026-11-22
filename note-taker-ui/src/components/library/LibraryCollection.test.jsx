@@ -198,7 +198,7 @@ test('the nightstand reads by the evening: minutes, why, tonight, and a month as
   // The month-old piece waits at the bottom, asked about, never removed.
   const titles = [...document.querySelectorAll('.library-collection-row .library-source-title')].map(node => node.textContent);
   expect(titles).toEqual(['The Shape of Attention', 'The Long Read on Chips', 'Waited A Month']);
-  expect(screen.getByText('Been waiting a while')).toBeInTheDocument();
+  expect(screen.getByText(/^On your nightstand since /)).toBeInTheDocument();
   expect(screen.getAllByText(/Still want this\?/)).toHaveLength(1);
   fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
   expect(onPlace).toHaveBeenCalledWith('old', 'later');

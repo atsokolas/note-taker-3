@@ -24,7 +24,7 @@ import { scopedKey, currentAccountId } from '../../utils/browserScope';
 import { beginArticleDrag } from '../../pages/dragGrammar';
 import { useFinePointer } from '../../hooks/useMotionPreferences';
 import { sourceTitle } from '../../utils/sourceDisplayText';
-import { hasWaitedLong, tonightFrom } from './nightstand';
+import { hasWaitedLong, tonightFrom, waitingSince } from './nightstand';
 import Pencil from '../pencil/Pencil';
 import { inkPencil } from '../../api/pencil';
 
@@ -433,7 +433,7 @@ export default function LibraryCollection({
           const waitedLong = nightstand && hasWaitedLong(row, now);
           return (
             <React.Fragment key={row._id}>
-              {row === firstLong ? <li className="library-waited-long">Been waiting a while</li> : null}
+              {row === firstLong ? <li className="library-waited-long">{waitingSince(row, now)}</li> : null}
               <li
                 data-source-id={row._id}
                 className={`library-collection-row${returned === row._id ? ' is-returned' : ''}`}
