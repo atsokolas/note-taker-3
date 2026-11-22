@@ -93,6 +93,11 @@ test('real Mongo: ink and strike agents\' pencil, and keep every verdict', async
     assert.equal((await post('/api/strike', { kind: 'note', id: String(legacy._id) })).struck, 'restored');
     assert.deepEqual((await NotebookEntry.findById(legacy._id).lean()).blocks.map(block => block.text), ['Old words.']);
 
+    // An article an agent saved but you marked holds your ink: striking it is refused, your mark stays.
+    const marked = await Article.create({ userId, url: 'https://example.com/b', title: 'Saved by an agent', content: 'x', pencil, highlights: [{ text: 'My own mark.' }] });
+    assert.equal((await post('/api/strike', { kind: 'article', id: String(marked._id) })).code, 409);
+    assert.equal((await Article.findById(marked._id).lean()).highlights[0].text, 'My own mark.');
+
     // Inking what was never pencil is still fine, and is no verdict.
     assert.equal((await post('/api/ink', { kind: 'note', id: String(yours._id) })).code, 200);
     assert.equal(await Verdict.countDocuments({ userId }), 7);
