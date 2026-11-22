@@ -2142,7 +2142,8 @@ const runBridgeHandoffOperation = async ({
     bridgeByoCapabilities = normalizePersonalAgentCapabilities(byAgent.capabilities || {});
   }
 
-  const bypassProtocolApproval = Boolean(payload?.__bypassProtocolApproval);
+  // Only the replay of an approval the reader gave skips asking again; a caller never can.
+  const bypassProtocolApproval = executionSource === 'approval_replay';
   const approvalPolicy = shouldRequireProtocolApproval({
     op: operation,
     actor,
@@ -3033,10 +3034,7 @@ const approveProtocolApproval = async ({
         scope: String(approval.scope || 'agent_ops')
       },
       op: String(approval.op || '').trim(),
-      payload: {
-        ...(approval.payload && typeof approval.payload === 'object' ? approval.payload : {}),
-        __bypassProtocolApproval: true
-      },
+      payload: approval.payload && typeof approval.payload === 'object' ? approval.payload : {},
       executionSource: 'approval_replay',
       approvalId: String(approval._id || '')
     });
