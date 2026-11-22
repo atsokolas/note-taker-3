@@ -44,15 +44,17 @@ const findByUsername = async (User, username) => {
   return matches.length === 1 ? matches[0] : null;
 };
 
-/* Failed logins, per name and per address, forgotten after a quiet quarter
-   hour. In memory: one server, and a restart forgiving everyone is fine. */
+/* Failed logins, per name from one address and per address, forgotten after
+   a quiet quarter hour. A name is counted from where it is tried, so wrong
+   passwords sent from elsewhere never lock you out. In memory: one server,
+   and a restart forgiving everyone is fine. */
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-/* Ten wrong passwords for one name; more for one address, which can be a
-   whole office behind one router. */
+/* Ten wrong passwords for one name from one address; more for one address,
+   which can be a whole office behind one router. */
 const LOGIN_MAX_FAILURES = { u: 10, ip: 50 };
 const createLoginThrottle = ({ now = () => Date.now() } = {}) => {
   const failures = new Map();
-  const keys = (username, ip) => [`u:${String(username || '').trim().toLowerCase()}`, `ip:${ip || ''}`];
+  const keys = (username, ip) => [`u:${String(username || '').trim().toLowerCase()}|${ip || ''}`, `ip:${ip || ''}`];
   const live = (key) => {
     const entry = failures.get(key);
     if (entry && now() - entry.since > LOGIN_WINDOW_MS) failures.delete(key);
@@ -64,7 +66,7 @@ const createLoginThrottle = ({ now = () => Date.now() } = {}) => {
       const entry = live(key) || { count: 0, since: now() };
       failures.set(key, { ...entry, count: entry.count + 1 });
     }),
-    clear: username => failures.delete(keys(username)[0])
+    clear: (username, ip) => failures.delete(keys(username, ip)[0])
   };
 };
 
@@ -137,7 +139,7 @@ const buildAuthDiscoveryRouter = ({
         loginThrottle.fail(username, req.ip);
         return res.status(401).json({ error: 'That username and password do not match.' });
       }
-      loginThrottle.clear(username);
+      loginThrottle.clear(username, req.ip);
 
       const token = jwt.sign(
         { id: user._id, username: user.username },
@@ -269,5 +271,6 @@ const buildAuthDiscoveryRouter = ({
 };
 
 module.exports = {
-  buildAuthDiscoveryRouter
+  buildAuthDiscoveryRouter,
+  createLoginThrottle
 };
