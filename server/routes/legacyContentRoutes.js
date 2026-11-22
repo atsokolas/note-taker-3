@@ -12,6 +12,7 @@ const {
 } = require('../services/readableArticle');
 const { isGoneStatus } = require('../lib/publicUrlFetch');
 const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
+const { sameName } = require('../utils/sameName');
 
 const ARTICLE_PLACEMENTS = new Set(['stream', 'later', 'setAside']);
 /* Opens closer together than this are one visit. */
@@ -196,7 +197,9 @@ const buildLegacyContentRouter = ({
 
   router.post('/save-article', authenticateToken, async (req, res) => {
     try {
-      const { title, url, content, folderId, author, publicationDate, siteName, pdfs, placement } = req.body;
+      const { title, content, folderId, author, publicationDate, siteName, pdfs, placement } = req.body;
+      // An address is text: an object here would be a query, not a page.
+      const url = typeof req.body.url === 'string' ? req.body.url : '';
       const userId = req.user.id;
 
       if (!url) {
@@ -337,7 +340,7 @@ const buildLegacyContentRouter = ({
       if (!name) {
         return res.status(400).json({ error: "Folder name is required." });
       }
-      const existingFolder = await Folder.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') }, userId: userId });
+      const existingFolder = await Folder.findOne({ name: { $regex: sameName(name) }, userId: userId });
       if (existingFolder) {
         return res.status(409).json({ error: "A folder with this name already exists for your account." });
       }

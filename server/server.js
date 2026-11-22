@@ -5800,7 +5800,6 @@ app.use(buildConceptQuestionBoardRouter({
   normalizeBoardScopeType,
   normalizeBoardScopeId,
   TagMeta,
-  escapeRegExp,
   Board,
   BoardItem,
   BoardEdge,

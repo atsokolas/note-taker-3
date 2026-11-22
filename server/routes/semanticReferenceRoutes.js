@@ -1,4 +1,5 @@
 const express = require('express');
+const { sameName, escapeRegExp } = require('../utils/sameName');
 
 const buildSemanticReferenceRouter = ({
   mongoose,
@@ -35,7 +36,7 @@ const buildSemanticReferenceRouter = ({
         userId,
         $or: [
           { linkedHighlightIds: { $in: highlightIds } },
-          { content: { $regex: new RegExp(`#${tagName}\\b`, 'i') } }
+          { content: { $regex: new RegExp(`#${escapeRegExp(tagName)}\\b`, 'i') } }
         ]
       }).select('title updatedAt').lean();
 
@@ -46,7 +47,7 @@ const buildSemanticReferenceRouter = ({
 
       const notesCount = await ConceptNote.countDocuments({
         userId,
-        tagName: { $regex: new RegExp(`^${tagName}$`, 'i') }
+        tagName: { $regex: sameName(tagName) }
       });
 
       res.status(200).json({

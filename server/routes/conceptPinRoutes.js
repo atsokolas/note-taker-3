@@ -1,4 +1,5 @@
 const express = require('express');
+const { sameName } = require('../utils/sameName');
 
 const buildConceptPinRouter = ({
   mongoose,
@@ -84,7 +85,7 @@ const buildConceptPinRouter = ({
       }
 
       const updated = await TagMeta.findOneAndUpdate(
-        { name: new RegExp(`^${cleanName}$`, 'i'), userId },
+        { name: sameName(cleanName), userId },
         { name: cleanName, ...update },
         { new: true, upsert: true, setDefaultsOnInsert: true }
       );

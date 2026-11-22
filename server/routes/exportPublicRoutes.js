@@ -1,4 +1,5 @@
 const express = require('express');
+const { sameName } = require('../utils/sameName');
 const {
   NOT_PUBLISHED,
   asRow,
@@ -65,7 +66,7 @@ const buildExportPublicRouter = ({
         concept = await TagMeta.findOne({ _id: id, userId });
       }
       if (!concept) {
-        concept = await TagMeta.findOne({ userId, name: new RegExp(`^${id}$`, 'i') });
+        concept = await TagMeta.findOne({ userId, name: sameName(id) });
       }
       if (!concept) {
         return res.status(404).json({ error: 'Concept not found.' });
@@ -75,8 +76,8 @@ const buildExportPublicRouter = ({
       const questions = await Question.find({
         userId,
         $or: [
-          { conceptName: new RegExp(`^${concept.name}$`, 'i') },
-          { linkedTagName: new RegExp(`^${concept.name}$`, 'i') }
+          { conceptName: sameName(concept.name) },
+          { linkedTagName: sameName(concept.name) }
         ]
       }).select('text').lean();
       const markdown = buildConceptMarkdown({ concept: meta, related, questions });

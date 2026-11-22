@@ -1,4 +1,5 @@
 const express = require('express');
+const { sameName } = require('../utils/sameName');
 
 const buildReferenceBacklinkRouter = ({
   mongoose,
@@ -155,7 +156,7 @@ const buildReferenceBacklinkRouter = ({
         concept = await TagMeta.findOne({ _id: id, userId }).select('name').lean();
       }
       if (!concept) {
-        concept = await TagMeta.findOne({ userId, name: new RegExp(`^${id}$`, 'i') }).select('name').lean();
+        concept = await TagMeta.findOne({ userId, name: sameName(id) }).select('name').lean();
       }
       if (!concept) {
         return res.status(404).json({ error: 'Concept not found.' });
@@ -169,8 +170,8 @@ const buildReferenceBacklinkRouter = ({
       const questions = await Question.find({
         userId,
         $or: [
-          { conceptName: new RegExp(`^${tagName}$`, 'i') },
-          { linkedTagName: new RegExp(`^${tagName}$`, 'i') }
+          { conceptName: sameName(tagName) },
+          { linkedTagName: sameName(tagName) }
         ]
       }).select('text status conceptName linkedTagName updatedAt').lean();
       res.status(200).json({
