@@ -104,13 +104,40 @@ export const updatedLine = (edition = {}, now = new Date()) => {
  * written and says "nothing *yet*"; one whose window has closed is finished
  * and says "nothing *that week*". Same silence, different claim.
  */
-export const stateOf = ({ windowStart, windowEnd } = {}, now = Date.now()) => {
-  const start = day(windowStart);
+/* The window is inclusive of its last day, so an issue goes to press when that day ends. */
+const pressedAt = ({ windowEnd } = {}) => {
   const end = day(windowEnd);
-  if (!start || !end) return 'open';
-  /* The window is inclusive of its last day, so it closes when that day does. */
-  if (now > end.getTime() + DAY_MS) return 'closed';
+  return end ? end.getTime() + DAY_MS : null;
+};
+
+export const stateOf = (issue = {}, now = Date.now()) => {
+  const start = day(issue.windowStart);
+  const pressed = pressedAt(issue);
+  if (!start || !pressed) return 'open';
+  if (now > pressed) return 'closed';
   return now < start.getTime() ? 'open' : 'filling';
+};
+
+/* Filed after the issue went to press: the paper stops the presses for it. */
+export const lateFiling = (item = {}, issue = {}) => {
+  const pressed = pressedAt(issue);
+  return Boolean(pressed) && timestampOf(item.filedAt) > pressed;
+};
+
+const ROMAN = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+const roman = (number) => ROMAN.reduce((out, [value, numeral]) => {
+  const times = Math.floor(number / value);
+  number -= times * value;
+  return out + numeral.repeat(times);
+}, '');
+
+/* The ear beside a masthead: which year of the paper this is, and when it was
+   founded, both read off the run of issues. "Vol. I · Est. October 2026". */
+export const earLine = (run = [], issue = {}) => {
+  const first = day(run[0]?.windowStart);
+  const at = day(issue.windowStart);
+  if (!first || !at) return '';
+  return `Vol. ${roman(at.getUTCFullYear() - first.getUTCFullYear() + 1)} · Est. ${MONTHS[first.getUTCMonth()]} ${first.getUTCFullYear()}`;
 };
 
 /**

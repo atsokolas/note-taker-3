@@ -7,8 +7,10 @@ import {
   aheadLine,
   byHand,
   costLine,
+  earLine,
   handsOf,
   issueLine,
+  lateFiling,
   passageHref,
   WATCH_STATUS,
   standLayout,
@@ -21,7 +23,7 @@ import EditionFinding from './EditionFinding';
 import CopyClip from '../CopyClip';
 import SectionSilence from './SectionSilence';
 import SourcePeek from './SourcePeek';
-import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
+import ThoughtComposer, { useEditionThoughts, useLetter } from './ThoughtComposer';
 import useEditionIssue from './useEditionIssue';
 import { editionClip, editionFindingPath, editionIssuePath, findingAnchor, findingHash, readingPosition, writeEditionLocal } from './editionReadingState';
 
@@ -250,10 +252,10 @@ export default function EditionReading({
   const place = run.findIndex(other => other._id === issue._id);
   const before = place > 0 ? run[place - 1] : null;
   const after = place >= 0 ? run[place + 1] : null;
+  const letter = useLetter(before?._id);
   const closed = stateOf(row) === 'closed';
   /* The receipt speaks for the whole issue, whoever's hand you are reading. */
   const kept = all.filter(({ item }) => item.savedArticleId).length;
-  const newCount = pending?.items?.filter(item => !edition?.items?.some(held => held.itemId === item.itemId)).length || 0;
   const sourceDoor = id => document.getElementById(findingAnchor(id))?.querySelector('.reading-open');
   const side = peek || (source && focusItem ? { itemId: focusItem, view: 'source', origin: sourceDoor(focusItem) } : null);
   const sideItem = side && edition?.items.find(item => item.itemId === side.itemId);
@@ -272,6 +274,7 @@ export default function EditionReading({
       item={item}
       number={index + 1}
       section={section}
+      late={lateFiling(item, row)}
       zoomed={item.itemId === focusItem}
       editionId={issue._id}
       clippingCredit={clippingCredit}
@@ -328,6 +331,7 @@ export default function EditionReading({
       {edition && focused < 0 ? (
         <>
           <header className="edition-issue__head">
+            <p className="edition-issue__ear">{earLine(run, row)}</p>
             <p className="edition-issue__dateline">
               {[issueName, coverage && `covers ${coverage}`, updatedLine(row)].filter(Boolean).join(' · ')}
             </p>
@@ -401,6 +405,13 @@ export default function EditionReading({
               ) : null}
             </section>
           ) : null}
+          {letter ? (
+            <aside className="edition-letter" aria-labelledby="edition-letter-title">
+              <h2 id="edition-letter-title">Letters</h2>
+              <blockquote>{letter}</blockquote>
+              <p>You, after {issueLine({ ...before, issueLabel }) || windowLine(before)}</p>
+            </aside>
+          ) : null}
           {hand && all.length > items.length ? (
             <p className="reading-hidden" role="status">
               {all.length - items.length} finding{all.length - items.length === 1 ? '' : 's'} by other hands hidden while you read {hand.agent.name}’s.{' '}
@@ -444,7 +455,7 @@ export default function EditionReading({
       {pending ? (
         <div className="reading-arrivals" role="status">
           <button onClick={absorb}>
-            {newCount ? `${newCount} finding${newCount === 1 ? '' : 's'} added` : 'This issue has an update'} · Show
+            Something new came in · Show
           </button>
         </div>
       ) : null}

@@ -23,7 +23,7 @@ const HANDS = ['', 'one', 'two', 'three', 'four'];
  * margin says where it comes from and how sure to be. The choices are the
  * reader's: keep it, read the source, save it for later, or set it aside.
  */
-export default function EditionFinding({ editionId, item, number, section = '', zoomed, busy, receipt, onAct, onPeek, selectionTools, clippingCredit }) {
+export default function EditionFinding({ editionId, item, number, section = '', late = false, zoomed, busy, receipt, onAct, onPeek, selectionTools, clippingCredit }) {
   const href = publicSourceHref(item.url);
   const heading = item.plain || item.title;
   if (item.readerStatus === 'dismissed') {
@@ -57,6 +57,7 @@ export default function EditionFinding({ editionId, item, number, section = '', 
           <p className="edition-finding__kicker">
             <span className="edition-finding__number">{String(number).padStart(2, '0')}</span>
             {section ? ` · ${section}` : ''}
+            {late ? <span className="edition-finding__late">Late edition</span> : null}
           </p>
         ) : null}
         <h2>{heading}</h2>

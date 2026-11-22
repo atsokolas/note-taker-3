@@ -45,6 +45,8 @@
 
 /* An issue: the headline, what it costs, then the news. */
 .edition-issue__head { padding: 36px 0 32px; max-width: 820px; }
+/* The ear: the paper's year and founding, in the spaced capitals a masthead prints them in. */
+.edition-issue__ear { margin: 0 0 6px; font: 600 11px/1.4 var(--reading-sans); letter-spacing: .16em; text-transform: uppercase; color: var(--reading-muted); }
 .edition-issue__dateline { margin: 0 0 18px; font: 13px/1.5 var(--reading-sans); color: var(--reading-muted); }
 .edition-issue__head h1 { margin: 0 0 22px; font: 350 clamp(34px, 4.4vw, 58px)/1.06 var(--reading-serif); letter-spacing: -.035em; text-wrap: balance; }
 .edition-issue__deck { margin: 0 0 26px; max-width: 64ch; font: 21px/1.5 var(--reading-serif); color: var(--reading-muted); }
@@ -90,6 +92,13 @@
 .edition-finding:not(.is-zoomed):focus { border-block-start-color: var(--reading-thread); }
 .edition-finding__main { min-width: 0; max-width: 760px; }
 .edition-finding__kicker { margin: 0 0 14px; font: 13px/1.5 var(--reading-sans); color: var(--reading-muted); }
+/* Filed after the issue went to press: stamped, the way a paper marks a late edition. */
+.edition-finding__late { margin-left: 10px; padding: 1px 6px; border: 1px solid var(--noeis-danger, #9b5a46); color: var(--noeis-danger, #9b5a46); font: 700 10px/1.4 var(--reading-sans); letter-spacing: .14em; text-transform: uppercase; }
+/* Letters: your own line from the foot of the last issue, set as a letter to the editor. */
+.edition-letter { margin: 0 0 32px; padding: 18px 0; border-block: 1px solid var(--reading-rule); }
+.edition-letter h2 { margin: 0 0 10px; font: 700 12px/1.4 var(--reading-sans); letter-spacing: .16em; text-transform: uppercase; }
+.edition-letter blockquote { margin: 0; font: italic 19px/1.55 var(--noeis-font-editorial, Georgia, serif); color: var(--reading-ink); }
+.edition-letter p { margin: 8px 0 0; font: 13px/1.5 var(--reading-sans); color: var(--reading-muted); }
 .edition-finding__number { font-family: ui-monospace, 'SF Mono', Menlo, monospace; color: var(--reading-thread); }
 .edition-finding h2 { margin: 0 0 24px; font: 350 clamp(28px, 2.8vw, 38px)/1.15 var(--reading-serif); letter-spacing: -.03em; text-wrap: balance; }
 .edition-finding__margin { display: flex; flex-direction: column; gap: 22px; padding-top: 34px; font: 14px/1.55 var(--reading-sans); }

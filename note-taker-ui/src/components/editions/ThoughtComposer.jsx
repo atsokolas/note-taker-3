@@ -2,6 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { getEditionThoughts, saveEditionThought } from '../../api/editions';
 import { readEditionLocal, writeEditionLocal } from './editionReadingState';
 
+/* Letters: what you wrote under "What stayed with you?" at the foot of the
+   last issue, printed at the head of this one. */
+export function useLetter(editionId) {
+  const [letter, setLetter] = useState('');
+  useEffect(() => {
+    let active = true;
+    setLetter('');
+    if (editionId) {
+      getEditionThoughts(editionId)
+        .then(rows => { if (active) setLetter(rows.find(row => !row.itemId)?.content?.trim() || ''); })
+        .catch(() => {});
+    }
+    return () => { active = false; };
+  }, [editionId]);
+  return letter;
+}
+
 export function useEditionThoughts(editionId) {
   const [thoughts, setThoughts] = useState(null);
   const [loadError, setLoadError] = useState('');

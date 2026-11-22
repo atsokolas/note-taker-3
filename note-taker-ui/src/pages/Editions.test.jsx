@@ -461,7 +461,7 @@ it('does not insert new filings until Show, even when Keep returns the newer iss
   expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toHaveAttribute('href', '/library?articleId=article');
   expect(screen.getByText(/Saved the link/)).toBeVisible();
   expect(screen.queryByRole('heading', { name: 'An arrival' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: '1 finding added · Show' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Something new came in · Show' }));
   expect(screen.getByRole('heading', { name: 'An arrival' })).toBeVisible();
   jest.useRealTimers();
 });
@@ -499,7 +499,7 @@ it('does not let a poll started before Keep restore an older Library state', asy
   api.saveEditionItem.mockResolvedValue({ edition: { ...edition, items: [{ ...item, savedArticleId: 'article' }] }, readable: true });
   fireEvent.click(screen.getByRole('button', { name: 'Keep' })); await act(async () => {});
   await act(async () => finishPoll({ ...edition, throughLine: 'A new editorial line.' }));
-  fireEvent.click(screen.getByRole('button', { name: 'This issue has an update · Show' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Something new came in · Show' }));
   expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toBeVisible();
   jest.useRealTimers();
 });
@@ -559,4 +559,17 @@ it('shows an empty account what a paper is and the one door to get one', async (
   expect(await screen.findByRole('heading', { name: 'No paper yet.' })).toBeVisible();
   expect(screen.getByText('An example finding')).toBeVisible();
   expect(screen.getByRole('link', { name: 'Connect an agent' })).toHaveAttribute('href', '/connections');
+});
+it('prints your last word on the previous issue as a letter, its year in the ear, and stamps a late filing', async () => {
+  const last = { ...edition, _id: 'e0', number: 1, windowStart: '2026-08-25', windowEnd: '2026-08-31', items: [] };
+  const late = { ...item, itemId: 'late', title: 'Filed after press', finding: 'A finding that missed the press.', filedAt: '2026-09-09T10:00:00Z' };
+  const closed = { ...edition, windowEnd: '2026-09-07', items: [{ ...item, filedAt: '2026-09-03T10:00:00Z' }, late] };
+  api.listEditions.mockResolvedValue([last, closed]); api.getEdition.mockResolvedValue(closed);
+  api.getEditionThoughts.mockImplementation(id => Promise.resolve(id === 'e0' ? [{ itemId: '', content: 'Recovery is the real skill.' }] : []));
+  render(<Editions />); await screen.findByText(item.finding);
+  const letter = await screen.findByRole('complementary', { name: 'Letters' });
+  expect(letter).toHaveTextContent('Recovery is the real skill.You, after Edition 1');
+  expect(screen.getByText('Vol. I · Est. August 2026')).toBeVisible();
+  expect(within(document.getElementById('edition-item-late')).getByText('Late edition')).toBeVisible();
+  expect(within(document.getElementById('edition-item-one')).queryByText('Late edition')).toBeNull();
 });
