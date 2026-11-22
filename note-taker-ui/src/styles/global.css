@@ -85,6 +85,11 @@ a:hover {
 .pencil-line { display: flex; align-items: baseline; gap: 12px; margin: 0 0 14px; color: var(--text-secondary); font: italic 0.88rem/1.4 var(--font-serif); }
 .pencil-card { font: normal 0.78rem var(--font-sans); letter-spacing: 0.02em; }
 .pencil-line button { padding: 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--text-primary); font: normal 0.78rem var(--font-sans); cursor: pointer; }
+/* Ink fades (utils/inkAge.js): old lines settle, then fade, and come back under the hand. */
+[data-ink] { transition: opacity 0.3s ease; }
+[data-ink="settled"] { opacity: 0.78; }
+[data-ink="faded"] { opacity: 0.55; }
+[data-ink]:hover, [data-ink]:focus-within { opacity: 1; }
 .handoff-open { padding: 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: var(--text-secondary); font: 0.78rem var(--font-sans); cursor: pointer; }
 .handoff-open:hover, .handoff-open:focus-visible { border-bottom-color: currentColor; color: var(--text-primary); }
 .handoff-line { margin: 0 0 14px; color: var(--text-secondary); font: italic 0.88rem/1.4 var(--font-serif); }

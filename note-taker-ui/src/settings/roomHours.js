@@ -2,8 +2,10 @@ import { useEffect } from 'react';
 
 /* The rooms keep the reader's hours, read off their own clock and never
    stored: from midnight until five the pages dim to lamplight, and on a
-   Sunday morning the Editions front page is set as a broadsheet. */
+   Sunday morning the Editions front page is set as a broadsheet. From six in
+   the evening Work says pencils down. */
 export const LAMPLIGHT_UNTIL = 5;
+export const PENCILS_DOWN = 18;
 const SUNDAY_MORNING_UNTIL = 12;
 
 export const roomHours = (now = new Date()) => {

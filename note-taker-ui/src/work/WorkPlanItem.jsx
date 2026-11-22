@@ -8,12 +8,12 @@ import { displayDay } from './workPlannerModel';
 
 // The week owns linking; every canonical task row offers the same keyboard alternative to dragging.
 export const WorkTaskAssignment = createContext(null);
-export function WorkTaskRow({ item, today, folders = [], notes = [], onOpen, onAction, onEdit, aside = null, actions = null, canPlan = true }) {
+export function WorkTaskRow({ item, today, folders = [], notes = [], onOpen, onAction, onEdit, aside = null, actions = null, canPlan = true, ink }) {
   const assignment = useContext(WorkTaskAssignment);
   const priority = assignment?.priorities.find(priority => priority.taskIds.includes(item._id));
   const folder = folders.find(folder => folder._id === (item.folder?._id || item.folder));
   const note = notes.find(note => item.noteId && [note._id, note.clientId].includes(item.noteId));
-  return <div {...taskDragProps(item)} className={`work-planner-task work-rail-task ${item.completed ? 'is-done' : ''}`}>
+  return <div {...taskDragProps(item)} data-ink={ink} className={`work-planner-task work-rail-task ${item.completed ? 'is-done' : ''}`}>
     <WorkTaskGrip item={item} /><label><input type="checkbox" data-work-task={item.clientId} aria-label={item.title} checked={Boolean(item.completed)} onChange={() => onAction(item.clientId, { type: item.completed ? 'reopen' : 'complete' })} /><span>{item.title}</span></label>
     <div className="work-rail-source">{item.origin ? <WorkItemSource origin={item.origin} /> : note && onOpen ? <button onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : folder?.name ? <span>{folder.name}</span> : null}
       {folder?.archivedAt ? <small>Archived folder</small> : null}{item.previousPlannedOn && item.previousPlannedOn !== item.plannedOn ? <small>From {displayDay(item.previousPlannedOn, { weekday: 'short', day: 'numeric' })}</small> : null}

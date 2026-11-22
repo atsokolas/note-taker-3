@@ -109,6 +109,7 @@ test('the review finds an earlier unfinished row and signs off only when every d
   fireEvent.click(first);
   rerender(<CloseWeek {...props} today={friday} items={[planned(a), planned(b)]} />);
   expect(await screen.findByText('That’s the week. 2 decisions filed.')).toBeVisible();
+  expect(screen.getByText('Week closed · Fri 20 Nov')).toBeVisible();
 });
 test('shows all priorities, original sources, and supports keyboard assignment and removal', async () => {
   render(<WorkWeekly {...props} />);

@@ -162,3 +162,6 @@
 @media (pointer: coarse) {
   .work-notes .work-rail-source > :is(button, a) { min-height: 44px; display: inline-flex; align-items: center; }
 }
+/* The week, postmarked: a rubber stamp in the margin's thread colour, set a
+   little crooked the way a hand stamps it. */
+.work-postmark { display: inline-block; margin-inline-end: var(--space-2); padding: 2px 8px; border: 1px solid currentColor; outline: 1px solid currentColor; outline-offset: 2px; color: var(--noeis-thread); font: 600 0.7rem/1.4 var(--font-sans); font-style: normal; letter-spacing: 0.16em; text-transform: uppercase; transform: rotate(-2deg); }
