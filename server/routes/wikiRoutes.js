@@ -7,7 +7,6 @@ const { describeHistory, describeSince, isPromoted } = require('../services/wiki
 const { inkWikiPageReview } = require('../services/wikiReviewClock');
 const { findLibraryEvidence } = require('../services/judgmentEvidenceService');
 const mongoose = require('mongoose');
-const archiver = require('archiver');
 const {
   maintainWikiPage: defaultMaintainWikiPage,
   evaluateWikiArticleQuality: defaultEvaluateWikiArticleQuality,
@@ -3615,7 +3614,7 @@ const buildWikiRouter = ({
           ? WikiLintRun.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(50).lean()
           : []
       ]);
-      const archive = archiver('zip', { zlib: { level: 9 } });
+      const archive = require('archiver')('zip', { zlib: { level: 9 } });
       archive.on('error', (error) => {
         if (!res.headersSent) res.status(500).json({ error: 'Failed to export wiki.' });
         else res.destroy(error);

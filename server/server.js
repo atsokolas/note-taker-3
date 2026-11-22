@@ -5,8 +5,6 @@ const { serializeHighlightWithArticle } = require('./utils/highlightUtils');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const PDFDocument = require('pdfkit');
-const archiver = require('archiver');
 const upload = require('./services/import/upload');
 const { buildHostedMcpRouter, parseHostedMcpBody } = require('./routes/hostedMcpRoutes');
 const crypto = require('crypto');
@@ -5928,9 +5926,7 @@ app.use(buildBulkExportRouter({
   NotebookEntry,
   Collection,
   TagMeta,
-  SavedView,
-  PDFDocument,
-  archiver
+  SavedView
 }));
 
 app.use(buildHighlightMutationRouter({
