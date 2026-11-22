@@ -3,6 +3,9 @@ const LIMITS = Object.freeze({
   trials: 40,
   looseThoughts: 80,
   dimmed: 80,
+  outline: 300,
+  point: 500,
+  depth: 5,
   title: 1000,
   text: 30000,
   nextLine: 4000,
@@ -78,6 +81,17 @@ const dimmedPassage = (value, index) => {
   return { id: string(value?.id, 160) || `dimmed-${index}`, blockId, text, offset, createdAt: date(value?.createdAt) };
 };
 
+/* One line of the outline beside a draft. Depth makes the tree; a point that
+   has gone into the draft remembers the heading it became. Empty lines are
+   kept, because a writer leaves them while thinking. */
+const outlinePoint = (value, index) => ({
+  id: string(value?.id, 160) || `point-${index}`,
+  text: String(value?.text || '').slice(0, LIMITS.point),
+  depth: Math.max(0, Math.min(Number.parseInt(value?.depth, 10) || 0, LIMITS.depth)),
+  folded: Boolean(value?.folded),
+  blockId: string(value?.blockId, 160)
+});
+
 const list = (value, limit, normalize) => (Array.isArray(value) ? value : [])
   .slice(0, limit)
   .map(normalize)
@@ -91,6 +105,7 @@ const sanitizeNotebookWorkbench = (value = {}, { revision } = {}) => {
     trials: list(value?.trials, LIMITS.trials, trial),
     looseThoughts: list(value?.looseThoughts, LIMITS.looseThoughts, thought),
     dimmed: list(value?.dimmed, LIMITS.dimmed, dimmedPassage),
+    outline: list(value?.outline, LIMITS.outline, outlinePoint),
     nextTimeLine: {
       text: string(value?.nextTimeLine?.text, LIMITS.nextLine),
       target: target(value?.nextTimeLine?.target),

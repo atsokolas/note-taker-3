@@ -49,6 +49,7 @@ import { resolveNotebookSource } from './notebookSourceModel';
 import useNotebookSourceEvergreen from './useNotebookSourceEvergreen';
 import NotebookArrangementRail from './NotebookArrangementRail';
 import NotebookWorkbenchPanel from './NotebookWorkbenchPanel';
+import NotebookOutline, { OUTLINE_DRAG } from './NotebookOutline';
 import NotebookAlternativesRail, { comparesPartnerWording } from './NotebookAlternativesRail';
 import useNotebookWorkbench from './useNotebookWorkbench';
 import useGhostQuote, { GhostQuote } from './useGhostQuote';
@@ -81,6 +82,7 @@ import {
 } from '../../../utils/notebookWorkbench';
 import { readTighterSupport, rescueReadTighterPhrase } from '../../../utils/notebookReadTighter';
 import { notebookWritingExtensions } from '../editor/notebookWriting';
+import { pencilWordCount, writeIntoDraft } from '../editor/pencilLines';
 import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../../utils/sourceRoutes';
 import '../../../styles/think-writing.css';
 
@@ -561,9 +563,21 @@ const NotebookEditor = ({
   const handleInsertHighlightRef = useRef(null);
   useEffect(() => { handleInsertHighlightRef.current = handleInsertHighlight; });
   const wordCount = useMemo(
-    () => countWords(editor?.getText?.() || '') - dimmedWordCount(editor?.state?.doc, workbench.state.dimmed),
+    () => countWords(editor?.getText?.() || '') - dimmedWordCount(editor?.state?.doc, workbench.state.dimmed) - pencilWordCount(editor?.state?.doc),
     [editor, docTick, workbench.state.dimmed] // eslint-disable-line react-hooks/exhaustive-deps
   );
+
+  const blockIdsInDraft = useMemo(() => {
+    const ids = new Set();
+    editor?.state?.doc?.descendants?.(node => { if (node.attrs?.blockId) ids.add(node.attrs.blockId); });
+    return ids;
+  }, [editor, docTick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const writeOutlineOut = (nodes) => {
+    const written = writeIntoDraft(editor, nodes);
+    if (written) setEditingBody(true);
+    return written;
+  };
 
   /* Pull a passage in from anywhere (⌘K): the passage picker opens on the note. */
   useEffect(() => {
@@ -1701,6 +1715,7 @@ const NotebookEditor = ({
           >Try wording</Button>
           <Button variant="quiet" data-context-trigger="scratchpad" onClick={() => { holdCurrentPlace(); onOpenContext?.('scratchpad'); }}>Scratchpad</Button>
           <Button variant="quiet" data-context-trigger="material" onClick={() => openMaterial()}>Highlights</Button>
+          <Button variant="quiet" data-context-trigger="outline" onClick={() => { holdCurrentPlace(); onOpenContext?.('outline'); }}>Outline</Button>
           <Button variant="quiet" onClick={handleExport}>Export draft</Button>
           <Button variant="quiet" onClick={handleRecoveryExport}>Download a copy</Button>
           <Button variant="quiet" onClick={handleSettle} disabled={settlement.settling}>{settlement.action}</Button>
@@ -1938,6 +1953,8 @@ const NotebookEditor = ({
         tabIndex={editingBody ? -1 : 0}
         aria-label={editingBody ? undefined : 'Writing'}
         onClick={startEditingBody}
+        // A point carried over from the outline opens the page for writing, so it can land.
+        onDragEnter={(event) => { if (!editingBody && event.dataTransfer?.types?.includes(OUTLINE_DRAG)) setEditingBody(true); }}
         onFocus={(event) => {
           setBodyHasFocus(true);
           if (!editingBody && event.target === event.currentTarget) startEditingBody();
@@ -2020,7 +2037,18 @@ const NotebookEditor = ({
           }}
         />, alternativesPortal
       ) : null}
-      {contextPortal ? createPortal(
+      {contextPortal && activeContext === 'outline' ? createPortal(
+        <NotebookOutline
+          key={entry._id}
+          points={workbench.state.outline}
+          written={blockIdsInDraft}
+          createId={createId}
+          onChange={(outline) => workbench.update(current => ({ ...current, outline }))}
+          onWriteOut={writeOutlineOut}
+          onGoTo={(blockId) => focusEditorTarget(editor, { blockId })}
+        />,
+        contextPortal
+      ) : contextPortal ? createPortal(
         <NotebookWorkbenchPanel
           key={entry._id}
           onOpenTrial={(trial) => { onFocusAlternatives?.(); setHeldTarget(trial.target); setActiveTrialId(trial.id); setEphemeralTrial(null); setTrialPreview('original'); setWorkbenchView('trial'); }}

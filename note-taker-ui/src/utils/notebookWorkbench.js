@@ -25,6 +25,9 @@ export const normalizeNotebookWorkingState = (value = {}) => ({
   })),
   looseThoughts: list(value.looseThoughts).filter(item => item?.id && text(item.text).trim()).map(item => ({ ...item, target: target(item.target) })),
   dimmed: list(value.dimmed).filter(item => item?.id && text(item.blockId) && text(item.text).trim()),
+  outline: list(value.outline).filter(item => item?.id).map(item => ({
+    id: text(item.id), text: text(item.text), depth: Math.max(0, Number(item.depth) || 0), folded: Boolean(item.folded), blockId: text(item.blockId)
+  })),
   nextTimeLine: {
     text: text(value.nextTimeLine?.text),
     target: target(value.nextTimeLine?.target),
