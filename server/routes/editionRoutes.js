@@ -1183,6 +1183,8 @@ const buildEditionRouter = ({
     try {
       const removed = await Edition.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
       if (!removed) return res.status(404).json({ error: 'No such edition.' });
+      // A paper you threw away is not still lying open for anyone with the link.
+      await SharedEdition?.deleteOne({ userId: req.user.id, editionId: removed._id });
       return res.status(200).json({ removed: true });
     } catch (error) {
       return refuse(res, error, 'Failed to remove the edition.');

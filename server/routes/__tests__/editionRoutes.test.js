@@ -559,6 +559,16 @@ describe('the newsstand', () => {
       expect((await send(`/api/public/editions/${slug}`)).status).toBe(404);
     });
 
+    /* A paper thrown away takes its public link with it. */
+    it('deleting the edition ends its link', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      const { body: { slug } } = await share(made.body._id);
+      expect((await send(`/api/editions/${made.body._id}`, 'DELETE')).status).toBe(200);
+      expect((await send(`/api/public/editions/${slug}`)).status).toBe(404);
+    });
+
     /* A public edition is the reading. What the reader did with it afterwards
        is theirs. */
     it('publishes the paper and nothing about the reader', async () => {
