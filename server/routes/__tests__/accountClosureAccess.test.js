@@ -19,7 +19,8 @@ test('disabled account cannot sign in even when its credential would otherwise m
   const { server, base } = await listen(app);
   try {
     const result = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'synthetic-disabled', password: 'unusable-synthetic-value' }) });
-    assert.equal(result.status, 401); assert.equal(compared, false); assert.equal(signed, false);
+    // The password is still checked, so a closed account takes as long to refuse as a wrong password.
+    assert.equal(result.status, 401); assert.equal(compared, true); assert.equal(signed, false);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
 
@@ -30,7 +31,7 @@ test('actual personal-agent and bridge middleware distinguish healthy, inactive 
   let saved = false; let availability = 'inactive'; let logged = false;
   const context = { isAccountActive: async () => { if (availability === 'unavailable') throw new Error('PRIVATE synthetic database diagnostic'); return availability === 'healthy'; }, mongoose: { Types: { ObjectId: { isValid: () => true } } }, hashPersonalAgentApiKey: () => 'unusable-synthetic-hash', PersonalAgent: { findOne: () => ({ select: async () => ({ _id: id, userId: id, save: async () => { saved = true; } }) }) }, console: { error: () => { logged = true; } },
     normalizePersonalAgentCapabilities: value => value, normalizePersonalAgentWorkerRoles: value => value, normalizeAgentActorType: value => value,
-    jwt: { verify: () => ({ kind: 'agent_bridge', userId: id, actorType: 'user', actorId: id }) }, getAgentBridgeJwtSecret: () => 'unusable-synthetic-value', AGENT_BRIDGE_TOKEN_KIND: 'agent_bridge' };
+    jwt: { verify: () => ({ kind: 'agent_bridge', userId: id, actorType: 'user', actorId: id }) }, getAgentBridgeJwtSecret: () => 'unusable-synthetic-value', AGENT_BRIDGE_TOKEN_KIND: 'agent_bridge', onBehalfOf: (_userId, next) => next() };
   for (const [body, name, headers] of [[personalSource, 'authenticatePersonalAgentKey', { 'x-agent-id': id, 'x-agent-key': 'unusable-synthetic-value' }], [bridgeSource, 'authenticateAgentBridgeToken', { authorization: 'Bearer unusable-synthetic-value' }]]) {
     const authenticate = vm.runInNewContext(`${body}\n${name}`, context);
     for (availability of ['inactive', 'unavailable', 'healthy']) {
