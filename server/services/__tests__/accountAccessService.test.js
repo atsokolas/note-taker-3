@@ -11,7 +11,7 @@ const response = () => ({ statusCode: 200, status(code) { this.statusCode = code
 test('current account state, not credential expiry, controls browser access', async () => {
   let available = true;
   const isAccountActive = buildAccountAccessCheck({ User: { exists: async query => {
-    assert.deepEqual(query, { _id: id, accountDisabledAt: null });
+    assert.deepEqual({ _id: query._id, accountDisabledAt: query.accountDisabledAt }, { _id: id, accountDisabledAt: null });
     return available ? { _id: id } : null;
   } } });
   const verifyToken = value => { assert.equal(value, 'synthetic-session'); return { id, iat: 1, exp: 9999999999 }; };
@@ -51,22 +51,33 @@ test('account lookup failure denies access including optional authentication', a
   }
 });
 
-test('actual token reader handles malformed cookies without rejecting middleware and honors Bearer precedence', async () => {
+test('actual token reader takes only the Bearer header; a cookie signs nobody in', async () => {
   const source = fs.readFileSync(path.resolve(__dirname, '../../server.js'), 'utf8');
-  const readerSource = source.slice(source.indexOf('const getCookieValue ='), source.indexOf('const { buildAccountAccessCheck'));
+  const readerSource = source.slice(source.indexOf('const readRequestToken ='), source.indexOf('const { buildAccountAccessCheck'));
   const readRequestToken = vm.runInNewContext(`${readerSource}\nreadRequestToken`);
+  assert.equal(JSON.stringify(readRequestToken({ headers: { cookie: 'token=healthy-synthetic-session' } })), JSON.stringify({ token: '', tokenSource: 'none' }));
   for (const optional of [false, true]) {
     let checked = false;
     const auth = buildBrowserAuthentication({ optional, readRequestToken, verifyToken: token => { assert.equal(token, 'healthy-synthetic-session'); return { id }; }, isAccountActive: async () => { checked = true; return true; } });
-    const res = response(); let continued = false;
-    await auth({ headers: { cookie: 'token=%' } }, res, () => { continued = true; });
-    assert.equal(continued, optional); assert.equal(checked, false);
-    if (!optional) assert.deepEqual(res.body, { error: 'AUTH_INVALID' });
-    continued = false;
     const req = { headers: { authorization: 'Bearer healthy-synthetic-session', cookie: 'token=%' } };
+    let continued = false;
     await auth(req, response(), () => { continued = true; });
     assert.equal(continued, true); assert.equal(checked, true); assert.equal(req.authInfo.tokenSource, 'header');
   }
+});
+
+test('a sign-in from before the last new password no longer opens the account', async () => {
+  let asked;
+  const isAccountActive = buildAccountAccessCheck({ User: { exists: async query => { asked = query; return { _id: id }; } } });
+  await isAccountActive(id, 1700000000);
+  assert.deepEqual(asked.$or, [{ signedInSince: null }, { signedInSince: { $lte: new Date(1700000000 * 1000) } }]);
+  await isAccountActive(id);
+  assert.equal(asked.$or, undefined, 'agent tokens are not sign-ins and are revoked on their own');
+  let passed;
+  const auth = buildBrowserAuthentication({ readRequestToken: () => ({ token: 't', tokenSource: 'header' }), verifyToken: () => ({ id, iat: 1700000000 }), isAccountActive: async (...args) => { passed = args; return false; } });
+  const res = response();
+  await auth({ headers: {} }, res, () => {});
+  assert.deepEqual(passed, [id, 1700000000]); assert.equal(res.statusCode, 401);
 });
 
 test('agent account lookup failure is generic 503 with no error forwarding or quota/grant mutation', async () => {

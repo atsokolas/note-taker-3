@@ -1,4 +1,5 @@
 const { CHATGPT_ACCESS_PROFILE } = require('../services/chatgptAccessPolicy');
+const { requireHumanReader } = require('../services/agentTokenService');
 const { reviewerMaintenanceArgs: defaultReviewerMaintenanceArgs, isReviewer, readReviewerBudgetStatus } = require('../services/reviewerRehearsalBudget');
 const express = require('express');
 const { collectContradictions, contradictionsTouching } = require('../services/wikiContradictionService');
@@ -6222,7 +6223,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/collections', wikiAuth, async (req, res) => {
+  router.post('/api/wiki/collections', wikiAuth, requireHumanReader, async (req, res) => {
     try {
       if (!WikiSharedCollection) return res.status(501).json({ error: 'Wiki collections are not configured.' });
       const name = String(req.body?.name || '').trim();
@@ -6698,6 +6699,10 @@ const buildWikiRouter = ({
       if (researchLedgerPage && enumChecks[2]?.value === 'shared') {
         return res.status(409).json({ error: 'Research operating ledgers are permanently private.' });
       }
+      // Making a page public is the reader's call, like every other share.
+      if (req.agentToken && enumChecks[2]?.value === 'shared') {
+        return res.status(403).json({ error: 'Only you can share a page publicly, not an agent.' });
+      }
       const before = snapshotPage(page);
       const actorType = req.agentToken ? 'agent' : 'user';
       const normalizedJudgment = req.body?.judgment !== undefined
@@ -7008,7 +7013,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages/:id/public-proof/accept', wikiAuth, async (req, res) => {
+  router.post('/api/wiki/pages/:id/public-proof/accept', wikiAuth, requireHumanReader, async (req, res) => {
     try {
       if (!WikiSourceEvent || !WikiRevision) {
         return res.status(503).json({ error: 'Public proof acceptance records are not available.' });
@@ -7095,7 +7100,7 @@ const buildWikiRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages/:id/public-proof/accept-repo-comparison', wikiAuth, async (req, res) => {
+  router.post('/api/wiki/pages/:id/public-proof/accept-repo-comparison', wikiAuth, requireHumanReader, async (req, res) => {
     try {
       if (!WikiRepoBaseline || !WikiSourceEvent || !WikiRevision || !WikiMaintenanceRun) {
         return res.status(503).json({ error: 'Repository public proof acceptance records are not available.' });
@@ -7862,6 +7867,15 @@ const buildWikiRouter = ({
         }
         res.end();
         return;
+      }
+      if (dossierBuildClaim?.acquired) {
+        const allowance = await dossierBuildAllowance({ WikiMaintenanceRun, userId: req.user.id, run: dossierBuildRun });
+        if (!allowance.allowed) {
+          await WikiMaintenanceRun.deleteOne({ _id: dossierBuildRun._id });
+          writeSse(res, 'error', { error: allowance.error, code: 'DOSSIER_WEEKLY_LIMIT', opensAt: allowance.opensAt });
+          res.end();
+          return;
+        }
       }
       if (dossierBuildClaim?.acquired && !activeWikiDraftStreams.has(activeStreamKey)) {
         activeWikiDraftStreams.set(activeStreamKey, Date.now());

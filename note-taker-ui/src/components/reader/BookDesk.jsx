@@ -24,6 +24,11 @@ const keepUnsent = (articleId, lines) => {
   } catch (_) { /* Blocked storage: the line stays on screen for this visit. */ }
 };
 
+// A line keeps one id from the moment it is typed, so sending it again after
+// an answer that never arrived saves it once.
+const lineId = () => Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+const sentOff = (articleId, tempId) => keepUnsent(articleId, unsentLines(articleId).filter(line => line.tempId !== tempId));
+
 const joinNotes = (held = '', more = '') => (held ? `${held}\n\n${more}` : more);
 
 /* Three words the line keeps to itself until you type a "/": fold the
@@ -127,9 +132,9 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   // Reading it again, the page you turn to says what you marked on it then.
   const then = since && page && !line ? marks.find(mark => isEarlier(mark, since) && mark.page === page) : null;
 
-  const send = async (draft, tempId) => {
+  const send = async (draft, tempId, { queued = false } = {}) => {
     try {
-      const saved = await createHighlight({ articleId, ...draft });
+      const saved = await createHighlight({ articleId, ...draft, captureId: tempId });
       const before = marks.find(mark => mark._id === saved._id);
       const known = Boolean(before);
       onRemove?.(tempId);
@@ -142,6 +147,11 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       if (draft.text && saved.text !== draft.text) setInked(saved._id);
       return true;
     } catch (error) {
+      // A line that waited on this device stays there: the line you are typing now is yours.
+      if (error?.response && queued) {
+        setReceipt('A line kept on this device did not save yet. It will try again.');
+        return false;
+      }
       if (error?.response) {
         onRemove?.(tempId);
         setReceipt('That line did not save. It is back in the line to try again.');
@@ -156,13 +166,10 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   useEffect(() => {
     if (!articleId) return undefined;
     const flush = async () => {
-      const waiting = unsentLines(articleId);
-      if (!waiting.length) return;
-      const left = [];
-      for (const { tempId, ...draft } of waiting) {
-        if (!(await send(draft, tempId))) left.push({ tempId, ...draft });
+      // Each line leaves the device once it is saved, and lines typed meanwhile stay.
+      for (const { tempId, ...draft } of unsentLines(articleId)) {
+        if (await send(draft, tempId, { queued: true })) sentOff(articleId, tempId);
       }
-      keepUnsent(articleId, left);
     };
     unsentLines(articleId).forEach(({ tempId, ...draft }) => onAdd?.({ _id: tempId, ...draft, unsent: true }));
     flush();
@@ -249,7 +256,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       return;
     }
     const draft = { text: text || '', note: note || '', ...(tags.length ? { tags } : {}), ...(turned ? { page: turned } : {}) };
-    const tempId = `desk-${Date.now()}`;
+    const tempId = lineId();
     onAdd?.({ _id: tempId, ...draft, createdAt: new Date().toISOString() });
     if (await send(draft, tempId)) return;
     keepUnsent(articleId, [...unsentLines(articleId), { tempId, ...draft, createdAt: new Date().toISOString() }]);

@@ -94,11 +94,19 @@ describe('created highlight carries its article', () => {
     });
   });
 
-  test('an agent\'s note joining a mark puts the mark in pencil', async () => {
+  test('an agent\'s note on a mark of yours is its own mark in pencil, and yours stays ink', async () => {
     const kindle = { _id: 'kindle-2', text: 'Proximity is expensive, and founders pay it.', note: '' };
     const agent = { id: 'token-1', label: 'Claude Code', scopes: ['agent-write'] };
-    await createHighlight({ text: 'Proximity is expensive, and founders pay it.', note: 'He means attention.' }, [kindle], agent);
-    expect(kindle.pencil).toMatchObject({ agent: 'Claude Code', tokenId: 'token-1' });
+    const result = await createHighlight({ text: 'Proximity is expensive, and founders pay it.', note: 'He means attention.' }, [kindle], agent);
+    expect(kindle).toEqual({ _id: 'kindle-2', text: 'Proximity is expensive, and founders pay it.', note: '' });
+    expect(result.body.highlight).toMatchObject({ _id: 'highlight-1', note: 'He means attention.' });
+  });
+
+  test('an agent\'s note joins a mark already in its pencil', async () => {
+    const agent = { id: 'token-1', label: 'Claude Code', scopes: ['agent-write'] };
+    const drafted = { _id: 'pencil-1', text: 'Proximity is expensive, and founders pay it.', note: 'First.', pencil: { agent: 'Claude Code', tokenId: 'token-1' } };
+    await createHighlight({ text: 'Proximity is expensive, and founders pay it.', note: 'Second.' }, [drafted], agent);
+    expect(drafted.note).toBe('First.\n\nSecond.');
   });
 
   test('a selection in an article stays its own mark when the sentence repeats', async () => {

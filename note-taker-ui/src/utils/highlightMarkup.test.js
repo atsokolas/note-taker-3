@@ -118,3 +118,22 @@ describe('renderArticleContentWithHighlights', () => {
     expect(doc.querySelector('mark[data-highlight-id="highlight-h-3"]')?.textContent).toBe('Judgment still');
   });
 });
+
+describe('a saved page with script in it', () => {
+  it('keeps the prose and drops handlers, scripts and javascript: links', () => {
+    const html = renderArticleContentWithHighlights({
+      url: 'https://example.com/post',
+      content: '<p>Hello</p><img src="x" onerror="alert(1)"><a href="javascript:alert(2)">go</a><script>alert(3)</script><iframe srcdoc="<script>alert(4)</script>"></iframe><svg><animate onbegin="alert(5)"/></svg>'
+    });
+    expect(html).toContain('<p>Hello</p>');
+    expect(html).not.toMatch(/onerror|onbegin|javascript:|<script|srcdoc|alert/);
+  });
+
+  it('keeps an embedded video', () => {
+    const html = renderArticleContentWithHighlights({
+      url: 'https://example.com/post',
+      content: '<p>Watch</p><iframe src="https://www.youtube.com/embed/abc" allowfullscreen></iframe>'
+    });
+    expect(html).toContain('src="https://www.youtube.com/embed/abc"');
+  });
+});

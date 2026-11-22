@@ -75,6 +75,8 @@ const userSchema = new mongoose.Schema({
      (docs/noeis-support-erasure-runbook-2026-10-11.md), which finds the
      requests by this field. */
   accountDeletionRequestedAt: { type: Date, default: null },
+  // Sign-ins before this moment no longer open the account: a new password ends them.
+  signedInSince: { type: Date, default: null },
   agentProfile: { type: userAgentProfileSchema, default: () => ({}) },
   agentProtocolPolicy: { type: userAgentProtocolPolicySchema, default: () => ({}) },
   morningPaper: { type: morningPaperSettingsSchema, default: () => ({}) }
@@ -2551,7 +2553,6 @@ const agentConnectSessionSchema = new mongoose.Schema({
   requestedAppUrl: { type: String, default: '', trim: true },
   status: { type: String, enum: ['pending', 'approved', 'expired', 'cancelled'], default: 'pending', index: true },
   tokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null },
-  tokenSecret: { type: String, default: '', trim: true },
   approvedUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   approvedAt: { type: Date, default: null },
   deliveredAt: { type: Date, default: null },

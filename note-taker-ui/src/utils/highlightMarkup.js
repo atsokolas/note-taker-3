@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
 import { cleanImportedArticleDocument } from './sourceDisplayText';
 
@@ -132,15 +133,22 @@ const plainTextToHtml = (text, title = '') => {
 // Markup closes its elements; prose that merely mentions <this> does not.
 const isPlainText = (content) => !/<\/[a-z][a-z0-9]*\s*>|<br\s*\/?>/i.test(content);
 
+/* A saved page is someone else's HTML: keep its prose, pictures and embedded
+   video, never its scripts, handlers or javascript: links. */
+const SAVED_PAGE = {
+  ADD_TAGS: ['iframe'],
+  ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder'],
+  FORBID_TAGS: ['style', 'noscript', 'form'],
+  FORBID_ATTR: ['srcdoc']
+};
+
 export const renderArticleContentWithHighlights = (article, highlights = []) => {
   if (!article?.content) return '';
   const parser = new DOMParser();
   const markup = isPlainText(article.content)
     ? plainTextToHtml(article.content, article.title)
     : article.content;
-  const doc = parser.parseFromString(markup, 'text/html');
-
-  doc.querySelectorAll('script, style, noscript').forEach(node => node.remove());
+  const doc = parser.parseFromString(DOMPurify.sanitize(markup, SAVED_PAGE), 'text/html');
   cleanImportedArticleDocument(doc);
 
   // The reader header owns the page h1; demote imported article titles in the body.

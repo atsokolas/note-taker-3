@@ -45,7 +45,9 @@ const summarize = (ledger, total) => [
 ].join(', ');
 
 const requestTiming = (req, res, next) => {
-  const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+  // A caller's id is kept only if it is plainly an id, so it cannot write lines into the log.
+  const offered = String(req.headers['x-request-id'] || '');
+  const requestId = /^[\w.-]{1,64}$/.test(offered) ? offered : crypto.randomUUID();
   const ledger = { db: { ms: 0, count: 0 }, ai: { ms: 0, count: 0 } };
   const started = performance.now();
   req.requestId = requestId;
@@ -56,8 +58,9 @@ const requestTiming = (req, res, next) => {
     if (!res.headersSent) res.setHeader('Server-Timing', summarize(ledger, performance.now() - started));
     return writeHead.apply(this, args);
   };
+  // The path only: query strings carry OAuth codes and states.
   res.on('finish', () => {
-    console.log(`[REQ] ${requestId} ${req.method} ${req.originalUrl} ${res.statusCode} ${summarize(ledger, performance.now() - started)}`);
+    console.log(`[REQ] ${requestId} ${req.method} ${req.path} ${res.statusCode} ${summarize(ledger, performance.now() - started)}`);
   });
   ledgers.run(ledger, next);
 };

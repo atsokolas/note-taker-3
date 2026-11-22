@@ -239,7 +239,8 @@ const buildImportRouter = ({
           importedAt: new Date()
         }
       });
-    } else {
+    } else if (!pencil || article.pencil) {
+      // An agent refreshes only what it brought in; your copy stays yours.
       article.title = safeTitle || article.title;
       article.content = safeContent || article.content;
       Object.assign(article, byline);
@@ -2310,69 +2311,49 @@ const buildImportRouter = ({
     }
   });
 
-  router.get('/api/import/readwise/oauth/callback', async (req, res) => {
-    try {
-      const code = toTrimmedString(req.query.code);
-      const state = toTrimmedString(req.query.state);
-      const redirectUri = getReadwiseRedirectUri(req);
-      if (!code || !state) {
-        throw new Error('Missing OAuth code or state.');
-      }
-      const decoded = verifyReadwiseState(state);
-      if (!await isAccountActive(String(decoded.userId || ''))) throw new Error('Account is unavailable.');
-      const tokenPayload = await exchangeReadwiseCode({
-        code,
-        redirectUri,
-        clientId: toTrimmedString(decoded.clientId),
-        clientSecret: toTrimmedString(decoded.clientSecret),
-        codeVerifier: toTrimmedString(decoded.codeVerifier)
-      });
-      const accessToken = toTrimmedString(tokenPayload.access_token);
-      const refreshToken = toTrimmedString(tokenPayload.refresh_token);
-      const userInfo = await fetchReadwiseUserInfo(accessToken);
-      if (!await isAccountActive(String(decoded.userId || ''))) throw new Error('Account is unavailable.');
+  const finishReadwise = async ({ req, userId, code, state }) => {
+    const redirectUri = getReadwiseRedirectUri(req);
+    const decoded = verifyReadwiseState(state);
+    if (String(decoded.userId) !== String(userId)) throw new Error('This approval was started by another account.');
+    const tokenPayload = await exchangeReadwiseCode({
+      code,
+      redirectUri,
+      clientId: toTrimmedString(decoded.clientId),
+      clientSecret: toTrimmedString(decoded.clientSecret),
+      codeVerifier: toTrimmedString(decoded.codeVerifier)
+    });
+    const accessToken = toTrimmedString(tokenPayload.access_token);
+    const refreshToken = toTrimmedString(tokenPayload.refresh_token);
+    const userInfo = await fetchReadwiseUserInfo(accessToken);
+    if (!await isAccountActive(String(decoded.userId || ''))) throw new Error('Account is unavailable.');
 
-      let connection = await IntegrationConnection.findOne({
+    let connection = await IntegrationConnection.findOne({
+      userId,
+      provider: 'readwise',
+      mode: 'mcp_remote'
+    }).sort({ updatedAt: -1, createdAt: -1 });
+    if (!connection) {
+      connection = new IntegrationConnection({
         userId: decoded.userId,
         provider: 'readwise',
         mode: 'mcp_remote'
-      }).sort({ updatedAt: -1, createdAt: -1 });
-      if (!connection) {
-        connection = new IntegrationConnection({
-          userId: decoded.userId,
-          provider: 'readwise',
-          mode: 'mcp_remote'
-        });
-      }
-
-      const email = toTrimmedString(userInfo?.email);
-      const username = toTrimmedString(userInfo?.preferred_username || userInfo?.name);
-      connection.accountLabel = email || username || 'Readwise';
-      connection.externalAccountId = toTrimmedString(userInfo?.sub) || READWISE_MCP_SERVER_URL;
-      connection.encryptedAccessToken = encryptSecret(accessToken);
-      connection.encryptedRefreshToken = refreshToken ? encryptSecret(refreshToken) : '';
-      connection.scopes = [
-        ...READWISE_OAUTH_SCOPES,
-        'mcp:readwise.highlights.read',
-        'mcp:reader.documents.read',
-        'mcp:reader.documents.write'
-      ];
-      await markConnectionHealthy(connection);
-
-      const appUrl = getImportAppUrl(req);
-      const nextUrl = new URL('/data-integrations', appUrl);
-      nextUrl.searchParams.set('source', 'readwise');
-      nextUrl.searchParams.set('readwise', 'connected');
-      return res.redirect(nextUrl.toString());
-    } catch (error) {
-      console.error('Readwise OAuth callback failed:', error);
-      const appUrl = getImportAppUrl(req);
-      const nextUrl = new URL('/data-integrations', appUrl);
-      nextUrl.searchParams.set('source', 'readwise');
-      nextUrl.searchParams.set('readwise', 'error');
-      return res.redirect(nextUrl.toString());
+      });
     }
-  });
+
+    const email = toTrimmedString(userInfo?.email);
+    const username = toTrimmedString(userInfo?.preferred_username || userInfo?.name);
+    connection.accountLabel = email || username || 'Readwise';
+    connection.externalAccountId = toTrimmedString(userInfo?.sub) || READWISE_MCP_SERVER_URL;
+    connection.encryptedAccessToken = encryptSecret(accessToken);
+    connection.encryptedRefreshToken = refreshToken ? encryptSecret(refreshToken) : '';
+    connection.scopes = [
+      ...READWISE_OAUTH_SCOPES,
+      'mcp:readwise.highlights.read',
+      'mcp:reader.documents.read',
+      'mcp:reader.documents.write'
+    ];
+    await markConnectionHealthy(connection);
+  };
 
   router.post('/api/import/readwise/mcp/connect', authenticateToken, async (req, res) => {
     try {
@@ -3020,51 +3001,66 @@ const buildImportRouter = ({
     }
   });
 
-  router.get('/api/import/notion/oauth/callback', async (req, res) => {
-    try {
-      const code = toTrimmedString(req.query.code);
-      const state = toTrimmedString(req.query.state);
-      const redirectUri = getNotionRedirectUri(req);
-      if (!code || !state) {
-        throw new Error('Missing OAuth code or state.');
-      }
-      const decoded = verifyNotionState(state);
-      if (!await isAccountActive(String(decoded.userId || ''))) throw new Error('Account is unavailable.');
-      const payload = await exchangeNotionCode({
-        code,
-        redirectUri
-      });
-      if (!await isAccountActive(String(decoded.userId || ''))) throw new Error('Account is unavailable.');
-      let connection = await IntegrationConnection.findOne({
+  const finishNotion = async ({ req, userId, code, state }) => {
+    const redirectUri = getNotionRedirectUri(req);
+    const decoded = verifyNotionState(state);
+    if (String(decoded.userId) !== String(userId)) throw new Error('This approval was started by another account.');
+    const payload = await exchangeNotionCode({
+      code,
+      redirectUri
+    });
+    if (!await isAccountActive(String(decoded.userId || ''))) throw new Error('Account is unavailable.');
+    let connection = await IntegrationConnection.findOne({
+      userId: decoded.userId,
+      provider: 'notion',
+      mode: 'oauth'
+    }).sort({ updatedAt: -1, createdAt: -1 });
+    if (!connection) {
+      connection = new IntegrationConnection({
         userId: decoded.userId,
         provider: 'notion',
         mode: 'oauth'
-      }).sort({ updatedAt: -1, createdAt: -1 });
-      if (!connection) {
-        connection = new IntegrationConnection({
-          userId: decoded.userId,
-          provider: 'notion',
-          mode: 'oauth'
-        });
-      }
-      connection.accountLabel = toTrimmedString(payload.workspace_name || 'Notion');
-      connection.externalAccountId = toTrimmedString(payload.workspace_id || payload.bot_id || '');
-      connection.encryptedAccessToken = encryptSecret(toTrimmedString(payload.access_token));
-      connection.encryptedRefreshToken = encryptSecret(toTrimmedString(payload.refresh_token));
-      await markConnectionHealthy(connection);
+      });
+    }
+    connection.accountLabel = toTrimmedString(payload.workspace_name || 'Notion');
+    connection.externalAccountId = toTrimmedString(payload.workspace_id || payload.bot_id || '');
+    connection.encryptedAccessToken = encryptSecret(toTrimmedString(payload.access_token));
+    connection.encryptedRefreshToken = encryptSecret(toTrimmedString(payload.refresh_token));
+    await markConnectionHealthy(connection);
+  };
 
-      const appUrl = getImportAppUrl(req);
-      const nextUrl = new URL('/connections', appUrl);
-      nextUrl.searchParams.set('source', 'notion');
-      nextUrl.searchParams.set('notion', 'connected');
-      return res.redirect(nextUrl.toString());
+  /* A provider sends the browser back here with its code. The code is not
+     used here, where anyone's browser could arrive with anyone's approval:
+     it goes on to the app, and the account signed in there finishes it, only
+     if it is the account that started it. */
+  const OAUTH_FINISH = { readwise: finishReadwise, notion: finishNotion };
+
+  router.get('/api/import/:provider(readwise|notion)/oauth/callback', (req, res) => {
+    const { provider } = req.params;
+    const next = new URL('/connections', getImportAppUrl(req));
+    next.searchParams.set('source', provider);
+    const code = toTrimmedString(req.query.code);
+    const state = toTrimmedString(req.query.state);
+    if (code && state) {
+      next.searchParams.set(provider, 'finish');
+      next.searchParams.set('code', code);
+      next.searchParams.set('state', state);
+    } else {
+      next.searchParams.set(provider, 'error');
+    }
+    return res.redirect(next.toString());
+  });
+
+  router.post('/api/import/:provider(readwise|notion)/oauth/finish', authenticateToken, async (req, res) => {
+    try {
+      const code = toTrimmedString(req.body?.code);
+      const state = toTrimmedString(req.body?.state);
+      if (!code || !state) return res.status(400).json({ error: 'Missing OAuth code or state.' });
+      await OAUTH_FINISH[req.params.provider]({ req, userId: req.user.id, code, state });
+      return res.status(200).json({ connected: true });
     } catch (error) {
-      console.error('Notion OAuth callback failed:', error);
-      const appUrl = getImportAppUrl(req);
-      const nextUrl = new URL('/connections', appUrl);
-      nextUrl.searchParams.set('source', 'notion');
-      nextUrl.searchParams.set('notion', 'error');
-      return res.redirect(nextUrl.toString());
+      console.error(`${req.params.provider} OAuth finish failed:`, error.message);
+      return res.status(400).json({ error: 'That approval could not be finished. Connect again from here.' });
     }
   });
 

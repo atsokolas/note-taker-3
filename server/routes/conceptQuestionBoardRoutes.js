@@ -6,6 +6,7 @@ const {
 } = require('../services/wikiOpenQuestionsService');
 const { normalizeInquiry } = require('../utils/questionInquiry');
 const { recordRevision, snapshotOf } = require('../services/entryHistory');
+const { sameName } = require('../utils/sameName');
 
 const buildConceptQuestionBoardRouter = ({
   mongoose,
@@ -23,7 +24,6 @@ const buildConceptQuestionBoardRouter = ({
   normalizeBoardScopeType,
   normalizeBoardScopeId,
   TagMeta,
-  escapeRegExp,
   Board,
   BoardItem,
   BoardEdge,
@@ -95,7 +95,7 @@ const buildConceptQuestionBoardRouter = ({
       const tagName = req.params.tagName;
       const notes = await ConceptNote.find({
         userId,
-        tagName: { $regex: new RegExp(`^${tagName}$`, 'i') }
+        tagName: { $regex: sameName(tagName) }
       }).sort({ updatedAt: -1 });
       res.status(200).json(notes);
     } catch (error) {
@@ -110,8 +110,7 @@ const buildConceptQuestionBoardRouter = ({
       const { tagName } = req.params;
       const range = req.query.range || '90d';
 
-      const escapeTimelineRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const tagRegex = new RegExp(`^${escapeTimelineRegExp(tagName)}$`, 'i');
+      const tagRegex = sameName(tagName);
 
       let startDate = null;
       if (range !== 'all') {
@@ -282,8 +281,8 @@ const buildConceptQuestionBoardRouter = ({
     try {
       const userId = req.user.id;
       const conceptName = req.params.name;
-      const status = req.query.status || 'open';
-      const nameRegex = new RegExp(`^${conceptName}$`, 'i');
+      const status = String(req.query.status || 'open');
+      const nameRegex = sameName(conceptName);
       const [questions, wikiOpenQuestions] = await Promise.all([
         Question.find({
           userId,
@@ -304,9 +303,9 @@ const buildConceptQuestionBoardRouter = ({
       const userId = req.user.id;
       const { status, tag, conceptName, highlightId, notebookEntryId } = req.query;
       const filter = { userId };
-      if (status) filter.status = status;
+      if (status) filter.status = String(status);
       if (tag) filter.linkedTagName = tag;
-      if (conceptName) filter.linkedTagName = new RegExp(`^${conceptName}$`, 'i');
+      if (conceptName) filter.linkedTagName = sameName(conceptName);
       if (highlightId) filter.linkedHighlightId = highlightId;
       if (notebookEntryId) filter.linkedNotebookEntryId = notebookEntryId;
       const [questions, wikiOpenQuestions] = await Promise.all([
@@ -497,7 +496,7 @@ const buildConceptQuestionBoardRouter = ({
           scopeId = String(scopeId);
         } else {
           const conceptByName = await TagMeta.findOne({
-            name: new RegExp(`^${escapeRegExp(scopeId)}$`, 'i'),
+            name: sameName(scopeId),
             userId
           }).select('_id');
           if (!conceptByName) return res.status(404).json({ error: 'Concept not found.' });

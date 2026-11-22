@@ -36,6 +36,8 @@ const {
 
 dotenv.config();
 
+const { onBehalfOf } = require('./ai/modelBudget');
+const { takeSharesDown } = require('./services/accountShares');
 const app = express();
 const PORT = process.env.PORT || 3000;
 // Where the server reaches its own API, as an agent would: the hosted MCP and the built-in agent.
@@ -53,8 +55,11 @@ const { buildChatgptOAuthIngress } = require('./services/chatgptOAuthIngress');
 app.use(buildChatgptOAuthIngress());
 // The raw bytes stay on the request for webhooks that sign them (email-in).
 app.use('/mcp', parseHostedMcpBody);
-app.use(express.json({ limit: '50mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Nothing bigger than one Mongo document (16 MB) can be kept, so nothing bigger is read.
+// Only the signed email webhook needs the bytes as they came.
+const BODY_LIMIT = '16mb';
+app.use(express.json({ limit: BODY_LIMIT, verify: (req, _res, buf) => { if (req.path === '/api/import/email') req.rawBody = buf; } }));
+app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 app.use(refuseQueryOperators);
 
 // Which build is actually serving traffic?
@@ -1120,9 +1125,11 @@ const parseOptionalDate = (value) => {
   return parsed;
 };
 
-const getAgentBridgeJwtSecret = () => (
-  String(process.env.AGENT_BRIDGE_SECRET || process.env.JWT_SECRET || '').trim() || 'note-taker-agent-bridge-dev-secret'
-);
+const getAgentBridgeJwtSecret = () => {
+  const secret = String(process.env.AGENT_BRIDGE_SECRET || process.env.JWT_SECRET || '').trim();
+  if (!secret) throw new Error('AGENT_BRIDGE_SECRET or JWT_SECRET must be set.');
+  return secret;
+};
 
 const safeBridgeTokenTtlSeconds = (value, fallback = DEFAULT_BRIDGE_TOKEN_TTL_SECONDS) => {
   const parsed = Number(value);
@@ -2140,7 +2147,8 @@ const runBridgeHandoffOperation = async ({
     bridgeByoCapabilities = normalizePersonalAgentCapabilities(byAgent.capabilities || {});
   }
 
-  const bypassProtocolApproval = Boolean(payload?.__bypassProtocolApproval);
+  // Only the replay of an approval the reader gave skips asking again; a caller never can.
+  const bypassProtocolApproval = executionSource === 'approval_replay';
   const approvalPolicy = shouldRequireProtocolApproval({
     op: operation,
     actor,
@@ -3031,10 +3039,7 @@ const approveProtocolApproval = async ({
         scope: String(approval.scope || 'agent_ops')
       },
       op: String(approval.op || '').trim(),
-      payload: {
-        ...(approval.payload && typeof approval.payload === 'object' ? approval.payload : {}),
-        __bypassProtocolApproval: true
-      },
+      payload: approval.payload && typeof approval.payload === 'object' ? approval.payload : {},
       executionSource: 'approval_replay',
       approvalId: String(approval._id || '')
     });
@@ -4376,29 +4381,11 @@ const buildGraphNodeMap = async (userId, idsByType = {}) => {
   return nodeMap;
 };
 // --- AUTHENTICATION ADDITIONS: JWT Verification Middleware ---
-const getCookieValue = (cookieHeader, name) => {
-  if (!cookieHeader) return '';
-  const parts = cookieHeader.split(';').map(part => part.trim());
-  const match = parts.find(part => part.startsWith(`${name}=`));
-  if (!match) return '';
-  return decodeURIComponent(match.slice(name.length + 1));
-};
-
+// A browser session is the bearer token the app sends; there is no cookie to ride along on.
 const readRequestToken = (req) => {
   const authHeader = req.headers['authorization'] || '';
-  const headerToken = authHeader.startsWith('Bearer ')
-    ? authHeader.slice(7).trim()
-    : '';
-  if (headerToken) return { token: headerToken, tokenSource: 'header' };
-  const cookieHeader = req.headers.cookie || '';
-  const cookieToken =
-    getCookieValue(cookieHeader, 'token') ||
-    getCookieValue(cookieHeader, 'authToken') ||
-    getCookieValue(cookieHeader, 'jwt');
-  return {
-    token: headerToken || cookieToken,
-    tokenSource: headerToken ? 'header' : (cookieToken ? 'cookie' : 'none')
-  };
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  return { token, tokenSource: token ? 'header' : 'none' };
 };
 
 const { buildAccountAccessCheck, buildBrowserAuthentication } = require('./services/accountAccessService');
@@ -4475,7 +4462,7 @@ async function authenticatePersonalAgentKey(req, res, next) {
       capabilities: normalizePersonalAgentCapabilities(personalAgent.capabilities || {}),
       preferredWorkerRoles: normalizePersonalAgentWorkerRoles(personalAgent.preferredWorkerRoles || [])
     };
-    next();
+    onBehalfOf(req.personalAgent.userId, next);
   } catch (error) {
     console.error('❌ Error authenticating personal agent key:', error);
     return res.status(500).json({ error: 'Failed to authenticate personal agent.' });
@@ -4739,7 +4726,8 @@ app.use(buildAuthDiscoveryRouter({
   Article,
   TourState,
   trackEvent,
-  EVENT_NAMES
+  EVENT_NAMES,
+  takeSharesDown: userId => takeSharesDown({ models: require('./models'), userId })
 }));
 
 app.use(buildMarketingAnalyticsRouter({
@@ -5532,8 +5520,7 @@ app.use(buildAgentConnectRouter({
   AgentToken,
   createAgentTokenSecret,
   hashAgentTokenSecret,
-  normalizeAgentTokenScopes,
-  sanitizeAgentToken
+  normalizeAgentTokenScopes
 }));
 
 app.use(buildAgentTaskLinkRouter({
@@ -5813,7 +5800,6 @@ app.use(buildConceptQuestionBoardRouter({
   normalizeBoardScopeType,
   normalizeBoardScopeId,
   TagMeta,
-  escapeRegExp,
   Board,
   BoardItem,
   BoardEdge,

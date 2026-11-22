@@ -40,6 +40,9 @@ const Desk = ({ marks: initial, readBefore, createdAt }) => {
   );
 };
 
+// Each line carries the id it was typed with, so a resend saves it once.
+const LINE_ID = expect.stringMatching(/^[a-f0-9]{24}$/);
+
 const line = () => screen.getByLabelText('Type a quote, a note or a question');
 const type = (text) => fireEvent.change(line(), { target: { value: text } });
 const keep = (options = {}) => fireEvent.keyDown(line(), { key: 'Enter', ...options });
@@ -59,12 +62,12 @@ test('a number turns the page, and the page stays for the lines after it', async
 
   type('212 he is conflating risk and uncertainty');
   await act(async () => keep());
-  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: 'he is conflating risk and uncertainty', page: 212 });
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: 'he is conflating risk and uncertainty', page: 212, captureId: LINE_ID });
   expect(screen.getByLabelText('Page you are on')).toHaveValue('212');
 
   type('or is he?');
   await act(async () => keep());
-  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: 'or is he?', page: 212 });
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: 'or is he?', page: 212, captureId: LINE_ID });
   expect(await screen.findByText(sittingLabel(new Date()))).toBeInTheDocument();
   expect(screen.getByText('p. 212 · 1 note, 1 question')).toBeInTheDocument();
   expect(screen.getByText('p. 212')).toBeInTheDocument();
@@ -83,7 +86,7 @@ test('the book finishes a quote you marked on the Kindle, and it stays one mark'
   expect(line()).toHaveValue(`214 "${KINDLE.text}`);
 
   await act(async () => keep());
-  expect(createHighlight).toHaveBeenCalledWith({ articleId: 'book-1', text: KINDLE.text, note: '', page: 214 });
+  expect(createHighlight).toHaveBeenCalledWith({ articleId: 'book-1', text: KINDLE.text, note: '', page: 214, captureId: LINE_ID });
   expect(await screen.findByText('You marked this on your Kindle too. Now it’s one highlight, with your note.')).toBeInTheDocument();
   expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(1);
 });
@@ -225,6 +228,27 @@ test('a line typed with no connection waits on this device and goes when it is b
   expect(createHighlight).toHaveBeenLastCalledWith(expect.objectContaining({ note: 'a thought on a plane', page: 12 }));
 });
 
+test('a line typed while the waiting lines are going stays on this device, and a resent line keeps its id', async () => {
+  let answer;
+  createHighlight
+    .mockRejectedValueOnce(new Error('Network Error'))
+    .mockImplementationOnce(() => new Promise(resolve => { answer = resolve; }))
+    .mockRejectedValueOnce(new Error('Network Error'));
+  render(<Desk marks={[]} />);
+  type('a thought on a plane');
+  await act(async () => keep());
+  await act(async () => { window.dispatchEvent(new Event('online')); });
+  type('a thought while it sends');
+  await act(async () => keep());
+  await act(async () => answer({ _id: 's1', text: '', note: 'a thought on a plane', createdAt: new Date().toISOString() }));
+
+  const waiting = JSON.stringify(window.localStorage);
+  expect(waiting).toContain('a thought while it sends');
+  expect(waiting).not.toContain('a thought on a plane');
+  const [first, resent] = createHighlight.mock.calls.map(([draft]) => draft.captureId);
+  expect(resent).toBe(first);
+});
+
 test('a #word files the line under that concept, and a line of only #words files the mark just made', async () => {
   createHighlight.mockResolvedValueOnce({ _id: 'q1', text: 'Scale is a moat until it is not.', note: '', tags: ['moats'], page: 40, createdAt: new Date().toISOString() });
   updateHighlight.mockResolvedValueOnce({ _id: 'q1', tags: ['moats', 'scale'] });
@@ -232,7 +256,7 @@ test('a #word files the line under that concept, and a line of only #words files
 
   type('40 "Scale is a moat until it is not." #moats');
   await act(async () => keep());
-  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: 'Scale is a moat until it is not.', note: '', tags: ['moats'], page: 40 });
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: 'Scale is a moat until it is not.', note: '', tags: ['moats'], page: 40, captureId: LINE_ID });
   expect(await screen.findByText('Filed under #moats.')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: '#moats' })).toHaveAttribute('href', '/think?tab=concepts&concept=moats');
 

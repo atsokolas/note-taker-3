@@ -47,6 +47,9 @@ const run = async () => {
   assert.strictEqual(command, 'claude');
   assert.match(args[1], /Finish the base rates section\.[\s\S]*Hiring \(note n1\)[\s\S]*finish_handoff with handoffId h1/);
   assert.ok(args.includes('mcp__noeis-wiki__delete_article') && args.indexOf('--disallowedTools') > args.indexOf('mcp__noeis-wiki__*'));
+  // Unwatched, it can neither reach the web nor have Noeis fetch an address for it.
+  const off = args.slice(args.indexOf('--disallowedTools') + 1);
+  for (const tool of ['WebFetch', 'WebSearch', 'mcp__noeis-wiki__create_article', 'mcp__noeis-wiki__set_folder_feed', 'mcp__noeis-wiki__update_schema']) assert.ok(off.includes(tool), tool);
   assert.deepStrictEqual(noeis.finished, []);
 
   // An agent that stops without finishing is finished for, with what it said.

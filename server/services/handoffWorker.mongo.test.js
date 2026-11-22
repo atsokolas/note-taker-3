@@ -63,6 +63,16 @@ test('real Mongo: the built-in agent finishes the page it was handed, in pencil,
     await resumeHandoffs({ models: { Handoff, AgentToken }, apiUrl, chat });
     assert.match((await Handoff.findById(stale._id)).did, /^Stopped: Noeis restarted/);
     assert.equal((await Handoff.findById(waiting._id)).did, 'Nothing in the library bears on it.');
+
+    // Called off mid-work, it stops before its next step and writes nothing more.
+    const calledOff = await Handoff.create({ userId, ask: 'Rewrite it.', to: 'noeis', context: { kind: 'note', id: String(note._id), title: 'Hiring' } });
+    script.push(
+      { toolCalls: [{ id: 'c4', function: { name: 'recall', arguments: '{}' } }, { id: 'c5', function: { name: 'rewrite_page', arguments: JSON.stringify({ text: 'Not wanted.' }) } }] }
+    );
+    const cancelling = async ({ messages }) => { await Handoff.updateOne({ _id: calledOff._id }, { $set: { cancelledAt: new Date() } }); return chat({ messages }); };
+    assert.equal(await workHandoff({ handoffId: calledOff._id, models: { Handoff, AgentToken }, apiUrl, chat: cancelling }), null);
+    assert.notEqual((await NotebookEntry.findById(note._id).lean()).blocks[0].text, 'Not wanted.');
+    assert.equal(await AgentToken.countDocuments({}), 0);
   } finally {
     server?.close();
     await mongoose.disconnect();

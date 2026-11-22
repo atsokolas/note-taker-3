@@ -46,12 +46,20 @@ const readState = dir => {
   }
 };
 
-const write = (dir, rel, text) => {
-  fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
-  fs.writeFileSync(path.join(dir, rel), text);
+// Every path the server names stays inside the folder: a name with ../ in it writes nothing.
+const inside = (dir, rel) => {
+  const full = path.resolve(dir, rel);
+  if (path.isAbsolute(rel) || !full.startsWith(path.resolve(dir) + path.sep)) throw new Error(`Noeis named a file outside the folder: ${rel}`);
+  return full;
 };
 
-const remove = (dir, rel) => fs.rmSync(path.join(dir, rel), { force: true });
+const write = (dir, rel, text) => {
+  const full = inside(dir, rel);
+  fs.mkdirSync(path.dirname(full), { recursive: true });
+  fs.writeFileSync(full, text);
+};
+
+const remove = (dir, rel) => fs.rmSync(inside(dir, rel), { force: true });
 
 const markdownIn = (dir, folder) => {
   const root = path.join(dir, folder);

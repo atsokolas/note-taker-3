@@ -9,13 +9,19 @@ import { spawnSync } from 'node:child_process';
 
 const TIME_LIMIT_MS = 30 * 60 * 1000;
 const MCP = 'mcp__noeis-wiki';
-// The tools with no undo stay out of a session nobody is watching.
-const NO_UNDO = ['delete_article', 'delete_highlight', 'delete_notebook_entry', 'delete_concept_note'];
+/* A session nobody is watching reads what was saved, and anything saved can
+   carry instructions. So it gets no tool with no undo, no way to reach the
+   web or make Noeis fetch an address (each could carry the library out in a
+   URL), and no say over the instructions later agents read. */
+const UNWATCHED_OFF = [
+  'delete_article', 'delete_highlight', 'delete_notebook_entry', 'delete_concept_note',
+  'create_article', 'ingest_source', 'add_source', 'set_folder_feed', 'update_schema'
+];
 
 export const LAUNCH = {
   'claude-code': prompt => ['claude', ['-p', prompt,
-    '--allowedTools', `${MCP}__*`, 'WebFetch', 'WebSearch',
-    '--disallowedTools', ...NO_UNDO.map(name => `${MCP}__${name}`)]],
+    '--allowedTools', `${MCP}__*`,
+    '--disallowedTools', 'WebFetch', 'WebSearch', ...UNWATCHED_OFF.map(name => `${MCP}__${name}`)]],
   codex: prompt => ['codex', ['exec', '--skip-git-repo-check', prompt]]
 };
 

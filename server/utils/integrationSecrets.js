@@ -1,14 +1,11 @@
 const crypto = require('crypto');
 
-const DEFAULT_SECRET = 'note-taker-integration-secret';
-
-const getSecretMaterial = () => (
-  String(
-    process.env.INTEGRATION_SECRET
-    || process.env.JWT_SECRET
-    || DEFAULT_SECRET
-  ).trim()
-);
+// Never a secret written in the code: without one configured, nothing is stored.
+const getSecretMaterial = () => {
+  const material = String(process.env.INTEGRATION_SECRET || process.env.JWT_SECRET || '').trim();
+  if (!material) throw new Error('INTEGRATION_SECRET or JWT_SECRET must be set to keep connection tokens.');
+  return material;
+};
 
 const getKey = () => (
   crypto.createHash('sha256').update(getSecretMaterial()).digest()

@@ -1,3 +1,5 @@
+// Connection tokens are kept only under a configured secret; this one is disposable.
+process.env.INTEGRATION_SECRET ||= 'synthetic-integration-test-secret';
 const assert = require('assert');
 const express = require('express');
 const http = require('http');

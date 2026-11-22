@@ -20,6 +20,7 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
   const [error, setError] = useState('');
   const [approving, setApproving] = useState(false);
   const [approved, setApproved] = useState(false);
+  const [code, setCode] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +55,7 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
     setError('');
     try {
       const data = await approveAgentConnectSession(sessionId, {
-        deviceCode: session?.deviceCode || ''
+        deviceCode: code
       });
       setSession(data.session || session);
       setApproved(true);
@@ -66,7 +67,7 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
   };
 
   const status = session?.status || 'pending';
-  const canApprove = Boolean(sessionId && session?.deviceCode && status === 'pending' && !approved);
+  const canApprove = Boolean(sessionId && code.trim() && status === 'pending' && !approved);
   const expiresAt = session?.expiresAt ? new Date(session.expiresAt) : null;
   const expiryLabel = expiresAt && !Number.isNaN(expiresAt.getTime())
     ? expiresAt.toLocaleString()
@@ -76,7 +77,7 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
     <Page className="settings-page agent-connect-authorize-page connections-approval-page">
       <PageHeader
         title="Is this the request you started?"
-        lede="Approve only if you just asked an agent to connect, and it shows you the same code."
+        lede="Approve only if you just asked an agent to connect. Type the code it shows you."
       />
 
       <section className="agent-connect-authorize-card connections-approval-card">
@@ -97,10 +98,10 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
               </div>
             </div>
 
-            <div className="agent-connect-authorize-card__code">
-              <span>Code</span>
-              <strong>{session?.deviceCode || 'Unknown'}</strong>
-            </div>
+            <label className="agent-connect-authorize-card__code">
+              <span>The code your agent shows</span>
+              <input value={code} onChange={event => setCode(event.target.value)} placeholder="ABCD-1234" autoComplete="off" spellCheck={false} />
+            </label>
 
             <dl className="connections-approval-facts">
               <div>

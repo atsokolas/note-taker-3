@@ -1,6 +1,7 @@
+const { sameName } = require('../utils/sameName');
+
 const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, mongoose, workspaceAuthorization = null }) => {
   const normalizeName = (name) => String(name || '').trim();
-  const escapeRegExp = value => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const isObjectId = value => /^[a-f\d]{24}$/i.test(String(value || ''));
   const summarizeConceptFreshness = (workbench = null) => {
     const meta = workbench?.meta && typeof workbench.meta === 'object' ? workbench.meta : {};
@@ -97,7 +98,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
       meta = await TagMeta.findOne({ _id: cleanName, userId: userObjectId });
     } else {
       meta = await TagMeta.findOne({
-        name: new RegExp(`^${escapeRegExp(cleanName)}$`, 'i'),
+        name: sameName(cleanName),
         userId: userObjectId
       });
     }
@@ -197,7 +198,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
   const updateConceptMeta = async (userId, name, payload) => {
     const cleanName = normalizeName(name);
     const userObjectId = new mongoose.Types.ObjectId(userId);
-    const existing = await TagMeta.findOne({ name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId });
+    const existing = await TagMeta.findOne({ name: sameName(cleanName), userId: userObjectId });
     const { description, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds } = payload;
     const isPublic = payload.isPublic !== undefined ? Boolean(payload.isPublic) : existing?.isPublic || false;
 
@@ -213,7 +214,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
       }
     }
 
-    const query = { name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId };
+    const query = { name: sameName(cleanName), userId: userObjectId };
     /* Only what the caller named. Defaulting the absent fields to '' and []
        meant every write blanked what it did not mention: Think saves a concept
        with just a description — sometimes only to make sure the row exists
@@ -244,7 +245,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
   const getConceptRelated = async (userId, name, { limit = 20, offset = 0 } = {}) => {
     const cleanName = normalizeName(name);
     const userObjectId = new mongoose.Types.ObjectId(userId);
-    const meta = await TagMeta.findOne({ name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId }).lean();
+    const meta = await TagMeta.findOne({ name: sameName(cleanName), userId: userObjectId }).lean();
     const pinnedIds = meta?.pinnedHighlightIds || [];
 
     let pinnedHighlights = [];
@@ -291,7 +292,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
     const edges = await ReferenceEdge.find({
       userId: userObjectId,
       targetType: 'concept',
-      targetTagName: { $regex: new RegExp(`^${cleanName}$`, 'i') }
+      targetTagName: { $regex: sameName(cleanName) }
     });
     const entryIds = edges.map(edge => edge.sourceId);
     const entries = await NotebookEntry.find({ userId: userObjectId, _id: { $in: entryIds } })

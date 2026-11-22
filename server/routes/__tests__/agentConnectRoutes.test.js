@@ -5,8 +5,7 @@ const mongoose = require('mongoose');
 const { buildAgentConnectRouter, hashPollSecret } = require('../agentConnectRoutes');
 const {
   hashAgentTokenSecret,
-  normalizeAgentTokenScopes,
-  sanitizeAgentToken
+  normalizeAgentTokenScopes
 } = require('../../services/agentTokenService');
 
 const listen = (app) => new Promise((resolve) => {
@@ -31,17 +30,29 @@ const attachSave = (row) => ({
   }
 });
 
+const matches = (row, query) => Object.entries(query).every(([key, want]) => {
+  const have = row[key] ?? null;
+  if (want && typeof want === 'object' && '$gt' in want) return have > want.$gt;
+  return String(have) === String(want);
+});
+
 const createAgentConnectSessionModel = () => {
   const rows = [];
   return {
     rows,
     findOne(query = {}) {
-      const row = rows.find(item => String(item.sessionId) === String(query.sessionId));
-      return new Query(row || null);
+      return new Query(rows.find(row => matches(row, query)) || null);
+    },
+    // One atomic step, as Mongo does it: the first caller to match wins.
+    async findOneAndUpdate(query, { $set }) {
+      const row = rows.find(item => matches(item, query));
+      if (row) Object.assign(row, $set);
+      return row || null;
     },
     async create(payload = {}) {
       const row = attachSave({
         _id: new mongoose.Types.ObjectId().toString(),
+        tokenId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         ...payload
@@ -54,19 +65,15 @@ const createAgentConnectSessionModel = () => {
 
 const createAgentTokenModel = () => {
   const rows = [];
-  return {
-    rows,
-    async create(payload = {}) {
-      const row = {
-        _id: new mongoose.Types.ObjectId().toString(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ...payload
-      };
-      rows.push(row);
-      return row;
-    }
+  function AgentToken(payload = {}) {
+    Object.assign(this, { _id: new mongoose.Types.ObjectId().toString(), ...payload });
+  }
+  AgentToken.prototype.save = async function save() {
+    rows.push(this);
+    return this;
   };
+  AgentToken.rows = rows;
+  return AgentToken;
 };
 
 const fetchJson = async (url, options = {}) => {
@@ -85,7 +92,7 @@ const run = async () => {
   const AgentConnectSession = createAgentConnectSessionModel();
   const AgentToken = createAgentTokenModel();
   let issueCount = 0;
-  let currentTime = new Date('2026-06-05T12:00:00.000Z');
+  const currentTime = new Date('2026-06-05T12:00:00.000Z');
   const app = express();
   app.use(express.json());
   app.use(buildAgentConnectRouter({
@@ -98,7 +105,6 @@ const run = async () => {
     createAgentTokenSecret: () => `ntk_at_connect_${++issueCount}`,
     hashAgentTokenSecret,
     normalizeAgentTokenScopes,
-    sanitizeAgentToken,
     defaultAppUrl: 'https://noeis.example',
     now: () => currentTime
   }));
@@ -126,54 +132,47 @@ const run = async () => {
     assert(!create.body.authorizeUrl.includes(create.body.pollSecret));
     assert(create.body.pollSecret.startsWith('poll_'));
     assert.strictEqual(AgentConnectSession.rows[0].pollSecretHash, hashPollSecret(create.body.pollSecret));
-    assert.strictEqual(AgentConnectSession.rows[0].tokenSecret, undefined);
+    assert.match(create.body.session.deviceCode, /^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
 
-    const approval = await fetchJson(`${baseUrl}/api/agent-connect/sessions/${create.body.session.sessionId}/approval`);
+    const { sessionId, deviceCode } = create.body.session;
+    const at = path => `${baseUrl}/api/agent-connect/sessions/${sessionId}/${path}`;
+    const post = (path, body) => fetchJson(at(path), { method: 'POST', body: JSON.stringify(body) });
+
+    const approval = await fetchJson(at('approval'));
     assert.strictEqual(approval.response.status, 200);
     assert.strictEqual(approval.body.session.status, 'pending');
+    assert.strictEqual(approval.body.session.deviceCode, undefined, 'the page never learns the code; you type it from the agent');
 
-    const badPoll = await fetchJson(`${baseUrl}/api/agent-connect/sessions/${create.body.session.sessionId}/poll`, {
-      method: 'POST',
-      body: JSON.stringify({ pollSecret: 'wrong' })
-    });
-    assert.strictEqual(badPoll.response.status, 403);
+    assert.strictEqual((await post('poll', { pollSecret: 'wrong' })).response.status, 403);
+    assert.strictEqual((await post('approve', {})).response.status, 403, 'a link alone approves nothing');
+    assert.strictEqual((await post('approve', { deviceCode: 'WRONG-CODE' })).response.status, 403);
 
-    const approve = await fetchJson(`${baseUrl}/api/agent-connect/sessions/${create.body.session.sessionId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ deviceCode: create.body.session.deviceCode })
-    });
-    assert.strictEqual(approve.response.status, 200);
-    assert.strictEqual(approve.body.session.status, 'approved');
-    assert.strictEqual(approve.body.token.label, 'Hermes local');
-    assert.strictEqual(approve.body.token.runtime, 'hermes');
-    assert.deepStrictEqual(approve.body.token.scopes, ['read']);
-    assert.strictEqual(approve.body.token.secret, undefined);
-    assert.strictEqual(AgentToken.rows[0].hashedSecret, hashAgentTokenSecret('ntk_at_connect_1'));
+    const pending = await post('poll', { pollSecret: create.body.pollSecret });
+    assert.strictEqual(pending.body.session.status, 'pending');
+    assert.strictEqual(pending.body.secret, undefined);
 
-    const duplicateApprove = await fetchJson(`${baseUrl}/api/agent-connect/sessions/${create.body.session.sessionId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ deviceCode: create.body.session.deviceCode })
-    });
-    assert.strictEqual(duplicateApprove.response.status, 409);
+    const [approve, again] = await Promise.all([
+      post('approve', { deviceCode: deviceCode.toLowerCase() }),
+      post('approve', { deviceCode })
+    ]);
+    assert.deepStrictEqual([approve.response.status, again.response.status].sort(), [200, 409], 'two clicks approve once');
+    assert.strictEqual(AgentToken.rows.length, 0, 'no token exists until the agent collects it');
+
+    const [poll, second] = await Promise.all([
+      post('poll', { pollSecret: create.body.pollSecret }),
+      post('poll', { pollSecret: create.body.pollSecret })
+    ]);
+    const collected = [poll, second].find(reply => reply.body.secret);
+    assert.strictEqual(collected.body.secret, 'ntk_at_connect_1');
+    assert.deepStrictEqual([poll.response.status, second.response.status].sort(), [200, 410], 'the secret is handed out once');
     assert.strictEqual(AgentToken.rows.length, 1);
-
-    const poll = await fetchJson(`${baseUrl}/api/agent-connect/sessions/${create.body.session.sessionId}/poll`, {
-      method: 'POST',
-      body: JSON.stringify({ pollSecret: create.body.pollSecret })
-    });
-    assert.strictEqual(poll.response.status, 200);
-    assert.strictEqual(poll.body.session.status, 'approved');
-    assert.strictEqual(poll.body.secret, 'ntk_at_connect_1');
-    assert.strictEqual(poll.body.tokenId, String(AgentToken.rows[0]._id));
-
-    currentTime = new Date('2026-06-05T12:06:00.000Z');
-    const expiredDelivery = await fetchJson(`${baseUrl}/api/agent-connect/sessions/${create.body.session.sessionId}/poll`, {
-      method: 'POST',
-      body: JSON.stringify({ pollSecret: create.body.pollSecret })
-    });
-    assert.strictEqual(expiredDelivery.response.status, 410);
-    assert.match(expiredDelivery.body.error, /delivery window expired/i);
-    assert.strictEqual(AgentConnectSession.rows[0].tokenSecret, '');
+    const [token] = AgentToken.rows;
+    assert.strictEqual(token.hashedSecret, hashAgentTokenSecret('ntk_at_connect_1'));
+    assert.strictEqual(String(token.userId), 'user-1');
+    assert.strictEqual(token.label, 'Hermes local');
+    assert.deepStrictEqual(token.scopes, ['read']);
+    assert.strictEqual(collected.body.tokenId, String(token._id));
+    assert(!JSON.stringify(AgentConnectSession.rows).includes('ntk_at_connect_1'), 'the secret is never stored');
 
     const unsupportedScope = await fetchJson(`${baseUrl}/api/agent-connect/sessions`, {
       method: 'POST',

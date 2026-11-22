@@ -95,7 +95,7 @@ const renderSources =(sources = []) => (sources.length ? `
       <section class="card" id="sources">
         <h2>Sources</h2>
         <ol>${sources.map((source, index) => `
-          <li id="source-${index + 1}">${source.url
+          <li id="source-${index + 1}">${/^https?:\/\//.test(source.url || '')
             ? `<a href="${escapeHtml(source.url)}" rel="nofollow noopener">${escapeHtml(source.title || source.url)}</a>`
             : escapeHtml(source.title)}${source.snippet ? `<blockquote>${escapeHtml(source.snippet)}</blockquote>` : ''}</li>`).join('')}
         </ol>

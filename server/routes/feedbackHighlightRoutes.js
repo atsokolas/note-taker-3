@@ -28,7 +28,7 @@ const buildFeedbackHighlightRouter = ({
   router.post('/api/feedback', async (req, res) => {
     try {
       const { message, rating, email, source, kind, title, pageUrl, userAgent } = req.body || {};
-      const trimmedMessage = (message || '').trim();
+      const trimmedMessage = String(message || '').trim().slice(0, 5000);
       if (!trimmedMessage) {
         return res.status(400).json({ error: "Feedback message is required." });
       }
@@ -41,7 +41,7 @@ const buildFeedbackHighlightRouter = ({
         title: String(title || '').trim().slice(0, 180),
         pageUrl: String(pageUrl || '').trim().slice(0, 500),
         userAgent: String(userAgent || '').trim().slice(0, 500),
-        source: source || 'web-app',
+        source: String(source || 'web-app').slice(0, 80),
         userId: req.user?.id || null
       });
       await feedback.save();
