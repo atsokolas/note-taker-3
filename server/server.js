@@ -11,6 +11,8 @@ const upload = require('./services/import/upload');
 const { buildHostedMcpRouter, parseHostedMcpBody } = require('./routes/hostedMcpRoutes');
 const crypto = require('crypto');
 const { ensureWorkspace } = require('./utils/workspaceUtils');
+const { requestTiming, timeMongoose } = require('./utils/requestTiming');
+const { refuseQueryOperators } = require('./utils/refuseQueryOperators');
 const {
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
@@ -39,13 +41,8 @@ const PORT = process.env.PORT || 3000;
 // Where the server reaches its own API, as an agent would: the hosted MCP and the built-in agent.
 const internalApiUrl = process.env.NOEIS_MCP_INTERNAL_API_URL || `http://127.0.0.1:${PORT}`;
 
-app.use((req, res, next) => {
-  const requestId = req.headers['x-request-id'] || crypto.randomUUID();
-  req.requestId = requestId;
-  res.setHeader('X-Request-Id', requestId);
-  console.log(`[REQ] ${requestId} ${req.method} ${req.originalUrl}`);
-  next();
-});
+timeMongoose();
+app.use(requestTiming);
 
 app.use(cors());
 
@@ -58,6 +55,7 @@ app.use(buildChatgptOAuthIngress());
 app.use('/mcp', parseHostedMcpBody);
 app.use(express.json({ limit: '50mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(refuseQueryOperators);
 
 // Which build is actually serving traffic?
 //

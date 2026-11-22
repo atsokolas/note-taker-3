@@ -102,6 +102,7 @@ test('a tool round goes to Claude as tool_use and tool_result, and its call come
   assert.deepStrictEqual(sent.body.tools, [{ name: 'search_library', description: 'Search', input_schema: tools[0].function.parameters }]);
   assert.deepStrictEqual(sent.body.tool_choice, { type: 'auto' });
   assert.deepStrictEqual(sent.body.thinking, { type: 'disabled' });
+  assert.deepStrictEqual(sent.body.cache_control, { type: 'ephemeral' });
   assert.strictEqual(sent.body.max_tokens, 1200);
   assert.strictEqual(sent.body.temperature, undefined);
 

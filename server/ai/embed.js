@@ -4,6 +4,9 @@
    threshold tuned against them, stay valid. That route went dark when the
    Hugging Face balance ran out, and a sleeping Render service in front of it
    added a forty-second wake-up to the first search after any quiet period. */
+
+const { timed } = require('../utils/requestTiming');
+
 const DEFAULT_EMBEDDING_MODEL = 'sentence-transformers/all-minilm-l6-v2';
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -99,14 +102,16 @@ const embedTexts = async (texts = [], { rateLimitCooldownMs = DEFAULT_RATE_LIMIT
   return vectors;
 };
 
+const timedEmbedTexts = (texts, options) => timed('ai', () => embedTexts(texts, options));
+
 const embedText = async (text, options = {}) => {
-  const [vector] = await embedTexts([text], options);
+  const [vector] = await timedEmbedTexts([text], options);
   return vector;
 };
 
 module.exports = {
   embedText,
-  embedTexts,
+  embedTexts: timedEmbedTexts,
   isEmbeddingConfigured,
   EmbeddingError,
   DEFAULT_EMBEDDING_MODEL,
