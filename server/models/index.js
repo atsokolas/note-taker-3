@@ -253,8 +253,8 @@ const articleSchema = new mongoose.Schema({
      your sentence as they stand, until you take it back. Empty when not lent. */
   lentAs: { type: String, default: '' },
   /* Placement is the Hey pile. Keep is forever and orthogonal. Later is owed
-     a move; set aside is at hand this week; stream is home. The agent may not
-     write this. */
+     a move; set aside is at hand this week; stream is home. Agents may move
+     piles too (place_article), as they may delete what they wrote. */
   placement: { type: String, enum: ['stream', 'later', 'setAside'], default: 'stream', index: true },
   placementAt: { type: Date, default: null },
   placementReason: { type: String, default: '', trim: true },
