@@ -77,7 +77,7 @@ const articleSchema = new mongoose.Schema({
     /* The printed page, for a mark made at the reading desk. A Kindle mark
        has a location instead, kept where its import put it. */
     page: { type: Number, min: 1 },
-    importMeta: { type: importMetaSchema, default: () => ({}) },
+    importMeta: { type: importMetaSchema, default: /** @returns {object} */ () => ({}) },
     pencil: { type: pencilSchema, default: null }
   }],
   pencil: { type: pencilSchema, default: null },
@@ -85,7 +85,7 @@ const articleSchema = new mongoose.Schema({
   author: { type: String, default: '' },
   publicationDate: { type: String, default: '' },
   siteName: { type: String, default: '' },
-  importMeta: { type: importMetaSchema, default: () => ({}) },
+  importMeta: { type: importMetaSchema, default: /** @returns {object} */ () => ({}) },
   /* Evergreen: the reader's own declaration that this one is permanent.
      Everything else in the product is measured against a clock — what changed
      overnight, what has gone unread, what is drifting. Some reading is not
@@ -251,7 +251,7 @@ const dropLegacyConnectionIndex = async () => {
   try {
     await Connection.collection.dropIndex(legacyIndexName);
     console.log(`ℹ️ Dropped legacy connection index: ${legacyIndexName}`);
-  } catch (error) {
+  } catch (/** @type {any} */ error) {
     if (error?.codeName === 'IndexNotFound' || error?.code === 27) return;
     console.warn('⚠️ Unable to drop legacy connection index:', error?.message || error);
   }

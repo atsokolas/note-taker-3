@@ -28,11 +28,11 @@ const userAgentProtocolPolicySchema = new mongoose.Schema({
   preferByoSpecialists: { type: Boolean, default: true },
   hooks: { type: userAgentProtocolHooksPolicySchema, default: () => ({}) },
   taskOverrides: {
-    research: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) },
-    synthesis: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) },
-    restructure: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) },
-    qa: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) },
-    custom: { type: userAgentProtocolTaskOverrideSchema, default: () => ({}) }
+    research: { type: userAgentProtocolTaskOverrideSchema, default: /** @returns {object} */ () => ({}) },
+    synthesis: { type: userAgentProtocolTaskOverrideSchema, default: /** @returns {object} */ () => ({}) },
+    restructure: { type: userAgentProtocolTaskOverrideSchema, default: /** @returns {object} */ () => ({}) },
+    qa: { type: userAgentProtocolTaskOverrideSchema, default: /** @returns {object} */ () => ({}) },
+    custom: { type: userAgentProtocolTaskOverrideSchema, default: /** @returns {object} */ () => ({}) }
   }
 }, { _id: false });
 

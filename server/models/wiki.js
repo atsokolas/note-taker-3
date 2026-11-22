@@ -742,6 +742,7 @@ const wikiPageSchema = new mongoose.Schema({
     default: 'private',
     index: true,
     validate: {
+      /** @this {{ createdFrom?: { label?: string } }} @param {string} value */
       validator(value) {
         return !(value === 'shared' && String(this.createdFrom?.label || '').startsWith('research-ledger:'));
       },
@@ -831,7 +832,7 @@ wikiPageSchema.post('save', function enqueueClaimEmbeddings(doc) {
     const { enqueueJudgmentEmbedding, enqueueWikiClaimEmbeddings } = require('../ai/embeddingJobs');
     enqueueJudgmentEmbedding(doc);
     enqueueWikiClaimEmbeddings(doc);
-  } catch (error) {
+  } catch (/** @type {any} */ error) {
     console.error('Failed to enqueue wiki semantic embeddings:', error.message);
   }
 });

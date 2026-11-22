@@ -420,7 +420,7 @@ const tagMetaSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: undefined,
-    set: (value) => {
+    set: (/** @type {unknown} */ value) => {
       const normalized = String(value || '').trim();
       return normalized || undefined;
     }
@@ -794,7 +794,7 @@ const SharedNotebook = mongoose.model('SharedNotebook', sharedNotebookSchema);
 /* Volumes and the reader letters left on shared notes, from when Think
    published. Nothing reads or writes them now; the models stay so account
    erasure still finds every row that belongs to a reader. */
-const retiredShareRows = (name) => mongoose.model(name, new mongoose.Schema({
+const retiredShareRows = (/** @type {string} */ name) => mongoose.model(name, new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true }));
 const SharedNotebookVolume = retiredShareRows('SharedNotebookVolume');

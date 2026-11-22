@@ -48,7 +48,7 @@ const importSessionSchema = new mongoose.Schema({
     sourceType: { type: String, default: '', trim: true },
     importStrategy: { type: String, default: '', trim: true },
     selectedIds: { type: [String], default: [] },
-    filters: { type: mongoose.Schema.Types.Mixed, default: () => ({}) }
+    filters: { type: mongoose.Schema.Types.Mixed, default: /** @returns {object} */ () => ({}) }
   },
   preview: {
     items: { type: Number, default: 0 },
