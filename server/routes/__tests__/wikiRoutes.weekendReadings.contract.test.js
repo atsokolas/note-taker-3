@@ -9,7 +9,10 @@ const {
   rejectAgentReservedWeekendReadingsCreation
 } = require('../wikiRoutes');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'wikiRoutes.js'), 'utf8');
+// The router and the modules it was split into, read as one.
+const source = ['routes/wikiRoutes.js', 'services/wikiPageShape.js', 'services/wikiPageFields.js', 'services/wikiSourceRefs.js']
+  .map(file => fs.readFileSync(path.join(__dirname, '..', '..', file), 'utf8'))
+  .join('\n');
 
 assert.match(source, /buildWeekendReadingsRouter/);
 assert.match(source, /router\.use\(buildWeekendReadingsRouter\(\{/);
