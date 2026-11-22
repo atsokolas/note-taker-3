@@ -1,4 +1,4 @@
-import { BOOK_SAYS, bookendsOf, readingsOf, completionFor, kindOf, lastTime, midThought, mostlyWhen, openQuestionsOf, pageNow, pagesOf, readLine, sittingLabel, sittingOf, sittingsOf, spineOf, tallyLine } from './bookDesk';
+import { BOOK_SAYS, bookendsOf, readingsOf, completionFor, kindOf, lastLine, lastTime, midThought, mostlyWhen, openQuestionsOf, pageNow, pagesOf, readLine, sittingLabel, sittingOf, sittingsOf, spineOf, tallyLine } from './bookDesk';
 
 const at = minutes => new Date(Date.UTC(2026, 9, 19, 21, minutes)).toISOString();
 const NOW = Date.UTC(2026, 9, 19, 22, 0);
@@ -62,6 +62,15 @@ test('last time is the last thing you wrote in your own words, or the last passa
     { page: 186, note: 'what you thought', createdAt: at(1) },
     { page: 190, note: `why stop here?\n\n${BOOK_SAYS}Because the war ends.`, createdAt: at(2) }
   ]).words).toBe('why stop here?');
+});
+
+test('a bare command is about the newest line kept, quote or note, never a fold', () => {
+  expect(lastLine([
+    { page: 186, note: 'is this just survivorship?', createdAt: at(1) },
+    { page: 188, text: 'A passage after it.', createdAt: at(2) },
+    { page: 189, tags: ['dog-ear'], createdAt: at(3) }
+  ])).toBe('A passage after it.');
+  expect(lastLine([])).toBe('');
 });
 
 test('a sitting is named by the hour of its newest mark', () => {

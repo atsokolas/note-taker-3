@@ -188,13 +188,20 @@ const ownWords = mark => ownParagraphs(mark.note).join(' ').match(WORD)?.length 
 
 /* Where you left off: the last thing you wrote in your own words, or the last
    passage you marked. Nothing when nothing was marked. */
+// A note written to over several sittings ends with the newest of them.
+const wordsOf = mark => (ownWords(mark) ? ownParagraphs(mark.note).pop() : mark.text);
+
 export const lastTime = (marks = []) => {
   const newest = [...marks].sort((a, b) => at(b) - at(a));
   const mark = newest.find(ownWords) || newest.find(found => found.text);
   if (!mark) return null;
-  // A note written to over several sittings ends with the newest of them.
-  const own = Boolean(ownWords(mark));
-  return { page: mark.page || null, words: own ? ownParagraphs(mark.note).pop() : mark.text, own };
+  return { page: mark.page || null, words: wordsOf(mark), own: Boolean(ownWords(mark)) };
+};
+
+/* The line a bare /argue or /who is about: the newest one kept, quote or note. */
+export const lastLine = (marks = []) => {
+  const mark = [...marks].sort((a, b) => at(b) - at(a)).find(found => found.text || ownWords(found));
+  return mark ? wordsOf(mark) : '';
 };
 
 /* The thought you fell asleep on: the last line of a sitting that ran past

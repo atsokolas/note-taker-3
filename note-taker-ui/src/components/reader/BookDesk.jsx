@@ -7,7 +7,7 @@ import { scopedKey } from '../../utils/browserScope';
 import { buildConceptPath } from '../../utils/sourceRoutes';
 import { pagePhoto } from '../../utils/pagePhoto';
 import {
-  DOG_EAR, completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastTime, markedBefore, midThought, monthOf, pageNow, pagesOf,
+  DOG_EAR, completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastLine, lastTime, markedBefore, midThought, monthOf, pageNow, pagesOf,
   readingSince, readLine, setDownOn, sittingLabel, sittingOf, tallyLine
 } from './bookDesk';
 import '../../styles/book-desk.css';
@@ -206,7 +206,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     const asked = COMMAND.exec(line.trim());
     if (asked) {
       setLine('');
-      await command(asked[1], line.trim().slice(asked[0].length) || lastTime(now)?.words || '');
+      await command(asked[1], line.trim().slice(asked[0].length) || lastLine(now));
       return;
     }
     const { page: turned, text, note, tags = [] } = readLine(line, page);
