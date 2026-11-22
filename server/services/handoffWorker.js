@@ -104,6 +104,8 @@ const workHandoff = async ({ handoffId, models: { Handoff, AgentToken }, apiUrl,
   const api = apiFor(apiUrl, secret);
   const finish = body => api(`/api/handoffs/${handoff._id}/finish`, { method: 'POST', body });
   const startedAt = now();
+  // Called off by the reader: it stops before the next thing it would do, and its connection goes with it.
+  const calledOff = () => Handoff.exists({ _id: handoff._id, cancelledAt: { $ne: null } });
   try {
     await api(`/api/handoffs/${handoff._id}/take`, { method: 'POST', body: {} });
     const page = pageOf(api, handoff.context);
@@ -129,6 +131,7 @@ const workHandoff = async ({ handoffId, models: { Handoff, AgentToken }, apiUrl,
     };
 
     for (let round = 0; round < ROUNDS && now() - startedAt < TIME_LIMIT_MS; round += 1) {
+      if (await calledOff()) return null;
       const completion = await chat({ route: 'artifact_draft', messages: conversation, tools: TOOLS, toolChoice: 'auto' });
       const calls = completion?.toolCalls || [];
       const done = calls.find(call => call.function?.name === 'finish');
@@ -136,6 +139,7 @@ const workHandoff = async ({ handoffId, models: { Handoff, AgentToken }, apiUrl,
       if (!calls.length) return await finish({ did: String(completion?.text || '').trim() || 'Stopped without a word.' });
       conversation.push({ role: 'assistant', content: completion.text || '', tool_calls: calls });
       for (const call of calls) {
+        if (await calledOff()) return null;
         const args = JSON.parse(call.function?.arguments || '{}');
         const result = await (run[call.function?.name] || (async () => ({ result: `Unknown tool ${call.function?.name}.` })))(args)
           .catch(error => ({ error: error.message }));
