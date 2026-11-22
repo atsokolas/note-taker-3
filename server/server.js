@@ -12,6 +12,7 @@ const { buildHostedMcpRouter, parseHostedMcpBody } = require('./routes/hostedMcp
 const crypto = require('crypto');
 const { ensureWorkspace } = require('./utils/workspaceUtils');
 const { requestTiming, timeMongoose } = require('./utils/requestTiming');
+const { refuseQueryOperators } = require('./utils/refuseQueryOperators');
 const {
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
@@ -54,6 +55,7 @@ app.use(buildChatgptOAuthIngress());
 app.use('/mcp', parseHostedMcpBody);
 app.use(express.json({ limit: '50mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(refuseQueryOperators);
 
 // Which build is actually serving traffic?
 //
