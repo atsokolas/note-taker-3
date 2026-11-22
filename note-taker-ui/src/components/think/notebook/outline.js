@@ -67,7 +67,9 @@ export const dropBranch = (points, from, before) => {
   const rest = [...points.slice(0, from), ...points.slice(end)];
   const at = before >= end ? before - branch.length : before;
   const depth = at < rest.length ? rest[at].depth : 0;
-  return [...rest.slice(0, at), ...shifted(branch, depth - branch[0].depth), ...rest.slice(at)];
+  const moved = shifted(branch, depth - branch[0].depth);
+  if (moved.some(point => point.depth > MAX_DEPTH)) return points;
+  return [...rest.slice(0, at), ...moved, ...rest.slice(at)];
 };
 
 /** Enter: a new point under an open point that has children, otherwise after its branch. */

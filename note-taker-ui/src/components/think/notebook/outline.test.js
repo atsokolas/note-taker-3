@@ -47,6 +47,8 @@ describe('the outline beside a draft', () => {
     expect(texts(dropBranch(essay(), 3, 2))).toEqual(['Keeping', '  The act', '  Found by question', '    Smart Notes', '  By date', 'Coming back']);
     expect(texts(dropBranch(essay(), 0, 6))).toEqual(['Found by question', '  Smart Notes', 'Coming back', 'Keeping', '  The act', '  By date']);
     expect(dropBranch(essay(), 0, 1)).toEqual(essay());
+    const deep = outline(['A', 0], ['a', 1], ['B', 0], ['b1', 1], ['b2', 2], ['b3', 3], ['b4', 4], ['b5', 5]);
+    expect(dropBranch(deep, 0, 7)).toEqual(deep);
   });
 
   it('writes a branch out as a heading with pencil lines, and remembers the heading', () => {

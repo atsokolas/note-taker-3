@@ -49,7 +49,7 @@ import { resolveNotebookSource } from './notebookSourceModel';
 import useNotebookSourceEvergreen from './useNotebookSourceEvergreen';
 import NotebookArrangementRail from './NotebookArrangementRail';
 import NotebookWorkbenchPanel from './NotebookWorkbenchPanel';
-import NotebookOutline from './NotebookOutline';
+import NotebookOutline, { OUTLINE_DRAG } from './NotebookOutline';
 import NotebookAlternativesRail, { comparesPartnerWording } from './NotebookAlternativesRail';
 import useNotebookWorkbench from './useNotebookWorkbench';
 import useGhostQuote, { GhostQuote } from './useGhostQuote';
@@ -1953,6 +1953,8 @@ const NotebookEditor = ({
         tabIndex={editingBody ? -1 : 0}
         aria-label={editingBody ? undefined : 'Writing'}
         onClick={startEditingBody}
+        // A point carried over from the outline opens the page for writing, so it can land.
+        onDragEnter={(event) => { if (!editingBody && event.dataTransfer?.types?.includes(OUTLINE_DRAG)) setEditingBody(true); }}
         onFocus={(event) => {
           setBodyHasFocus(true);
           if (!editingBody && event.target === event.currentTarget) startEditingBody();
