@@ -23,7 +23,7 @@ const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 // Execute the actual, non-exported JWT middleware without starting server.js,
 // its production integrations, or background workers. Secret is disposable.
 const source = fs.readFileSync(path.resolve(__dirname, '../../server.js'), 'utf8');
-const authSource = source.slice(source.indexOf('const getCookieValue ='), source.indexOf('const oauthTokenOptions ='));
+const authSource = source.slice(source.indexOf('const readRequestToken ='), source.indexOf('const oauthTokenOptions ='));
 const jwtSecret = crypto.randomBytes(32).toString('hex');
 const humanAuth = vm.runInNewContext(`${authSource}\nauthenticateToken`, { jwt, process: { env: { JWT_SECRET: jwtSecret } }, console, User: require('../../models').User,
   require: name => { assert.equal(name, './services/accountAccessService'); return require('../../services/accountAccessService'); } });

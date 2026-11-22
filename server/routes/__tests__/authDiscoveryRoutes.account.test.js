@@ -18,7 +18,7 @@ const run = async () => {
   app.use(express.json());
   app.use(buildAuthDiscoveryRouter({
     bcrypt: { compare: async (value, hash) => `hashed:${value}` === hash, hash: async value => `hashed:${value}` },
-    jwt: {},
+    jwt: { sign: payload => `signed:${payload.id}` },
     User,
     authenticateToken: (req, _res, next) => { req.user = { id: req.headers['x-user'] }; next(); },
     Recommendation: {},
@@ -43,8 +43,11 @@ const run = async () => {
     assert.match((await weak.json()).error, /at least 8/);
     assert.strictEqual(accounts.u1.password, 'hashed:old1pass', 'a refused change changes nothing');
 
-    assert.strictEqual((await call('PUT', '/api/account/password', 'u1', { password: 'old1pass', newPassword: 'new1passw' })).status, 200);
+    const changed = await call('PUT', '/api/account/password', 'u1', { password: 'old1pass', newPassword: 'new1passw' });
+    assert.strictEqual(changed.status, 200);
+    assert.deepStrictEqual(await changed.json(), { changed: true, token: 'signed:u1' }, 'this browser carries on with a fresh sign-in');
     assert.strictEqual(accounts.u1.password, 'hashed:new1passw');
+    assert(accounts.u1.signedInSince <= new Date() && accounts.u1.signedInSince.getMilliseconds() === 0, 'every earlier sign-in ends now');
     console.log('authDiscoveryRoutes.account tests passed');
   } finally {
     server.close();

@@ -4376,29 +4376,11 @@ const buildGraphNodeMap = async (userId, idsByType = {}) => {
   return nodeMap;
 };
 // --- AUTHENTICATION ADDITIONS: JWT Verification Middleware ---
-const getCookieValue = (cookieHeader, name) => {
-  if (!cookieHeader) return '';
-  const parts = cookieHeader.split(';').map(part => part.trim());
-  const match = parts.find(part => part.startsWith(`${name}=`));
-  if (!match) return '';
-  return decodeURIComponent(match.slice(name.length + 1));
-};
-
+// A browser session is the bearer token the app sends; there is no cookie to ride along on.
 const readRequestToken = (req) => {
   const authHeader = req.headers['authorization'] || '';
-  const headerToken = authHeader.startsWith('Bearer ')
-    ? authHeader.slice(7).trim()
-    : '';
-  if (headerToken) return { token: headerToken, tokenSource: 'header' };
-  const cookieHeader = req.headers.cookie || '';
-  const cookieToken =
-    getCookieValue(cookieHeader, 'token') ||
-    getCookieValue(cookieHeader, 'authToken') ||
-    getCookieValue(cookieHeader, 'jwt');
-  return {
-    token: headerToken || cookieToken,
-    tokenSource: headerToken ? 'header' : (cookieToken ? 'cookie' : 'none')
-  };
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  return { token, tokenSource: token ? 'header' : 'none' };
 };
 
 const { buildAccountAccessCheck, buildBrowserAuthentication } = require('./services/accountAccessService');

@@ -75,6 +75,8 @@ const userSchema = new mongoose.Schema({
      (docs/noeis-support-erasure-runbook-2026-10-11.md), which finds the
      requests by this field. */
   accountDeletionRequestedAt: { type: Date, default: null },
+  // Sign-ins before this moment no longer open the account: a new password ends them.
+  signedInSince: { type: Date, default: null },
   agentProfile: { type: userAgentProfileSchema, default: () => ({}) },
   agentProtocolPolicy: { type: userAgentProtocolPolicySchema, default: () => ({}) },
   morningPaper: { type: morningPaperSettingsSchema, default: () => ({}) }

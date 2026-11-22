@@ -1,9 +1,11 @@
 // A signed credential proves identity, not that the account is still available.
 const buildAccountAccessCheck = ({ User }) => {
   if (!User?.exists) throw new Error('User.exists is required for account access checks.');
-  return async userId => {
+  // issuedAt (a sign-in's iat, in seconds) must also be no earlier than the last new password.
+  return async (userId, issuedAt = null) => {
     if (typeof userId !== 'string' || !/^[a-f\d]{24}$/i.test(userId)) return false;
-    return Boolean(await User.exists({ _id: userId, accountDisabledAt: null }));
+    const current = issuedAt === null ? {} : { $or: [{ signedInSince: null }, { signedInSince: { $lte: new Date(issuedAt * 1000) } }] };
+    return Boolean(await User.exists({ _id: userId, accountDisabledAt: null, ...current }));
   };
 };
 
@@ -25,7 +27,7 @@ const buildBrowserAuthentication = ({ readRequestToken, verifyToken, isAccountAc
       return res.status(401).json({ error: error.name === 'TokenExpiredError' ? 'AUTH_EXPIRED' : 'AUTH_INVALID' });
     }
     try {
-      if (!await isAccountActive(user?.id)) {
+      if (!await isAccountActive(user?.id, user?.iat ?? null)) {
         return res.status(401).json({ error: 'AUTH_INVALID' });
       }
     } catch (_error) {

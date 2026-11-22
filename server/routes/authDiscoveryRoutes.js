@@ -83,6 +83,7 @@ const buildAuthDiscoveryRouter = ({
   loginThrottle = createLoginThrottle()
 }) => {
   const router = express.Router();
+  const signIn = user => jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
   router.post('/api/auth/register', async (req, res) => {
     try {
@@ -140,17 +141,7 @@ const buildAuthDiscoveryRouter = ({
         return res.status(401).json({ error: 'That username and password do not match.' });
       }
       loginThrottle.clear(username, req.ip);
-
-      const token = jwt.sign(
-        { id: user._id, username: user.username },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      res.clearCookie('token');
-      res.clearCookie('authToken');
-      res.clearCookie('jwt');
-      res.status(200).json({ token, username: user.username, userId: user._id });
+      res.status(200).json({ token: signIn(user), username: user.username, userId: user._id });
     } catch (error) {
       console.error("❌ Error logging in user:", error);
       res.status(500).json({ error: "Internal server error.", details: error.message });
@@ -183,8 +174,10 @@ const buildAuthDiscoveryRouter = ({
       if (!isMatch) return res.status(401).json({ error: 'That is not your current password.' });
       const validation = validateRegistration({ username: user.username, password: req.body?.newPassword });
       if (validation.error) return res.status(400).json({ error: validation.error });
-      await User.updateOne({ _id: user._id }, { $set: { password: await bcrypt.hash(validation.password, 10) } });
-      return res.status(200).json({ changed: true });
+      // Every other sign-in ends with the old password; this one carries on with a new token.
+      const signedInSince = new Date(Math.floor(Date.now() / 1000) * 1000);
+      await User.updateOne({ _id: user._id }, { $set: { password: await bcrypt.hash(validation.password, 10), signedInSince } });
+      return res.status(200).json({ changed: true, token: signIn(user) });
     } catch (error) {
       console.error('Error changing password:', error);
       return res.status(500).json({ error: 'Internal server error.' });
