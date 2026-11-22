@@ -1,5 +1,6 @@
 const { DEFAULT_ANTHROPIC_TEXT_MODEL, requestAnthropic } = require('./anthropicClient');
 const { spend } = require('./modelBudget');
+const { timed } = require('../utils/requestTiming');
 
 const DEFAULT_TEXT_MODEL = 'openai/gpt-oss-120b';
 const DEFAULT_PROVIDER = 'groq';
@@ -1400,8 +1401,8 @@ const chatCompleteRouterStream = async ({
 };
 
 module.exports = {
-  chatComplete,
-  chatCompleteStream,
+  chatComplete: input => timed('ai', () => chatComplete(input)),
+  chatCompleteStream: input => timed('ai', () => chatCompleteStream(input)),
   getConfig,
   isClaudeConfigured,
   isTextGenerationConfigured,

@@ -30,13 +30,13 @@ const MAX_REDIRECTS = 3;
 /* Every address that is not the public internet. IPv4 rules also catch the
    same address written as IPv6 (::ffff:7f00:1); NAT64, 6to4 and Teredo carry
    an IPv4 address inside, so they are refused whole. */
-const NOT_PUBLIC = [
+const NOT_PUBLIC = /** @type {[string, number][]} */ ([
   ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16],
   ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15],
   ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 3],
   ['::', 96], ['64:ff9b::', 96], ['64:ff9b:1::', 48], ['100::', 64], ['2001::', 32], ['2001:db8::', 32],
   ['2002::', 16], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8]
-].reduce((list, [network, prefix]) => {
+]).reduce((list, [network, prefix]) => {
   list.addSubnet(network, prefix, net.isIPv4(network) ? 'ipv4' : 'ipv6');
   return list;
 }, new net.BlockList());
@@ -49,8 +49,9 @@ const isPrivateAddress = (address = '') => {
 
 /* The check happens on the address the socket actually dials, so a name that
    answers public to the check and private to the connection gets nowhere. */
+/** @param {string} hostname @param {{ all?: boolean }} options @param {Function} callback */
 const publicLookup = (hostname, options, callback) => {
-  dns.lookup(hostname, { ...options, all: true }, (error, addresses) => {
+  dns.lookup(hostname, { ...options, all: true }, (error, /** @type {dns.LookupAddress[]} */ addresses) => {
     if (error) return callback(error);
     if (!addresses.length || addresses.some(row => isPrivateAddress(row.address))) {
       return callback(Object.assign(new Error(`${hostname} does not resolve only to public addresses.`), { code: 'ENOTPUBLIC' }));
@@ -154,13 +155,13 @@ const requestPublic = async ({
     signal?.addEventListener('abort', () => controller.abort(), { once: true });
     let response;
     try {
-      response = await fetchImpl(current, {
+      response = await fetchImpl(current, /** @type {RequestInit} */ ({
         method,
         redirect: 'manual',
         dispatcher: pinnedToPublic,
         signal: controller.signal,
         headers: { Accept: accept, 'User-Agent': userAgent }
-      });
+      }));
     } finally {
       clearTimeout(timer);
     }

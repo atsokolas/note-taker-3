@@ -73,6 +73,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Server boots
         run: node scripts/boot_check.js
+      - name: No new type errors
+        run: npm run typecheck
       - name: Server tests (every node-style file and jest suite)
         run: npm run test:server
       - uses: actions/upload-artifact@v4

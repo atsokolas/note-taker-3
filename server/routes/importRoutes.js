@@ -3209,7 +3209,7 @@ const buildImportRouter = ({
       });
     } catch (error) {
       console.error('Notion preview failed:', error);
-      await patchImportSession({
+      const failedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -3472,7 +3472,7 @@ const buildImportRouter = ({
       res.status(200).json(resultPayload);
     } catch (error) {
       console.error('Notion sync failed:', error);
-      await patchImportSession({
+      const failedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {

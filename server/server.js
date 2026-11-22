@@ -11,6 +11,8 @@ const upload = require('./services/import/upload');
 const { buildHostedMcpRouter, parseHostedMcpBody } = require('./routes/hostedMcpRoutes');
 const crypto = require('crypto');
 const { ensureWorkspace } = require('./utils/workspaceUtils');
+const { requestTiming, timeMongoose } = require('./utils/requestTiming');
+const { refuseQueryOperators } = require('./utils/refuseQueryOperators');
 const {
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
@@ -41,15 +43,8 @@ const PORT = process.env.PORT || 3000;
 // Where the server reaches its own API, as an agent would: the hosted MCP and the built-in agent.
 const internalApiUrl = process.env.NOEIS_MCP_INTERNAL_API_URL || `http://127.0.0.1:${PORT}`;
 
-app.use((req, res, next) => {
-  // The path only: query strings carry OAuth codes and states, and a caller's id is kept only if it is plainly an id.
-  const offered = String(req.headers['x-request-id'] || '');
-  const requestId = /^[\w.-]{1,64}$/.test(offered) ? offered : crypto.randomUUID();
-  req.requestId = requestId;
-  res.setHeader('X-Request-Id', requestId);
-  console.log(`[REQ] ${requestId} ${req.method} ${req.path}`);
-  next();
-});
+timeMongoose();
+app.use(requestTiming);
 
 app.use(cors());
 
@@ -65,6 +60,7 @@ app.use('/mcp', parseHostedMcpBody);
 const BODY_LIMIT = '16mb';
 app.use(express.json({ limit: BODY_LIMIT, verify: (req, _res, buf) => { if (req.path === '/api/import/email') req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
+app.use(refuseQueryOperators);
 
 // Which build is actually serving traffic?
 //

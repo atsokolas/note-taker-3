@@ -112,7 +112,7 @@ const createDossierBuildRun = async ({
 // so they cannot all fit under the cap.
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-const dossierBuildAllowance = async ({ WikiMaintenanceRun, userId, pageId = null, run = null, now = new Date() } = {}) => {
+const dossierBuildAllowance = async ({ WikiMaintenanceRun = null, userId = null, pageId = null, run = null, now = new Date() } = {}) => {
   const limit = Number(process.env.DOSSIER_WEEKLY_BUILD_LIMIT ?? 3);
   if (!(limit > 0) || !WikiMaintenanceRun?.find) return { allowed: true };
   if (pageId && await WikiMaintenanceRun.exists({ pageId, 'metadata.kind': BUILD_KIND, status: 'running' })) {
