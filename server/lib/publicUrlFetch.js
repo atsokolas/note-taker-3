@@ -1,5 +1,6 @@
-const dns = require('dns').promises;
+const dns = require('dns');
 const net = require('net');
+const { Agent } = require('undici');
 
 /**
  * Fetching a URL the reader supplied, safely.
@@ -26,29 +27,38 @@ const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_DEADLINE_MS = 20000;
 const MAX_REDIRECTS = 3;
 
-const isPrivateIpv4 = (address = '') => {
-  const octets = String(address).split('.').map(Number);
-  if (octets.length !== 4 || octets.some(value => !Number.isInteger(value) || value < 0 || value > 255)) return true;
-  const [a, b] = octets;
-  return a === 0 || a === 10 || a === 127 || a >= 224
-    || (a === 100 && b >= 64 && b <= 127)
-    || (a === 169 && b === 254)
-    || (a === 172 && b >= 16 && b <= 31)
-    || (a === 192 && b === 168)
-    || (a === 198 && (b === 18 || b === 19));
-};
+/* Every address that is not the public internet. IPv4 rules also catch the
+   same address written as IPv6 (::ffff:7f00:1); NAT64, 6to4 and Teredo carry
+   an IPv4 address inside, so they are refused whole. */
+const NOT_PUBLIC = [
+  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16],
+  ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15],
+  ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 3],
+  ['::', 96], ['64:ff9b::', 96], ['64:ff9b:1::', 48], ['100::', 64], ['2001::', 32], ['2001:db8::', 32],
+  ['2002::', 16], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8]
+].reduce((list, [network, prefix]) => {
+  list.addSubnet(network, prefix, net.isIPv4(network) ? 'ipv4' : 'ipv6');
+  return list;
+}, new net.BlockList());
 
 const isPrivateAddress = (address = '') => {
-  const value = String(address || '').trim().toLowerCase();
-  if (!value) return true;
-  if (net.isIPv4(value)) return isPrivateIpv4(value);
-  if (!net.isIPv6(value)) return true;
-  if (value === '::' || value === '::1') return true;
-  /* An IPv4-mapped address is an IPv4 address wearing a hat. */
-  const mapped = value.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isPrivateIpv4(mapped[1]);
-  return /^(fc|fd|fe8|fe9|fea|feb)/.test(value);
+  const value = String(address || '').trim();
+  const family = net.isIP(value);
+  return !family || NOT_PUBLIC.check(value, family === 4 ? 'ipv4' : 'ipv6');
 };
+
+/* The check happens on the address the socket actually dials, so a name that
+   answers public to the check and private to the connection gets nowhere. */
+const publicLookup = (hostname, options, callback) => {
+  dns.lookup(hostname, { ...options, all: true }, (error, addresses) => {
+    if (error) return callback(error);
+    if (!addresses.length || addresses.some(row => isPrivateAddress(row.address))) {
+      return callback(Object.assign(new Error(`${hostname} does not resolve only to public addresses.`), { code: 'ENOTPUBLIC' }));
+    }
+    return options.all ? callback(null, addresses) : callback(null, addresses[0].address, addresses[0].family);
+  });
+};
+const pinnedToPublic = new Agent({ connect: { lookup: publicLookup } });
 
 const refuse = (message) => {
   const error = new Error(message);
@@ -57,7 +67,7 @@ const refuse = (message) => {
 };
 
 /** The URL, proven public, or the reason it is not. */
-const validatePublicUrl = async (value, { lookup = dns.lookup, subject = 'This URL' } = {}) => {
+const validatePublicUrl = async (value, { lookup = dns.promises.lookup, subject = 'This URL' } = {}) => {
   let parsed;
   try {
     parsed = new URL(String(value || '').trim());
@@ -71,7 +81,7 @@ const validatePublicUrl = async (value, { lookup = dns.lookup, subject = 'This U
     || (parsed.port && parsed.protocol === 'https:' && parsed.port !== '443')) {
     return refuse(`${subject} must use the standard HTTP(S) port.`);
   }
-  const host = parsed.hostname.toLowerCase();
+  const host = parsed.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1');
   if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) {
     return refuse(`${subject} must resolve to a public host.`);
   }
@@ -132,7 +142,7 @@ const requestPublic = async ({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   signal = null,
   fetchImpl = global.fetch,
-  lookup = dns.lookup
+  lookup = dns.promises.lookup
 } = {}) => {
   if (typeof fetchImpl !== 'function') throw new Error('fetch is not available.');
   let current = await validatePublicUrl(url, { lookup, subject });
@@ -147,6 +157,7 @@ const requestPublic = async ({
       response = await fetchImpl(current, {
         method,
         redirect: 'manual',
+        dispatcher: pinnedToPublic,
         signal: controller.signal,
         headers: { Accept: accept, 'User-Agent': userAgent }
       });
