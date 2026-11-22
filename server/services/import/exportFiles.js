@@ -621,8 +621,18 @@ const unwrapMail = (text = '') => {
    chapters become one article, kept to the tags a reader needs, addressed
    like any other book so its Kindle or Readwise highlights find it. */
 
+/* What a whole book may inflate to. A zip can point every entry at one
+   tiny stream that inflates to gigabytes; past this the book is refused. */
+const BOOK_BYTES = 64 * 1024 * 1024;
+
 const unzip = (buffer) => {
   const files = new Map();
+  let left = BOOK_BYTES;
+  const inflate = (data) => {
+    const out = zlib.inflateRawSync(data, { maxOutputLength: Math.max(1, left) });
+    left -= out.length;
+    return out;
+  };
   const end = buffer.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
   if (end < 0) return files;
   let at = buffer.readUInt32LE(end + 16);
@@ -634,23 +644,42 @@ const unzip = (buffer) => {
     const name = buffer.toString('utf8', at + 46, at + 46 + nameLength);
     const start = local + 30 + buffer.readUInt16LE(local + 26) + buffer.readUInt16LE(local + 28);
     const data = buffer.subarray(start, start + size);
-    files.set(name, () => (method === 8 ? zlib.inflateRawSync(data) : data).toString('utf8'));
+    files.set(name, () => (method === 8 ? inflate(data) : data).toString('utf8'));
     at += 46 + nameLength + buffer.readUInt16LE(at + 30) + buffer.readUInt16LE(at + 32);
   }
   return files;
 };
 
 const READER_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'em', 'i', 'strong', 'b', 'blockquote', 'ul', 'ol', 'li', 'br', 'hr', 'pre', 'code', 'sup', 'sub']);
-const readerHtml = (xhtml = '') => (/<body[^>]*>([\s\S]*)<\/body>/i.exec(xhtml) || [, xhtml])[1]
-  .replace(/<(script|style|svg)[\s\S]*?<\/\1>/gi, '')
-  .replace(/<\/?([a-z][a-z0-9]*)[^>]*>/gi, (tag, name) => {
+// Cut whole elements with indexOf: a lazy regex rescans to the end from each unclosed tag.
+const without = (html, name) => {
+  const lower = html.toLowerCase();
+  let kept = '';
+  let at = 0;
+  for (let open = lower.indexOf(`<${name}`, at); open >= 0; open = lower.indexOf(`<${name}`, at)) {
+    const close = lower.indexOf(`</${name}>`, open);
+    kept += html.slice(at, open);
+    at = close < 0 ? html.length : close + name.length + 3;
+  }
+  return kept + html.slice(at);
+};
+
+const bodyOf = (xhtml) => {
+  const lower = xhtml.toLowerCase();
+  const start = lower.indexOf('>', lower.indexOf('<body'));
+  const end = lower.lastIndexOf('</body>');
+  return lower.includes('<body') && start < end ? xhtml.slice(start + 1, end) : xhtml;
+};
+
+const readerHtml = (xhtml = '') => ['script', 'style', 'svg'].reduce(without, bodyOf(xhtml))
+  .replace(/<\/?([a-z][a-z0-9]*)[^<>]*>/gi, (tag, name) => {
     const lower = name.toLowerCase();
     return READER_TAGS.has(lower) ? `<${tag[1] === '/' ? '/' : ''}${lower}>` : '';
   })
   .replace(/\s+/g, ' ')
   .trim();
 
-const parseEpub = (buffer) => {
+const readEpub = (buffer) => {
   const files = unzip(buffer);
   const read = name => (files.get(name) || (() => ''))();
   const packagePath = (/full-path="([^"]+)"/.exec(read('META-INF/container.xml')) || [])[1] || '';
@@ -662,8 +691,7 @@ const parseEpub = (buffer) => {
     (/\bid="([^"]+)"/.exec(item) || [])[1],
     (/\bhref="([^"]+)"/.exec(item) || [])[1]
   ]));
-  const chapters = [...opf.matchAll(/<itemref\b[^>]*\bidref="([^"]+)"/gi)]
-    .map(([, id]) => hrefs.get(id))
+  const chapters = [...new Set([...opf.matchAll(/<itemref\b[^>]*\bidref="([^"]+)"/gi)].map(([, id]) => hrefs.get(id)))]
     .filter(Boolean)
     .map(href => readerHtml(read(base + decodeURIComponent(href))))
     .filter(Boolean);
@@ -671,6 +699,16 @@ const parseEpub = (buffer) => {
     sources: [{ ...bookSource({ provider: EPUB, title: meta('title'), author: meta('creator') }), content: chapters.join('\n') }],
     skipped: 0
   };
+};
+
+// A book that would inflate past BOOK_BYTES is skipped like any unreadable file.
+const parseEpub = (buffer) => {
+  try {
+    return readEpub(buffer);
+  } catch (error) {
+    if (error.code === 'ERR_BUFFER_TOO_LARGE') return { sources: [], skipped: 1 };
+    throw error;
+  }
 };
 
 /* ---------- PDF ----------
