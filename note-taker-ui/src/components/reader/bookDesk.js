@@ -150,7 +150,7 @@ export const pageNow = (marks = []) => (
   [...marks].filter(mark => mark.page).sort((a, b) => at(b) - at(a))[0]?.page || null
 );
 
-const counted = (n, one, many = `${one}s`) => (n ? `${n} ${n === 1 ? one : many}` : '');
+export const counted = (n, one, many = `${one}s`) => (n ? `${n} ${n === 1 ? one : many}` : '');
 
 /* A run of marks as a receipt: the pages it covered and what was written.
    Tonight's sitting at the desk, or a whole book on the shelf. */
@@ -200,6 +200,19 @@ export const midThought = (marks = []) => {
   const words = ownParagraphs(mark.note).pop();
   return ENDED.test(words) ? null : { mark, words };
 };
+
+/* When the sittings of a book mostly began, on your clock, if most of them
+   began in one stretch of the day. */
+const STRETCHES = [[MORNING, 'after 10 PM'], [12, 'in the mornings'], [18, 'in the afternoons'], [22, 'in the evenings'], [24, 'after 10 PM']];
+const stretchOf = mark => STRETCHES.find(([until]) => new Date(mark.createdAt).getHours() < until)[1];
+export const mostlyWhen = (sittings = []) => {
+  const began = sittings.map(run => stretchOf(run[0]));
+  return began.length > 2 ? began.find(stretch => began.filter(other => other === stretch).length * 2 > began.length) || '' : '';
+};
+
+/* A question is open until the book answers it under your words. */
+export const openQuestionsOf = (marks = []) => marks.filter(mark => kindOf(mark) === 'question'
+  && !String(mark.note).split(/\n\n/).some(part => part.startsWith(BOOK_SAYS)));
 
 /* A finished book's bookends: the first thing you marked in it and the last,
    in its words or yours, and how many words of your own you wrote beside it. */

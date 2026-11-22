@@ -636,3 +636,15 @@
     color: #555;
   }
 }
+
+/* The colophon as a printer sets one: the day it was finished in spaced
+   capitals, and the imprint under the sentence in the book's own italic. */
+.books__colophon .books__stamp {
+  letter-spacing: 0.22em;
+  color: var(--ink-human, var(--text));
+}
+
+.books__colophon .books__imprint {
+  display: block;
+  font: italic 0.95rem/1.5 var(--font-serif);
+}
