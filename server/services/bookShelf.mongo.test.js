@@ -27,7 +27,8 @@ test('real Mongo: books Readwise left in the Library go onto the shelf, into the
     const article = await Article.create({ userId, url: 'https://example.com/essay', title: 'An essay', highlights: [{ text: 'Not a book.' }] });
     const moved = duplicate.highlights[1]._id;
 
-    assert.equal(await shelveBooks({ Article, userId }), 2);
+    // Two tabs open Books at once: each mark still lands once.
+    assert.deepEqual(await Promise.all([shelveBooks({ Article, userId }), shelveBooks({ Article, userId })]), [2, 2]);
 
     const shelf = await Article.find({ userId, url: BOOK_URL }).sort({ title: 1 });
     assert.deepEqual(shelf.map(book => book.title), ['Middlemarch', 'The Power Broker']);
@@ -43,6 +44,13 @@ test('real Mongo: books Readwise left in the Library go onto the shelf, into the
     assert.deepEqual(stray.highlights.map(mark => mark.text || mark.note), ['Power is not only what you have!', 'Why roads first']);
     assert.equal((await Article.findById(article._id)).url, 'https://example.com/essay');
     assert.equal(await shelveBooks({ Article, userId }), 0, 'shelving twice changes nothing');
+
+    // A shelving cut short after the marks moved, before the stray was put away, finishes next time.
+    const halfMoved = await Article.create({ userId, url: 'https://readwise.io/bookreview/103', title: 'The Power Broker', highlights: [{ text: 'Moses never forgot.' }] });
+    await Article.updateOne({ _id: desk._id }, { $push: { highlights: halfMoved.highlights[0].toObject() } });
+    assert.equal(await shelveBooks({ Article, userId }), 1);
+    assert.equal((await Article.findById(desk._id)).highlights.filter(mark => mark.text === 'Moses never forgot.').length, 1);
+    assert.equal((await Article.findById(halfMoved._id)).archived, true);
   } finally {
     await mongoose.disconnect();
     await mongo.stop();

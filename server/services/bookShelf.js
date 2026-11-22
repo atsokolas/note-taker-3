@@ -80,7 +80,10 @@ const sameMark = mark => (mark.text ? sameWords(mark.text) : `note:${sameWords(m
 /* Every book Readwise left in the Library goes onto the shelf: into the book
    already there by that title, its marks moving with their ids and the stray
    kept (hidden) pointing at the book, so links to it open the book; or else
-   under a book's own address. */
+   under a book's own address.
+   Two shelvings at once, or one cut short, must not copy a mark twice: the
+   marks go into the book only if none of them is there yet, and a stray left
+   behind half moved finds its marks already shelved next time and is put away. */
 const shelveBooks = async ({ Article, userId }) => {
   const strays = await Article.find({ userId, url: READWISE_BOOK_PAGE, archived: { $ne: true } });
   if (!strays.length) return 0;
@@ -89,21 +92,23 @@ const shelveBooks = async ({ Article, userId }) => {
     const book = bookSource({ provider: 'readwise', title: stray.title, author: stray.author });
     const known = bookOnShelf(shelf, book);
     if (!known) {
-      stray.url = book.url;
-      await stray.save();
-      shelf.push(stray);
+      await Article.updateOne({ _id: stray._id }, { $set: { url: book.url } });
+      shelf.push(Object.assign(stray, { url: book.url }));
       continue;
     }
     const marked = new Set(known.highlights.map(sameMark));
-    const moving = stray.highlights.filter(mark => !marked.has(sameMark(mark)));
-    known.highlights.push(...moving.map(mark => mark.toObject()));
-    stray.highlights = stray.highlights.filter(mark => !moving.includes(mark));
-    known.author ||= stray.author;
-    stray.mergedInto = known._id;
-    stray.archived = true;
-    stray.hiddenFromHome = true;
-    await known.save();
-    await stray.save();
+    const moving = stray.highlights.filter(mark => !marked.has(sameMark(mark))).map(mark => mark.toObject());
+    const ids = moving.map(mark => mark._id);
+    if (moving.length) {
+      await Article.updateOne(
+        { _id: known._id, 'highlights._id': { $nin: ids } },
+        { $push: { highlights: { $each: moving } }, ...(known.author ? {} : { $set: { author: stray.author } }) }
+      );
+    }
+    await Article.updateOne(
+      { _id: stray._id },
+      { $pull: { highlights: { _id: { $in: ids } } }, $set: { mergedInto: known._id, archived: true, hiddenFromHome: true } }
+    );
   }
   return strays.length;
 };
