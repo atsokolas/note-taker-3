@@ -240,6 +240,19 @@ const run = async () => {
   assert.equal((await dossierBuildAllowance({ WikiMaintenanceRun: Weekly, userId: 'u1', pageId: 'running-page', now })).allowed, true);
   started.pop();
   assert.equal((await dossierBuildAllowance({ WikiMaintenanceRun: Weekly, userId: 'u1', now })).allowed, true);
+
+  // Builds started at once all exist before they are counted: the first three
+  // of the week go ahead and the fourth, though it saw room, does not.
+  const week = ['a', 'b', 'c', 'd'].map(id => ({ _id: id, startedAt: new Date('2026-07-25T11:00:00Z') }));
+  const Racing = { exists: async () => false, find: () => { const chain = { sort: () => chain, limit: n => { chain.n = n; return chain; }, select: () => chain, lean: async () => week.slice(0, chain.n) }; return chain; } };
+  const verdicts = await Promise.all(week.map(run => dossierBuildAllowance({ WikiMaintenanceRun: Racing, userId: 'u1', run, now })));
+  assert.deepEqual(verdicts.map(verdict => verdict.allowed), [true, true, true, false]);
+
+  // A worker whose build was declared dead cannot save over it.
+  const Lease = function Lease(fields) { Object.assign(this, fields); };
+  Lease.prototype.save = async function save() { return this; };
+  const { run: leased } = await createDossierBuildRun({ WikiMaintenanceRun: Lease, page: { _id: 'p9', createdFrom: { label: 'company-dossier:ACME' } }, userId: 'u1', now });
+  assert.deepEqual(leased.$where, { status: 'running' });
 };
 
 run()

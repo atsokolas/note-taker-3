@@ -48,6 +48,9 @@ const createDossierBuildRun = async ({
   });
   try {
     await run.save();
+    // From here every save of this run checks it is still running, so a worker
+    // whose build was declared dead cannot carry on writing or mark it done.
+    run.$where = { status: 'running' };
     return { run, acquired: true };
   } catch (error) {
     if (Number(error?.code) !== 11000 || !WikiMaintenanceRun.findOne) throw error;
@@ -104,9 +107,12 @@ const createDossierBuildRun = async ({
 // A dossier build reads every filing with the writer model, so an account gets
 // a few a week (DOSSIER_WEEKLY_BUILD_LIMIT, 0 for none). An interrupted build
 // and its resume count once, and rejoining a page's running build is free.
+// Asked again with the run just started, it says whether that run is one of
+// the week's first few: builds started at the same moment all exist by then,
+// so they cannot all fit under the cap.
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-const dossierBuildAllowance = async ({ WikiMaintenanceRun, userId, pageId = null, now = new Date() } = {}) => {
+const dossierBuildAllowance = async ({ WikiMaintenanceRun, userId, pageId = null, run = null, now = new Date() } = {}) => {
   const limit = Number(process.env.DOSSIER_WEEKLY_BUILD_LIMIT ?? 3);
   if (!(limit > 0) || !WikiMaintenanceRun?.find) return { allowed: true };
   if (pageId && await WikiMaintenanceRun.exists({ pageId, 'metadata.kind': BUILD_KIND, status: 'running' })) {
@@ -117,8 +123,8 @@ const dossierBuildAllowance = async ({ WikiMaintenanceRun, userId, pageId = null
     'metadata.kind': BUILD_KIND,
     'metadata.interrupted': { $ne: true },
     startedAt: { $gte: new Date(now.getTime() - WEEK_MS) }
-  }).sort({ startedAt: 1 }).limit(limit).select('startedAt').lean();
-  if (runs.length < limit) return { allowed: true };
+  }).sort({ startedAt: 1, _id: 1 }).limit(limit).select('startedAt').lean();
+  if (run ? runs.some(row => String(row._id) === String(run._id)) : runs.length < limit) return { allowed: true };
   const opensAt = new Date(new Date(runs[0].startedAt).getTime() + WEEK_MS);
   return {
     allowed: false,

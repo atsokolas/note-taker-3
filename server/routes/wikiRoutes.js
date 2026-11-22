@@ -7868,6 +7868,15 @@ const buildWikiRouter = ({
         res.end();
         return;
       }
+      if (dossierBuildClaim?.acquired) {
+        const allowance = await dossierBuildAllowance({ WikiMaintenanceRun, userId: req.user.id, run: dossierBuildRun });
+        if (!allowance.allowed) {
+          await WikiMaintenanceRun.deleteOne({ _id: dossierBuildRun._id });
+          writeSse(res, 'error', { error: allowance.error, code: 'DOSSIER_WEEKLY_LIMIT', opensAt: allowance.opensAt });
+          res.end();
+          return;
+        }
+      }
       if (dossierBuildClaim?.acquired && !activeWikiDraftStreams.has(activeStreamKey)) {
         activeWikiDraftStreams.set(activeStreamKey, Date.now());
         ownsActiveStreamKey = true;
