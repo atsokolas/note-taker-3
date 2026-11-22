@@ -32,8 +32,11 @@ const timeMongoose = () => {
     const exec = proto.exec;
     proto.exec = function timedExec(...args) { return timed('db', () => exec.apply(this, args)); };
   });
+  // Model.create calls the $save alias, so both names get the one timed save.
   const save = mongoose.Model.prototype.save;
-  mongoose.Model.prototype.save = function timedSave(...args) { return timed('db', () => save.apply(this, args)); };
+  mongoose.Model.prototype.save = mongoose.Model.prototype.$save = function timedSave(...args) {
+    return timed('db', () => save.apply(this, args));
+  };
 };
 
 const summarize = (ledger, total) => [
