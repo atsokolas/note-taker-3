@@ -84,6 +84,18 @@ const buildAuthDiscoveryRouter = ({
   loginThrottle = createLoginThrottle()
 }) => {
   const router = express.Router();
+  /* Wherever a password is checked, wrong tries count against the same
+     throttle, and a name with no account takes as long to refuse as one with. */
+  const NO_ACCOUNT = '$2b$10$WWvhvjo3q0l/E3nXUdEdKOFVvCFEhAwaCFvbkQN9LH8qebhNGYtvq';
+  const passwordFits = async (user, password, name, ip) => {
+    const fits = await bcrypt.compare(String(password || ''), user?.password || NO_ACCOUNT);
+    if (fits && user && !user.accountDisabledAt) {
+      loginThrottle.clear(name, ip);
+      return true;
+    }
+    loginThrottle.fail(name, ip);
+    return false;
+  };
   const signIn = user => jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
   router.post('/api/auth/register', async (req, res) => {
@@ -136,12 +148,9 @@ const buildAuthDiscoveryRouter = ({
       }
 
       const user = await findByUsername(User, username);
-      const isMatch = Boolean(user && !user.accountDisabledAt && await bcrypt.compare(String(password), user.password));
-      if (!isMatch) {
-        loginThrottle.fail(username, req.ip);
+      if (!await passwordFits(user, password, username, req.ip)) {
         return res.status(401).json({ error: 'That username and password do not match.' });
       }
-      loginThrottle.clear(username, req.ip);
       res.status(200).json({ token: signIn(user), username: user.username, userId: user._id });
     } catch (error) {
       console.error("❌ Error logging in user:", error);
@@ -171,8 +180,8 @@ const buildAuthDiscoveryRouter = ({
     try {
       const user = await User.findById(req.user.id);
       if (!user || user.accountDisabledAt) return res.status(404).json({ error: 'Account not found.' });
-      const isMatch = await bcrypt.compare(String(req.body?.password || ''), user.password);
-      if (!isMatch) return res.status(401).json({ error: 'That is not your current password.' });
+      if (loginThrottle.blocked(user.username, req.ip)) return res.status(429).json({ error: 'Too many tries. Wait fifteen minutes and try again.' });
+      if (!await passwordFits(user, req.body?.password, user.username, req.ip)) return res.status(401).json({ error: 'That is not your current password.' });
       const validation = validateRegistration({ username: user.username, password: req.body?.newPassword });
       if (validation.error) return res.status(400).json({ error: validation.error });
       // Every other sign-in ends with the old password; this one carries on with a new token.
@@ -197,8 +206,8 @@ const buildAuthDiscoveryRouter = ({
       if (!user || user.accountDisabledAt) {
         return res.status(404).json({ error: 'Account not found.' });
       }
-      const isMatch = await bcrypt.compare(String(req.body?.password || ''), user.password);
-      if (!isMatch) {
+      if (loginThrottle.blocked(user.username, req.ip)) return res.status(429).json({ error: 'Too many tries. Wait fifteen minutes and try again.' });
+      if (!await passwordFits(user, req.body?.password, user.username, req.ip)) {
         return res.status(401).json({ error: 'That password is not right.' });
       }
       const now = new Date();

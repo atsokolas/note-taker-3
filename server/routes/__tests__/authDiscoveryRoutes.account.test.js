@@ -48,6 +48,11 @@ const run = async () => {
     assert.deepStrictEqual(await changed.json(), { changed: true, token: 'signed:u1' }, 'this browser carries on with a fresh sign-in');
     assert.strictEqual(accounts.u1.password, 'hashed:new1passw');
     assert(accounts.u1.signedInSince <= new Date() && accounts.u1.signedInSince.getMilliseconds() === 0, 'every earlier sign-in ends now');
+    // A borrowed session cannot guess the current password without end.
+    for (let tries = 0; tries < 10; tries += 1) {
+      assert.strictEqual((await call('PUT', '/api/account/password', 'u1', { password: 'guess', newPassword: 'new2passw' })).status, 401);
+    }
+    assert.strictEqual((await call('PUT', '/api/account/password', 'u1', { password: 'new1passw', newPassword: 'new2passw' })).status, 429);
     console.log('authDiscoveryRoutes.account tests passed');
   } finally {
     server.close();

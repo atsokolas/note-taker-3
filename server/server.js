@@ -42,10 +42,12 @@ const PORT = process.env.PORT || 3000;
 const internalApiUrl = process.env.NOEIS_MCP_INTERNAL_API_URL || `http://127.0.0.1:${PORT}`;
 
 app.use((req, res, next) => {
-  const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+  // The path only: query strings carry OAuth codes and states, and a caller's id is kept only if it is plainly an id.
+  const offered = String(req.headers['x-request-id'] || '');
+  const requestId = /^[\w.-]{1,64}$/.test(offered) ? offered : crypto.randomUUID();
   req.requestId = requestId;
   res.setHeader('X-Request-Id', requestId);
-  console.log(`[REQ] ${requestId} ${req.method} ${req.originalUrl}`);
+  console.log(`[REQ] ${requestId} ${req.method} ${req.path}`);
   next();
 });
 
