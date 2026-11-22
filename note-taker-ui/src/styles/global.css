@@ -83,6 +83,7 @@ a:hover {
 
 /* Pencil: what an agent wrote, before the reader takes it up. */
 .pencil-line { display: flex; align-items: baseline; gap: 12px; margin: 0 0 14px; color: var(--text-secondary); font: italic 0.88rem/1.4 var(--font-serif); }
+.pencil-card { font: normal 0.78rem var(--font-sans); letter-spacing: 0.02em; }
 .pencil-line button { padding: 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--text-primary); font: normal 0.78rem var(--font-sans); cursor: pointer; }
 .handoff-open { padding: 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: var(--text-secondary); font: 0.78rem var(--font-sans); cursor: pointer; }
 .handoff-open:hover, .handoff-open:focus-visible { border-bottom-color: currentColor; color: var(--text-primary); }

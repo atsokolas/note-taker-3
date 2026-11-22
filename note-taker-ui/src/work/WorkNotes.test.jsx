@@ -10,7 +10,7 @@ runInNovember2026();
 
 jest.mock('react-router-dom', () => {
   const React = require('react');
-  return { useNavigate: () => jest.fn(), useSearchParams: () => {
+  return { Link: ({ to, children, ...rest }) => <a href={to} {...rest}>{children}</a>, useNavigate: () => jest.fn(), useSearchParams: () => {
     const [search, setSearch] = React.useState(() => global.window.location.search);
     const set = React.useCallback(next => setSearch(new URLSearchParams(next).toString()), []);
     React.useEffect(() => { const moved = () => setSearch(global.window.location.search); global.window.addEventListener('popstate', moved); return () => global.window.removeEventListener('popstate', moved); }, []);

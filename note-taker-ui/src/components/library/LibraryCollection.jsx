@@ -475,7 +475,7 @@ export default function LibraryCollection({
                     {row.placementReason && row.placement !== 'stream' ? (
                       <p className="library-source-why">{row.placementReason}</p>
                     ) : null}
-                    <Pencil pencil={row.pencil} verb="saved this" onInk={() => ink(row)} />
+                    <Pencil pencil={row.pencil} did="Saved" onInk={() => ink(row)} />
                     {waitedLong ? (
                       <p className="library-still">
                         Still want this?{' '}
