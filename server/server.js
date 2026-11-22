@@ -1129,9 +1129,11 @@ const parseOptionalDate = (value) => {
   return parsed;
 };
 
-const getAgentBridgeJwtSecret = () => (
-  String(process.env.AGENT_BRIDGE_SECRET || process.env.JWT_SECRET || '').trim() || 'note-taker-agent-bridge-dev-secret'
-);
+const getAgentBridgeJwtSecret = () => {
+  const secret = String(process.env.AGENT_BRIDGE_SECRET || process.env.JWT_SECRET || '').trim();
+  if (!secret) throw new Error('AGENT_BRIDGE_SECRET or JWT_SECRET must be set.');
+  return secret;
+};
 
 const safeBridgeTokenTtlSeconds = (value, fallback = DEFAULT_BRIDGE_TOKEN_TTL_SECONDS) => {
   const parsed = Number(value);

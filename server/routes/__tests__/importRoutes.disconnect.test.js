@@ -1,3 +1,5 @@
+// Connection tokens are kept only under a configured secret; this one is disposable.
+process.env.INTEGRATION_SECRET ||= 'synthetic-integration-test-secret';
 const assert = require('assert');
 const { buildImportRouter } = require('../importRoutes');
 const { encryptSecret } = require('../../utils/integrationSecrets');
