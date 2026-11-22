@@ -251,7 +251,7 @@ const Remember = ({ label, onKeep }) => {
    what was written beside it, what is still open, the sentence kept, and
    each time it was read before. Yours under your desk, or a friend's copy
    lent to you. The face is read off the page itself, so it is always true. */
-const faceOf = node => (node ? getComputedStyle(node).getPropertyValue('--font-serif').split(',')[0].replace(/["']|\s+Variable$/g, '').trim() : '');
+export const faceOf = node => (node ? getComputedStyle(node).getPropertyValue('--font-serif').split(',')[0].replace(/["']|\s+Variable$/g, '').trim() : '');
 
 export const Colophon = ({ book, marks, line, whose = 'your', children }) => {
   const page = useRef(null);
@@ -498,15 +498,7 @@ const Lend = ({ book, onChange }) => {
    flat as its strip of marks, so where each one got you shows across the
    year at a glance. A book read twice that year stands twice. Nothing when
    no book was finished in it. */
-export const YearShelf = ({ year }) => {
-  const [books, setBooks] = useState([]);
-  useEffect(() => {
-    let cancelled = false;
-    listBooks()
-      .then(found => { if (!cancelled) setBooks(found); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+export const YearShelf = ({ year, books }) => {
   const read = books.flatMap(book => readingsOf(book, book.marks)
     .filter(reading => reading.finishedOn.startsWith(String(year)))
     .map(reading => ({ ...reading, book, spine: spineOf(reading.marks) })))
