@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { getEdition } from '../../api/editions';
-import { latestOf, newCountOf, plural } from '../../pages/editionModel';
+import { hasNew, latestOf } from '../../pages/editionModel';
 import EditionFrontPage from './EditionFrontPage';
 import EditionNewsstand from './EditionNewsstand';
 import { readEditionLocal, writeEditionLocal } from './editionReadingState';
 
 const VIEWS = { front: 'Front page', stand: 'Newsstand' };
 
-/* The answer to "anything for me?", in one line. Unknown says nothing. */
+/* The answer to "anything for me?", in one line, by name and never by
+   number. Unknown says nothing. */
 const newsLine = (papers) => {
-  const counts = papers.map(paper => newCountOf(paper.issues));
-  if (counts.every(count => count === null)) return '';
-  const total = counts.reduce((sum, count) => sum + (count || 0), 0);
-  return total ? `${plural(total, 'new finding')} across ${plural(counts.filter(Boolean).length, 'paper')}` : 'Every paper read';
+  const said = papers.filter(paper => hasNew(paper.issues) !== null);
+  if (!said.length) return '';
+  const fresh = said.filter(paper => hasNew(paper.issues)).map(paper => paper.title);
+  return fresh.length ? `Something new in ${new Intl.ListFormat('en').format(fresh)}` : 'Every paper read';
 };
 
 /* Each paper's newest issue, opened, since both views print what is inside.

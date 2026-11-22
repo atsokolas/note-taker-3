@@ -211,7 +211,7 @@ it('sets every paper as one front page, led by the finding with the most you can
   expect(screen.getAllByText('Updated Tue, Oct 6', { exact: false })[0]).toBeVisible();
   expect(screen.getByText('recovered 46.7%').tagName).toBe('BLOCKQUOTE');
   expect(screen.getByRole('link', { name: 'A useful distinction' })).toHaveAttribute('href', '/editions/e1?item=one');
-  expect(screen.getByText(/2 new findings across 1 paper/)).toBeVisible();
+  expect(screen.getByText('Something new in Weekend Readings')).toBeVisible();
   expect(screen.getByRole('link', { name: /Back to where you stopped/ })).toHaveAttribute('href', '/editions/e1?item=one');
   expect(screen.getByRole('link', { name: /Power through/ })).toHaveAttribute('href', '/editions?power=1');
   fireEvent.keyDown(document, { key: ']' });
@@ -225,7 +225,10 @@ it('turns the stand into a newsstand of covers, and back', async () => {
   const cover = await screen.findByRole('link', { name: /This Week in AI.*46\.7%/ });
   expect(cover).toHaveAttribute('href', '/editions?open=ai');
   expect(within(cover).getByText('Competence is not recovery')).toBeVisible();
-  expect(within(screen.getByRole('link', { name: /Weekend Readings/ })).getByText('2 new')).toBeVisible();
+  /* New is said by name, ahead of the date, and nothing ever covers the date. */
+  const weekend = screen.getByRole('link', { name: /Weekend Readings/ });
+  expect(within(weekend).getByText('New ·')).toBeVisible();
+  expect(weekend.querySelector('.stand__issue')).toHaveTextContent(/^New · Edition 2/);
   expect(screen.getByRole('button', { name: 'Newsstand' })).toHaveAttribute('aria-pressed', 'true');
   fireEvent.click(screen.getByRole('button', { name: 'Front page' }));
   expect(screen.getByRole('heading', { name: 'The Noeis Edition' })).toBeVisible();

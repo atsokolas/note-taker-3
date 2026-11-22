@@ -76,6 +76,8 @@ const Landing = () => {
         <Link to="/guides">Guides</Link>
         <Link to="/examples">Examples</Link>
         <a href="/skill.md">Connect an agent</a>
+        <Link to="/changelog">What changed</Link>
+        <Link to="/manifesto">No unread counts</Link>
         <Link to="/privacy">Privacy</Link>
         <Link to="/terms">Terms</Link>
       </footer>

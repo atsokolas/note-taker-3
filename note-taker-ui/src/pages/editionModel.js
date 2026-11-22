@@ -361,12 +361,13 @@ export const runGrid = (paper = null) => {
 };
 
 /**
- * What is new on a run, or null when no issue said. Unknown is not zero: a
- * paper whose counts never arrived prints nothing rather than "0 new".
+ * Whether a run holds anything you have not read, or null when no issue said.
+ * Unknown is not "nothing new". Never a number: Noeis keeps no unread counts
+ * (see /manifesto).
  */
-export const newCountOf = (issues = []) => {
-  const counted = (issues || []).map(issue => issue?.newCount).filter(Number.isFinite);
-  return counted.length ? counted.reduce((sum, n) => sum + n, 0) : null;
+export const hasNew = (issues = []) => {
+  const said = (issues || []).map(issue => issue?.newCount).filter(Number.isFinite);
+  return said.length ? said.some(Boolean) : null;
 };
 
 /* Every hand on an item: the agent that filed it, then any that read the same

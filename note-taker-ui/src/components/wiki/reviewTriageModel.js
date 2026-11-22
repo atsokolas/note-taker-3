@@ -55,8 +55,7 @@ export const needsReview = (page) => {
 export const reviewReason = (page) => {
   if (isJudgmentPage(page)) return 'Judgment page · owner decision at stake';
   if (page?.lastVisitedAt) return 'Frequently used page · review affects active work';
-  const drift = driftCount(page);
-  if (drift) return `${drift} new source signal${drift === 1 ? '' : 's'}`;
+  if (driftCount(page)) return 'New sources bear on this page';
   return 'Material review available';
 };
 

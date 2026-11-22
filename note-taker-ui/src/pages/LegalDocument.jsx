@@ -5,7 +5,7 @@ import useSeoMetadata from '../hooks/useSeoMetadata';
 import legalContent from './legalContent.json';
 
 // Approved copy uses only plain paragraphs and Markdown links.
-const Paragraph = ({ text }) => (
+export const Paragraph = ({ text }) => (
   <p>{text.split(/(\[[^\]]+\]\([^)]+\))/g).map((part, index) => {
     const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
     if (!link) return part;

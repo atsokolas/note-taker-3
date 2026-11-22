@@ -1,6 +1,6 @@
 import {
   aheadLine, barsOf, byHand, byPaper, bySection, costLine, datelineLine, handsOf,
-  issueLine, newCountOf, passageHref, publicSourceHref, sourceLine, sourceNote, sureLine, watchThreads,
+  issueLine, hasNew, passageHref, publicSourceHref, sourceLine, sourceNote, sureLine, watchThreads,
   runGrid, sectionTones, standLayout, stateOf, windowLine, frontPage, coverFigure, updatedLine, dekOf
 } from './editionModel';
 
@@ -234,10 +234,10 @@ describe('one paper’s run', () => {
     expect(runGrid(null)).toEqual({ sections: [], rows: [] });
   });
 
-  it('adds up what is new, and says nothing when no issue counted', () => {
-    expect(newCountOf([{ newCount: 2 }, { newCount: 0 }, {}])).toBe(2);
-    expect(newCountOf([{ newCount: 0 }])).toBe(0);
-    expect(newCountOf([{}, {}])).toBeNull();
+  it('says whether anything is new, never how much, and nothing when no issue said', () => {
+    expect(hasNew([{ newCount: 2 }, { newCount: 0 }, {}])).toBe(true);
+    expect(hasNew([{ newCount: 0 }])).toBe(false);
+    expect(hasNew([{}, {}])).toBeNull();
   });
 
   it('colours counter-evidence red and the rest in profile order', () => {
