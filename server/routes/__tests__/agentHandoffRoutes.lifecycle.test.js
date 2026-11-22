@@ -97,6 +97,8 @@ test('a handoff needs a title and a real due date', async () => {
   try {
     assert.equal((await app.call('', { objective: 'no title' })).status, 400);
     assert.equal((await app.call('', { title: 'Soon', dueAt: 'not a date' })).status, 400);
+    assert.deepEqual(await app.call('', { title: { $gt: '' } }), { status: 400, body: { error: 'title must be text.' } });
+    assert.equal((await app.call('', { title: 'Ok', context: 'not an object' })).status, 400);
     assert.equal(app.AgentHandoff.rows.length, 0);
   } finally { await app.close(); }
 });

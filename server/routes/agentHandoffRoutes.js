@@ -1,4 +1,18 @@
 const express = require('express');
+const { shaped, record, z } = require('../utils/requestShape');
+
+const actorShape = z.object({ actorType: z.string().optional(), actorId: z.string().optional() }).passthrough();
+const handoffShape = z.object({
+  title: z.string().max(1000).optional(),
+  objective: z.string().max(20000).nullish(),
+  taskType: z.string().nullish(),
+  priority: z.string().nullish(),
+  dueAt: z.string().nullish(),
+  context: record().nullish(),
+  input: record().nullish(),
+  createdBy: actorShape.nullish(),
+  requestedActor: actorShape.nullish()
+});
 
 const buildAgentHandoffRouter = ({
   mongoose,
@@ -147,7 +161,7 @@ const buildAgentHandoffRouter = ({
     result
   });
 
-  router.post('/api/agent/protocol/handoffs', authenticateToken, async (req, res) => {
+  router.post('/api/agent/protocol/handoffs', authenticateToken, shaped({ body: handoffShape }), async (req, res) => {
     try {
       const payload = normalizeHandoffPayload(req.body || {});
       const title = String(payload.title || '').trim();

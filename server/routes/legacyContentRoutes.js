@@ -1,4 +1,5 @@
 const express = require('express');
+const { shaped, z } = require('../utils/requestShape');
 const { serializeHighlightWithArticle } = require('../utils/highlightUtils');
 const { deriveImportedTitle } = require('../services/importTitleService');
 const { pencilOf } = require('../services/agentTokenService');
@@ -15,6 +16,12 @@ const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
 const { sameName } = require('../utils/sameName');
 
 const ARTICLE_PLACEMENTS = new Set(['stream', 'later', 'setAside']);
+
+const noteShape = z.object({
+  title: z.string().max(500).optional(),
+  content: z.string().nullish(),
+  checklist: z.array(z.object({ text: z.unknown(), done: z.unknown() }).passthrough()).max(500).nullish()
+});
 /* Opens closer together than this are one visit. */
 const VISIT_GAP_MS = 30 * 60 * 1000;
 
@@ -117,7 +124,7 @@ const buildLegacyContentRouter = ({
     }
   });
 
-  router.post('/api/notes', authenticateToken, async (req, res) => {
+  router.post('/api/notes', authenticateToken, shaped({ body: noteShape }), async (req, res) => {
     try {
       const userId = req.user.id;
       const { title, content, checklist } = req.body;
@@ -141,7 +148,7 @@ const buildLegacyContentRouter = ({
     }
   });
 
-  router.patch('/api/notes/:id', authenticateToken, async (req, res) => {
+  router.patch('/api/notes/:id', authenticateToken, shaped({ body: noteShape }), async (req, res) => {
     try {
       const userId = req.user.id;
       const { id } = req.params;
@@ -333,7 +340,7 @@ const buildLegacyContentRouter = ({
     }
   });
 
-  router.post('/folders', authenticateToken, async (req, res) => {
+  router.post('/folders', authenticateToken, shaped({ body: z.object({ name: z.string().max(200).optional() }) }), async (req, res) => {
     try {
       const { name } = req.body;
       const userId = req.user.id;
@@ -762,7 +769,7 @@ const buildLegacyContentRouter = ({
     }
   });
 
-  router.patch('/articles/:id/move', authenticateToken, async (req, res) => {
+  router.patch('/articles/:id/move', authenticateToken, shaped({ body: z.object({ folderId: z.string().nullish() }) }), async (req, res) => {
     try {
       const { id } = req.params;
       const { folderId } = req.body;

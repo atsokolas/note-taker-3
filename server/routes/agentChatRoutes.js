@@ -1,4 +1,5 @@
 const express = require('express');
+const { shaped, record, z } = require('../utils/requestShape');
 const {
   trackHarnessEvent,
   trackRunLifecycleEvents
@@ -9,6 +10,16 @@ const {
   planLibraryStructureProposal: defaultPlanLibraryStructureProposal,
   persistLibraryStructureProposal: defaultPersistLibraryStructureProposal
 } = require('../services/agentStructurePlanningService');
+
+const chatShape = z.object({
+  message: z.string().optional(),
+  threadId: z.string().nullish(),
+  context: record().nullish(),
+  history: z.array(record()).max(200).nullish(),
+  limit: z.number().nullish(),
+  approveBundleId: z.string().nullish(),
+  skillInvocation: record().nullish()
+});
 
 const buildAgentChatRouter = ({
   authenticateToken,
@@ -472,7 +483,7 @@ const buildAgentChatRouter = ({
     };
   };
 
-  router.post('/api/agent/chat', authenticateToken, async (req, res) => {
+  router.post('/api/agent/chat', authenticateToken, shaped({ body: chatShape }), async (req, res) => {
     try {
       const loadedThread = await loadThread(String(req.user.id), req.body?.threadId);
       const { thread, chatContext, allowExecution } = bindChatTurn(loadedThread, req.body?.context);
@@ -582,7 +593,7 @@ const buildAgentChatRouter = ({
     }
   });
 
-  router.post('/api/agent/chat/stream', authenticateToken, async (req, res) => {
+  router.post('/api/agent/chat/stream', authenticateToken, shaped({ body: chatShape }), async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');

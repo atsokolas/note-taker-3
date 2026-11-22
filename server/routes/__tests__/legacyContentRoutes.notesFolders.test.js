@@ -80,6 +80,8 @@ test('a note needs a title, and a cleared title reads Untitled note', async () =
   const app = await start();
   try {
     assert.equal((await app.send('POST', '/api/notes', { title: '   ' })).status, 400);
+    assert.deepEqual(await app.send('POST', '/api/notes', { title: 7 }), { status: 400, body: { error: 'title must be text.' } }, 'once a 500 from title.trim()');
+    assert.equal((await app.send('POST', '/api/notes', { title: 'Ok', checklist: 'buy milk' })).status, 400);
     const created = await app.send('POST', '/api/notes', { title: '  Margins  ', checklist: [{ text: 'reread ch. 3' }] });
     assert.equal(created.status, 201);
     assert.equal(created.body.title, 'Margins');
