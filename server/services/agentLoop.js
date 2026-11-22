@@ -103,7 +103,7 @@ const runAgentLoop = async ({
   signal,
   // Told each thing the loop does while it works, so a reader waiting on the
   // answer sees what it is reading. Never shown any of the answer itself.
-  onStep = () => {}
+  onStep = _step => {}
 }) => {
   // Without a library to search (a published question answers only from what
   // was published), the turn answers from the passages it was given.

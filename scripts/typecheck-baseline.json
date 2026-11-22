@@ -1,5 +1,5 @@
 {
-  "server/agentEval/runEval.js": 2,
+  "server/agentEval/runEval.js": 1,
   "server/agentEval/score.js": 7,
   "server/ai/anthropicClient.js": 9,
   "server/ai/embeddingJobs.js": 48,
@@ -86,7 +86,6 @@
   "server/services/agentCapabilityBroker.js": 2,
   "server/services/agentGrounding.js": 3,
   "server/services/agentHarnessEvents.js": 6,
-  "server/services/agentLoop.js": 5,
   "server/services/agentModelRouter.js": 3,
   "server/services/agentProposalBundles.js": 36,
   "server/services/agentProposedChanges.js": 102,

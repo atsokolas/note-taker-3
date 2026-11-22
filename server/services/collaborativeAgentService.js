@@ -2223,7 +2223,7 @@ const generateCollaborativeReply = async ({
   premiumWebResearchAvailable = false,
   skillInvocation = {},
   signal = null,
-  onStep
+  onStep = undefined
 }) => {
   const userObjectId = toObjectId(userId);
   if (!userObjectId) throw createError(400, 'userId must be a valid ObjectId.');
