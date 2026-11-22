@@ -24,6 +24,7 @@ import {
   persistUiSettingsToStorage
 } from './settings/uiPreferences';
 import { formatAppearanceValue } from './settings/appearanceFieldModel';
+import { useRoomHours } from './settings/roomHours';
 import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
@@ -503,6 +504,7 @@ function App() {
     bootstrapDevTokenFromLocation() || hasUsableStoredToken()
   ));
   const [isLoading, setIsLoading] = useState(true);
+  useRoomHours();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const paletteReturnFocusRef = useRef(null);
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);

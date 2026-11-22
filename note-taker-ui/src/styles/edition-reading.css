@@ -477,3 +477,9 @@
   .stand__line { font-size: 14px; -webkit-line-clamp: 3; }
 }
 
+
+/* Sunday morning: the front page set as a broadsheet, wider, with its
+   masthead in full and the papers in three columns of type. */
+html[data-day='sunday-morning'] .front .front__masthead { font-size: clamp(52px, 7.4vw, 128px); letter-spacing: -.045em; }
+html[data-day='sunday-morning'] .front__papers { grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); column-rule: 1px solid var(--reading-rule); }
+html[data-day='sunday-morning'] .front__folio::after { content: ' · Sunday edition'; }

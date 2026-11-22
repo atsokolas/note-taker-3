@@ -104,3 +104,22 @@ a:hover {
 .while-away__wrote { margin: 12px 0 0; padding: 0; list-style: none; }
 .while-away__wrote li { padding: 6px 0 6px 12px; border-left: 2px solid transparent; }
 .while-away__wrote li.is-current { border-left-color: var(--text-secondary); }
+
+/* Lamplight: from midnight to five the page warms and its edges fall into
+   shadow, as under a reading lamp. Laid over the page, never under a click,
+   and never on paper. */
+html[data-hour='lamplight'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 35%, transparent 55%, color-mix(in srgb, var(--noeis-thread) 22%, transparent)),
+    color-mix(in srgb, var(--noeis-thread) 7%, transparent);
+  mix-blend-mode: multiply;
+}
+
+@media print {
+  html[data-hour='lamplight'] body::after { display: none; }
+}

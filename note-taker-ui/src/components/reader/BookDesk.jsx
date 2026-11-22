@@ -347,7 +347,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
             aria-label="Type a quote, a note or a question"
             enterKeyHint="send"
             value={line}
-            placeholder={setDown ? 'Why you stopped, or the next line' : unfinished ? 'The rest of that thought' : 'A quote, or what you think'}
+            placeholder={setDown ? 'Why you stopped, or the next line' : unfinished ? 'The rest of that thought' : sittingLabel(new Date()) === 'Past midnight' ? 'Still up? One more line, then bed.' : 'A quote, or what you think'}
             onChange={(event) => setLine(event.target.value)}
             onKeyDown={press}
           />
