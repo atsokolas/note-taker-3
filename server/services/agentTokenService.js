@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { CHATGPT_ACCESS_PROFILE, isChatgptRequestAllowed } = require('./chatgptAccessPolicy');
 const { runtimeLabel } = require('./agentRuntime');
+const { onBehalfOf } = require('../ai/modelBudget');
 
 const AGENT_TOKEN_PREFIX = 'ntk_at_';
 /* What each scope lets a token do. `capture` is a person's own desktop: it
@@ -197,7 +198,7 @@ const buildAuthenticateAgentToken = ({
         tokenSource: 'agent-token',
         scopes: req.agentToken.scopes
       };
-      return next();
+      return onBehalfOf(req.user.id, next);
     } catch (error) {
       return next(error);
     }

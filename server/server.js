@@ -34,6 +34,7 @@ const {
 
 dotenv.config();
 
+const { onBehalfOf } = require('./ai/modelBudget');
 const app = express();
 const PORT = process.env.PORT || 3000;
 // Where the server reaches its own API, as an agent would: the hosted MCP and the built-in agent.
@@ -56,8 +57,11 @@ const { buildChatgptOAuthIngress } = require('./services/chatgptOAuthIngress');
 app.use(buildChatgptOAuthIngress());
 // The raw bytes stay on the request for webhooks that sign them (email-in).
 app.use('/mcp', parseHostedMcpBody);
-app.use(express.json({ limit: '50mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Nothing bigger than one Mongo document (16 MB) can be kept, so nothing bigger is read.
+// Only the signed email webhook needs the bytes as they came.
+const BODY_LIMIT = '16mb';
+app.use(express.json({ limit: BODY_LIMIT, verify: (req, _res, buf) => { if (req.path === '/api/import/email') req.rawBody = buf; } }));
+app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 
 // Which build is actually serving traffic?
 //
@@ -4457,7 +4461,7 @@ async function authenticatePersonalAgentKey(req, res, next) {
       capabilities: normalizePersonalAgentCapabilities(personalAgent.capabilities || {}),
       preferredWorkerRoles: normalizePersonalAgentWorkerRoles(personalAgent.preferredWorkerRoles || [])
     };
-    next();
+    onBehalfOf(req.personalAgent.userId, next);
   } catch (error) {
     console.error('❌ Error authenticating personal agent key:', error);
     return res.status(500).json({ error: 'Failed to authenticate personal agent.' });

@@ -1,4 +1,6 @@
 // A signed credential proves identity, not that the account is still available.
+const { onBehalfOf } = require('../ai/modelBudget');
+
 const buildAccountAccessCheck = ({ User }) => {
   if (!User?.exists) throw new Error('User.exists is required for account access checks.');
   // issuedAt (a sign-in's iat, in seconds) must also be no earlier than the last new password.
@@ -35,7 +37,7 @@ const buildBrowserAuthentication = ({ readRequestToken, verifyToken, isAccountAc
     }
     req.user = user;
     req.authInfo = { tokenSource, iat: user.iat, exp: user.exp };
-    return next();
+    return onBehalfOf(user.id, next);
   };
 };
 
