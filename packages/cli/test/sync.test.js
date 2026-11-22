@@ -95,6 +95,14 @@ const run = async () => {
   const other = fakeNoeis('someone-else');
   await assert.rejects(syncFolder({ dir, client: other.client }), /another Noeis account/);
   assert.strictEqual(other.items.size, 0);
+
+  /* A server that names a file outside the folder gets nothing written there. */
+  const hostileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-sync-hostile-'));
+  const hostile = { request: async route => (route === '/api/agent-connection'
+    ? { workspace: { id: 'reader' } }
+    : { now: new Date().toISOString(), files: [{ kind: 'note', id: 'x'.repeat(24), path: '../escaped.md', updatedAt: new Date().toISOString(), markdown: '# Out\n' }] }) };
+  await assert.rejects(syncFolder({ dir: hostileDir, client: hostile }), /outside the folder/);
+  assert.ok(!fs.existsSync(path.join(hostileDir, '..', 'escaped.md')));
   console.log('sync tests passed');
 };
 
