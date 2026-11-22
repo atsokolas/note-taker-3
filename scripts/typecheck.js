@@ -23,6 +23,12 @@ const UNDEFINED_NAME = / error TS(2304|2552):/;
 const errorsByFile = () => {
   const tsc = spawnSync(process.execPath, [require.resolve('typescript/bin/tsc'), '-p', 'server/jsconfig.json', '--pretty', 'false'],
     { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  // A diagnostic without a file position means tsc could not check the project at all.
+  const fatal = tsc.status === null || tsc.stdout.split('\n').some(line => /^error TS\d+:/.test(line));
+  if (tsc.error || fatal) {
+    console.error(tsc.error?.message || tsc.stdout || `tsc stopped: ${tsc.signal}`);
+    process.exit(1);
+  }
   const counts = {};
   const lines = tsc.stdout.split('\n').filter(line => / error TS\d+:/.test(line));
   lines.forEach((line) => {
