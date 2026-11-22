@@ -62,7 +62,7 @@
   "server/routes/wikiClaimDispositionRoutes.js": 11,
   "server/routes/wikiRoutes.js": 281,
   "server/routes/workNoteRoutes.js": 9,
-  "server/server.js": 275,
+  "server/server.js": 266,
   "server/services/accountErasurePreparation.js": 9,
   "server/services/agentActionService.js": 1,
   "server/services/agentArtifactDrafts.js": 57,
@@ -228,5 +228,6 @@
   "server/services/workWeekEdition.js": 1,
   "server/utils/analytics.js": 5,
   "server/utils/notebookWorkbench.js": 1,
-  "server/utils/searchSnippet.js": 1
+  "server/utils/searchSnippet.js": 1,
+  "server/workers.js": 3
 }
