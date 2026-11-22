@@ -103,7 +103,7 @@ const buildHighlightMutationRouter = ({
       if (typed ? typed.length < 3 : !thought && !(page && normalizeTags(tags).length)) {
         return res.status(400).json({ error: "Highlight text is required." });
       }
-      if (captureId !== undefined && (typeof captureId !== 'string' || !/^[a-f0-9]{24}$/.test(captureId) || !typed || !anchor)) {
+      if (captureId !== undefined && (typeof captureId !== 'string' || !/^[a-f0-9]{24}$/.test(captureId))) {
         return res.status(400).json({ error: 'That saved passage is missing its capture details.' });
       }
 
