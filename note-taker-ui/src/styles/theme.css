@@ -1605,9 +1605,15 @@ button.connections-row {
   text-transform: none;
 }
 
-.connections-approval-card .agent-connect-authorize-card__code strong {
+.connections-approval-card .agent-connect-authorize-card__code input {
+  width: 9.5em;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
   font: 500 1.5rem/1 var(--font-mono, ui-monospace, monospace);
   letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .connections-approval-facts {

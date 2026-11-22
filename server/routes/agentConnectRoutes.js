@@ -3,7 +3,6 @@ const express = require('express');
 const { normalizeRuntime, runtimeLabel } = require('../services/agentRuntime');
 
 const CONNECT_SESSION_TTL_MS = 15 * 60 * 1000;
-const CONNECT_SECRET_DELIVERY_MS = 5 * 60 * 1000;
 const CONNECT_POLL_INTERVAL_SEC = 2;
 const { AGENT_TOKEN_SCOPE_SET } = require('../services/agentTokenService');
 
@@ -25,7 +24,6 @@ const sanitizeSession = (row = {}) => {
   const session = typeof row.toObject === 'function' ? row.toObject() : row;
   return {
     sessionId: session.sessionId || '',
-    deviceCode: session.deviceCode || '',
     runtime: session.runtime || 'agent',
     runtimeLabel: runtimeLabel(session.runtime),
     label: session.label || runtimeLabel(session.runtime),
@@ -98,7 +96,6 @@ const buildAgentConnectRouter = ({
   createAgentTokenSecret,
   hashAgentTokenSecret,
   normalizeAgentTokenScopes,
-  sanitizeAgentToken,
   defaultAppUrl = process.env.NOEIS_APP_URL || process.env.FRONTEND_URL || 'https://www.noeis.io',
   now = () => new Date()
 }) => {
@@ -132,7 +129,8 @@ const buildAgentConnectRouter = ({
       });
 
       res.status(201).json({
-        session: sanitizeSession(created),
+        // The code is the agent's to show; the approval page asks you to type it.
+        session: { ...sanitizeSession(created), deviceCode: created.deviceCode },
         pollSecret,
         authorizeUrl: buildAuthorizeUrl({ appUrl: requestedAppUrl, sessionId }),
         pollIntervalSec: CONNECT_POLL_INTERVAL_SEC
@@ -158,56 +156,32 @@ const buildAgentConnectRouter = ({
     }
   });
 
+  /* Approving is one atomic step on a pending request whose code you typed
+     from the agent, so a link alone approves nothing and two clicks approve once. */
   router.post('/api/agent-connect/sessions/:sessionId/approve', authenticateToken, async (req, res) => {
     try {
       const sessionId = String(req.params.sessionId || '').trim();
       const deviceCode = String(req.body?.deviceCode || '').trim().toUpperCase();
-      const pollSecret = String(req.body?.pollSecret || '').trim();
+      const approved = deviceCode && await AgentConnectSession.findOneAndUpdate(
+        { sessionId, deviceCode, status: 'pending', expiresAt: { $gt: now() } },
+        { $set: { status: 'approved', approvedUserId: req.user.id, approvedAt: now() } },
+        { new: true }
+      );
+      if (approved) return res.status(200).json({ session: sanitizeSession(approved) });
       const session = await markExpiredIfNeeded(await AgentConnectSession.findOne({ sessionId }), now());
       if (!session) return res.status(404).json({ error: 'Connection session not found.' });
       if (session.status !== 'pending') {
         return res.status(409).json({ error: `Connection session is ${session.status}.`, session: sanitizeSession(session) });
       }
-      const deviceCodeMatches = Boolean(deviceCode && deviceCode === String(session.deviceCode || '').toUpperCase());
-      const legacySecretMatches = Boolean(pollSecret && session.pollSecretHash === hashPollSecret(pollSecret));
-      if (!deviceCodeMatches && !legacySecretMatches) {
-        return res.status(403).json({ error: 'Connection verification code is invalid.' });
-      }
-
-      const secret = createAgentTokenSecret();
-      const token = await AgentToken.create({
-        userId: req.user.id,
-        label: String(session.label || runtimeLabel(session.runtime)).slice(0, 100),
-        runtime: session.runtime || 'agent',
-        connectionSessionId: session.sessionId,
-        hashedSecret: hashAgentTokenSecret(secret),
-        secretPrefix: `${secret.slice(0, 12)}...`,
-        scopes: normalizeAgentTokenScopes(session.scopes || ['read', 'agent-write']),
-        dailyQuota: null,
-        callsToday: 0,
-        quotaWindowStartedAt: new Date(Date.UTC(
-          now().getUTCFullYear(),
-          now().getUTCMonth(),
-          now().getUTCDate()
-        )),
-        expiresAt: null,
-        status: 'active'
-      });
-
-      session.status = 'approved';
-      session.tokenId = token._id;
-      session.tokenSecret = secret;
-      session.approvedUserId = req.user.id;
-      session.approvedAt = now();
-      await session.save();
-
-      res.status(200).json({ session: sanitizeSession(session), token: sanitizeAgentToken(token) });
+      return res.status(403).json({ error: 'That is not the code your agent shows.' });
     } catch (error) {
       console.error('❌ Error approving agent connect session:', error);
       res.status(500).json({ error: 'Failed to approve agent connection.' });
     }
   });
 
+  /* The token is made when the agent collects it, once, and its secret is
+     never stored: only its hash, like every other token. */
   router.post('/api/agent-connect/sessions/:sessionId/poll', async (req, res) => {
     try {
       const sessionId = String(req.params.sessionId || '').trim();
@@ -217,33 +191,28 @@ const buildAgentConnectRouter = ({
       if (!pollSecret || session.pollSecretHash !== hashPollSecret(pollSecret)) {
         return res.status(403).json({ error: 'Connection session secret is invalid.' });
       }
-      const payload = {
-        session: sanitizeSession(session),
-        pollIntervalSec: CONNECT_POLL_INTERVAL_SEC
-      };
-      if (session.status === 'approved') {
-        const currentTime = now();
-        const deliveredAt = session.deliveredAt ? new Date(session.deliveredAt) : null;
-        if (deliveredAt && currentTime.getTime() - deliveredAt.getTime() > CONNECT_SECRET_DELIVERY_MS) {
-          session.tokenSecret = '';
-          if (typeof session.save === 'function') await session.save();
-          return res.status(410).json({
-            error: 'Credential delivery window expired. Start a fresh connection request.',
-            session: sanitizeSession(session)
-          });
-        }
-        if (!session.tokenSecret) {
-          return res.status(410).json({
-            error: 'Credential is no longer available. Start a fresh connection request.',
-            session: sanitizeSession(session)
-          });
-        }
-        session.deliveredAt = session.deliveredAt || currentTime;
-        if (typeof session.save === 'function') await session.save();
-        payload.secret = session.tokenSecret;
-        payload.tokenId = session.tokenId ? String(session.tokenId) : '';
+      const payload = { session: sanitizeSession(session), pollIntervalSec: CONNECT_POLL_INTERVAL_SEC };
+      if (session.status !== 'approved') return res.status(200).json(payload);
+
+      const secret = createAgentTokenSecret();
+      const token = new AgentToken({
+        userId: session.approvedUserId,
+        label: String(session.label || runtimeLabel(session.runtime)).slice(0, 100),
+        runtime: session.runtime || 'agent',
+        connectionSessionId: session.sessionId,
+        hashedSecret: hashAgentTokenSecret(secret),
+        secretPrefix: `${secret.slice(0, 12)}...`,
+        scopes: normalizeAgentTokenScopes(session.scopes || ['read'])
+      });
+      const collected = await AgentConnectSession.findOneAndUpdate(
+        { _id: session._id, status: 'approved', tokenId: null, expiresAt: { $gt: now() } },
+        { $set: { tokenId: token._id, deliveredAt: now() } }
+      );
+      if (!collected) {
+        return res.status(410).json({ error: 'Credential is no longer available. Start a fresh connection request.', session: sanitizeSession(session) });
       }
-      res.status(200).json(payload);
+      await token.save();
+      return res.status(200).json({ ...payload, secret, tokenId: String(token._id) });
     } catch (error) {
       console.error('❌ Error polling agent connect session:', error);
       res.status(500).json({ error: 'Failed to poll agent connection.' });

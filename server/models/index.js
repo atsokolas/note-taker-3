@@ -2551,7 +2551,6 @@ const agentConnectSessionSchema = new mongoose.Schema({
   requestedAppUrl: { type: String, default: '', trim: true },
   status: { type: String, enum: ['pending', 'approved', 'expired', 'cancelled'], default: 'pending', index: true },
   tokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null },
-  tokenSecret: { type: String, default: '', trim: true },
   approvedUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   approvedAt: { type: Date, default: null },
   deliveredAt: { type: Date, default: null },

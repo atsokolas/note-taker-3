@@ -34,7 +34,7 @@ test('real local Mongo: disable/revoke is scoped and retryable; counts include m
       await models.ChatgptOAuthRequest.create({ userId: id, requestId: `synthetic-${id}`, clientId: 'synthetic-client', redirectUri: 'https://client.invalid/callback', resource: 'https://api.invalid/mcp', scopes: ['read'], challenge: 'synthetic', status: 'approved', codeHash: 'unusable', expiresAt: new Date('2099-01-01') });
       await models.PersonalAgent.create({ userId: id, name: 'Synthetic', apiKeyHash: `unusable-${id}` });
       await models.IntegrationConnection.create({ userId: id, provider: 'synthetic', status: 'connected', encryptedApiToken: 'unusable-synthetic' });
-      await models.AgentConnectSession.create({ approvedUserId: id, sessionId: `synthetic-${id}`, pollSecretHash: 'unusable', deviceCode: `unusable-${id}`, status: 'approved', tokenSecret: 'unusable', expiresAt: new Date('2099-01-01') });
+      await models.AgentConnectSession.create({ approvedUserId: id, sessionId: `synthetic-${id}`, pollSecretHash: 'unusable', deviceCode: `unusable-${id}`, status: 'approved', expiresAt: new Date('2099-01-01') });
       const board = await models.Board.create({ userId: id, scopeType: 'concept', scopeId: 'synthetic-topic' });
       const items = await models.BoardItem.create([{ boardId: board._id, type: 'note', text: 'Fictional first note.' }, { boardId: board._id, type: 'note', text: 'Fictional second note.' }]);
       await models.BoardEdge.create({ boardId: board._id, fromItemId: items[0]._id, toItemId: items[1]._id, relation: 'supports' });
@@ -65,7 +65,7 @@ test('real local Mongo: disable/revoke is scoped and retryable; counts include m
     assert.ok((await models.ChatgptOAuthGrant.findOne({ userId: a })).revokedAt);
     assert.equal((await models.ChatgptOAuthRequest.findOne({ userId: a })).status, 'denied');
     assert.equal((await models.PersonalAgent.findOne({ userId: a })).status, 'disabled');
-    assert.equal((await models.AgentConnectSession.findOne({ approvedUserId: a })).tokenSecret, '');
+    assert.equal((await models.AgentConnectSession.findOne({ approvedUserId: a })).status, 'cancelled');
     assert.equal((await models.IntegrationConnection.findOne({ userId: a })).encryptedApiToken, '');
     assert.equal((await models.IntegrationConnection.findOne({ userId: b })).status, 'connected');
     // Content/jobs have deliberately not been erased by preparation: resume

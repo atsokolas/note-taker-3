@@ -5532,8 +5532,7 @@ app.use(buildAgentConnectRouter({
   AgentToken,
   createAgentTokenSecret,
   hashAgentTokenSecret,
-  normalizeAgentTokenScopes,
-  sanitizeAgentToken
+  normalizeAgentTokenScopes
 }));
 
 app.use(buildAgentTaskLinkRouter({
