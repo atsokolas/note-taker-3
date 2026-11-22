@@ -14,50 +14,41 @@ const stripHtmlToLines = (value = '') => {
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/(div|p|li|ul|ol|h1|h2|h3|h4|h5|h6|tr)>/gi, '\n')
     .replace(/<li>/gi, '- ')
-    .replace(/<[^>]+>/g, ' ');
+    .replace(/<[^<>]*>/g, ' ');
   return normalized
     .split(/\r?\n/)
     .map(line => line.replace(/\s+/g, ' ').trim())
     .filter(Boolean);
 };
 
-const parseEnexNotes = (xmlText = '') => {
-  const notes = [];
-  const noteMatches = String(xmlText || '').match(/<note>[\s\S]*?<\/note>/g) || [];
-  noteMatches.forEach((noteXml) => {
-    const getTag = (tagName) => {
-      const match = noteXml.match(new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`, 'i'));
-      return match ? match[1] : '';
-    };
-    const getTags = () => {
-      const tags = [];
-      const regex = /<tag>([\s\S]*?)<\/tag>/gi;
-      let match = regex.exec(noteXml);
-      while (match) {
-        const value = toTrimmedString(decodeXmlEntities(match[1]));
-        if (value) tags.push(value);
-        match = regex.exec(noteXml);
-      }
-      return tags;
-    };
-    const title = toTrimmedString(decodeXmlEntities(getTag('title'))) || 'Untitled';
-    const contentMatch = noteXml.match(/<content><!\[CDATA\[([\s\S]*?)\]\]><\/content>/i)
-      || noteXml.match(/<content>([\s\S]*?)<\/content>/i);
-    const contentXml = contentMatch ? contentMatch[1] : '';
-    const lines = stripHtmlToLines(contentXml);
-    const sourceUrlMatch = noteXml.match(/<source-url>([\s\S]*?)<\/source-url>/i);
-    const sourceUrl = sourceUrlMatch ? toTrimmedString(decodeXmlEntities(sourceUrlMatch[1])) : '';
-    notes.push({
-      title,
-      created: toTrimmedString(getTag('created')),
-      updated: toTrimmedString(getTag('updated')),
-      tags: getTags(),
-      contentLines: lines,
-      sourceUrl
-    });
-  });
-  return notes;
+/* An export is read with indexOf, never a lazy regex: a lazy match that
+   fails rescans to the end from every opening tag, and one upload of
+   unclosed tags would hold the server for hours. */
+const between = (text, open, close, from = 0) => {
+  const start = text.indexOf(open, from);
+  if (start < 0) return null;
+  const end = text.indexOf(close, start + open.length);
+  return end < 0 ? null : { inner: text.slice(start + open.length, end), next: end + close.length };
 };
+const tagText = (xml, name) => between(xml, `<${name}>`, `</${name}>`)?.inner || '';
+const tagTexts = (xml, name) => {
+  const found = [];
+  for (let hit = between(xml, `<${name}>`, `</${name}>`); hit; hit = between(xml, `<${name}>`, `</${name}>`, hit.next)) found.push(hit.inner);
+  return found;
+};
+const CDATA = /^\s*<!\[CDATA\[([\s\S]*)\]\]>\s*$/;
+
+const parseEnexNotes = (xmlText = '') => tagTexts(String(xmlText || ''), 'note').map((noteXml) => {
+  const content = tagText(noteXml, 'content');
+  return {
+    title: toTrimmedString(decodeXmlEntities(tagText(noteXml, 'title'))) || 'Untitled',
+    created: toTrimmedString(tagText(noteXml, 'created')),
+    updated: toTrimmedString(tagText(noteXml, 'updated')),
+    tags: tagTexts(noteXml, 'tag').map(tag => toTrimmedString(decodeXmlEntities(tag))).filter(Boolean),
+    contentLines: stripHtmlToLines((CDATA.exec(content) || [, content])[1]),
+    sourceUrl: toTrimmedString(decodeXmlEntities(tagText(noteXml, 'source-url')))
+  };
+});
 
 const parseEvernoteDate = (value = '') => {
   const safeValue = toTrimmedString(value);
