@@ -31,6 +31,7 @@
     "proof:alphabet:run": "node scripts/run_alphabet_filing_acceptance.js",
     "wiki:storage": "node scripts/run_wiki_storage_governor.js",
     "smoke:server": "node scripts/run_server_smoke.js",
+    "typecheck": "node scripts/typecheck.js",
     "smoke:imports": "node scripts/test_import_integrations_smoke.js",
     "test:server": "node scripts/test_receipt.js server",
     "harness:offline": "npm run judgment:evidence-harness && npm run judgment:semantic-evidence-harness && npm run judgment:ledger-acceptance && npm run wiki:proposal-harness && npm run wiki:intelligence-harness && npm run wiki:maintenance-harness",
@@ -77,6 +78,8 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "mongodb-memory-server": "^11.3.0"
+    "@types/node": "^22.20.5",
+    "mongodb-memory-server": "^11.3.0",
+    "typescript": "5.9.3"
   }
 }
