@@ -4,10 +4,10 @@ import { MemoryRouter } from 'react-router-dom';
 import BookDesk from './BookDesk.jsx';
 import { sittingLabel } from './bookDesk';
 import { createHighlight, deleteHighlight, updateHighlight } from '../../api/highlights';
-import { readBookPage } from '../../api/imports';
+import { argueLine, heardBefore, readBookPage } from '../../api/imports';
 import { pagePhoto } from '../../utils/pagePhoto';
 
-jest.mock('../../api/imports', () => ({ readBookPage: jest.fn() }));
+jest.mock('../../api/imports', () => ({ argueLine: jest.fn(), heardBefore: jest.fn(() => Promise.resolve(null)), readBookPage: jest.fn() }));
 jest.mock('../../utils/pagePhoto', () => ({ pagePhoto: jest.fn() }));
 jest.mock('../../api/highlights', () => ({
   createHighlight: jest.fn(),
@@ -46,6 +46,7 @@ const keep = (options = {}) => fireEvent.keyDown(line(), { key: 'Enter', ...opti
 
 beforeEach(() => {
   jest.clearAllMocks();
+  heardBefore.mockResolvedValue(null);
   window.localStorage.clear();
 });
 
@@ -256,4 +257,42 @@ test('a photograph of the page finishes the quotes typed by their ends, and the 
   expect(await screen.findByText('Finished a quote from the page.')).toBeInTheDocument();
   expect(screen.getByText(KINDLE.text, { selector: 'blockquote' })).toBeInTheDocument();
   expect(screen.queryByLabelText(/Photograph the page/)).not.toBeInTheDocument();
+});
+
+test('a "/" opens three commands: fold the page, hear the case against your line, find who said it', async () => {
+  const mine = { _id: 'n1', text: '', note: 'Violence fell because states got stronger.', page: 212, createdAt: new Date().toISOString() };
+  createHighlight.mockResolvedValueOnce({ _id: 'f1', text: '', note: '', tags: ['dog-ear'], page: 212, createdAt: new Date().toISOString() });
+  argueLine.mockResolvedValueOnce('Strong states also ran the century’s worst killings.');
+  heardBefore.mockResolvedValueOnce({ _id: 'h9', text: 'The Leviathan keeps the peace by holding the monopoly on force.', articleTitle: 'Leviathan', createdAt: '2025-03-01T00:00:00Z' });
+  const { container } = render(<Desk marks={[mine]} />);
+
+  type('/');
+  expect(screen.getByText('Try /dog-ear, /argue or /who.')).toBeInTheDocument();
+
+  type('/dog-ear');
+  await act(async () => keep());
+  expect(createHighlight).toHaveBeenCalledWith({ articleId: 'book-1', page: 212, tags: ['dog-ear'] });
+  expect(screen.getByText('Folded the corner of p. 212.')).toBeInTheDocument();
+  expect(container.querySelector('.book-desk__page[data-folded]')).toHaveTextContent('p. 212');
+
+  type('/argue');
+  await act(async () => keep());
+  expect(argueLine).toHaveBeenCalledWith('book-1', 'Violence fell because states got stronger.');
+  expect(screen.getByText(/Strong states also ran/)).toHaveTextContent('Against that: Strong states also ran the century’s worst killings.');
+
+  type('/who the state keeps the peace');
+  await act(async () => keep());
+  expect(heardBefore).toHaveBeenLastCalledWith('book-1', 'the state keeps the peace');
+  expect(screen.getByText('Leviathan').closest('p')).toHaveTextContent('Leviathan said it too: The Leviathan keeps the peace by holding the monopoly on force.');
+  expect(line()).toHaveValue('');
+});
+
+test('a line nearly the same as one you marked a year ago brings the old one back in faded ink', async () => {
+  createHighlight.mockResolvedValueOnce({ _id: 'n1', text: '', note: 'Most of what we call luck is preparation meeting a door left open.', createdAt: new Date().toISOString() });
+  heardBefore.mockResolvedValueOnce({ _id: 'old', text: 'Luck is what happens when preparation meets opportunity.', articleTitle: 'Seneca, Letters', createdAt: '2024-03-12T00:00:00Z' });
+  render(<Desk marks={[]} />);
+  type('Most of what we call luck is preparation meeting a door left open.');
+  await act(async () => keep());
+  expect(heardBefore).toHaveBeenCalledWith('book-1', 'Most of what we call luck is preparation meeting a door left open.', { echo: true });
+  expect(await screen.findByText(/You marked this in March 2024/)).toHaveTextContent('Luck is what happens when preparation meets opportunity. You marked this in March 2024, in Seneca, Letters.');
 });

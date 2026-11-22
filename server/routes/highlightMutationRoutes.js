@@ -98,8 +98,9 @@ const buildHighlightMutationRouter = ({
       const typed = typeof text === 'string' ? text.trim() : '';
       const thought = typeof note === 'string' ? note.trim() : '';
       const page = Number.isInteger(req.body.page) && req.body.page > 0 ? req.body.page : undefined;
-      // A passage, or a thought written beside a book with no passage under it.
-      if (typed ? typed.length < 3 : !thought) {
+      /* A passage, a thought written beside a book with no passage under it,
+         or a page of one folded with only a #word (a dog-ear). */
+      if (typed ? typed.length < 3 : !thought && !(page && normalizeTags(tags).length)) {
         return res.status(400).json({ error: "Highlight text is required." });
       }
       if (captureId !== undefined && (typeof captureId !== 'string' || !/^[a-f0-9]{24}$/.test(captureId) || !typed || !anchor)) {

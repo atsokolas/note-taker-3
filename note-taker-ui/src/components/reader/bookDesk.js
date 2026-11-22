@@ -39,9 +39,15 @@ export const readLine = (raw = '', page = null) => {
 
 export const isUnfinished = (text = '') => /…|\.{3}/.test(text);
 
-export const kindOf = (mark = {}) => (
-  mark.text ? 'quote' : String(mark.note || '').trim().endsWith('?') ? 'question' : 'note'
-);
+/* A page folded at the desk ("/dog-ear") is a mark with no words, only the tag. */
+export const DOG_EAR = 'dog-ear';
+
+export const kindOf = (mark = {}) => {
+  const note = String(mark.note || '').trim();
+  if (mark.text) return 'quote';
+  if (!note) return 'fold';
+  return note.endsWith('?') ? 'question' : 'note';
+};
 
 const at = mark => new Date(mark.createdAt || 0).getTime();
 const sameWords = (value = '') => (String(value).match(WORD) || []).join(' ').toLowerCase();
@@ -184,7 +190,7 @@ const ownWords = mark => ownParagraphs(mark.note).join(' ').match(WORD)?.length 
    passage you marked. Nothing when nothing was marked. */
 export const lastTime = (marks = []) => {
   const newest = [...marks].sort((a, b) => at(b) - at(a));
-  const mark = newest.find(ownWords) || newest[0];
+  const mark = newest.find(ownWords) || newest.find(found => found.text);
   if (!mark) return null;
   // A note written to over several sittings ends with the newest of them.
   const own = Boolean(ownWords(mark));
@@ -217,7 +223,7 @@ export const openQuestionsOf = (marks = []) => marks.filter(mark => kindOf(mark)
 /* A finished book's bookends: the first thing you marked in it and the last,
    in its words or yours, and how many words of your own you wrote beside it. */
 export const bookendsOf = (marks = []) => {
-  const read = [...marks].sort((a, b) => at(a) - at(b));
+  const read = marks.filter(mark => kindOf(mark) !== 'fold').sort((a, b) => at(a) - at(b));
   const wordsOf = mark => mark.text || ownParagraphs(mark.note)[0] || '';
   return {
     first: read.length > 1 ? wordsOf(read[0]) : '',

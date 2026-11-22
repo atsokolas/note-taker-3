@@ -1,4 +1,4 @@
-const { askTheBook } = require('./books');
+const { argueWith, askTheBook } = require('./books');
 
 describe('askTheBook', () => {
   const questions = [{ _id: 'q1', note: 'Why does Dorothea marry him?' }, { _id: 'q2', note: 'Who pays for the hospital?' }];
@@ -27,5 +27,13 @@ describe('askTheBook', () => {
     expect((await askTheBook({ questions, passages, complete })).map(found => found.answer)).toEqual(['For his mind.']);
     expect(await askTheBook({ questions, passages: [], complete })).toEqual([]);
     expect(await askTheBook({ questions, passages, complete: replying('no idea') })).toEqual([]);
+  });
+});
+
+describe('argueWith', () => {
+  it('asks for the strongest objection to the line, and gives back only its words', async () => {
+    const complete = jest.fn(async () => ({ text: '  Strong states also\nran the worst killings.  ' }));
+    expect(await argueWith({ title: 'The Better Angels', line: 'States made us gentler.', complete })).toBe('Strong states also ran the worst killings.');
+    expect(JSON.parse(complete.mock.calls[0][0].messages[1].content)).toEqual({ book: 'The Better Angels', line: 'States made us gentler.' });
   });
 });
