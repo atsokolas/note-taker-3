@@ -76,9 +76,22 @@ const run = async () => {
   };
   records.set(activeToken.hashedSecret, activeToken);
 
+  // As Mongo does it: each update matches and changes one row in one step.
+  const byId = id => [...records.values()].find(row => row._id === id);
   const AgentToken = {
     async findOne(query = {}) {
       return records.get(query.hashedSecret) || null;
+    },
+    async updateOne({ _id, $or }, { $set }) {
+      const row = byId(_id);
+      const window = row?.quotaWindowStartedAt;
+      if (row && (!window || window < $or[1].quotaWindowStartedAt.$lt)) Object.assign(row, $set);
+    },
+    async findOneAndUpdate({ _id, quotaWindowStartedAt, callsToday }, { $inc, $set }) {
+      const row = byId(_id);
+      if (!row || row.quotaWindowStartedAt.getTime() !== quotaWindowStartedAt.getTime()) return null;
+      if (callsToday && !(row.callsToday < callsToday.$lt)) return null;
+      return Object.assign(row, $set, { callsToday: row.callsToday + $inc.callsToday });
     }
   };
   const middleware = buildAuthenticateAgentToken({ isAccountActive: async () => true, AgentToken, now: () => now });
@@ -148,6 +161,17 @@ const run = async () => {
   await runMiddleware(workMiddleware, { method: 'GET', headers: { authorization: 'Bearer ntk_at_active' } }, noWorkRes);
   assert.strictEqual(noWorkRes.statusCode, 403);
   activeToken.scopes = ['read'];
+
+  // Five calls at once against a quota of two: two get through, and the count says two.
+  Object.assign(activeToken, { callsToday: 0, quotaWindowStartedAt: new Date('2026-05-15T00:00:00.000Z') });
+  const burst = await Promise.all(Array.from({ length: 5 }, async () => {
+    const res = createResponse();
+    await runMiddleware(middleware, { method: 'GET', headers: { authorization: 'Bearer ntk_at_active' } }, res);
+    return res.statusCode;
+  }));
+  assert.deepStrictEqual(burst.sort(), [200, 200, 429, 429, 429]);
+  assert.strictEqual(activeToken.callsToday, 2);
+  assert.strictEqual(activeToken.quotaWindowStartedAt.toISOString(), '2026-05-16T00:00:00.000Z', 'yesterday\'s count started over once');
 
   const revokedToken = {
     ...activeToken,

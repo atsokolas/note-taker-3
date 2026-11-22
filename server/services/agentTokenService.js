@@ -174,21 +174,23 @@ const buildAuthenticateAgentToken = ({
 
       if (consume) {
         const dayStart = getUtcDayStart(current);
-        const windowStart = token.quotaWindowStartedAt ? new Date(token.quotaWindowStartedAt) : null;
-        if (!windowStart || windowStart.getTime() < dayStart.getTime()) {
-          token.callsToday = 0;
-          token.quotaWindowStartedAt = dayStart;
-        }
-
+        // A new day starts the count again; only the first request of the day can reset it.
+        await AgentToken.updateOne(
+          { _id: token._id, $or: [{ quotaWindowStartedAt: null }, { quotaWindowStartedAt: { $lt: dayStart } }] },
+          { $set: { callsToday: 0, quotaWindowStartedAt: dayStart } }
+        );
+        // Checking and counting are one step, so parallel calls cannot all slip under the quota.
         const quota = Number(token.dailyQuota || 0);
-        if (quota > 0 && Number(token.callsToday || 0) >= quota) {
+        const counted = await AgentToken.findOneAndUpdate(
+          { _id: token._id, quotaWindowStartedAt: dayStart, ...(quota > 0 ? { callsToday: { $lt: quota } } : {}) },
+          { $inc: { callsToday: 1 }, $set: { lastUsedAt: current } },
+          { new: true }
+        );
+        if (!counted) {
           res.set('Retry-After', String(getSecondsUntilNextUtcDay(current)));
           return res.status(429).json({ error: 'Agent token daily quota exceeded.' });
         }
-
-        token.callsToday = Number(token.callsToday || 0) + 1;
-        token.lastUsedAt = current;
-        if (typeof token.save === 'function') await token.save();
+        Object.assign(token, { callsToday: counted.callsToday, quotaWindowStartedAt: dayStart, lastUsedAt: current });
       }
 
       req.user = { id: String(token.userId || '') };
