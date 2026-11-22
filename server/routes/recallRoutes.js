@@ -4,6 +4,7 @@ const { retrieveWithBearing, readSource } = require('../services/agentRetrieval'
 const { waitingFor } = require('./handoffRoutes');
 const { openDisagreements } = require('./disagreementRoutes');
 const { pencilOf } = require('../services/agentTokenService');
+const { waitingTonight } = require('../services/nightstand');
 
 const MAX_LIMIT = 25;
 const BRIEF_LIMIT = 16;
@@ -11,6 +12,8 @@ const STANDING = 8;
 // How far down recall's answers a named source may sit and still count as found.
 const KNOWS_TOP = 8;
 const TASTE_LATELY = 12;
+// A fortune is a passage long enough to carry a thought: forty characters or more.
+const FORTUNE_WORDS = /^[\s\S]{40,}$/;
 
 // The kind an outside agent opens a hit as: a marked passage is a highlight,
 // a wiki page carrying a held view is that view.
@@ -125,6 +128,33 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
     } catch (error) {
       console.error('[brief] failed', error.message);
       res.status(500).json({ error: 'The brief could not be gathered.' });
+    }
+  });
+
+  /* For a terminal: what fits tonight from the nightstand, and one passage
+     of the reader's own, drawn at random, the way `fortune` draws one. */
+  router.get('/api/tonight', authenticateToken, async (req, res) => {
+    try {
+      return res.json({ tonight: await waitingTonight({ Article, userId: req.user.id }) });
+    } catch (error) {
+      console.error('[tonight] failed', error.message);
+      return res.status(500).json({ error: 'Tonight could not be found.' });
+    }
+  });
+
+  router.get('/api/fortune', authenticateToken, async (req, res) => {
+    try {
+      const [drawn] = await Article.aggregate([
+        { $match: { userId: userOf(req) } },
+        { $unwind: '$highlights' },
+        { $match: { 'highlights.text': { $regex: FORTUNE_WORDS } } },
+        { $sample: { size: 1 } },
+        { $project: { title: 1, author: 1, text: '$highlights.text', page: '$highlights.page' } }
+      ]);
+      return res.json({ fortune: drawn ? { text: drawn.text, title: drawn.title || '', author: drawn.author || '', page: drawn.page || null } : null });
+    } catch (error) {
+      console.error('[fortune] failed', error.message);
+      return res.status(500).json({ error: 'No fortune could be drawn.' });
     }
   });
 

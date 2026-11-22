@@ -95,3 +95,20 @@ test('Earlier keeps linked to-dos and shows their weekly priority', () => {
   expect(earlier).toHaveTextContent('Send the deck');
   expect(earlier).toHaveTextContent('Raise');
 });
+
+test('after six it says pencils down and names what tomorrow starts with', () => {
+  const evening = jest.spyOn(Date.prototype, 'getHours').mockReturnValue(19);
+  const tomorrow = { ...task, id: 'next', _id: 'next', clientId: 'local-next', title: 'Send the memo', plannedOn: '2026-11-17' };
+  const { rerender } = render(<WorkDayTasks {...props} items={[task, tomorrow]} />);
+  expect(screen.getByText(/^Pencils down\./)).toHaveTextContent('Pencils down. Tomorrow starts with Send the memo.');
+  rerender(<WorkDayTasks {...props} />);
+  expect(screen.getByText(/^Pencils down\./)).toHaveTextContent('Pencils down. Tomorrow is clear.');
+  evening.mockRestore();
+});
+
+test('an old carried to-do fades like old ink', () => {
+  const old = { ...task, id: 'old', _id: 'old', clientId: 'local-old', title: 'Reply to the auditor', plannedOn: '2026-10-01' };
+  const { container } = render(<WorkDayTasks {...props} items={[task, old]} />);
+  expect(container.querySelector('[data-ink="faded"]')).toHaveTextContent('Reply to the auditor');
+  expect(screen.queryByText(/^Pencils down/)).toBeNull();
+});

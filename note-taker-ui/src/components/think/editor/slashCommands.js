@@ -1,3 +1,13 @@
+/* Hearing a draft in a voice that isn't yours is how a writer finds the
+   sentence that trips. Asking again stops it. */
+const readAloud = (text) => {
+  const voice = window.speechSynthesis;
+  if (voice.speaking) return voice.cancel();
+  const reading = new SpeechSynthesisUtterance(text);
+  reading.rate = 0.95;
+  voice.speak(reading);
+};
+
 const COMMAND_MAP = {
   paragraph: {
     id: 'paragraph',
@@ -70,18 +80,26 @@ const COMMAND_MAP = {
     keywords: ['blockquote', 'citation', 'pullquote'],
     isActive: (editor) => editor.isActive('blockquote'),
     apply: (chain) => chain.toggleBlockquote()
+  },
+  readAloud: {
+    id: 'readAloud',
+    label: 'Read it aloud',
+    description: 'Hear the piece in a voice that is not yours. Again to stop.',
+    keywords: ['aloud', 'speak', 'listen', 'hear', 'read'],
+    available: () => typeof window !== 'undefined' && 'speechSynthesis' in window,
+    onSelect: ({ editor }) => readAloud(editor.getText())
   }
 };
 
 const VARIANT_MAP = {
-  full: ['paragraph', 'title', 'heading', 'subhead', 'bold', 'italic', 'bulletList', 'orderedList', 'quote'],
-  slim: ['bold', 'italic', 'heading', 'bulletList', 'orderedList', 'quote'],
+  full: ['paragraph', 'title', 'heading', 'subhead', 'bold', 'italic', 'bulletList', 'orderedList', 'quote', 'readAloud'],
+  slim: ['bold', 'italic', 'heading', 'bulletList', 'orderedList', 'quote', 'readAloud'],
   selection: ['bold', 'italic', 'quote']
 };
 
 export const getSlashCommandItems = (variant = 'full', extraItems = []) => {
   const ids = VARIANT_MAP[variant] || VARIANT_MAP.full;
-  return [...ids.map((id) => COMMAND_MAP[id]), ...extraItems];
+  return [...ids.map((id) => COMMAND_MAP[id]).filter(command => command.available?.() ?? true), ...extraItems];
 };
 
 export const getSlashCommandMatch = (textBeforeCursor = '') => {

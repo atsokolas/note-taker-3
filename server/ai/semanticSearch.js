@@ -210,16 +210,25 @@ const marginNotes = async ({
 };
 
 /* The passage you marked closest to one mark, found from the mark's own
-   stored vector (no embedding call) among your highlights only: a passage of
-   a book's or a piece's words, not another note, of MARGIN_MIN_QUOTE_CHARS or
-   more, at the floor or better, that fits. Silence: no vector yet, nothing
-   close enough or a failed lookup is null. */
+   stored vector (no embedding call), or to a line just typed (one embedding),
+   among your highlights only: a passage of a book's or a piece's words, not
+   another note, of MARGIN_MIN_QUOTE_CHARS or more, at the floor or better,
+   that fits. Silence: no vector yet, no provider, nothing close enough or a
+   failed lookup is null. */
 const PASSAGE_CANDIDATES = 6;
 
-const closestPassage = async ({ userId, mark, floor = MARGIN_FLOOR, fits = () => true, models = {} }) => {
-  const rows = await similarToSource({
-    userId, objectType: 'highlight', objectId: String(mark?._id || ''), limit: PASSAGE_CANDIDATES, types: ['highlight'], models
-  }).catch(() => []);
+const candidatesFor = async ({ userId, mark, text, models }) => {
+  if (!text) {
+    return similarToSource({ userId, objectType: 'highlight', objectId: String(mark?._id || ''), limit: PASSAGE_CANDIDATES, types: ['highlight'], models });
+  }
+  if (!isEmbeddingConfigured()) return [];
+  return searchVectorItems({
+    VectorItem: models.VectorItem || VectorItem, userId, vector: await embedText(plain(text)), limit: PASSAGE_CANDIDATES, objectTypes: ['highlight']
+  });
+};
+
+const closestPassage = async ({ userId, mark, text, floor = MARGIN_FLOOR, fits = () => true, models = {} }) => {
+  const rows = await candidatesFor({ userId, mark, text, models }).catch(() => []);
   const close = rows.filter(row => Number(row.score) >= floor);
   if (!close.length) return null;
   const held = await highlightsById({ Article: models.Article || Article, userId, ids: close.map(row => String(row.objectId)) });
@@ -302,8 +311,26 @@ const echoOf = async ({ userId, mark, models = {} } = {}) => (
   })
 );
 
+/* Heard before, for a line just typed at a book's desk: the passage closest
+   to it from another work, at the margin's floor, for "/who". With `echo`,
+   only what you marked a year or more ago and nearly the same (the echo's
+   floor), so an old mark of yours can turn up in faded ink beside the new
+   one. */
+const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+const heardBefore = ({ userId, text, bookId, echo = false, now = Date.now(), models = {} } = {}) => (
+  plain(text).length < MARGIN_MIN_QUOTE_CHARS ? null : closestPassage({
+    userId,
+    text,
+    models,
+    floor: echo ? ECHO_FLOOR : MARGIN_FLOOR,
+    fits: passage => String(passage.articleId) !== String(bookId)
+      && (!echo || (timeOf(passage.createdAt) > 0 && now - timeOf(passage.createdAt) >= YEAR_MS))
+  })
+);
+
 module.exports = {
   semanticSearch,
+  heardBefore,
   marginNotes,
   answerTo,
   beforeYouStart,

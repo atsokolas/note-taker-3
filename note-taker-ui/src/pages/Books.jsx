@@ -10,7 +10,7 @@ import BookDesk from '../components/reader/BookDesk.jsx';
 import PassageDoor from '../components/reader/PassageDoorView';
 import useSourceWhereabouts from '../components/reader/useSourceWhereabouts';
 import {
-  BOOK_SAYS, bookendsOf, dayOf, isEarlier, kindOf, lastTime, longDate, monthOf, pageNow, readingSince, readingsOf, setDownOn, sittingsOf, spineOf, tallyLine
+  BOOK_SAYS, bookendsOf, counted, dayOf, isEarlier, kindOf, lastTime, longDate, monthOf, mostlyWhen, openQuestionsOf, pageNow, readingSince, readingsOf, setDownOn, sittingsOf, spineOf, tallyLine
 } from '../components/reader/bookDesk';
 import { bookFrom } from '../components/library/LibraryPasteLink';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
@@ -246,23 +246,38 @@ const Remember = ({ label, onKeep }) => {
   );
 };
 
-/* A finished book's colophon, where a printed book keeps one: when it was
-   read, how many sittings, what was written, the sentence kept, and each time
-   it was read before. Yours under your desk, or a friend's copy lent to you. */
+/* A finished book's colophon, printed the day it was finished the way a
+   printed book keeps one: the face it was set in, how it was read and when,
+   what was written beside it, what is still open, the sentence kept, and
+   each time it was read before. Yours under your desk, or a friend's copy
+   lent to you. The face is read off the page itself, so it is always true. */
+export const faceOf = node => (node ? getComputedStyle(node).getPropertyValue('--font-serif').split(',')[0].replace(/["']|\s+Variable$/g, '').trim() : '');
+
 export const Colophon = ({ book, marks, line, whose = 'your', children }) => {
+  const page = useRef(null);
+  const [face, setFace] = useState('');
+  useLayoutEffect(() => setFace(faceOf(page.current)), []);
   const sittings = sittingsOf(marks);
   const { first, last, words } = bookendsOf(marks);
+  const began = sittings.length ? longDate(new Date(sittings[0][0].createdAt)) : '';
+  const finished = longDate(dayOf(book.finishedOn));
   const before = (book.readBefore || []).filter(reading => reading.finishedOn);
+  const mostly = mostlyWhen(sittings);
+  const open = counted(openQuestionsOf(marks).length, 'question');
+  const imprint = [
+    face ? `Set in ${face}.` : '',
+    sittings.length ? `Read in ${sittings.length > 1 ? `${sittings.length} sittings` : 'one sitting'}${began !== finished ? ` from ${began}` : ''}${mostly ? `, mostly ${mostly}` : ''}.` : ''
+  ].filter(Boolean).join(' ');
   const facts = [
-    sittings.length && longDate(new Date(sittings[0][0].createdAt)) !== longDate(dayOf(book.finishedOn)) ? `Read from ${longDate(new Date(sittings[0][0].createdAt))}` : '',
-    sittings.length > 1 ? `${sittings.length} sittings` : '',
     tallyLine(marks),
-    words ? `${words.toLocaleString()} ${words === 1 ? 'word' : 'words'} of ${whose} own` : ''
+    words ? `${words.toLocaleString()} ${words === 1 ? 'word' : 'words'} of ${whose} own` : '',
+    open ? `${open} still open` : ''
   ].filter(Boolean).join(' · ');
   return (
-    <section className="books__colophon" aria-label="Colophon">
-      <p className="books__author">Finished {longDate(dayOf(book.finishedOn))}</p>
+    <section className="books__colophon" aria-label="Colophon" ref={page}>
+      <p className="books__author books__stamp">Finished {finished}</p>
       {line}
+      {imprint ? <p className="books__tally books__imprint">{imprint}</p> : null}
       {facts ? <p className="books__tally">{facts}</p> : null}
       {first ? <p className="books__tally books__bookends">It began with <q>{first}</q> and ended with <q>{last}</q></p> : null}
       {before.map(reading => (
@@ -483,15 +498,7 @@ const Lend = ({ book, onChange }) => {
    flat as its strip of marks, so where each one got you shows across the
    year at a glance. A book read twice that year stands twice. Nothing when
    no book was finished in it. */
-export const YearShelf = ({ year }) => {
-  const [books, setBooks] = useState([]);
-  useEffect(() => {
-    let cancelled = false;
-    listBooks()
-      .then(found => { if (!cancelled) setBooks(found); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+export const YearShelf = ({ year, books }) => {
   const read = books.flatMap(book => readingsOf(book, book.marks)
     .filter(reading => reading.finishedOn.startsWith(String(year)))
     .map(reading => ({ ...reading, book, spine: spineOf(reading.marks) })))

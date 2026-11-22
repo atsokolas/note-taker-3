@@ -211,7 +211,7 @@ it('sets every paper as one front page, led by the finding with the most you can
   expect(screen.getAllByText('Updated Tue, Oct 6', { exact: false })[0]).toBeVisible();
   expect(screen.getByText('recovered 46.7%').tagName).toBe('BLOCKQUOTE');
   expect(screen.getByRole('link', { name: 'A useful distinction' })).toHaveAttribute('href', '/editions/e1?item=one');
-  expect(screen.getByText(/2 new findings across 1 paper/)).toBeVisible();
+  expect(screen.getByText('Something new in Weekend Readings')).toBeVisible();
   expect(screen.getByRole('link', { name: /Back to where you stopped/ })).toHaveAttribute('href', '/editions/e1?item=one');
   expect(screen.getByRole('link', { name: /Power through/ })).toHaveAttribute('href', '/editions?power=1');
   fireEvent.keyDown(document, { key: ']' });
@@ -225,7 +225,10 @@ it('turns the stand into a newsstand of covers, and back', async () => {
   const cover = await screen.findByRole('link', { name: /This Week in AI.*46\.7%/ });
   expect(cover).toHaveAttribute('href', '/editions?open=ai');
   expect(within(cover).getByText('Competence is not recovery')).toBeVisible();
-  expect(within(screen.getByRole('link', { name: /Weekend Readings/ })).getByText('2 new')).toBeVisible();
+  /* New is said by name, ahead of the date, and nothing ever covers the date. */
+  const weekend = screen.getByRole('link', { name: /Weekend Readings/ });
+  expect(within(weekend).getByText('New ·')).toBeVisible();
+  expect(weekend.querySelector('.stand__issue')).toHaveTextContent(/^New · Edition 2/);
   expect(screen.getByRole('button', { name: 'Newsstand' })).toHaveAttribute('aria-pressed', 'true');
   fireEvent.click(screen.getByRole('button', { name: 'Front page' }));
   expect(screen.getByRole('heading', { name: 'The Noeis Edition' })).toBeVisible();
@@ -458,7 +461,7 @@ it('does not insert new filings until Show, even when Keep returns the newer iss
   expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toHaveAttribute('href', '/library?articleId=article');
   expect(screen.getByText(/Saved the link/)).toBeVisible();
   expect(screen.queryByRole('heading', { name: 'An arrival' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: '1 finding added · Show' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Something new came in · Show' }));
   expect(screen.getByRole('heading', { name: 'An arrival' })).toBeVisible();
   jest.useRealTimers();
 });
@@ -496,7 +499,7 @@ it('does not let a poll started before Keep restore an older Library state', asy
   api.saveEditionItem.mockResolvedValue({ edition: { ...edition, items: [{ ...item, savedArticleId: 'article' }] }, readable: true });
   fireEvent.click(screen.getByRole('button', { name: 'Keep' })); await act(async () => {});
   await act(async () => finishPoll({ ...edition, throughLine: 'A new editorial line.' }));
-  fireEvent.click(screen.getByRole('button', { name: 'This issue has an update · Show' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Something new came in · Show' }));
   expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toBeVisible();
   jest.useRealTimers();
 });
@@ -556,4 +559,17 @@ it('shows an empty account what a paper is and the one door to get one', async (
   expect(await screen.findByRole('heading', { name: 'No paper yet.' })).toBeVisible();
   expect(screen.getByText('An example finding')).toBeVisible();
   expect(screen.getByRole('link', { name: 'Connect an agent' })).toHaveAttribute('href', '/connections');
+});
+it('prints your last word on the previous issue as a letter, its year in the ear, and stamps a late filing', async () => {
+  const last = { ...edition, _id: 'e0', number: 1, windowStart: '2026-08-25', windowEnd: '2026-08-31', items: [] };
+  const late = { ...item, itemId: 'late', title: 'Filed after press', finding: 'A finding that missed the press.', filedAt: '2026-09-09T10:00:00Z' };
+  const closed = { ...edition, windowEnd: '2026-09-07', items: [{ ...item, filedAt: '2026-09-03T10:00:00Z' }, late] };
+  api.listEditions.mockResolvedValue([last, closed]); api.getEdition.mockResolvedValue(closed);
+  api.getEditionThoughts.mockImplementation(id => Promise.resolve(id === 'e0' ? [{ itemId: '', content: 'Recovery is the real skill.' }] : []));
+  render(<Editions />); await screen.findByText(item.finding);
+  const letter = await screen.findByRole('complementary', { name: 'Letters' });
+  expect(letter).toHaveTextContent('Recovery is the real skill.You, after Edition 1');
+  expect(screen.getByText('Vol. I · Est. August 2026')).toBeVisible();
+  expect(within(document.getElementById('edition-item-late')).getByText('Late edition')).toBeVisible();
+  expect(within(document.getElementById('edition-item-one')).queryByText('Late edition')).toBeNull();
 });

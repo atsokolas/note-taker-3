@@ -6,6 +6,9 @@ Releases of `@noeis/noeis-cli` on npm.
 
 ### Added
 
+- `noeis tonight`: what fits tonight from your nightstand, set as a card in
+  the terminal. `noeis fortune`: one passage of your own, drawn at random,
+  the way `fortune` draws one.
 - `noeis sync [folder] [--watch]`: your Noeis as Markdown, both ways. Think
   notes go back when edited, new files become notes or Library saves, and a
   note changed in both places keeps both.

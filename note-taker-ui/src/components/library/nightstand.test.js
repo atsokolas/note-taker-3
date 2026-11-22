@@ -1,4 +1,4 @@
-import { hasWaitedLong, tonightFrom } from './nightstand';
+import { hasWaitedLong, tonightFrom, waitingSince } from './nightstand';
 
 const day = n => new Date(Date.UTC(2026, 9, n)).toISOString();
 const NOW = Date.parse(day(32));
@@ -21,4 +21,10 @@ test('a month on the nightstand is a long wait; elsewhere there is no wait to as
   expect(hasWaitedLong({ placement: 'later', placementAt: day(10) }, NOW)).toBe(false);
   expect(hasWaitedLong({ placement: 'later', createdAt: day(1) }, NOW)).toBe(true);
   expect(hasWaitedLong({ placement: 'setAside', placementAt: day(1) }, NOW)).toBe(false);
+});
+
+test('a long wait is told by the season it began, or its month once that could be last year', () => {
+  expect(waitingSince({ placementAt: '2026-10-01T12:00:00Z' }, NOW)).toBe('On your nightstand since the leaves turned');
+  expect(waitingSince({ placementAt: '2026-07-01T12:00:00Z' }, NOW)).toBe('On your nightstand since summer');
+  expect(waitingSince({ placementAt: '2025-12-10T12:00:00Z' }, NOW)).toBe('On your nightstand since December 2025');
 });

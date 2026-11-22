@@ -92,5 +92,21 @@ describe('CommonplaceBook', () => {
     expect(rows[0]).toHaveTextContent('Middlemarch, George EliotMarch 2026 · pp. 10–30 · 3 quotes');
     expect(rows[1]).toHaveTextContent('October 2026 · p. 211 · 1 quote');
   });
+
+  it('ends on the questions no book answered that year, then its colophon', async () => {
+    getCommonplaceBook.mockResolvedValue(BOOK);
+    listBooks.mockResolvedValue([{
+      _id: 'b1', title: 'Middlemarch', finishedOn: '', marks: [
+        { _id: 'q1', note: 'Is Dorothea foolish?', page: 40, createdAt: '2026-02-01T20:00:00Z' },
+        { _id: 'q2', note: 'Why Casaubon?\n\nThe book: He wanted a monument.', createdAt: '2026-02-02T20:00:00Z' },
+        { _id: 'q3', note: 'Asked another year?', createdAt: '2001-02-02T20:00:00Z' }
+      ]
+    }]);
+    render(<CommonplaceBook />);
+    const unanswered = await screen.findByRole('region', { name: 'The questions you never answered' });
+    expect(within(unanswered).getAllByRole('listitem').map(item => item.textContent)).toEqual(['Is Dorothea foolish?Middlemarch, p. 40']);
+    expect(within(unanswered).getByRole('link')).toHaveAttribute('href', '/books/b1?highlight=q1');
+    expect(screen.getByText(/^Bound |^Still being written/)).toBeInTheDocument();
+  });
 });
 

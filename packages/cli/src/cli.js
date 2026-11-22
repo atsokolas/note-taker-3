@@ -60,6 +60,8 @@ Usage:
   noeis save <url|file|-> [--later] [--title title] [--json]
   noeis save --hook    (an agent hook: saves the URL it just fetched)
   noeis note "text"|- [--title title] [--json]
+  noeis tonight [--json]   (what fits tonight from your nightstand, set in type)
+  noeis fortune [--json]   (one passage of your own, drawn at random)
   noeis sync [folder] [--watch]   (your Noeis as Markdown, both ways; ~/Noeis by default)
   noeis hand "what to do" [--to noeis|any]   (hand work to Noeis's own agent, or to any agent)
   noeis handoffs [--status waiting|taken|done|cancelled] [--json]
@@ -376,6 +378,28 @@ const printBrief = ({ topic, ...groups }, io) => {
   });
 };
 
+/* Set for a terminal the way a card is set for print: a rule, a small
+   capital line, the words wrapped to a measure, and a rule. */
+const MEASURE = 60;
+const wrap = text => String(text).replace(/\s+/g, ' ').trim().split(' ').reduce((lines, word) => {
+  const last = lines[lines.length - 1];
+  if (last && `${last} ${word}`.length <= MEASURE) lines[lines.length - 1] = `${last} ${word}`;
+  else lines.push(word);
+  return lines;
+}, []);
+const card = (kicker, lines) => {
+  const rule = `  ${'─'.repeat(MEASURE)}`;
+  return [rule, `  ${kicker.toUpperCase().split('').join(' ')}`, '', ...lines.map(line => (line ? `  ${line}` : '')), rule, ''].join('\n');
+};
+
+const printTonight = ({ tonight }, io) => io.stdout.write(tonight
+  ? card('Tonight', [...wrap(tonight.title), '', `${tonight.minutes} min${tonight.reason ? ` · ${tonight.reason}` : ''}`])
+  : 'Nothing short is waiting on your nightstand. Read something long.\n');
+
+const printFortune = ({ fortune }, io) => io.stdout.write(fortune
+  ? `${wrap(`“${fortune.text}”`).map(line => `  ${line}`).join('\n')}\n\n${' '.repeat(10)}— ${[fortune.title, fortune.author].filter(Boolean).join(', ')}${fortune.page ? `, p. ${fortune.page}` : ''}\n`
+  : 'Mark a few passages first. Your fortune is made of them.\n');
+
 const runLogin = async (args, context) => {
   const auth = resolveAuth(context);
   const appUrl = optionValue(args, '--app-url', auth.appUrl || DEFAULT_APP_URL);
@@ -629,6 +653,11 @@ export const runCli = async (argv = [], context = {}) => {
     const note = await client.createNote({ title: optionValue(args, '--title') || firstLine(content), content });
     if (json) printJson(note, io);
     else io.stdout.write(`Noted in Think: ${note.title || 'Untitled'} (${note._id})\n`);
+    return;
+  } else if (command === 'tonight' || command === 'fortune') {
+    const drawn = await client.request(`/api/${command}`);
+    if (json) printJson(drawn, io);
+    else (command === 'tonight' ? printTonight : printFortune)(drawn, io);
     return;
   } else if (command === 'sync') {
     const dir = path.resolve(positional[1] || path.join(env.HOME || os.homedir(), 'Noeis'));

@@ -118,7 +118,8 @@ test('closing a book asks one sentence, says when it comes back, and can be undo
   expect(closeBook).toHaveBeenCalledWith('b2', 'Nobody is only what they do.');
   expect(colophon).toHaveTextContent(/Finished (19 October|October 19,) 2026/);
   expect(colophon).toHaveTextContent('Nobody is only what they do.');
-  expect(colophon).toHaveTextContent(/Read from (1 September|September 1,) 2026 · 2 sittings · pp\. 3–40 · 1 quote, 1 question/);
+  expect(colophon).toHaveTextContent(/Read in 2 sittings from (1 September|September 1,) 2026\./);
+  expect(colophon).toHaveTextContent('pp. 3–40 · 1 quote, 1 question · 3 words of your own · 1 question still open');
   expect(colophon).toHaveTextContent(/It comes back to you on (19 October|October 19,) 2027\./);
 
   fireEvent.click(screen.getByRole('button', { name: 'Still reading it' }));

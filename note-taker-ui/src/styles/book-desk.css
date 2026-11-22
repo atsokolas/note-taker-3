@@ -341,3 +341,35 @@ blockquote + .book-desk__own {
   font-family: var(--font-serif);
   font-style: italic;
 }
+
+/* A dog-eared page: its folio's corner folded down, in the ink of the page. */
+.book-desk__page[data-folded] > .book-desk__folio {
+  position: relative;
+  padding-left: 14px;
+  color: var(--ink-human, var(--text));
+}
+
+.book-desk__page[data-folded] > .book-desk__folio::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  border-style: solid;
+  border-width: 0 9px 9px 0;
+  border-color: transparent currentColor transparent transparent;
+  opacity: 0.55;
+}
+
+.book-desk__hint q,
+.book-desk__echo q { font-family: var(--font-serif); font-style: italic; }
+
+/* Marginalia from the dead: a mark of yours from a year or more ago, nearly
+   the same as the line just kept, in the faded ink of an earlier reading. */
+.book-desk__echo {
+  margin: var(--space-2) 0 0;
+  padding-left: 4.5rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  opacity: 0.6;
+}

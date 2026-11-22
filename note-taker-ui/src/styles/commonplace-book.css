@@ -214,6 +214,21 @@
   .commonplace-book__tools button { margin-left: 0; }
 }
 
+/* The year ends on what it could not settle: each question in the reader's
+   own italic, its book under it. Then the colophon, as a printed book ends. */
+.commonplace-book__unanswered ol { margin: 0; padding: 0; list-style: none; }
+.commonplace-book__unanswered li { display: grid; gap: 2px; padding: 10px 0; border-bottom: 1px solid var(--noeis-rule); }
+.commonplace-book__unanswered a { color: var(--text-primary); font-style: italic; font-size: 19px; line-height: 1.45; text-decoration: none; }
+.commonplace-book__unanswered span { color: var(--text-muted); font: 13px/1.5 var(--font-sans); }
+
+.commonplace-book__colophon {
+  margin: 72px 0 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 15px;
+}
+
 @media print {
   :root:has(.commonplace-book) :is(.topbar, .app-shell-new__nav, .app-shell-new__skip-link, .agent-rail-drawer__trigger, .agent-rail-drawer) {
     display: none !important;

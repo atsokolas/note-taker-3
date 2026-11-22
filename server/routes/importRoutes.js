@@ -131,6 +131,8 @@ const buildImportRouter = ({
   answerTo = (...args) => require('../ai/semanticSearch').answerTo(...args),
   readPage = (...args) => require('../ai/books').readPage(...args),
   askTheBook = (...args) => require('../ai/books').askTheBook(...args),
+  argueWith = (...args) => require('../ai/books').argueWith(...args),
+  heardBefore = (...args) => require('../ai/semanticSearch').heardBefore(...args),
   echoOf = (...args) => require('../ai/semanticSearch').echoOf(...args),
   beforeYouStart = (...args) => require('../ai/semanticSearch').beforeYouStart(...args)
 }) => {
@@ -587,6 +589,38 @@ const buildImportRouter = ({
     } catch (error) {
       console.error('Error asking a book:', error);
       res.status(502).json({ error: 'The book could not be asked just now. Try it again.' });
+    }
+  });
+
+  /* A line typed at the desk, put to the rest of your library: "/who" asks
+     which other work said it, and a line just kept asks, with echo, whether
+     you marked nearly the same thing a year or more ago. Null when nothing did. */
+  router.post('/api/books/:id/heard', authenticateToken, async (req, res) => {
+    try {
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL }).select('_id').lean();
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      const passage = await heardBefore({ userId: req.user.id, text: toTrimmedString(req.body?.line).slice(0, 2000), bookId: book._id, echo: req.body?.echo === true });
+      return res.json({ passage: passage || null });
+    } catch (error) {
+      console.error('Error hearing a line against the library:', error);
+      res.status(500).json({ error: 'Your library could not be asked just now.' });
+    }
+  });
+
+  /* "/argue": the strongest objection to a line typed beside a book. Nothing
+     is kept; the reader decides what to do with it. */
+  router.post('/api/books/:id/argue', authenticateToken, async (req, res) => {
+    try {
+      const line = toTrimmedString(req.body?.line).slice(0, 2000);
+      if (!line) return res.status(400).json({ error: 'Type a line to argue with.' });
+      const book = await Article.findOne({ _id: req.params.id, userId: req.user.id, url: BOOK_URL }).select('title').lean();
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      const objection = await argueWith({ title: book.title, line });
+      if (!objection) return res.status(502).json({ error: 'Nobody would argue with that just now. Try it again.' });
+      return res.json({ objection });
+    } catch (error) {
+      console.error('Error arguing with a line:', error);
+      res.status(502).json({ error: 'Nobody would argue with that just now. Try it again.' });
     }
   });
 

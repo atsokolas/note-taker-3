@@ -166,7 +166,7 @@ export default function WorkWeekClose({ week, today, timeZone, items, notes, ses
         {carried.length ? <section aria-label={mondayHeading}><h3>{mondayHeading}</h3><ul>{carried.map(item => (
           <li key={item.id}>{item.title}{' '}{source(item)}</li>
         ))}</ul>{onMonday ? <button onClick={() => onMonday(firstMondayTask)}>Open Monday</button> : null}</section> : null}
-        {filed > 0 && left === 0 ? <p className="work-week-close__colophon">That’s the week. {filed} {filed === 1 ? 'decision' : 'decisions'} filed.</p> : null}
+        {filed > 0 && left === 0 ? <p className="work-week-close__colophon"><span className="work-postmark">Week closed · {displayDay(today)}</span> That’s the week. {filed} {filed === 1 ? 'decision' : 'decisions'} filed.</p> : null}
       </div> : null}
     </details>
   );

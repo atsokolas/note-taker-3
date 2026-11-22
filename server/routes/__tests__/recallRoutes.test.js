@@ -11,7 +11,9 @@ const model = (rows = []) => ({
     const query = { select: () => query, lean: async () => rows.find(row => String(row._id) === String(filter._id)) || null };
     return query;
   }),
-  countDocuments: jest.fn(async () => rows.length)
+  countDocuments: jest.fn(async () => rows.length),
+  // Stands in for one draw: the first marked passage of the first row.
+  aggregate: jest.fn(async () => rows.flatMap(row => (row.highlights || []).slice(0, 1).map(mark => ({ _id: row._id, title: row.title, text: mark.text }))).slice(0, 1))
 });
 
 const USER = '0123456789abcdef01234567';
@@ -155,6 +157,13 @@ describe('recall routes', () => {
     expect(brief.taste.lately[1].why).toBeUndefined();
     expect(brief.question[0]).toMatchObject({ kind: 'question', title: 'Do work samples predict hiring better than interviews?' });
     expect(brief.pencil).toContainEqual(expect.objectContaining({ kind: 'note', id: NOTE, pencil: 'Claude Code' }));
+  });
+
+  it('draws a fortune from the reader\'s own passages, and says what fits tonight', async () => {
+    const { fortune } = await fetch(`${url}/api/fortune`).then(res => res.json());
+    expect(fortune).toEqual({ text: 'Interviews predict little about hiring.', title: 'Base rates', author: '', page: null });
+    const { tonight } = await fetch(`${url}/api/tonight`).then(res => res.json());
+    expect(tonight).toMatchObject({ articleId: ARTICLE, title: 'Base rates', minutes: 1 });
   });
 
   it('asks for a question', async () => {

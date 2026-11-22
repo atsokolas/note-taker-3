@@ -12,7 +12,7 @@ const RichTextToolbar = ({
 }) => {
   if (!editor) return null;
 
-  const items = getSlashCommandItems(variant);
+  const items = getSlashCommandItems(variant).filter(item => item.apply);
 
   return (
     <div className={`think-rich-text-toolbar think-rich-text-toolbar--${variant} ${className}`.trim()}>

@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { listBooks } from '../api/imports';
 import { getCommonplaceBook } from '../api/library';
+import { openQuestionsOf } from '../components/reader/bookDesk';
 import useDocumentTitle from '../hooks/useDocumentTitle';
-import { YearShelf } from './Books';
+import { YearShelf, faceOf } from './Books';
 import { buildCanonicalArticlePath, buildPassagePath } from '../utils/sourceRoutes';
 import '../styles/commonplace-book.css';
 
@@ -34,11 +36,48 @@ const Source = ({ source }) => (
   </article>
 );
 
+/* The questions you asked beside your books that year and no book ever
+   answered, last, the way a good book ends on what it could not settle. */
+const Unanswered = ({ year, books }) => {
+  const asked = books.flatMap(book => openQuestionsOf(book.marks)
+    .filter(mark => String(mark.createdAt).startsWith(String(year)))
+    .map(mark => ({ ...mark, book })));
+  if (!asked.length) return null;
+  return (
+    <section className="commonplace-book__chapter commonplace-book__unanswered" aria-labelledby="commonplace-book-unanswered">
+      <h2 id="commonplace-book-unanswered">The questions you never answered</h2>
+      <ol>
+        {asked.map(({ _id, note, page, book }) => (
+          <li key={_id}>
+            <Link to={`/books/${book._id}?highlight=${_id}`}>{note}</Link>
+            <span><cite>{book.title}</cite>{page ? `, p. ${page}` : ''}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+};
+
+/* Bound once the year is done: in December, or any time after. */
+const boundLine = (year, now = new Date()) => {
+  if (year < now.getFullYear()) return `Bound at the end of ${year}.`;
+  return now.getMonth() === 11 ? `Bound in December ${year}.` : 'Still being written. It is bound in December.';
+};
+
 const CommonplaceBook = () => {
   const [searchParams] = useSearchParams();
   const asked = Number(searchParams.get('year')) || undefined;
   const [book, setBook] = useState(null);
   const [error, setError] = useState('');
+  const [books, setBooks] = useState([]);
+  const page = useRef(null);
+  const [face, setFace] = useState('');
+  useLayoutEffect(() => setFace(faceOf(page.current)), []);
+  useEffect(() => {
+    let cancelled = false;
+    listBooks().then(found => { if (!cancelled) setBooks(found); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   useDocumentTitle(book ? `${book.year}, a commonplace book` : 'A commonplace book', 'Library');
 
   useEffect(() => {
@@ -55,7 +94,7 @@ const CommonplaceBook = () => {
   const chapters = book?.chapters || [];
 
   return (
-    <main className="commonplace-book" aria-labelledby="commonplace-book-title" aria-busy={!book && !error}>
+    <main ref={page} className="commonplace-book" aria-labelledby="commonplace-book-title" aria-busy={!book && !error}>
       <nav className="commonplace-book__tools" aria-label="Book">
         <Link to="/library">← Library</Link>
         {otherYears.length ? (
@@ -90,7 +129,7 @@ const CommonplaceBook = () => {
             ) : null}
           </header>
 
-          <YearShelf year={book.year} />
+          <YearShelf year={book.year} books={books} />
 
           {chapters.length > 1 ? (
             <nav className="commonplace-book__contents" aria-label="Contents">
@@ -115,6 +154,9 @@ const CommonplaceBook = () => {
               </section>
             );
           })}
+
+          <Unanswered year={book.year} books={books} />
+          {book.passages ? <p className="commonplace-book__colophon">{[face ? `Set in ${face}.` : '', boundLine(book.year)].filter(Boolean).join(' ')}</p> : null}
         </>
       ) : null}
     </main>

@@ -9,7 +9,7 @@ import EditionZoom from '../components/editions/EditionZoom';
 import { editionIssuePath, findingHash, readEditionLocal, readingPosition } from '../components/editions/editionReadingState';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { buttonClass } from '../components/ui';
-import { byPaper, issueLine, newCountOf } from './editionModel';
+import { byPaper, hasNew, issueLine } from './editionModel';
 import '../styles/edition-reading.css';
 
 /* A path with only the parameters that say something. */
@@ -88,7 +88,7 @@ export default function Editions() {
   const issuePath = id ? editionIssuePath(id) : '';
   const overview = `${at(issuePath, { by })}${item ? findingHash(item) : ''}`;
   const paperPath = paper ? at('/editions', { paper: paper.profile }) : '/editions';
-  const news = newCountOf(paper ? paper.issues : papers.flatMap(row => row.issues));
+  const news = hasNew(paper ? paper.issues : papers.flatMap(row => row.issues));
   const powerPath = news ? at('/editions', { power: '1', paper: paper?.profile, by }) : '';
 
   const rungs = [
@@ -114,7 +114,7 @@ export default function Editions() {
     const finding = readingPosition(document.querySelector('[data-testid="edition-read"]'));
     if (finding) navigate(at(issuePath, { item: finding.dataset.readingItem, by }));
   };
-  const firstPaper = papers.find(row => newCountOf(row.issues)) || papers[0];
+  const firstPaper = papers.find(row => hasNew(row.issues)) || papers[0];
   const zoom = {
     4: { out: null, into: firstPaper ? at('/editions', { paper: firstPaper.profile }) : null },
     3: { out: stand, into: paper ? editionIssuePath(paper.issues[paper.current]._id) : null },

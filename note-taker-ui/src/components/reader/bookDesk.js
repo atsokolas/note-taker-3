@@ -39,9 +39,15 @@ export const readLine = (raw = '', page = null) => {
 
 export const isUnfinished = (text = '') => /…|\.{3}/.test(text);
 
-export const kindOf = (mark = {}) => (
-  mark.text ? 'quote' : String(mark.note || '').trim().endsWith('?') ? 'question' : 'note'
-);
+/* A page folded at the desk ("/dog-ear") is a mark with no words, only the tag. */
+export const DOG_EAR = 'dog-ear';
+
+export const kindOf = (mark = {}) => {
+  const note = String(mark.note || '').trim();
+  if (mark.text) return 'quote';
+  if (!note) return 'fold';
+  return note.endsWith('?') ? 'question' : 'note';
+};
 
 const at = mark => new Date(mark.createdAt || 0).getTime();
 const sameWords = (value = '') => (String(value).match(WORD) || []).join(' ').toLowerCase();
@@ -150,7 +156,7 @@ export const pageNow = (marks = []) => (
   [...marks].filter(mark => mark.page).sort((a, b) => at(b) - at(a))[0]?.page || null
 );
 
-const counted = (n, one, many = `${one}s`) => (n ? `${n} ${n === 1 ? one : many}` : '');
+export const counted = (n, one, many = `${one}s`) => (n ? `${n} ${n === 1 ? one : many}` : '');
 
 /* A run of marks as a receipt: the pages it covered and what was written.
    Tonight's sitting at the desk, or a whole book on the shelf. */
@@ -182,13 +188,20 @@ const ownWords = mark => ownParagraphs(mark.note).join(' ').match(WORD)?.length 
 
 /* Where you left off: the last thing you wrote in your own words, or the last
    passage you marked. Nothing when nothing was marked. */
+// A note written to over several sittings ends with the newest of them.
+const wordsOf = mark => (ownWords(mark) ? ownParagraphs(mark.note).pop() : mark.text);
+
 export const lastTime = (marks = []) => {
   const newest = [...marks].sort((a, b) => at(b) - at(a));
-  const mark = newest.find(ownWords) || newest[0];
+  const mark = newest.find(ownWords) || newest.find(found => found.text);
   if (!mark) return null;
-  // A note written to over several sittings ends with the newest of them.
-  const own = Boolean(ownWords(mark));
-  return { page: mark.page || null, words: own ? ownParagraphs(mark.note).pop() : mark.text, own };
+  return { page: mark.page || null, words: wordsOf(mark), own: Boolean(ownWords(mark)) };
+};
+
+/* The line a bare /argue or /who is about: the newest one kept, quote or note. */
+export const lastLine = (marks = []) => {
+  const mark = [...marks].sort((a, b) => at(b) - at(a)).find(found => found.text || ownWords(found));
+  return mark ? wordsOf(mark) : '';
 };
 
 /* The thought you fell asleep on: the last line of a sitting that ran past
@@ -201,10 +214,23 @@ export const midThought = (marks = []) => {
   return ENDED.test(words) ? null : { mark, words };
 };
 
+/* When the sittings of a book mostly began, on your clock, if most of them
+   began in one stretch of the day. */
+const STRETCHES = [[MORNING, 'after 10 PM'], [12, 'in the mornings'], [18, 'in the afternoons'], [22, 'in the evenings'], [24, 'after 10 PM']];
+const stretchOf = mark => STRETCHES.find(([until]) => new Date(mark.createdAt).getHours() < until)[1];
+export const mostlyWhen = (sittings = []) => {
+  const began = sittings.map(run => stretchOf(run[0]));
+  return began.length > 2 ? began.find(stretch => began.filter(other => other === stretch).length * 2 > began.length) || '' : '';
+};
+
+/* A question is open until the book answers it under your words. */
+export const openQuestionsOf = (marks = []) => marks.filter(mark => kindOf(mark) === 'question'
+  && !String(mark.note).split(/\n\n/).some(part => part.startsWith(BOOK_SAYS)));
+
 /* A finished book's bookends: the first thing you marked in it and the last,
    in its words or yours, and how many words of your own you wrote beside it. */
 export const bookendsOf = (marks = []) => {
-  const read = [...marks].sort((a, b) => at(a) - at(b));
+  const read = marks.filter(mark => kindOf(mark) !== 'fold').sort((a, b) => at(a) - at(b));
   const wordsOf = mark => mark.text || ownParagraphs(mark.note)[0] || '';
   return {
     first: read.length > 1 ? wordsOf(read[0]) : '',

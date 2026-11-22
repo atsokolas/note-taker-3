@@ -5,6 +5,7 @@ const { saveWorkWeek } = require('../services/workWeek');
 const express = require('express');
 const mongoose = require('mongoose');
 const { inWork, workOperationIndex } = require('../models/knowledgeContext');
+const { pencilOf } = require('../services/agentTokenService');
 const { captureFields, workItemFields, replayedActions, applyWorkActions, validDay: date } = require('../services/workPlanner');
 const { sanitizeNotebookBlocks } = require('../utils/notebookIdentity');
 const { sanitizeNotebookWorkbench, LIMITS } = require('../utils/notebookWorkbench');
@@ -171,7 +172,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
       const values = await fields(req);
       try { entry = await deletion.transaction(async session => {
         await deletion.fenceEntries(req.user.id, [values], session);
-        const [created] = await NotebookEntry.create([{ ...values, occurredOn: values.occurredOn || new Date().toISOString().slice(0, 10), userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: 'create' }], { session });
+        const [created] = await NotebookEntry.create([{ ...values, pencil: pencilOf(req), occurredOn: values.occurredOn || new Date().toISOString().slice(0, 10), userId: req.user.id, knowledgeContext: 'work', operationId, operationSource: 'create' }], { session });
         return created;
       }); }
       catch (error) { if (error.code !== 11000) throw error; entry = await duplicate(req, operationId, 'create'); }
@@ -212,6 +213,8 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (current.revision !== expected) throw fail(409, 'This note changed elsewhere.', current);
     let values;
     try { values = await fields(req, current); } catch (error) { if (error.status === 409) error.current = current; throw error; }
+    // Whoever last wrote the words signs them: an agent in pencil, you in ink.
+    if (['title', 'content'].some(key => values[key] !== undefined)) values.pencil = pencilOf(req);
     if (req.body.workingState !== undefined) {
       const text = req.body.workingState?.nextTimeLine?.text ?? '';
       if (typeof text !== 'string' || text.length > LIMITS.nextLine) throw fail(400, `The return line must be text of at most ${LIMITS.nextLine} characters. Your note was not saved.`);

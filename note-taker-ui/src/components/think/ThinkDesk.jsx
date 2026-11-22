@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getNotebookCuttings } from '../../api/notebook';
 import { dayLabel } from './notebook/notebookStages';
+import { inkAge } from '../../utils/inkAge';
 
 const IDEAS_ON_DESK = 4;
 const WHERE = { dimmed: 'Dimmed in', aside: 'Set aside in' };
@@ -9,6 +10,12 @@ const thisMonth = (value, now = new Date()) => {
   const at = new Date(value || 0);
   return at.getFullYear() === now.getFullYear() && at.getMonth() === now.getMonth();
 };
+/* A piece begun within three days of this date a year ago. */
+const aYearAgo = (value, now = Date.now()) => {
+  const at = new Date(value || NaN);
+  at.setFullYear(at.getFullYear() + 1);
+  return Math.abs(now - at) <= 3 * DAY;
+};
 
 /* The desk: what Think shows when no piece is open. It stores nothing; it is
    the pieces you are writing, a line for a new thought, your ideas, what you
@@ -16,6 +23,7 @@ const thisMonth = (value, now = new Date()) => {
 const ThinkDesk = ({ working, ideas, closed, onOpen, onView, onStart, creating, children }) => {
   const [thought, setThought] = useState('');
   const [cutting, setCutting] = useState(null);
+  const yearAgo = [...working, ...ideas, ...closed].find(item => aYearAgo(item.createdAt));
   const closedLately = closed.filter(item => thisMonth(item.board?.movedAt || item.board?.archivedAt));
 
   /* One cutting a day, the same one all day, so it reads as a find rather than a feed. */
@@ -40,6 +48,7 @@ const ThinkDesk = ({ working, ideas, closed, onOpen, onView, onStart, creating, 
         <p>{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         <h1 id="think-desk-title">{working.length ? 'Pick up where you stopped.' : 'Nothing is underway.'}</h1>
         {working.length ? null : <p>Open an idea and choose Working above its title, and it waits here.</p>}
+        {yearAgo ? <p className="think-desk__year">A year ago this week you started <button type="button" onClick={() => onOpen(yearAgo)}>{yearAgo.title}</button>.</p> : null}
       </header>
 
       {working.length ? (
@@ -75,7 +84,7 @@ const ThinkDesk = ({ working, ideas, closed, onOpen, onView, onStart, creating, 
           <h2 id="think-desk-ideas">Ideas, by when you last thought about them</h2>
           <ul>
             {ideas.slice(0, IDEAS_ON_DESK).map(item => (
-              <li key={item.id}>
+              <li key={item.id} data-ink={inkAge(item.updatedAt)}>
                 <button type="button" onClick={() => onOpen(item)}><span>{item.title}</span><small>{dayLabel(item.updatedAt)}</small></button>
               </li>
             ))}

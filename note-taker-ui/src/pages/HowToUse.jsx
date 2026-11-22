@@ -49,7 +49,8 @@ const HowToUse = () => (
     <h2>Your data</h2>
     <p>
       Everything you keep can be exported as files from <Link to="/settings?section=data">Settings, Data</Link>.
-      Something wrong? <Link to="/support">Support</Link> says how to reach Athan.
+      Something wrong? <Link to="/support">Support</Link> says how to reach Athan,
+      and <Link to="/changelog">What changed</Link> says what he did about it.
     </p>
   </main>
 );

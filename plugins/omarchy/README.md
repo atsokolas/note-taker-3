@@ -132,6 +132,10 @@ says so: "Two short pieces fit tonight. Notes on craft has waited longest,
 nothing short waits it says nothing. Clicking it opens that piece in the
 reading window.
 
+From a terminal, `noeis tonight` prints the same piece set as a card, and
+`noeis fortune` draws one passage of your own at random. Add `noeis fortune`
+to `~/.bashrc` and every new terminal opens on it.
+
 ## Moving around the app
 
 The Noeis window has no address bar and no back button, so the app answers

@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { createHighlight, deleteHighlight, updateHighlight } from '../../api/highlights';
-import { readBookPage } from '../../api/imports';
+import { argueLine, heardBefore, readBookPage } from '../../api/imports';
 import { useFinePointer } from '../../hooks/useMotionPreferences';
 import { scopedKey } from '../../utils/browserScope';
 import { buildConceptPath } from '../../utils/sourceRoutes';
 import { pagePhoto } from '../../utils/pagePhoto';
 import {
-  completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastTime, markedBefore, midThought, monthOf, pageNow, pagesOf,
+  DOG_EAR, completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastLine, lastTime, markedBefore, midThought, monthOf, pageNow, pagesOf,
   readingSince, readLine, setDownOn, sittingLabel, sittingOf, tallyLine
 } from './bookDesk';
 import '../../styles/book-desk.css';
@@ -25,6 +25,11 @@ const keepUnsent = (articleId, lines) => {
 };
 
 const joinNotes = (held = '', more = '') => (held ? `${held}\n\n${more}` : more);
+
+/* Three words the line keeps to itself until you type a "/": fold the
+   page's corner, hear the best case against your line, or find who else in
+   your library said it. Each one about the line after it, or the last one kept. */
+const COMMAND = /^\/(dog-ear|argue|who)\b\s*/;
 
 const yearOf = mark => new Date(mark.createdAt).getFullYear();
 
@@ -53,10 +58,10 @@ export function BookPages({ marks = [], since = 0, inked = '', doorFor }) {
   return pages.length ? (
     <ol className="book-desk__pages">
       {pages.map(({ label, marks: onPage }) => (
-        <li key={`${label}-${onPage[0]._id}`} className="book-desk__page">
+        <li key={`${label}-${onPage[0]._id}`} className="book-desk__page" data-folded={onPage.some(mark => kindOf(mark) === 'fold') || undefined}>
           {label ? <span className="book-desk__folio">{label}</span> : null}
           <ul className="book-desk__marks">
-            {onPage.map(mark => (
+            {onPage.filter(mark => kindOf(mark) !== 'fold').map(mark => (
               <li
                 key={mark._id}
                 className="book-desk__mark"
@@ -105,6 +110,8 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   const page = turnedPage === undefined ? pageNow(now) : turnedPage;
   const [receipt, setReceipt] = useState('');
   const [inked, setInked] = useState('');
+  // An old mark of yours that said nearly the same, a year or more ago.
+  const [echo, setEcho] = useState(null);
   const sent = useRef([]);
   const lineRef = useRef(null);
 
@@ -131,6 +138,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       sent.current.push({ id: saved._id, before });
       setReceipt(receiptFor(draft, saved, known, !known && markedBefore(saved.text, marks, since)) || filedUnder(draft.tags));
       setTouched(true);
+      if (!known) heardBefore(articleId, saved.text || saved.note, { echo: true }).then(setEcho, () => {});
       if (draft.text && saved.text !== draft.text) setInked(saved._id);
       return true;
     } catch (error) {
@@ -170,7 +178,37 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     if (finePointer) lineRef.current?.focus({ preventScroll: true });
   }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fold = async () => {
+    if (!page) return setReceipt('Turn to a page first: type its number.');
+    const saved = await createHighlight({ articleId, page, tags: [DOG_EAR] }).catch(() => null);
+    if (!saved) return setReceipt('The corner did not fold. Try it again.');
+    onAdd?.(saved);
+    sent.current.push({ id: saved._id });
+    return setReceipt(`Folded the corner of p. ${page}.`);
+  };
+
+  const command = async (word, about) => {
+    if (word === 'dog-ear') return fold();
+    if (!about) return setReceipt(`Type a line after /${word}, or keep one first.`);
+    if (word === 'who') {
+      const passage = await heardBefore(articleId, about).catch(() => null);
+      return setReceipt(passage
+        ? <><cite>{passage.articleTitle || 'Something you saved'}</cite> said it too: <q>{passage.text}</q></>
+        : 'Nobody else in your library has said that. Yet.');
+    }
+    setReceipt('Finding the best case against it…');
+    const objection = await argueLine(articleId, about).catch(() => '');
+    return setReceipt(objection ? <><b>Against that:</b> {objection}</> : 'Nobody would argue with that just now. Try it again.');
+  };
+
   const keep = async ({ attach = false } = {}) => {
+    setEcho(null);
+    const asked = COMMAND.exec(line.trim());
+    if (asked) {
+      setLine('');
+      await command(asked[1], line.trim().slice(asked[0].length) || lastLine(now));
+      return;
+    }
     const { page: turned, text, note, tags = [] } = readLine(line, page);
     setPage(turned);
     setLine('');
@@ -250,7 +288,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       await deleteHighlight({ articleId, highlightId: id }).catch(() => null);
       onRemove?.(id);
     }
-    setReceipt(`Took back “${(mark.text || mark.note).slice(0, 60)}”.`);
+    setReceipt(kindOf(mark) === 'fold' ? `Unfolded p. ${mark.page}.` : `Took back “${(mark.text || mark.note).slice(0, 60)}”.`);
   };
 
   const press = (event) => {
@@ -309,18 +347,23 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
             aria-label="Type a quote, a note or a question"
             enterKeyHint="send"
             value={line}
-            placeholder={setDown ? 'Why you stopped, or the next line' : unfinished ? 'The rest of that thought' : 'A quote, or what you think'}
+            placeholder={setDown ? 'Why you stopped, or the next line' : unfinished ? 'The rest of that thought' : sittingLabel(new Date()) === 'Past midnight' ? 'Still up? One more line, then bed.' : 'A quote, or what you think'}
             onChange={(event) => setLine(event.target.value)}
             onKeyDown={press}
           />
         </div>
       </form>
-      <p className="book-desk__hint" aria-live="polite" data-said={receipt || ghost || then ? true : undefined}>
-        {receipt || (ghost ? 'Tab takes the rest of the passage you marked'
+      <p className="book-desk__hint" aria-live="polite" data-said={receipt || ghost || then || line === '/' ? true : undefined}>
+        {receipt || (line === '/' ? 'Try /dog-ear, /argue or /who.' : ghost ? 'Tab takes the rest of the passage you marked'
           : then ? <>In {yearOf(then)}, on this page: <q>{then.text || then.note}</q></>
             : unfinished ? 'Return finishes it. Escape starts a new line.'
               : 'Return keeps the line. Option-Return adds it to the quote above.')}
       </p>
+      {echo ? (
+        <p className="book-desk__echo">
+          <q>{echo.text}</q> You marked this in {monthOf(new Date(echo.createdAt))}{echo.articleTitle ? <>, in <cite>{echo.articleTitle}</cite></> : null}.
+        </p>
+      ) : null}
       {waiting.length ? (
         <label className="book-desk__photo">
           {waiting.length === 1 ? 'Photograph the page to fill in your quote' : `Photograph the page to fill in your ${waiting.length} quotes`}

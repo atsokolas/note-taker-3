@@ -114,6 +114,16 @@ export const askBook = async (id) => (
   (await api.post(`/api/books/${encodeURIComponent(id)}/ask`, {}, getAuthHeaders())).data?.answers || []
 );
 
+/* A line put to the rest of your library: who else said it, or (echo) what you marked nearly the same a year or more ago. */
+export const heardBefore = async (id, line, { echo = false } = {}) => (
+  (await api.post(`/api/books/${encodeURIComponent(id)}/heard`, { line, echo }, getAuthHeaders())).data?.passage || null
+);
+
+/* The strongest objection to a line typed beside a book. */
+export const argueLine = async (id, line) => (
+  (await api.post(`/api/books/${encodeURIComponent(id)}/argue`, { line }, getAuthHeaders())).data?.objection || ''
+);
+
 export const listImportConnections = async ({ provider = '' } = {}) => {
   const params = new URLSearchParams();
   if (provider) params.set('provider', String(provider).trim());

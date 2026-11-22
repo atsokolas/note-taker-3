@@ -61,4 +61,25 @@ const askTheBook = async ({ title = '', questions = [], passages: marked = [], c
   }).filter((found, at, all) => found && all.findIndex(other => other?.questionId === found.questionId) === at);
 };
 
-module.exports = { askTheBook, readPage };
+/* "/argue" at the desk: the strongest objection to the line you just typed,
+   put the way a sharp friend across the table would, in two sentences. The
+   reader asked for the fight, so it does not soften it or agree. */
+const ARGUE = [
+  'A reader typed this line beside a book they are reading.',
+  'Write the single strongest objection to it: the best case a thoughtful person who disagrees would make.',
+  'Two plain sentences at most. Do not agree, hedge, summarise the line or praise it. Write only the objection.'
+].join(' ');
+
+const argueWith = async ({ title = '', line = '', complete = chatComplete } = {}) => {
+  const completion = await complete({
+    maxTokens: 200,
+    temperature: 0.5,
+    messages: [
+      { role: 'system', content: ARGUE },
+      { role: 'user', content: JSON.stringify({ book: title, line }) }
+    ]
+  });
+  return String(completion?.text || '').replace(/\s+/g, ' ').trim();
+};
+
+module.exports = { argueWith, askTheBook, readPage };

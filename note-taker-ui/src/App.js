@@ -4,6 +4,7 @@ import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
 import JudgmentMirror from './pages/JudgmentMirror';
 import NotFound from './pages/NotFound';
+import deskContent from './pages/deskContent.json';
 import { forgetReturnPath, isAppRoute, readReturnPath, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
 import { GUIDE_SLUGS } from './seo/guideSlugs';
@@ -23,6 +24,7 @@ import {
   persistUiSettingsToStorage
 } from './settings/uiPreferences';
 import { formatAppearanceValue } from './settings/appearanceFieldModel';
+import { useRoomHours } from './settings/roomHours';
 import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
@@ -110,6 +112,7 @@ const SearchConsoleOpportunities = lazy(() => import('./pages/SearchConsoleOppor
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
 const Support = lazy(() => import('./pages/Support'));
+const FromTheDesk = lazy(() => import('./pages/FromTheDesk'));
 const OpenSentenceStoryboard = lazy(() => import('./pages/OpenSentenceStoryboard'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
 const SharedEdition = lazy(() => import('./pages/SharedEdition'));
@@ -261,7 +264,8 @@ export const isDesignPreviewPath = (pathname = '') => (
 
 /* Pages that read the same signed in or out. They are drawn by the public
    tree either way, so they are declared once. */
-const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', '/support', ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
+const DESK_PAGES = Object.keys(deskContent);
+const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', '/support', ...DESK_PAGES.map((page) => `/${page}`), ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
 export const isPublicPage = (pathname = '') => (
   isPublicSharePath(pathname) || isDesignPreviewPath(pathname) || PUBLIC_PAGES.has(pathname)
 );
@@ -274,6 +278,7 @@ const PublicRoutes = ({ handleLoginSuccess }) => {
     || location.pathname === '/guides'
     || location.pathname === '/examples'
     || location.pathname === '/proof'
+    || DESK_PAGES.includes(location.pathname.slice(1))
     || isDesignPreviewPath(location.pathname)
   );
   const isEditorialPublicRoute = (
@@ -304,6 +309,7 @@ const PublicRoutes = ({ handleLoginSuccess }) => {
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/support" element={<Support />} />
+          {DESK_PAGES.map((page) => <Route key={page} path={`/${page}`} element={<FromTheDesk page={page} />} />)}
           <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
           <Route path="/design-preview/question-share" element={<QuestionSharePreview />} />
           <Route path="/share/concepts/:slug" element={<RetiredShare kind="concepts" />} />
@@ -498,6 +504,7 @@ function App() {
     bootstrapDevTokenFromLocation() || hasUsableStoredToken()
   ));
   const [isLoading, setIsLoading] = useState(true);
+  useRoomHours();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const paletteReturnFocusRef = useRef(null);
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);

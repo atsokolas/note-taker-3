@@ -1,7 +1,7 @@
 import {
   aheadLine, barsOf, byHand, byPaper, bySection, costLine, datelineLine, handsOf,
-  issueLine, newCountOf, passageHref, publicSourceHref, sourceLine, sourceNote, sureLine, watchThreads,
-  runGrid, sectionTones, standLayout, stateOf, windowLine, frontPage, coverFigure, updatedLine, dekOf
+  issueLine, hasNew, passageHref, publicSourceHref, sourceLine, sourceNote, sureLine, watchThreads,
+  runGrid, sectionTones, standLayout, stateOf, windowLine, frontPage, coverFigure, updatedLine, dekOf, earLine, lateFiling
 } from './editionModel';
 
 describe('the window a paper covers', () => {
@@ -234,10 +234,10 @@ describe('one paper’s run', () => {
     expect(runGrid(null)).toEqual({ sections: [], rows: [] });
   });
 
-  it('adds up what is new, and says nothing when no issue counted', () => {
-    expect(newCountOf([{ newCount: 2 }, { newCount: 0 }, {}])).toBe(2);
-    expect(newCountOf([{ newCount: 0 }])).toBe(0);
-    expect(newCountOf([{}, {}])).toBeNull();
+  it('says whether anything is new, never how much, and nothing when no issue said', () => {
+    expect(hasNew([{ newCount: 2 }, { newCount: 0 }, {}])).toBe(true);
+    expect(hasNew([{ newCount: 0 }])).toBe(false);
+    expect(hasNew([{}, {}])).toBeNull();
   });
 
   it('colours counter-evidence red and the rest in profile order', () => {
@@ -358,4 +358,21 @@ it('gives a contents line the first sentence of the finding, unless the headline
   expect(dekOf({ plain: 'Few recover.', finding: 'Few recover. Most stop.' })).toBe('');
   expect(dekOf({ title: 'Source', finding: 'No full stop here' })).toBe('No full stop here');
   expect(dekOf({ title: 'Source' })).toBe('');
+});
+
+describe('the masthead and the presses', () => {
+  const run = [{ windowStart: '2026-10-05' }, { windowStart: '2027-01-04' }];
+
+  it('prints the paper year and founding in the ear', () => {
+    expect(earLine(run, run[0])).toBe('Vol. I · Est. October 2026');
+    expect(earLine(run, run[1])).toBe('Vol. II · Est. October 2026');
+    expect(earLine([], run[0])).toBe('');
+  });
+
+  it('stamps a finding filed after the issue went to press', () => {
+    const issue = { windowStart: '2026-11-16', windowEnd: '2026-11-22' };
+    expect(lateFiling({ filedAt: '2026-11-22T20:00:00Z' }, issue)).toBe(false);
+    expect(lateFiling({ filedAt: '2026-11-23T09:00:00Z' }, issue)).toBe(true);
+    expect(lateFiling({}, issue)).toBe(false);
+  });
 });

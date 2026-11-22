@@ -268,15 +268,6 @@ export const judgmentActivity = (page, events = [], now = Date.now()) => {
   return { state: 'quiet', arrived: 0, newestAt: null };
 };
 
-export const activityNote = ({ state, arrived } = {}) => {
-  if (state === 'avoided') {
-    return `${arrived} thing${arrived === 1 ? '' : 's'} arrived about this and ${arrived === 1 ? 'is' : 'are'} unread`;
-  }
-  if (state === 'parked') return 'Parked';
-  if (state === 'evergreen') return 'Kept';
-  return '';
-};
-
 export const lessonLines = (judgment = {}) => list(judgment.lessons)
   .map((item, index) => ({
     id: normalizeSpaces(item?.lessonId) || `lesson:${index}`,
