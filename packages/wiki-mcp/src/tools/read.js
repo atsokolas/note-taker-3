@@ -42,6 +42,14 @@ export const readTools = [
     handler: (client, args) => client.read(args)
   },
   {
+    name: 'added',
+    description: 'What one saved source added to what the reader already holds, as Noeis connected it: passages they marked elsewhere that it echoes, questions of theirs it answers, and wiki pages it belongs on, each quoted with its link. `inked` names a connection the reader took up; without it the connection is Noeis\'s pencil, not yet their view. Pass the `id` of an article or book.',
+    inputSchema: {
+      id: z.string().min(1).describe('The id of a saved article or book.')
+    },
+    handler: (client, args) => client.added(args)
+  },
+  {
     name: 'list_edition_profiles',
     description: 'List the reader\'s edition topics: what each paper is called, its sections, and how often it comes out (daily, weekly, monthly). Call this before filing so you use a topic that exists and a section it actually has.',
     inputSchema: {},

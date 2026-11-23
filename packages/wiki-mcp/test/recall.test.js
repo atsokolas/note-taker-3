@@ -41,6 +41,12 @@ const WORKSPACE = {
     question: [{ kind: 'question', id: 'q1', title: 'Do work samples beat interviews?', passage: 'Do work samples beat interviews?' }],
     pencil: [{ kind: 'note', id: 'n2', title: 'Panels', passage: 'Panels overweight charisma.', pencil: 'Codex' }]
   },
+  '/api/added/a1': {
+    added: [
+      { kind: 'echo', key: 'highlight:h9', to: { type: 'highlight', id: 'h9', articleId: 'a9', title: 'Older paper', quote: 'Interviews mostly measure confidence.' }, inked: null },
+      { kind: 'answers', key: 'question:q1', to: { type: 'question', id: 'q1', title: 'Do work samples beat interviews?' }, inked: 'c1' }
+    ]
+  },
   '/api/recall/read/n1': { kind: 'note', id: 'n1', title: 'Hiring notes', text: 'Hire for slope, not intercept.' },
   '/api/editions': {
     editions: [{
@@ -134,7 +140,7 @@ const run = async () => {
     assert.match(mcp.getInstructions(), /pencil[\s\S]*Never present it as the reader's own view/);
 
     const { tools } = await mcp.listTools();
-    for (const name of ['brief', 'recall', 'read']) {
+    for (const name of ['brief', 'recall', 'read', 'added']) {
       const tool = tools.find(entry => entry.name === name);
       assert.ok(tool, `${name} is listed`);
       assert.strictEqual(tool.annotations.readOnlyHint, true);
@@ -147,6 +153,13 @@ const run = async () => {
 
     const opened = await mcp.callTool({ name: 'read', arguments: { id: 'n1' } });
     assert.strictEqual(JSON.parse(opened.content[0].text).title, 'Hiring notes');
+
+    /* What a source added comes with where each connection opens, inked or pencil as the reader left it. */
+    const added = JSON.parse((await mcp.callTool({ name: 'added', arguments: { id: 'a1' } })).content[0].text).added;
+    assert.deepStrictEqual(added.map(({ kind, inked, link }) => [kind, inked, link]), [
+      ['echo', null, 'https://www.noeis.io/library?articleId=a9&highlightId=h9'],
+      ['answers', 'c1', 'https://www.noeis.io/think?tab=questions&questionId=q1']
+    ]);
 
     const refused = await mcp.callTool({ name: 'recall', arguments: { query: '' } });
     assert.ok(refused.isError);
