@@ -600,6 +600,7 @@ const { buildMarketingFunnelRouter } = require('./routes/marketingFunnelRoutes')
 const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes');
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildRecallRouter } = require('./routes/recallRoutes');
+const { buildAddedRouter } = require('./routes/addedRoutes');
 const { buildSyncRouter } = require('./routes/syncRoutes');
 const { buildHandoffRouter } = require('./routes/handoffRoutes');
 const { buildDisagreementRouter } = require('./routes/disagreementRoutes');
@@ -5323,6 +5324,8 @@ app.use(buildRecallRouter({
   humanOnly: requireHumanReader,
   semanticSearch
 }));
+
+app.use(buildAddedRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Connection, Verdict }));
 
 app.use(buildSyncRouter({
   authenticateToken: authenticateUserOrAgentToken,

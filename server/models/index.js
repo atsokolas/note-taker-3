@@ -3617,19 +3617,22 @@ const Citation = mongoose.model('Citation', citationSchema);
 /* A question the reader expects their library to answer, and the sources
    that answer it. Whether recall still finds them is worked out each time
    it is asked, never stored. */
-/* The reader's verdict on something an agent wrote: inked, or struck and
-   why. What it was about is kept with it, since a strike removes the thing;
-   the log is the reader's taste, as agents read it. */
+/* The reader's verdict on something an agent wrote, or a connection Noeis
+   drew: inked, or struck and why. What it was about is kept with it, since a
+   strike removes the thing; the log is the reader's taste, as agents read it. */
 const verdictSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   verdict: { type: String, enum: ['ink', 'strike'], required: true },
   kind: { type: String, required: true },
   agent: { type: String, default: '' },
+  // A connection Noeis drew has no record of its own, so its verdict names it: source>type:id.
+  about: { type: String, default: '' },
   title: { type: String, default: '' },
   text: { type: String, default: '' },
   why: { type: String, default: '' }
 }, { timestamps: true });
 verdictSchema.index({ userId: 1, createdAt: -1 });
+verdictSchema.index({ userId: 1, kind: 1, about: 1 });
 const Verdict = mongoose.model('Verdict', verdictSchema);
 
 /* Two hands that cannot both be right: what an agent wrote, against a view
