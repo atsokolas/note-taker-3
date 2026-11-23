@@ -100,7 +100,7 @@ export function BookPages({ marks = [], since = 0, inked = '', doorFor }) {
  * The reading desk: the book is in your lap, and this is the one line you
  * type into beside it. "212" turns to page 212, a line opening with a quote
  * mark is the book's words, anything else is yours, and a #word files it
- * under that concept. ⌥↩ puts the line under the quote above it as its
+ * under that concept. ⌥↩ puts the line under the last quote kept here as its
  * note. The page stays where you left it.
  */
 export default function BookDesk({ article, marks = [], arriving = true, onAdd, onReplace, onRemove, onOpenMark, doorFor }) {
@@ -239,7 +239,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     if (kind !== 'thought') setPage(turned);
     setLine('');
     setReceipt('');
-    /* A note sent with ⌥↩ goes under the quote above it, one that finishes
+    /* A note sent with ⌥↩ goes under the last quote kept here, one that finishes
        last night's thought runs on from it; a line of only #tags files the
        mark you just made. */
     const finishing = kind === 'scribble' && !attach && note && unfinished?.mark;
@@ -392,7 +392,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
         {receipt || (kind === 'scribble' && line === '/' ? 'Try /dog-ear, /argue or /who.' : ghost ? 'Tab takes the rest of the passage you marked'
           : then ? <>In {yearOf(then)}, on this page: <q>{then.text || then.note}</q></>
             : kind === 'scribble' && unfinished ? 'Return finishes it. Escape starts a new line.'
-              : kind === 'scribble' ? 'Return keeps the line. Option-Return adds it to the quote above.' : 'Return keeps the line. Shift-Return starts a new paragraph.')}
+              : kind === 'scribble' ? 'Return keeps the line. Option-Return adds it to your last quote.' : 'Return saves. Shift-Return adds a line.')}
       </p>
       {Boolean(sitting.length || setDown || returning || lastReading?.finishedOn) && (
         <p className="book-desk__lede">
