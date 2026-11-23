@@ -494,10 +494,37 @@ const renderStaticRedirects = (content) => {
   return `${routeLines.join('\n')}\n/* /index.html 200\n`;
 };
 
+/* No script runs but the app's own files: no inline script, no handler
+   attribute, no javascript: link, whatever a saved page smuggles in.
+   Pictures, styles and connections stay open, because reading is the web. */
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+  'img-src * data: blob:',
+  'media-src * data: blob:',
+  "style-src 'self' 'unsafe-inline' https:",
+  "font-src 'self' data: https:",
+  "connect-src 'self' https: wss:",
+  'frame-src https:',
+  "worker-src 'self' blob:"
+].join('; ');
+
 const renderVercelConfig = (content) => JSON.stringify({
   // Agent branches are tested on GitHub; previews there spend the daily build limit.
   git: { deploymentEnabled: { 'claude/**': false } },
   cleanUrls: true,
+  headers: [{
+    source: '/(.*)',
+    headers: [
+      { key: 'Content-Security-Policy', value: CONTENT_SECURITY_POLICY },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' }
+    ]
+  }],
   redirects: [
     {
       source: '/wiki/list',
