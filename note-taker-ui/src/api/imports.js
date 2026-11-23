@@ -67,6 +67,10 @@ export const closeBook = async (id, line = '') => (
 export const reopenBook = async (id) => (
   (await api.delete(`/api/books/${encodeURIComponent(id)}/closed`, getAuthHeaders())).data
 );
+/* Renaming a book; the marks its imports bring still find it. */
+export const renameBook = async (id, title) => (
+  (await api.put(`/api/books/${encodeURIComponent(id)}/title`, { title }, getAuthHeaders())).data
+);
 /* Starting a finished book again: the reading you closed is kept, with its marks. */
 export const readAgain = async (id) => (
   (await api.post(`/api/books/${encodeURIComponent(id)}/again`, {}, getAuthHeaders())).data

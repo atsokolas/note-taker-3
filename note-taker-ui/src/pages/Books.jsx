@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { updateHighlight } from '../api/highlights';
 import {
-  askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook, takeBookBack
+  askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, renameBook, reopenBook, startBook, takeBookBack
 } from '../api/imports';
 import { ArticleMargins } from '../components/margins/LibraryMargins';
 import { useSettleIntoWiki } from '../components/think/settleIntoWiki';
@@ -589,6 +589,35 @@ const QuoteCards = ({ book, marks }) => (
   </ol>
 );
 
+/* A book's name is written over where it stands: Enter or leaving it keeps
+   the new one, Esc puts the old one back. Saved, it is the page's own again. */
+const BookTitle = ({ book, onChange }) => {
+  const title = book.title || 'Untitled book';
+  const keep = async ({ currentTarget: name }) => {
+    const typed = name.textContent.trim();
+    if (!typed || typed === title) {
+      name.textContent = title;
+      return;
+    }
+    try {
+      onChange(await renameBook(book._id, typed));
+    } catch (_) {
+      name.textContent = title;
+    }
+  };
+  const onKeyDown = (event) => {
+    if (!['Enter', 'Escape'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Escape') event.currentTarget.textContent = title;
+    event.currentTarget.blur();
+  };
+  return (
+    <h1 key={title} id="book-title" className="books__name" contentEditable="plaintext-only" suppressContentEditableWarning spellCheck={false} onBlur={keep} onKeyDown={onKeyDown}>
+      {title}
+    </h1>
+  );
+};
+
 // A mark typed at the desk is saved once the server has given it an id.
 const isSaved = mark => !mark.unsent && !String(mark._id).startsWith('desk-');
 
@@ -614,13 +643,13 @@ const Book = ({ id }) => {
   const doorFor = (mark) => (!isSaved(mark) || held.has(String(mark._id)) ? null : (
     <PassageDoor articleId={id} highlightId={mark._id} pages={pages} text={mark.text || ''} />
   ));
-  useDocumentTitle(article?.title || 'A book', 'Books');
+  useDocumentTitle(book?.title || 'A book', 'Books');
   // The Partner holds this book, its marks standing for the body it has none of.
   useNoeisAgentSurface('agent-surface.library', {
     room: 'library',
     objectType: 'article',
     objectId: id,
-    title: article?.title || 'A book',
+    title: book?.title || 'A book',
     orientation: 'Ask the book, using what you marked and wrote.'
   });
 
@@ -645,7 +674,7 @@ const Book = ({ id }) => {
         <>
           <header className="books__head">
             {book.author ? <p className="books__author">{book.author}</p> : null}
-            <h1 id="book-title">{book.title || 'Untitled book'}</h1>
+            <BookTitle book={book} onChange={change} />
           </header>
           <Spine marks={highlights} since={since} />
           {highlights.length ? null : <BeforeYouStart id={id} />}
