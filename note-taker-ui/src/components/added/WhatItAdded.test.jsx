@@ -2,11 +2,9 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WhatItAdded from './WhatItAdded';
-import { fetchAdded, strikeAdded } from '../../api/retrieval';
-import { createConnection } from '../../api/connections';
+import { fetchAdded, inkAdded, strikeAdded } from '../../api/retrieval';
 
-jest.mock('../../api/retrieval', () => ({ fetchAdded: jest.fn(), strikeAdded: jest.fn() }));
-jest.mock('../../api/connections', () => ({ createConnection: jest.fn() }));
+jest.mock('../../api/retrieval', () => ({ fetchAdded: jest.fn(), inkAdded: jest.fn(), strikeAdded: jest.fn() }));
 
 const echo = {
   kind: 'echo',
@@ -21,7 +19,7 @@ const shown = () => render(<MemoryRouter><WhatItAdded articleId="a1" /></MemoryR
 
 beforeEach(() => {
   fetchAdded.mockResolvedValue([echo, question, page]);
-  createConnection.mockResolvedValue({});
+  inkAdded.mockResolvedValue({ inked: 'c2' });
   strikeAdded.mockResolvedValue({ struck: true });
 });
 
@@ -43,7 +41,7 @@ it('inks a connection as yours, and strikes one so it goes', async () => {
   const echoLine = (await screen.findByText(/which you marked in/)).closest('li');
   fireEvent.keyDown(echoLine, { key: 'i' });
   await waitFor(() => expect(echoLine).toHaveClass('is-inked'));
-  expect(createConnection).toHaveBeenCalledWith({ fromType: 'article', fromId: 'a1', toType: 'highlight', toId: 'h9', relationType: 'related' });
+  expect(inkAdded).toHaveBeenCalledWith({ articleId: 'a1', key: 'highlight:h9', kind: 'echo' });
 
   fireEvent.click(screen.getByText(/Checklists catch/).closest('li').querySelector('button:last-child'));
   await waitFor(() => expect(screen.queryByText(/Checklists catch/)).toBeNull());

@@ -14,7 +14,16 @@ test('what a source added: pencil until inked, gone once struck', async () => {
   const verdicts = [];
   let agent = false;
   const lean = value => ({ select: () => ({ lean: async () => value }) });
-  const Connection = { find: () => lean([{ _id: 'c1', toType: 'question', toId: '64b0000000000000000000b2' }]) };
+  const connections = [{ _id: 'c1', fromId: source, toType: 'question', toId: '64b0000000000000000000b2', relationType: 'supports' }];
+  const same = query => row => Object.entries(query).every(([field, value]) => String(row[field]) === String(value));
+  const Connection = {
+    find: () => lean(connections),
+    findOne: query => lean(connections.find(same(query)) || null),
+    create: async row => { connections.push({ _id: `c${connections.length + 1}`, ...row }); return connections.at(-1); }
+  };
+  const Article = { findOne: ({ _id }) => lean(_id === source ? { title: 'Checklists in surgery', highlights: [{ text: 'Complications fell by a third.' }], content: '<p>The WHO checklist.</p>' } : null) };
+  const sent = [];
+  class WikiSourceEvent { constructor(row) { Object.assign(this, row); } async save() { sent.push(this); } }
   const Verdict = {
     find: query => lean(verdicts.filter(row => query.about.$in.includes(row.about))),
     create: async row => verdicts.push(row)
@@ -26,7 +35,7 @@ test('what a source added: pencil until inked, gone once struck', async () => {
   app.use(buildAddedRouter({
     authenticateToken: (req, _res, next) => { req.user = { id: userId }; next(); },
     humanOnly: (_req, res, next) => (agent ? res.status(403).json({}) : next()),
-    Connection, Verdict, addedBy
+    Article, Connection, Verdict, WikiSourceEvent, addedBy
   }));
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const call = async (path, body) => {
@@ -50,6 +59,20 @@ test('what a source added: pencil until inked, gone once struck', async () => {
     ]);
 
     assert.deepEqual((await call(`/api/added/${source}`)).added.map(({ key }) => key), [echo, answer]);
+
+    // Inking keeps the connection as the reader's; inking a page also sends the source there, once.
+    assert.equal((await call(`/api/added/${source}/ink`, { key: echo, kind: 'nonsense' })).code, 400);
+    assert.equal((await call(`/api/added/${source}/ink`, { key: echo, kind: 'echo' })).inked, 'c2');
+    assert.equal(sent.length, 0);
+    const shelf = 'wiki_page:64b0000000000000000000b4';
+    const inked = await call(`/api/added/${source}/ink`, { key: shelf, kind: 'belongs' });
+    assert.equal((await call(`/api/added/${source}/ink`, { key: shelf, kind: 'belongs' })).inked, inked.inked);
+    assert.deepEqual(connections.at(-1), { _id: inked.inked, userId, fromType: 'article', fromId: source, toType: 'wiki_page', toId: '64b0000000000000000000b4', relationType: 'contained_by' });
+    assert.equal(sent.length, 1);
+    assert.deepEqual(sent[0].affectedPageIds.map(String), ['64b0000000000000000000b4']);
+    assert.equal(sent[0].metadata.requireOwnerAcceptance, true);
+    assert.match(sent[0].text, /Complications fell by a third\.\s+The WHO checklist\./);
+    assert.equal((await call('/api/added/64b0000000000000000000a9/ink', { key: shelf, kind: 'belongs' })).code, 404);
     assert.equal((await call('/api/added/not-an-id')).code, 400);
   } finally {
     server.close();

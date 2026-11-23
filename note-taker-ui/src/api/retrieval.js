@@ -63,6 +63,11 @@ export const fetchAdded = async (articleId) => {
   return Array.isArray(response.data?.added) ? response.data.added : [];
 };
 
+export const inkAdded = async ({ articleId, key, kind }) => {
+  const response = await api.post(`/api/added/${encodeURIComponent(articleId)}/ink`, { key, kind }, getAuthHeaders());
+  return response.data;
+};
+
 export const strikeAdded = async ({ articleId, key, title = '', quote = '' }) => {
   const response = await api.post(`/api/added/${encodeURIComponent(articleId)}/strike`, { key, title, quote }, getAuthHeaders());
   return response.data;

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchAdded, strikeAdded } from '../../api/retrieval';
-import { createConnection } from '../../api/connections';
+import { fetchAdded, inkAdded, strikeAdded } from '../../api/retrieval';
 import { clip, markedWhen } from '../margins/LibraryMargins';
 import { buildPassagePath } from '../../utils/sourceRoutes';
 import './what-it-added.css';
@@ -9,13 +8,10 @@ import './what-it-added.css';
 /* What a source added to what you already hold, as Noeis connected it: the
    passages it echoes, the questions it answers, the wiki pages it belongs
    on. Each is in pencil until you ink it (a connection of yours, from then
-   on) or strike it (never offered again). With focus on a line, i inks and
+   on; a page also gets a cited line to accept) or strike it (never offered
+   again). With focus on a line, i inks and
    x strikes. Nothing connected is nothing shown. */
-const KINDS = {
-  echo: { lead: 'Echoes', relation: 'related' },
-  answers: { lead: 'Answers', relation: 'supports' },
-  belongs: { lead: 'Belongs on', relation: 'contained_by' }
-};
+const LEADS = { echo: 'Echoes', answers: 'Answers', belongs: 'Belongs on' };
 
 const hrefOf = ({ type, id, articleId }) => ({
   highlight: buildPassagePath({ articleId, highlightId: id }),
@@ -43,9 +39,9 @@ const WhatItAdded = ({ articleId, contentKey = '', hidden = false }) => {
     return () => { live = false; };
   }, [articleId, contentKey]);
 
-  const ink = async ({ key, kind, to }) => {
-    await createConnection({ fromType: 'article', fromId: articleId, toType: to.type, toId: to.id, relationType: KINDS[kind].relation });
-    setAdded(all => all.map(connection => (connection.key === key ? { ...connection, inked: true } : connection)));
+  const ink = async ({ key, kind }) => {
+    const { inked } = await inkAdded({ articleId, key, kind });
+    setAdded(all => all.map(connection => (connection.key === key ? { ...connection, inked } : connection)));
   };
   const strike = async ({ key, to }) => {
     await strikeAdded({ articleId, key, title: to.title, quote: to.quote });
@@ -64,7 +60,7 @@ const WhatItAdded = ({ articleId, contentKey = '', hidden = false }) => {
       <ul>
         {added.map(connection => (
           <li key={connection.key} tabIndex={connection.inked ? undefined : 0} onKeyDown={press(connection)} className={connection.inked ? 'is-inked' : 'is-pencil'}>
-            <span className="what-it-added__lead">{KINDS[connection.kind].lead}</span>{' '}
+            <span className="what-it-added__lead">{LEADS[connection.kind]}</span>{' '}
             <Says {...connection} />.
             {connection.inked ? null : (
               <span className="what-it-added__verdict">

@@ -1237,7 +1237,7 @@ app.use(buildRecallRouter({
   semanticSearch
 }));
 
-app.use(buildAddedRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Connection, Verdict }));
+app.use(buildAddedRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Article, Connection, Verdict, WikiSourceEvent }));
 
 app.use(buildSyncRouter({
   authenticateToken: authenticateUserOrAgentToken,
