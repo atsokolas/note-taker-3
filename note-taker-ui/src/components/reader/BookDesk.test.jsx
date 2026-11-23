@@ -146,9 +146,21 @@ test('a thought left past midnight opens the desk, and the first line finishes i
   expect(screen.queryByText(/You stopped mid-thought/)).not.toBeInTheDocument();
 });
 
-test('the rest of a thought typed offline waits on this device as a line of its own, and a second line is new', async () => {
-  const lastNight = new Date(Date.now() - 24 * 60 * 60 * 1000);
+afterEach(() => jest.useRealTimers());
+
+/* Last night's thought, seen the next afternoon: past midnight the fresh line asks something else. */
+const afternoonAfter = () => {
+  jest.useFakeTimers('modern');
+  const afternoon = new Date();
+  afternoon.setHours(14, 0, 0, 0);
+  jest.setSystemTime(afternoon);
+  const lastNight = new Date(afternoon.getTime() - 24 * 60 * 60 * 1000);
   lastNight.setHours(1, 15, 0, 0);
+  return lastNight;
+};
+
+test('the rest of a thought typed offline waits on this device as a line of its own, and a second line is new', async () => {
+  const lastNight = afternoonAfter();
   updateHighlight.mockRejectedValue(new Error('offline'));
   createHighlight.mockRejectedValue(new Error('offline'));
   render(<Desk marks={[{ _id: 'n1', text: '', note: 'what he means by order is', createdAt: lastNight.toISOString() }]} />);
@@ -161,8 +173,7 @@ test('the rest of a thought typed offline waits on this device as a line of its 
 });
 
 test('Escape leaves last night’s thought as it is and starts a new line', async () => {
-  const lastNight = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  lastNight.setHours(1, 15, 0, 0);
+  const lastNight = afternoonAfter();
   render(<Desk marks={[{ _id: 'n1', text: '', note: 'what he means by order is', createdAt: lastNight.toISOString() }]} />);
   fireEvent.keyDown(line(), { key: 'Escape' });
   expect(screen.queryByText(/You stopped mid-thought/)).not.toBeInTheDocument();
