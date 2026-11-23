@@ -608,7 +608,8 @@ const createSignedBridgeToken = ({
   };
   const token = jwt.sign(payload, getAgentBridgeJwtSecret(), {
     expiresIn: safeTtl,
-    issuer: 'note-taker-3-1'
+    issuer: 'note-taker-3-1',
+    audience: 'agent-bridge'
   });
   return { token, ttlSeconds: safeTtl };
 };
