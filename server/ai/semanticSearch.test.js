@@ -267,9 +267,10 @@ describe('addedBy', () => {
     expect(models.VectorItem.find.mock.calls.map(([filter]) => filter.objectType)).toEqual(['highlight', 'article']);
   });
 
-  it('keeps the strongest three of each kind', async () => {
-    Object.assign(held, ...[7, 8, 9, 10].map(n => ({ [id(n)]: { _id: id(n), text: `${quote} ${n}`, articleId: there, articleTitle: `Work ${n}` } })));
-    const added = await addedBy({ userId, articleId: here, models: modelsFor([7, 8, 9, 10].map((n, at) => highlight(n, 0.9 - at / 100))) });
-    expect(added.map(connection => connection.to.title)).toEqual(['Work 7', 'Work 8', 'Work 9']);
+  it('offers the model the strongest six of each kind, down to a low floor', async () => {
+    const works = [7, 8, 9, 10, 11, 12, 13, 14];
+    Object.assign(held, ...works.map(n => ({ [id(n)]: { _id: id(n), text: `${quote} ${n}`, articleId: there, articleTitle: `Work ${n}` } })));
+    const added = await addedBy({ userId, articleId: here, models: modelsFor([...works.slice(0, 7).map((n, at) => highlight(n, 0.5 - at / 100)), highlight(14, 0.29)]) });
+    expect(added.map(connection => connection.to.title)).toEqual(['Work 7', 'Work 8', 'Work 9', 'Work 10', 'Work 11', 'Work 12']);
   });
 });

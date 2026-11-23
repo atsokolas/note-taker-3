@@ -2,15 +2,18 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const express = require('express');
 const { buildAddedRouter } = require('../addedRoutes');
+const { whatItAdded } = require('../../services/whatItAdded');
 
-/* What a source added, through the route: inked ones say so, struck ones
-   are never offered again, and only the reader strikes. */
+/* What a source added, through the route: the model reads each close pair
+   once, and only what bears or argues is offered; inked ones say so, struck
+   ones are never offered again, and only the reader strikes. */
 test('what a source added: pencil until inked, gone once struck', async () => {
   const userId = '64b000000000000000000001';
   const source = '64b0000000000000000000a1';
   const echo = 'highlight:64b0000000000000000000b1';
   const answer = 'question:64b0000000000000000000b2';
   const page = 'wiki_page:64b0000000000000000000b3';
+  const coincidence = 'highlight:64b0000000000000000000b5';
   const verdicts = [];
   let agent = false;
   const lean = value => ({ select: () => ({ lean: async () => value }) });
@@ -28,17 +31,22 @@ test('what a source added: pencil until inked, gone once struck', async () => {
     find: query => lean(verdicts.filter(row => query.about.$in.includes(row.about))),
     create: async row => verdicts.push(row)
   };
-  const addedBy = async () => [echo, answer, page].map(key => ({ kind: key === answer ? 'answers' : 'echo', key, to: { title: key, quote: `${key} says` }, score: 0.9 }));
-  // The page line is contradicted; the model is asked once, and the judgment kept.
-  const judgments = [];
+  const addedBy = async () => [echo, answer, page, coincidence].map(key => ({ kind: key === answer ? 'answers' : 'echo', key, to: { title: key, quote: `${key} says` }, score: 0.9 }));
+  // The page line is contradicted and the coincidence only shares words; the model is asked once, and its reading kept.
+  // A judgment kept before relations were read (argues alone) is read again.
+  const judgments = [{ userId, about: `${source}>${echo}`, argues: false }];
   const ConnectionJudgment = {
-    find: ({ about }) => lean(judgments.filter(row => about.$in.includes(row.about))),
-    insertMany: async rows => judgments.push(...rows)
+    find: ({ about, relation }) => lean(judgments.filter(row => about.$in.includes(row.about) && (!relation?.$exists || row.relation))),
+    bulkWrite: async ops => ops.forEach(({ updateOne: { filter, update } }) => {
+      const row = judgments.find(held => held.about === filter.about);
+      if (row) Object.assign(row, update.$set); else judgments.push({ ...update.$set });
+    })
   };
   const asked = [];
   const judge = async ({ pairs }) => {
     asked.push(pairs.map(({ b }) => b.who));
-    return pairs.map(({ b }, index) => ({ index, contradicts: b.who === page, a: 'Checklists slow surgeons down.', b: '' }));
+    const relationOf = who => ({ [page]: 'argues', [coincidence]: 'none' }[who] || 'bears');
+    return pairs.map(({ b }, index) => ({ index, relation: relationOf(b.who), a: 'Checklists slow surgeons down.', b: '' }));
   };
 
   const app = express();
@@ -46,7 +54,8 @@ test('what a source added: pencil until inked, gone once struck', async () => {
   app.use(buildAddedRouter({
     authenticateToken: (req, _res, next) => { req.user = { id: userId }; next(); },
     humanOnly: (_req, res, next) => (agent ? res.status(403).json({}) : next()),
-    Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent, addedBy, judge
+    Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent,
+    added: asked => whatItAdded({ ...asked, find: addedBy, judge })
   }));
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const call = async (path, body) => {
@@ -60,7 +69,8 @@ test('what a source added: pencil until inked, gone once struck', async () => {
     assert.deepEqual(first.added.map(({ kind, key, inked }) => [kind, key, inked]), [['echo', echo, null], ['answers', answer, 'c1'], ['argues', page, null]]);
     assert.equal(first.added[2].says, 'Checklists slow surgeons down.');
     assert.equal((await call(`/api/added/${source}`)).added[2].kind, 'argues');
-    assert.deepEqual(asked, [[echo, page]]);
+    assert.deepEqual(asked, [[echo, answer, page, coincidence]]);
+    assert.equal(judgments.length, 4);
     assert.equal('score' in first.added[0], false);
 
     agent = true;
