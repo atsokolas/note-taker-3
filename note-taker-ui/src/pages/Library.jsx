@@ -1070,32 +1070,32 @@ const Library = () => {
     </div>
   ) : null;
 
+  const shelf = (
+    <LibraryShelfNav
+      landedFolderId={landedFolderId}
+      folders={folders}
+      folderCounts={folderCounts}
+      foldersLoading={foldersLoading}
+      foldersError={moveFolderError || foldersError}
+      scope={scope}
+      folderId={shelfFolderId}
+      sourceView={sourceView}
+      unfiledCount={unfiledCount}
+      feedTopics={libraryRoom.feedTopics}
+      onSelectScope={handleSelectScope}
+      onSelectFolder={handleSelectFolder}
+      onMoveFolder={handleMoveFolder}
+      onFileArticle={handleFileArticle}
+      onReviewFiling={handleReviewFiling}
+      filingLaunching={filingLaunching}
+      className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
+    />
+  );
+  const catalogue = collectionView && !isReadingView;
+
   return (
-    <div className={`library-page-shell ${isReadingView ? 'is-reading' : 'is-browse'}`}>
-      {/* The shelves, down the left. The locked middle is the reading and the
-          list, so the filing system is not in it — but it still has to be
-          somewhere, and a list of names beside the reading is where it goes.
-          Highlights is a shelf like any other; choosing it puts you in your
-          highlights with the same folders alongside. */}
-      <LibraryShelfNav
-        landedFolderId={landedFolderId}
-        folders={folders}
-        folderCounts={folderCounts}
-        foldersLoading={foldersLoading}
-        foldersError={moveFolderError || foldersError}
-        scope={scope}
-        folderId={shelfFolderId}
-        sourceView={sourceView}
-        unfiledCount={unfiledCount}
-        feedTopics={libraryRoom.feedTopics}
-        onSelectScope={handleSelectScope}
-        onSelectFolder={handleSelectFolder}
-        onMoveFolder={handleMoveFolder}
-        onFileArticle={handleFileArticle}
-        onReviewFiling={handleReviewFiling}
-        filingLaunching={filingLaunching}
-        className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
-      />
+    <div className={`library-page-shell ${isReadingView ? 'is-reading' : 'is-browse'}${catalogue ? ' is-catalogue' : ''}`}>
+      {catalogue ? null : shelf}
       <div className="library-page-shell__column">
         {isReadingView && (!readerReturn || !selectedArticle) ? <div className="library-page-shell__column-head">
           {readerReturn ? (
@@ -1105,13 +1105,16 @@ const Library = () => {
           )}
         </div> : null}
         <div className={`library-reader ${!isReadingView ? 'is-shelf' : ''}`} data-testid="library-main">
-          {collectionView && ['all', 'later', 'folder'].includes(scope) && !isReadingView ? <LibraryPasteLink
-            key={folderId || scope} folders={folders} folderId={scope === 'folder' ? folderId : ''}
-            onOpen={handleSelectArticle} onSaved={handleLinkSaved}
-            onShowNightstand={scope === 'later' ? null : () => handleSelectScope('later')}
-          >{scope === 'later' ? <Link className="library-paste-link__more" to="/library/save">Save from your phone too</Link> : null}</LibraryPasteLink> : null}
-          {collectionView && scope === 'all' && !isReadingView && !articleQuery ? <LibraryReadingRoom onOpen={handleSelectArticle} /> : null}
           {collectionView ? <LibraryCollection
+            shelves={catalogue ? shelf : null}
+            readingRoom={catalogue && scope === 'all' && !articleQuery ? <LibraryReadingRoom onOpen={handleSelectArticle} /> : null}
+            capture={catalogue && ['all', 'later', 'folder'].includes(scope) ? (
+              <LibraryPasteLink
+                key={folderId || scope} folders={folders} folderId={scope === 'folder' ? folderId : ''}
+                onOpen={handleSelectArticle} onSaved={handleLinkSaved}
+                onShowNightstand={scope === 'later' ? null : () => handleSelectScope('later')}
+              >{scope === 'later' ? <Link className="library-paste-link__more" to="/library/save">Save from your phone too</Link> : null}</LibraryPasteLink>
+            ) : null}
             scope={scope} folderId={shelfFolderId} folderName={selectedFolderName} revision={collectionRevision}
             query={articleQuery} sort={collectionSort} onQueryChange={handleArticleQueryChange}
             onSortChange={value => { const params = new URLSearchParams(searchParams); params.set('sort', value); setSearchParams(params); }}
