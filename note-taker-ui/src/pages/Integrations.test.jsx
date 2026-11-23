@@ -124,22 +124,15 @@ describe('Connections center', () => {
     getMorningPaperSettings.mockResolvedValue({ inboundAddress: '' });
   });
 
-  it('says where to forward newsletters, and from which address, only once email-in is set up', async () => {
-    getMorningPaperSettings.mockResolvedValueOnce({ inboundAddress: 'read@noeis.io', email: 'ada@example.com', emailConfirmed: true });
+  it('gives the reader their own forwarding address, only once email-in is set up', async () => {
+    getMorningPaperSettings.mockResolvedValueOnce({ inboundAddress: 'read+abc.def@noeis.io' });
     const { unmount } = render(<MemoryRouter><Integrations /></MemoryRouter>);
-    expect(await screen.findByText('read@noeis.io')).toBeInTheDocument();
-    expect(screen.getByText('ada@example.com').closest('p'))
-      .toHaveTextContent('Forward newsletters to read@noeis.io from ada@example.com.');
+    expect((await screen.findByText('read+abc.def@noeis.io')).closest('p'))
+      .toHaveTextContent('Forward newsletters to read+abc.def@noeis.io.');
     unmount();
 
-    getMorningPaperSettings.mockResolvedValueOnce({ inboundAddress: 'read@noeis.io', email: '', emailConfirmed: false });
-    const second = render(<MemoryRouter><Integrations /></MemoryRouter>);
-    expect(await screen.findByRole('link', { name: 'the address you confirm in Settings' }))
-      .toHaveAttribute('href', '/settings?section=delivery');
-    second.unmount();
-
     render(<MemoryRouter><Integrations /></MemoryRouter>);
-    await waitFor(() => expect(getMorningPaperSettings).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(getMorningPaperSettings).toHaveBeenCalledTimes(2));
     expect(screen.queryByText(/Forward newsletters/)).not.toBeInTheDocument();
   });
 

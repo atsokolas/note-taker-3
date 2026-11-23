@@ -10,12 +10,12 @@ const {
   verifyUnsubscribeToken
 } = require('../services/morningPaperEmailService');
 const { isHumanOnlyWikiArtifact } = require('../services/wikiProtectedArtifactService');
-const { inboundMailConfig } = require('../services/import/newsletterMail');
+const { inboundMailConfig, inboxAddressFor } = require('../services/import/newsletterMail');
 
-/* Where newsletters are forwarded, or '' while email-in is not configured. */
-const inboundAddress = (env) => {
+/* This reader's own forwarding address, or '' while email-in is off. */
+const inboundAddress = (user, env) => {
   const inbound = inboundMailConfig(env);
-  return inbound.enabled ? inbound.address : '';
+  return inbound.enabled ? inboxAddressFor(inbound.address, String(user._id)) : '';
 };
 
 const clean = (value = '', limit = 500) => {
@@ -69,7 +69,7 @@ const serializeSettings = (user, env = process.env) => {
     lastSkippedAt: settings.lastSkippedAt || null,
     lastSkipReason: settings.lastSkipReason || '',
     configuration: emailConfigurationStatus(env),
-    inboundAddress: inboundAddress(env)
+    inboundAddress: inboundAddress(user, env)
   };
 };
 

@@ -11,6 +11,12 @@ const getKey = () => (
   crypto.createHash('sha256').update(getSecretMaterial()).digest()
 );
 
+/* A keyed fingerprint of a value for one purpose: proof that we minted it,
+   with nothing stored. */
+const seal = (purpose, value) => (
+  crypto.createHmac('sha256', getKey()).update(`${purpose}:${value}`).digest('hex')
+);
+
 const encryptSecret = (value = '') => {
   const plaintext = String(value || '');
   if (!plaintext) return '';
@@ -46,6 +52,7 @@ const decryptSecret = (payload = '') => {
 };
 
 module.exports = {
+  seal,
   encryptSecret,
   decryptSecret
 };
