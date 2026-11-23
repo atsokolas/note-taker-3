@@ -1241,7 +1241,7 @@ app.use(buildAddedRouter({ authenticateToken: authenticateUserOrAgentToken, huma
 
 app.use(buildSyncRouter({
   authenticateToken: authenticateUserOrAgentToken,
-  models: { Article, NotebookEntry, WikiPage }
+  models: { Article, NotebookEntry, WikiPage, Connection }
 }));
 
 // What the reader hands the built-in agent is worked at once, and again on waking if the server slept first.
