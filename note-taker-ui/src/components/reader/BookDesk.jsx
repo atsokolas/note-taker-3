@@ -114,8 +114,12 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   const [line, setLine] = useState('');
   const [kind, setKind] = useState('scribble');
   const kindGroup = useId();
+  const placeKey = scopedKey(`noeis.book-place.${articleId}.${since}`);
+  const [keptPage, setKeptPage] = useState(() => {
+    try { return Number(window.localStorage.getItem(placeKey)) || null; } catch (_) { return null; }
+  });
   const [turnedPage, setPage] = useState();
-  const page = turnedPage === undefined ? pageNow(now) : turnedPage;
+  const page = turnedPage === undefined ? keptPage || pageNow(now) : turnedPage;
   const [receipt, setReceipt] = useState('');
   const [inked, setInked] = useState('');
   // An old mark of yours that said nearly the same, a year or more ago.
@@ -197,6 +201,16 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     onAdd?.(saved);
     sent.current.push({ id: saved._id });
     return setReceipt(`Folded the corner of p. ${page}.`);
+  };
+
+  const keepPlace = () => {
+    try {
+      window.localStorage.setItem(placeKey, String(page));
+      setKeptPage(page);
+      setReceipt(`Reading place kept at p. ${page}.`);
+    } catch (_) {
+      setReceipt('This browser couldn’t keep your place.');
+    }
   };
 
   const command = async (word, about) => {
@@ -354,17 +368,22 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
         </div>
         <div className="book-desk__actions">
           {kind === 'thought' ? <span>Whole book</span> : (
-            <label className="book-desk__turn">
-              <span>p.</span>
-              <input
-                aria-label="Page you are on"
-                inputMode="numeric"
-                value={page || ''}
-                size={String(page || '').length || 1}
-                placeholder="–"
-                onChange={(event) => setPage(Number(event.target.value.replace(/\D/g, '')) || null)}
-              />
-            </label>
+            <div className="book-desk__place">
+              <label className="book-desk__turn">
+                <span>p.</span>
+                <input
+                  aria-label="Page you are on"
+                  inputMode="numeric"
+                  value={page || ''}
+                  size={String(page || '').length || 1}
+                  placeholder="–"
+                  onChange={(event) => setPage(Number(event.target.value.replace(/\D/g, '')) || null)}
+                />
+              </label>
+              {page && (page === keptPage ? <span>Place kept</span> : (
+                <button type="button" className="book-desk__action" onClick={keepPlace}>Keep my place</button>
+              ))}
+            </div>
           )}
           <button type="submit" className="book-desk__action">Save {CAPTURE_KINDS[actionKind].toLowerCase()}</button>
         </div>

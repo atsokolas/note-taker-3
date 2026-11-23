@@ -104,6 +104,23 @@ test('explicit capture keeps quotations literal and big thoughts independent of 
   expect(screen.getByLabelText('Page you are on')).toHaveValue('98');
 });
 
+test('a reading place survives reopening after a note on an earlier page', async () => {
+  const note = { _id: 'n1', text: '', note: 'A thought about an earlier page.', page: 9, createdAt: new Date().toISOString() };
+  createHighlight.mockResolvedValue(note);
+  const { unmount } = render(<Desk marks={[]} />);
+  const goTo = value => fireEvent.change(screen.getByLabelText('Page you are on'), { target: { value } });
+  goTo('98');
+  fireEvent.click(screen.getByRole('button', { name: 'Keep my place' }));
+  goTo('9');
+  type(note.note);
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Save scribble' })));
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: note.note, page: 9, captureId: LINE_ID });
+  unmount();
+  render(<Desk marks={[note]} />);
+  expect(screen.getByLabelText('Page you are on')).toHaveValue('98');
+  expect(screen.getByText('Place kept')).toBeInTheDocument();
+});
+
 test('the book finishes a quote you marked on the Kindle, and it stays one mark', async () => {
   createHighlight.mockResolvedValue({ ...KINDLE, page: 214 });
   render(<Desk marks={[KINDLE]} />);
