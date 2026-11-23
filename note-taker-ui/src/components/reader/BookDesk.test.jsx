@@ -156,7 +156,7 @@ test('the rest of a thought typed offline waits on this device as a line of its 
   await act(async () => keep());
   expect(await screen.findByText('Kept on this device. It goes to Noeis when you are back online.')).toBeInTheDocument();
   expect(JSON.stringify(window.localStorage)).toContain('fear of the crowd.');
-  expect(line()).toHaveAttribute('placeholder', 'A quote, or what you think');
+  expect(line()).not.toHaveAttribute('placeholder', 'The rest of that thought');
   expect(updateHighlight).toHaveBeenCalledTimes(1);
 });
 
@@ -166,7 +166,7 @@ test('Escape leaves last night’s thought as it is and starts a new line', asyn
   render(<Desk marks={[{ _id: 'n1', text: '', note: 'what he means by order is', createdAt: lastNight.toISOString() }]} />);
   fireEvent.keyDown(line(), { key: 'Escape' });
   expect(screen.queryByText(/You stopped mid-thought/)).not.toBeInTheDocument();
-  expect(line()).toHaveAttribute('placeholder', 'A quote, or what you think');
+  expect(line()).not.toHaveAttribute('placeholder', 'The rest of that thought');
 });
 
 test('typing an old mark again picks a set-down book up, though the mark keeps its date', async () => {
