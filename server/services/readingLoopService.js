@@ -2,6 +2,7 @@ const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient
 const { embedText } = require('../ai/embed');
 const { searchVectorItems, rawCosineToAtlasScore } = require('../ai/vectorStore');
 const { wordBoundaryTrim } = require('../lib/editorialText');
+const { CLAIM_META_RE } = require('../ai/wikiClaimMeta');
 
 /**
  * readingLoopService — the Reading Loop.
@@ -59,7 +60,7 @@ const QUESTION_MIN_AGE_MS = 60 * DAY_MS;
 // against, and every one of them is old enough to qualify on age alone — so
 // without this the oldest thing in the drawer is always junk, and Resolution
 // spends its one card explaining what "New question" has to do with this
-// week's reading. Same discipline as META_CLAIM_RE on the claims side.
+// week's reading. Same discipline as CLAIM_META_RE on the claims side.
 const PLACEHOLDER_QUESTION_RE = /^(new question|untitled|question|what|why|how|test)\s*\??$|\b(temp|test|retest|can be deleted|ignore this|placeholder)\b/i;
 const NO_REPEAT_MS = 60 * DAY_MS;
 const SUPPRESSION_MS = 60 * DAY_MS;
@@ -131,10 +132,6 @@ const PLACEHOLDER_LINE_RE = /\b(do(es)? (x|y)|<[^>]{1,30}>|\[[^\]]{1,30}\]|lorem
 // article was "superseded" by the article it came from.
 const CLAIM_MIN_AGE_MS = 30 * DAY_MS;
 
-// Claims the maintenance process writes *about* a page rather than about its
-// subject. They are process artifacts, not positions, and reading one back as
-// something the user believes is nonsense.
-const META_CLAIM_RE = /\b(the recurring pattern across|the page should|this page|the useful claim is narrower|topic label|source ledger|maintenance run)\b/i;
 
 const MECHANICS = Object.freeze(['connection', 'collision', 'resolution', 'convergence', 'thread']);
 
@@ -940,7 +937,7 @@ const collectClaimCandidates = async ({ userId, models = {}, now = new Date() } 
 
       // Maintenance bookkeeping that talks about the page rather than the
       // subject. These are artifacts of the wiki process, not positions.
-      if (META_CLAIM_RE.test(text)) return;
+      if (CLAIM_META_RE.test(text)) return;
       rows.push({
         type: 'claim',
         id: `${idString(page)}:${claim.claimId}`,

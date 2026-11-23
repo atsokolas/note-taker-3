@@ -228,7 +228,8 @@ describe('addedBy', () => {
       Question: { find: jest.fn(() => chain([{ _id: id(5), text: 'When does scale stop helping?' }])) },
       WikiPage: { find: jest.fn(() => chain([{ _id: id(6), title: 'Checklists', claims: [
         { claimId: 'c1', text: 'Checklists catch what memory drops on a long and busy day.', sourceRefIds: ['s1', 's2'] },
-        { claimId: 'c2', text: 'A retired sentence that once said checklists slow surgeons down.', sourceRefIds: ['s1', 's2'], checkInStatus: 'retired' }
+        { claimId: 'c2', text: 'A retired sentence that once said checklists slow surgeons down.', sourceRefIds: ['s1', 's2'], checkInStatus: 'retired' },
+        { claimId: 'c3', text: 'Checklists should not be read as a complete answer. The defensible core is that several saved sources agree.', sourceRefIds: ['s1', 's2'] }
       ] }])) }
     };
   };
@@ -265,6 +266,15 @@ describe('addedBy', () => {
     const models = modelsFor([highlight(3, 0.8), highlight(1, 0.8, here)], { marked: [], title: 'Checklists' });
     expect(await addedBy({ userId, articleId: here, models })).toEqual([]);
     expect(models.VectorItem.find.mock.calls.map(([filter]) => filter.objectType)).toEqual(['highlight', 'article']);
+  });
+
+  it('never offers the same words twice, or a page because of a line the maintenance wrote about it', async () => {
+    const added = await addedBy({ userId, articleId: here, models: modelsFor([
+      { objectType: 'wiki_claim', objectId: `${id(6)}:c3`, score: score(0.9), metadata: { pageId: id(6), claimId: 'c3' } },
+      highlight(1, 0.8),
+      highlight(3, 0.7)
+    ]) });
+    expect(added.map(({ key }) => key)).toEqual([`highlight:${id(1)}`]);
   });
 
   it('offers the model the strongest six of each kind, down to a low floor', async () => {

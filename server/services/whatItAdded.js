@@ -21,7 +21,8 @@ const whatItAdded = async ({ userId, articleId, models, find = addedBy, judge = 
   if (!found.length) return [];
   const kept = await ConnectionJudgment.find({ userId, about: { $in: found.map(({ key }) => aboutOf(articleId, key)) }, relation: { $exists: true } })
     .select('about relation says').lean();
-  const judged = new Map(kept.map(row => [row.about, row]));
+  // An argument kept without the source's side is read again, so it can say what it argues.
+  const judged = new Map(kept.filter(row => row.relation !== 'argues' || row.says).map(row => [row.about, row]));
   const unjudged = found.filter(({ key }) => !judged.has(aboutOf(articleId, key)));
   if (unjudged.length) {
     const source = await Article.findOne({ _id: articleId, userId }).select('title content highlights.text').lean();
@@ -33,7 +34,7 @@ const whatItAdded = async ({ userId, articleId, models, find = addedBy, judge = 
       return [];
     }) : [];
     const rows = read.map(row => ({
-      userId, about: aboutOf(articleId, unjudged[row.index].key), relation: row.relation, says: row.relation === 'argues' ? row.a.slice(0, 500) : ''
+      userId, about: aboutOf(articleId, unjudged[row.index].key), relation: row.relation, says: row.relation === 'argues' ? (row.a || says.split('\n')[0]).slice(0, 500) : ''
     }));
     if (rows.length) {
       await ConnectionJudgment.bulkWrite(rows.map(row => ({ updateOne: { filter: { userId, about: row.about }, update: { $set: row }, upsert: true } })));
