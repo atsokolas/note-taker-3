@@ -117,15 +117,16 @@ describe('ThinkNotes first paint', () => {
     ]);
     getNotebookCuttings.mockResolvedValue([{ id: 'dimmed:note-2:d1', kind: 'dimmed', noteId: 'note-2', noteTitle: 'The essay', text: 'Every moat is a story someone stopped checking.' }]);
     render(<ThinkNotes />);
-    const desk = await screen.findByRole('region', { name: 'Pick up where you stopped.' });
-    const working = within(desk).getByRole('list', { name: 'Working' });
+    const desk = await screen.findByRole('region', { name: 'Think' });
+    const working = within(desk).getByRole('region', { name: 'Continue writing' });
     expect(within(working).getByRole('heading', { name: 'The essay' })).toBeInTheDocument();
     expect(within(working).getByText('Start from the renewal rate.')).toBeInTheDocument();
-    expect(within(screen.getByRole('region', { name: 'Ideas, by when you last thought about them' })).getByRole('button', { name: /A real note/ })).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Ideas', exact: true })).getByRole('button', { name: /A real note/ })).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Closed this month' })).getByText('Sent to Sam')).toBeInTheDocument();
     expect(await screen.findByText('Every moat is a story someone stopped checking.')).toBeInTheDocument();
     fireEvent.click(within(working).getByRole('button', { name: 'Write the next sentence' }));
     await waitFor(() => expect(screen.getByTestId('open-note')).toHaveTextContent('note-2'));
+    expect(screen.getByTestId('open-note')).toHaveAttribute('data-writing', 'next');
   });
 
   it('counts each way of looking in the left bar and lists one as a page', async () => {

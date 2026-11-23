@@ -123,6 +123,31 @@ const Twice = () => {
   );
 };
 
+const BOOK_STATUSES = ['All books', 'Reading', 'Set down', 'Finished'];
+
+const catalogueEntry = (book, now) => {
+  const marks = book.marks || [];
+  const setDown = setDownOn(book, marks, now);
+  const since = readingSince(book);
+  const reading = marks.filter(mark => !isEarlier(mark, since));
+  const last = book.finishedOn && book.closingLine
+    ? { words: book.closingLine, own: true }
+    : lastTime(reading);
+  const status = book.finishedOn ? 'Finished' : setDown ? 'Set down' : 'Reading';
+  const date = book.finishedOn ? dayOf(book.finishedOn) : setDown;
+  const page = book.finishedOn ? null : pageNow(reading);
+  return {
+    id: book._id,
+    title: book.title || 'Untitled book',
+    author: book.author,
+    status,
+    where: date ? `${status}${setDown ? ' in' : ''} ${monthOf(date)}` : status,
+    page,
+    tally: tallyLine(marks, page),
+    last
+  };
+};
+
 const Shelf = () => {
   const navigate = useNavigate();
   const [books, setBooks] = useState(null);
@@ -130,6 +155,9 @@ const Shelf = () => {
   const [name, setName] = useState('');
   const [starting, setStarting] = useState(false);
   const [place] = useState(() => window.history.state?.bookshelfPlace);
+  const [status, setStatus] = useState(place?.status || BOOK_STATUSES[0]);
+  const [selectedId, setSelectedId] = useState(place?.id);
+  const previewTitle = useRef(null);
   useDocumentTitle('Books');
 
   useEffect(() => {
@@ -152,8 +180,15 @@ const Shelf = () => {
 
   const remember = (event, id) => {
     if (!followsInThisTab(event)) return;
-    const top = event.currentTarget.getBoundingClientRect().top;
-    window.history.replaceState({ ...window.history.state, bookshelfPlace: { id, top } }, '');
+    const row = document.getElementById(shelfRowId(id));
+    if (row) window.history.replaceState({
+      ...window.history.state, bookshelfPlace: { id, status, top: row.getBoundingClientRect().top }
+    }, '');
+  };
+
+  const preview = id => {
+    setSelectedId(id);
+    requestAnimationFrame(() => previewTitle.current?.focus());
   };
 
   const start = async (event) => {
@@ -171,19 +206,28 @@ const Shelf = () => {
   };
 
   const returning = books?.find(book => book.returning);
+  const now = Date.now();
+  const entries = (books || []).map(book => catalogueEntry(book, now))
+    .filter(book => status === BOOK_STATUSES[0] || book.status === status);
+  const selected = entries.find(book => book.id === selectedId) || entries[0];
+  const mark = selected?.last;
+  const markQuery = mark?.id ? `?highlight=${encodeURIComponent(mark.id)}` : '';
+
   return (
-    <main className="books" aria-labelledby="books-title" aria-busy={!books && !error}>
-      <h1 id="books-title" tabIndex={-1}>Books</h1>
-      <form className="books__start" onSubmit={start}>
-        <input
-          aria-label="The book you are reading"
-          value={name}
-          placeholder="The book you’re reading, and who wrote it"
-          autoCapitalize="words"
-          onChange={(event) => setName(event.target.value)}
-        />
-        <button type="submit" disabled={starting || !bookFrom(name)}>{starting ? 'Opening…' : 'Open'}</button>
-      </form>
+    <main className="books books--catalogue" aria-labelledby="books-title" aria-busy={!books && !error}>
+      <header className="books__catalogue-head">
+        <div><p className="books__author">Books</p><h1 id="books-title" tabIndex={-1}>Your library</h1></div>
+        <form className="books__start" onSubmit={start}>
+          <input
+            aria-label="The book you are reading"
+            value={name}
+            placeholder="Title, or title by author"
+            autoCapitalize="words"
+            onChange={(event) => setName(event.target.value)}
+          />
+          <button type="submit" disabled={starting || !bookFrom(name)}>{starting ? 'Opening…' : 'Open'}</button>
+        </form>
+      </header>
 
       {error ? <p className="books__quiet" role="alert">{error}</p> : null}
       {books && !books.length ? (
@@ -192,31 +236,49 @@ const Shelf = () => {
 
       {returning ? <Returning book={returning} /> : null}
 
-      {books?.length ? (
-        <ol className="books__shelf">
-          {books.map(book => {
-            const last = book.closingLine ? { words: book.closingLine, own: true } : lastTime(book.marks);
-            const setDown = setDownOn(book, book.marks);
-            const since = readingSince(book);
-            const page = book.finishedOn ? null : pageNow((book.marks || []).filter(mark => !isEarlier(mark, since)));
-            return (
-              <li key={book._id}>
-                <Link to={`/books/${book._id}`} id={shelfRowId(book._id)} className="books__book"
-                  state={{ fromShelf: true }} onClick={event => remember(event, book._id)}
-                  data-shelf-bookmark={place?.id === book._id ? '' : undefined}>
-                  <span className="books__title">{book.title || 'Untitled book'}</span>
-                  {book.author ? <span className="books__author">{book.author}</span> : null}
-                  <span className="books__tally">
-                    <span>{[book.finishedOn ? `Finished ${monthOf(dayOf(book.finishedOn))}` : '', setDown ? `Set down in ${monthOf(setDown)}` : '', tallyLine(book.marks) || (book.finishedOn ? '' : 'Nothing written yet')].filter(Boolean).join(' · ')}</span>
-                    <span className="books__position">{page ? <><span className="sr-only">Last marked </span>p. {page}</> : null}</span>
-                  </span>
-                  {last ? <q className={last.own ? 'books__last is-own' : 'books__last'}>{last.words}</q> : null}
-                </Link>
-              </li>
-            );
-          })}
-        </ol>
-      ) : null}
+      {books?.length ? <>
+        <div className="books__catalogue-filters" role="group" aria-label="Filter books">
+          {BOOK_STATUSES.map(label => (
+            <button key={label} type="button" aria-pressed={status === label} onClick={() => setStatus(label)}>{label}</button>
+          ))}
+        </div>
+        {selected ? (
+          <div className="books__catalogue">
+            <ol className="books__shelf" aria-label="Books on this shelf">
+              {entries.map(book => (
+                <li key={book.id} className="books__shelf-row" data-previewed={selected.id === book.id || undefined}>
+                  <Link to={`/books/${book.id}`} id={shelfRowId(book.id)} className="books__book"
+                    state={{ fromShelf: true }} onClick={event => remember(event, book.id)}
+                    data-shelf-bookmark={place?.id === book.id ? '' : undefined}>
+                    <span className="books__identity">
+                      <span className="books__title">{book.title}</span>
+                      {book.author ? <span className="books__author">{book.author}</span> : null}
+                    </span>
+                    <span className="books__tally">
+                      {!book.page || book.status !== 'Reading' ? <span>{book.where}</span> : null}
+                      {book.page ? <span className="books__position"><span className="sr-only">Last marked </span>p. {book.page}</span> : null}
+                      {book.tally ? <span>{book.tally}</span> : null}
+                    </span>
+                  </Link>
+                  <button type="button" className="books__preview-button" aria-label={`Preview ${book.title}`}
+                    aria-pressed={selected.id === book.id} aria-controls="books-preview" onClick={() => preview(book.id)}>
+                    Preview
+                  </button>
+                </li>
+              ))}
+            </ol>
+            <aside className="books__preview" id="books-preview" aria-labelledby="books-preview-title">
+              <p className="books__author">{mark ? (selected.status === 'Finished' && !mark.id ? 'Your finishing line' : mark.own ? 'Your last note' : 'Your last highlight') : selected.where}</p>
+              <h2 id="books-preview-title" ref={previewTitle} tabIndex={-1}>{selected.title}</h2>
+              {selected.author ? <p className="books__quiet">{selected.author}</p> : null}
+              {mark ? <blockquote>{mark.words}</blockquote> : !selected.tally ? <p className="books__quiet">Nothing written yet.</p> : null}
+              <Link to={`/books/${selected.id}${markQuery}`} state={{ fromShelf: true }} onClick={event => remember(event, selected.id)}>
+                {markQuery ? (mark.page ? `Open at p. ${mark.page}` : 'Open at the mark') : 'Open book'} <span aria-hidden="true">↗</span>
+              </Link>
+            </aside>
+          </div>
+        ) : <p className="books__quiet" role="status">No books on this shelf.</p>}
+      </> : null}
       <Twice />
       <Questions />
     </main>

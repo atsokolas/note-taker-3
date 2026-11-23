@@ -939,48 +939,44 @@ body.think-rails-away .next-sentence { opacity: 0.35; }
 .think-notes .think-bar__pieces button[aria-current='page'] { background: var(--noeis-paper-sunken, transparent); }
 
 /* ---- The desk: Think with no piece open ---------------------------------- */
-.think-desk { display: grid; gap: 44px; padding: 40px 0 96px; font-family: var(--font-sans); }
-.think-desk__head { display: grid; gap: 8px; }
-.think-desk__head p { margin: 0; color: var(--text-secondary); font-size: 0.86rem; }
-.think-notes .think-desk__head h1 { margin: 0; color: var(--text-primary); font: 350 2.6rem/1.1 var(--font-serif); letter-spacing: -0.03em; }
-.think-desk__working { display: grid; margin: 0; padding: 0; list-style: none; }
-.think-desk__working li { display: grid; gap: 8px; padding: 24px 0 16px; border-top: 1px solid var(--noeis-rule-strong, var(--vellum-line)); }
-.think-desk__working li:first-child { border-top-color: var(--text-primary); }
-.think-notes .think-desk__working h2 { margin: 0; color: var(--text-primary); font: 350 1.75rem/1.2 var(--font-serif); letter-spacing: -0.02em; }
-.think-desk__next { margin: 0; color: var(--text-primary); font: italic 1.15rem/1.5 var(--font-serif); }
-.think-desk__next span { margin-right: 6px; color: var(--text-muted); font: normal 0.76rem var(--font-sans); }
-.think-desk__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin: 0; color: var(--text-secondary); font-size: 0.84rem; }
-.think-notes .think-desk button {
-  min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--text-primary);
-  font: 0.9rem var(--font-sans); text-align: left; cursor: pointer;
+.think-notes__note.is-desk { max-width: 1200px; }
+.think-desk { display: grid; gap: var(--space-6); padding: var(--space-5) 0 var(--space-8); font-family: var(--font-sans); container: think-desk / inline-size; }
+.think-desk__head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-4); }
+.think-notes .think-desk h1 { margin: var(--space-2) 0 0; color: var(--text-primary); font: 400 clamp(3.25rem, 6vw, 5rem)/.94 var(--font-serif); letter-spacing: -.05em; }
+.think-desk__label { display: block; margin: 0; color: var(--text-secondary); font: .72rem/1.4 var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }
+.think-desk__start { display: flex; gap: var(--space-2); border-bottom: 1px solid var(--vellum-line-strong); }
+.think-desk__start input, .think-notes .think-desk button { min-height: 44px; border: 0; background: transparent; color: var(--text-primary); font: inherit; }
+.think-desk__start input { width: min(27ch, 60vw); padding: 0 var(--space-2); }
+.think-notes .think-desk button { cursor: pointer; text-align: start; }
+.think-notes .think-desk button:disabled { color: var(--text-muted); cursor: default; }
+.think-desk__spread { display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--vellum-line); }
+.think-desk__spread:has(.think-desk__evergreen) { grid-template-columns: minmax(0, 1.65fr) minmax(200px, 1fr); }
+.think-desk__lead, .think-desk__evergreen { padding: clamp(18px, 3cqw, 32px); min-width: 0; }
+.think-desk__lead { background: var(--noeis-paper); border-inline-start: 2px solid var(--noeis-action); }
+.think-notes .think-desk h2 { margin: 0 0 var(--space-2); color: var(--text-primary); font: 400 1.5rem/1.1 var(--font-serif); letter-spacing: -.02em; text-transform: none; }
+.think-notes .think-desk__lead h2 { margin: var(--space-3) 0; font-size: clamp(2.2rem, 6cqw, 4.15rem); line-height: .98; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.think-desk__lead p { margin-block: 0 var(--space-3); }
+.think-desk__next { border-inline-start: 1px solid var(--vellum-line-strong); padding-inline-start: var(--space-3); }
+.think-desk__next p { font: 1.22rem/1.35 var(--font-serif); margin-top: var(--space-2); white-space: pre-line; }
+.think-notes .think-desk button.think-desk__resume { padding: 0 var(--space-3); background: var(--text-primary); color: var(--noeis-paper); font-size: .87rem; }
+.think-desk__evergreen { background: var(--noeis-active); border-inline-start: 1px solid var(--vellum-line); }
+.think-desk ul { padding: 0; margin: 0; list-style: none; }
+.think-desk li { border-top: 1px solid var(--vellum-line); padding-block: var(--space-2); }
+.think-notes .think-desk .think-desk__row { display: flex; align-items: center; min-height: 36px; padding: 0; color: var(--text-primary); font: 1.12rem/1.15 var(--font-serif); text-decoration: none; overflow-wrap: anywhere; }
+.think-notes .think-desk .think-desk__row:hover, .think-notes .think-desk__more { text-decoration: underline; text-underline-offset: .22em; }
+.think-desk li small { display: block; margin-top: var(--space-1); color: var(--text-secondary); font-size: .79rem; }
+.think-desk__more { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 44px; font-size: .84rem; }
+.think-desk__overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(195px, 100%), 1fr)); gap: var(--space-5); }
+.think-desk__overview:empty { display: none; }
+.think-desk__lately { display: grid; gap: var(--space-3); border-top: 1px solid var(--vellum-line); padding-top: var(--space-4); }
+.think-desk__lately blockquote { margin: 0 0 var(--space-2); font: italic 1.2rem/1.45 var(--font-serif); }
+.think-desk__lately p { margin: 0; color: var(--text-secondary); font-size: .84rem; }
+.think-notes .think-desk__lately button { padding: 0; text-decoration: underline; text-underline-offset: .22em; }
+@container think-desk (max-width: 590px) {
+  .think-desk__spread:has(.think-desk__evergreen) { grid-template-columns: minmax(0, 1fr); }
+  .think-desk__evergreen { border-inline-start: 0; border-top: 1px solid var(--vellum-line); }
 }
-.think-notes .think-desk__meta button,
-.think-notes .think-desk__more { text-decoration: underline; text-underline-offset: 4px; }
-.think-desk__start { display: grid; gap: 6px; }
-.think-desk__start label { color: var(--text-muted); font-size: 0.78rem; }
-.think-notes .think-desk__start input {
-  min-height: 52px; padding: 0; border: 0; border-bottom: 1px solid var(--text-secondary); border-radius: 0;
-  background: transparent; color: var(--text-primary); font: 1.3rem var(--font-serif);
-}
-.think-desk__start input:focus { outline: none; border-bottom-color: var(--text-primary); }
-.think-notes .think-desk h2 { margin: 0 0 8px; color: var(--text-primary); font: 350 1.3rem var(--font-serif); letter-spacing: 0; text-transform: none; }
-.think-desk__ideas ul, .think-desk__lately ul { display: grid; margin: 0; padding: 0; list-style: none; }
-.think-notes .think-desk__ideas li button {
-  display: flex; justify-content: space-between; align-items: center; gap: 16px; width: 100%;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 100%, transparent);
-  font: 1.08rem var(--font-serif);
-}
-.think-desk__ideas small { color: var(--text-secondary); font: 0.82rem var(--font-sans); }
-.think-desk__lately { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 40px; padding-top: 28px; border-top: 1px solid var(--noeis-rule-strong, var(--vellum-line)); }
-.think-notes .think-desk__lately h2 { color: var(--text-muted); font: 0.78rem var(--font-sans); }
-.think-desk__lately li { display: grid; padding-bottom: 6px; }
-.think-desk__lately li span { color: var(--text-secondary); font-size: 0.84rem; }
-.think-notes .think-desk__lately li button { min-height: 32px; font: 1.05rem var(--font-serif); }
-.think-desk__lately blockquote { margin: 0 0 6px; color: var(--text-primary); font: italic 1.2rem/1.45 var(--font-serif); }
-.think-desk__lately p { margin: 0; color: var(--text-secondary); font-size: 0.84rem; }
-.think-notes .think-desk__lately p button { min-height: 0; font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
-.think-notes .think-desk__year { font-style: italic; font-family: var(--font-serif); }
-.think-notes .think-desk__year button { min-height: 0; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+
 
 /* ---- One way of looking, as a ruled list --------------------------------- */
 .think-index { display: grid; gap: 18px; padding: 40px 0 96px; font-family: var(--font-sans); }

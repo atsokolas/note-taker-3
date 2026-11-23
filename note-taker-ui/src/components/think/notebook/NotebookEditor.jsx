@@ -501,11 +501,19 @@ const NotebookEditor = ({
     if (editor) editor.setEditable(editingBody);
   }, [editor, editingBody]);
 
+  const resumeWriting = useCallback((target) => {
+    setEditingBody(true);
+    const found = focusEditorTarget(editor, target);
+    setReturnTarget(found ? target : null);
+    if (!found) editor?.commands.focus('end');
+    editor?.commands.scrollIntoView?.();
+  }, [editor]);
+
   /* Opening a different note starts it closed again. Carrying the open state
      across would mean the second note you looked at was live before you had
      read a word of it. */
   useEffect(() => {
-    setEditingBody(startWriting === true);
+    setEditingBody(Boolean(startWriting));
     setBodyHasFocus(false);
     setHeldTarget(null);
     setActiveTrialId('');
@@ -515,15 +523,16 @@ const NotebookEditor = ({
     setWorkbenchReceipt(null);
     setReturnTarget(null);
     setStageSelection(false);
-    const focusFrame = startWriting === true
-      ? window.requestAnimationFrame?.(() => editor?.commands.focus('start'))
-      : null;
+    const focusFrame = startWriting && editor ? window.requestAnimationFrame(() => {
+      if (startWriting === 'next') resumeWriting(workbenchLatestRef.current.state.nextTimeLine.target);
+      else editor.commands.focus('start');
+    }) : null;
     setSaveState('idle');
     saveSequenceRef.current += 1;
     dirtyRef.current = false;
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     return () => { if (focusFrame != null) window.cancelAnimationFrame?.(focusFrame); };
-  }, [entry?._id, startWriting, editor]);
+  }, [entry?._id, startWriting, editor, resumeWriting]);
 
   const startEditingBody = (event) => {
     if (editingBody) return;
@@ -1765,13 +1774,7 @@ const NotebookEditor = ({
           {settlement.lines}
         </div>
         {returnContext ? <ArgumentReturn line={nextLine} context={returnContext} sourceAction={sameReturnSource && keepSource}
-          onResume={() => {
-            setEditingBody(true);
-            const found = focusEditorTarget(editor, nextLine.target);
-            setReturnTarget(found ? nextLine.target : null);
-            if (!found) editor?.commands.focus('end');
-            editor?.commands.scrollIntoView?.();
-          }} /> : null}
+          onResume={() => resumeWriting(nextLine.target)} /> : null}
         {historyOpen ? (
           <EntryHistory kind="note" entryId={String(entry._id)} onRestore={restoreRevision} onClose={() => setHistoryOpen(false)} />
         ) : null}
