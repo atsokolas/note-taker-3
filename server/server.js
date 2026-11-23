@@ -82,6 +82,9 @@ app.get('/api/version', (_req, res) => {
 
 mongoose.connect(process.env.MONGODB_URI) // useNewUrlParser and useUnifiedTopology are deprecated in recent Mongoose versions
   .then(() => console.log("✅ MongoDB connected successfully."))
+  // Connect sessions once kept the agent's secret in plain text. None may now.
+  .then(() => AgentConnectSession.collection.updateMany({ tokenSecret: { $exists: true } }, { $unset: { tokenSecret: '' } }))
+  .then(({ modifiedCount }) => modifiedCount && console.log(`[agent-connect] forgot ${modifiedCount} stored secrets`))
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
 const {
