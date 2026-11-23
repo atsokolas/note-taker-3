@@ -82,6 +82,9 @@ app.get('/api/version', (_req, res) => {
 
 mongoose.connect(process.env.MONGODB_URI) // useNewUrlParser and useUnifiedTopology are deprecated in recent Mongoose versions
   .then(() => console.log("✅ MongoDB connected successfully."))
+  // Connect sessions once kept the agent's secret in plain text. None may now.
+  .then(() => AgentConnectSession.collection.updateMany({ tokenSecret: { $exists: true } }, { $unset: { tokenSecret: '' } }))
+  .then(({ modifiedCount }) => modifiedCount && console.log(`[agent-connect] forgot ${modifiedCount} stored secrets`))
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
 const {
@@ -478,7 +481,14 @@ const { buildAccountAccessCheck, buildBrowserAuthentication } = require('./servi
 const isAccountActive = buildAccountAccessCheck({ User });
 const browserAuthenticationOptions = {
   readRequestToken,
-  verifyToken: token => jwt.verify(token, process.env.JWT_SECRET),
+  /* Every token names what it is for, and a token for anything else (an
+     import's sign-in state, an agent bridge) is never a session. Sessions
+     signed before audiences carry none; they lapse within their seven days. */
+  verifyToken: (token) => {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.aud !== undefined && decoded.aud !== 'session') throw new jwt.JsonWebTokenError('not a session token');
+    return decoded;
+  },
   isAccountActive
 };
 const authenticateToken = buildBrowserAuthentication(browserAuthenticationOptions);
@@ -567,7 +577,8 @@ async function authenticateAgentBridgeToken(req, res, next) {
     }
 
     const decoded = jwt.verify(token, getAgentBridgeJwtSecret(), {
-      issuer: 'note-taker-3-1'
+      issuer: 'note-taker-3-1',
+      audience: 'agent-bridge'
     });
     if (String(decoded?.kind || '') !== AGENT_BRIDGE_TOKEN_KIND) {
       return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });

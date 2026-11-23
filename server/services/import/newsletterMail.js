@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { seal } = require('../../utils/integrationSecrets');
 const { bodyFrom, paragraphsToHtml, stripTags } = require('../readableArticle');
 
 /**
@@ -6,9 +7,9 @@ const { bodyFrom, paragraphsToHtml, stripTags } = require('../readableArticle');
  * piece with its byline.
  *
  * The provider (Resend) receives the mail and posts a signed webhook. Who it
- * belongs to is decided by the address the reader confirmed for delivery —
- * the only address an account holds. Everything here is parsing; the route
- * decides what to keep.
+ * belongs to is decided by the address it was sent to: each reader forwards
+ * to their own, never by who it claims to be from, which anyone can forge.
+ * Everything here is parsing; the route decides what to keep.
  */
 
 const inboundMailConfig = (env = process.env) => {
@@ -185,6 +186,7 @@ const receivedMail = async (payload = {}, { apiKey = '', fetchImpl = global.fetc
     from: mail.from,
     to: mail.to,
     cc: mail.cc,
+    receivedFor: mail.received_for,
     subject: String(mail.subject || ''),
     html: String(mail.html || ''),
     text: String(mail.text || ''),
@@ -194,26 +196,37 @@ const receivedMail = async (payload = {}, { apiKey = '', fetchImpl = global.fetc
   };
 };
 
-/* The one account that confirmed this address. The sender first; failing
-   that, the original recipient, which is how a mail filter's forward reads.
-   Two accounts claiming one address is no answer at all. */
+/* Each reader's own address, read+<id>.<seal>@domain. The seal proves we
+   minted it, so it cannot be guessed from an id or a username, and it is
+   derived on each read rather than stored. */
+const INBOX = /^([^+@]+)\+([a-f0-9]{24})\.([a-f0-9]{16})@(.+)$/;
+const sealOfInbox = userId => seal('inbox', userId).slice(0, 16);
+
+const inboxAddressFor = (address, userId) => {
+  const [local, domain] = address.split('@');
+  return `${local}+${userId}.${sealOfInbox(userId)}@${domain}`;
+};
+
+const ownerOfInbox = (address, recipient) => {
+  const match = String(recipient).match(INBOX);
+  if (!match || `${match[1]}@${match[4]}` !== address) return null;
+  const [expected, actual] = [sealOfInbox(match[2]), match[3]].map(value => Buffer.from(value));
+  return crypto.timingSafeEqual(expected, actual) ? match[2] : null;
+};
+
+/* The one open account whose own address the mail went to. A filter's
+   forward keeps the original To: and names ours in its Received header,
+   which is why received_for is read too. Two owners is no answer at all. */
 const readerForMail = async ({ User, mail, inboundAddress = '' }) => {
-  const sender = parseAddress(mail.from).email;
-  const candidates = [...new Set([sender, ...addressList(mail.to), ...addressList(mail.cc)])]
-    .filter(email => email && email !== inboundAddress);
-  if (!candidates.length) return null;
-  const readers = await User.find({
-    accountDisabledAt: null,
-    'morningPaper.email': { $in: candidates },
-    'morningPaper.emailConfirmedAt': { $ne: null }
-  }).select('_id morningPaper.email').lean();
-  const bySender = readers.filter(reader => reader.morningPaper?.email === sender);
-  const chosen = bySender.length ? bySender : readers;
-  return chosen.length === 1 ? chosen[0] : null;
+  const recipients = [mail.to, mail.cc, mail.receivedFor].flatMap(addressList);
+  const owners = [...new Set(recipients.map(recipient => ownerOfInbox(inboundAddress, recipient)).filter(Boolean))];
+  if (owners.length !== 1) return null;
+  return User.findOne({ _id: owners[0], accountDisabledAt: null }).select('_id morningPaper.email').lean();
 };
 
 module.exports = {
   dayOf,
+  inboxAddressFor,
   inboundMailConfig,
   linkFromMail,
   newsletterFromMail,
