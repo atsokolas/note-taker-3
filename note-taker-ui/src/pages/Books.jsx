@@ -5,6 +5,7 @@ import {
   askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, renameBook, reopenBook, startBook, takeBookBack
 } from '../api/imports';
 import { ArticleMargins } from '../components/margins/LibraryMargins';
+import WhatItAdded from '../components/added/WhatItAdded';
 import { useSettleIntoWiki } from '../components/think/settleIntoWiki';
 import BookDesk from '../components/reader/BookDesk.jsx';
 import PassageDoor from '../components/reader/PassageDoorView';
@@ -756,6 +757,7 @@ const Book = ({ id }) => {
           {/* Beside a mark, the closest thing you marked in another book or piece, as the reader has. */}
           <ArticleMargins articleId={id} contentRef={deskRef} frameRef={frameRef} blocks={MARK_BLOCKS} contentKey={savedMarks} />
           <Whereabouts lines={whereabouts} />
+          <WhatItAdded articleId={id} contentKey={savedMarks} />
           <Closing
             book={book}
             marks={highlights.filter(mark => !isEarlier(mark, since))}

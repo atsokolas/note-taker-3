@@ -8,6 +8,9 @@ what reaches `noeis mcp` and `noeis-wiki-mcp` through npm.
 
 ### Added
 
+- `added`, in core: what one source added to what the reader holds, the
+  passages it echoes or argues with, the questions it answers and the wiki pages it belongs
+  on, each with its link, inked or still Noeis's pencil.
 - `brief`, listed with the core tools: where the reader stands, in one call at
   the start of a session, on a topic or none, pencil kept apart. It opens with
   `handedToYou`: what the reader handed off before stepping away.

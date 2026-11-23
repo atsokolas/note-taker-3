@@ -1,0 +1,69 @@
+/* What a source added: a ruled section at the end, the way a colophon
+   closes a book. Pencil is soft italic; once inked, a line is set in ink. */
+.what-it-added {
+  margin: 32px 0 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--noeis-rule);
+}
+
+.what-it-added h2 {
+  margin: 0 0 10px;
+  color: var(--text-secondary);
+  font: 600 0.72rem var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.what-it-added ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.what-it-added li {
+  font: 0.95rem/1.5 var(--font-serif);
+  outline-offset: 4px;
+}
+
+.what-it-added li.is-pencil {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.what-it-added li.is-inked {
+  color: var(--text-primary);
+}
+
+.what-it-added__lead {
+  font: normal 0.78rem var(--font-sans);
+  letter-spacing: 0.02em;
+}
+
+.what-it-added a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--noeis-rule);
+  text-underline-offset: 3px;
+}
+
+.what-it-added__verdict {
+  display: inline-flex;
+  gap: 10px;
+  margin-left: 12px;
+}
+
+.what-it-added__verdict button {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-primary);
+  font: normal 0.78rem var(--font-sans);
+  cursor: pointer;
+}
+
+.what-it-added li:not(:hover):not(:focus-within):not(:focus) .what-it-added__verdict {
+  opacity: 0.45;
+}

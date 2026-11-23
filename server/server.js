@@ -112,6 +112,7 @@ const {
   TourState,
   ReturnQueueEntry,
   Connection,
+  ConnectionJudgment,
   ItemViewEvent,
   ConceptPath,
   ConceptPathProgress,
@@ -191,6 +192,7 @@ const { buildMarketingFunnelRouter } = require('./routes/marketingFunnelRoutes')
 const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes');
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildRecallRouter } = require('./routes/recallRoutes');
+const { buildAddedRouter } = require('./routes/addedRoutes');
 const { buildSyncRouter } = require('./routes/syncRoutes');
 const { buildHandoffRouter } = require('./routes/handoffRoutes');
 const { buildDisagreementRouter } = require('./routes/disagreementRoutes');
@@ -221,11 +223,11 @@ const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildChatgptOAuthRouter } = require('./routes/chatgptOAuthRoutes');
 const { readChatgptOAuthConfig } = require('./services/chatgptOAuthConfig');
-const { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl } = require('./models/chatgptOAuthModels');
+const { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl, ChatgptOAuthClient } = require('./models/chatgptOAuthModels');
 const { createChatgptOAuthReadiness } = require('./services/chatgptOAuthReadiness');
 const chatgptOAuthConfig = readChatgptOAuthConfig();
 const chatgptOAuthReadiness = chatgptOAuthConfig ? createChatgptOAuthReadiness({
-  models: { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl }
+  models: { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl, ChatgptOAuthClient }
 }) : null;
 const { buildEditionRouter } = require('./routes/editionRoutes');
 const { buildEditionThoughtRouter } = require('./routes/editionThoughtRoutes');
@@ -1249,9 +1251,11 @@ app.use(buildRecallRouter({
   semanticSearch
 }));
 
+app.use(buildAddedRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent }));
+
 app.use(buildSyncRouter({
   authenticateToken: authenticateUserOrAgentToken,
-  models: { Article, NotebookEntry, WikiPage }
+  models: { Article, NotebookEntry, WikiPage, Connection }
 }));
 
 // What the reader hands the built-in agent is worked at once, and again on waking if the server slept first.
@@ -1430,7 +1434,7 @@ app.use(buildAgentTokenRouter({
 
 app.use(buildChatgptOAuthRouter({
   config: chatgptOAuthConfig, authenticateToken, isAccountActive,
-  Request: ChatgptOAuthRequest, Grant: ChatgptOAuthGrant, AgentToken,
+  Request: ChatgptOAuthRequest, Grant: ChatgptOAuthGrant, Client: ChatgptOAuthClient, AgentToken,
   isReady: chatgptOAuthReadiness?.isReady
 }));
 app.use(buildHostedMcpRouter({

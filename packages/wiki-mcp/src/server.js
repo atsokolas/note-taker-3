@@ -29,6 +29,7 @@ export const SERVER_INSTRUCTIONS = `This is the reader's own library in Noeis: w
 - If brief lists anything under handedToYou, the reader handed it to you before stepping away: take_handoff, do it, then finish_handoff with what you did, what is open and what you would do next.
 - The questions in brief are the reader's standing work: when they ask you to work on their questions, take one, find what bears on it and what would settle it (its settledBy says), and write that up as a note naming the question.
 - Before answering about the reader's reading, notes or views, call recall in plain words, then read the hits you use. Quote their words and give each hit's link.
+- To see how a source fits what the reader already holds, call added with its id: the passages it echoes or argues with, the questions it answers and the wiki pages it belongs on. Noeis drew these; inked ones the reader took up, the rest are pencil.
 - A hit with pencil was written by an agent (it names which) and not yet taken up by the reader. Never present it as the reader's own view.
 - brief's disagreements are places two hands cannot both be right (an agent against a view the reader holds, or against another agent). Name the disagreement when you work near it; never quietly pick a side.
 - brief's taste is what the reader kept and struck of agents' pencil, with why. Write the way they keep, never the way they strike.

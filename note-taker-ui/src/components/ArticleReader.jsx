@@ -22,6 +22,7 @@ import { sourceKind } from './reader/readerDress';
 import ExplainItBack, { useModelReads } from './reader/ExplainItBack';
 import PassageDoor from './reader/PassageDoorView';
 import { ArticleMargins, paragraphAt } from './margins/LibraryMargins';
+import WhatItAdded from './added/WhatItAdded';
 import { useMarginAsk } from './margins/MarginAnswer';
 import useSourceWhereabouts from './reader/useSourceWhereabouts';
 import OpenedLibraryPassage, { LibraryOriginReturn } from './wiki/open-sentence/OpenedLibraryPassage';
@@ -690,6 +691,7 @@ const ArticleReader = ({
           <button type="button" aria-pressed={placement === 'setAside'} onClick={() => park(placement === 'setAside' ? 'stream' : 'setAside')}>Set aside</button>
         </p>
       ) : null}
+      <WhatItAdded articleId={articleId} contentKey={highlights.length} hidden={Boolean(reading.readFresh)} />
       <ExplainItBack articleId={articleId} available={modelReads} />
       {sourceTrace}
       {closingLine || whereabouts.length || against ? (

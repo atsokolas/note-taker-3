@@ -5,7 +5,7 @@ jest.mock('./embed', () => ({
 }));
 
 const { embedText, embedTexts, isEmbeddingConfigured } = require('./embed');
-const { similarToSource, marginNotes, answerTo, beforeYouStart, echoOf, heardBefore } = require('./semanticSearch');
+const { similarToSource, marginNotes, answerTo, beforeYouStart, echoOf, heardBefore, addedBy } = require('./semanticSearch');
 const { encodeVector, rawCosineToAtlasScore } = require('./vectorStore');
 
 const userId = '64b000000000000000000001';
@@ -197,5 +197,79 @@ describe('answerTo', () => {
     expect(embedText).toHaveBeenCalledWith('The Power Broker, by Robert Caro');
     expect(found.map(passage => passage.articleTitle)).toEqual(['Earlier']);
     expect(await beforeYouStart({ userId, book: { ...book, _id: 'a9' }, models: models([row(2, 0.5)]) })).toEqual([]);
+  });
+});
+
+describe('addedBy', () => {
+  const here = '64b0000000000000000000a1';
+  const there = '64b0000000000000000000a2';
+  const book = '64b0000000000000000000a3';
+  const id = n => `64b0000000000000000000${String(n).padStart(2, '0')}`;
+  const score = cosine => rawCosineToAtlasScore(cosine);
+  const quote = 'A checklist is not a crutch for the inexpert but a net for the expert who forgets the obvious step.';
+  const held = {
+    [id(1)]: { _id: id(1), text: quote, articleId: there, articleTitle: 'The Checklist Manifesto', createdAt: '2026-03-04T00:00:00Z' },
+    [id(2)]: { _id: id(2), text: '', note: 'Why do experts skip the obvious step?', articleId: book, articleTitle: 'Better' },
+    [id(3)]: { _id: id(3), text: `${quote} Again.`, articleId: there, articleTitle: 'Checklists (Full Article)' }
+  };
+  const chain = value => ({ select: () => ({ limit: () => ({ lean: async () => value }), lean: async () => value }) });
+  const modelsFor = (rows, { marked = [{ embedding: encodeVector([1, 0]) }], title = 'This one' } = {}) => {
+    const VectorItem = {
+      find: jest.fn(filter => chain(filter.objectType === 'highlight' ? marked : [{ embedding: encodeVector([0, 1]) }])),
+      countDocuments: jest.fn(async () => marked.length),
+      aggregate: jest.fn(async () => rows)
+    };
+    return {
+      VectorItem,
+      Article: {
+        findOne: () => chain({ title }),
+        aggregate: jest.fn(async ([match]) => match.$match['highlights._id'].$in.map(key => held[String(key)]).filter(Boolean))
+      },
+      Question: { find: jest.fn(() => chain([{ _id: id(5), text: 'When does scale stop helping?' }])) },
+      WikiPage: { find: jest.fn(() => chain([{ _id: id(6), title: 'Checklists', claims: [
+        { claimId: 'c1', text: 'Checklists catch what memory drops on a long and busy day.', sourceRefIds: ['s1', 's2'] },
+        { claimId: 'c2', text: 'A retired sentence that once said checklists slow surgeons down.', sourceRefIds: ['s1', 's2'], checkInStatus: 'retired' }
+      ] }])) }
+    };
+  };
+  const highlight = (n, cosine, articleId = there) => ({ objectType: 'highlight', objectId: id(n), score: score(cosine), metadata: { articleId } });
+
+  it('names what a source echoes, the questions it answers and the page it belongs on, from stored vectors', async () => {
+    embedText.mockClear();
+    const models = modelsFor([
+      highlight(1, 0.8),
+      highlight(1, 0.7),
+      highlight(2, 0.7, book),
+      { objectType: 'question', objectId: id(5), score: score(0.66), metadata: {} },
+      { objectType: 'wiki_claim', objectId: `${id(6)}:c1`, score: score(0.75), metadata: { pageId: id(6), claimId: 'c1' } },
+      { objectType: 'wiki_claim', objectId: `${id(6)}:c2`, score: score(0.95), metadata: { pageId: id(6), claimId: 'c2' } },
+      highlight(4, 0.6),
+      highlight(1, 0.99)
+    ]);
+    const added = await addedBy({ userId, articleId: here, models });
+    expect(added.map(({ kind, key }) => [kind, key])).toEqual([
+      ['echo', `highlight:${id(1)}`],
+      ['belongs', `wiki_page:${id(6)}`],
+      ['answers', `highlight:${id(2)}`],
+      ['answers', `question:${id(5)}`]
+    ]);
+    expect(added[0].to).toMatchObject({ type: 'highlight', articleId: there, title: 'The Checklist Manifesto', quote });
+    expect(added[1].to).toMatchObject({ type: 'wiki_page', title: 'Checklists', quote: 'Checklists catch what memory drops on a long and busy day.' });
+    expect(added[2].to.quote).toBe('Why do experts skip the obvious step?');
+    expect(embedText).not.toHaveBeenCalled();
+    expect(models.VectorItem.aggregate).toHaveBeenCalledTimes(1);
+    expect(models.VectorItem.aggregate.mock.calls[0][0][0].$vectorSearch.limit).toBe(7);
+  });
+
+  it('asks with the source\'s own text when nothing in it is marked, and never offers the same work back', async () => {
+    const models = modelsFor([highlight(3, 0.8), highlight(1, 0.8, here)], { marked: [], title: 'Checklists' });
+    expect(await addedBy({ userId, articleId: here, models })).toEqual([]);
+    expect(models.VectorItem.find.mock.calls.map(([filter]) => filter.objectType)).toEqual(['highlight', 'article']);
+  });
+
+  it('keeps the strongest three of each kind', async () => {
+    Object.assign(held, ...[7, 8, 9, 10].map(n => ({ [id(n)]: { _id: id(n), text: `${quote} ${n}`, articleId: there, articleTitle: `Work ${n}` } })));
+    const added = await addedBy({ userId, articleId: here, models: modelsFor([7, 8, 9, 10].map((n, at) => highlight(n, 0.9 - at / 100))) });
+    expect(added.map(connection => connection.to.title)).toEqual(['Work 7', 'Work 8', 'Work 9']);
   });
 });

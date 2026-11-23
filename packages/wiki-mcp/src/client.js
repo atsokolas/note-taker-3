@@ -25,6 +25,9 @@ const ingestNextStep = (run = {}) => {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// A connection's far end, as the hit recall would have given for it.
+const hitOf = ({ type, id, articleId }) => (type === 'highlight' ? { kind: type, id: articleId, highlightId: id } : { kind: type, id });
+
 const pickId = (value) => {
   if (!value) return '';
   if (typeof value === 'string') return value;
@@ -1180,6 +1183,12 @@ export class NoeisClient {
   read({ id }) {
     return this.request(`/api/recall/read/${encodeURIComponent(id)}`)
       .then(source => ({ ...source, link: this.linkFor(source) }));
+  }
+
+  /* What a source added, each connection with where it opens. */
+  added({ id }) {
+    return this.request(`/api/added/${encodeURIComponent(id)}`)
+      .then(({ added }) => ({ added: added.map(connection => ({ ...connection, link: this.linkFor(hitOf(connection.to)) })) }));
   }
 
   getEdition({ editionId } = {}) {
