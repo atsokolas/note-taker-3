@@ -216,6 +216,7 @@ describe('addedBy', () => {
   const modelsFor = (rows, { marked = [{ embedding: encodeVector([1, 0]) }], title = 'This one' } = {}) => {
     const VectorItem = {
       find: jest.fn(filter => chain(filter.objectType === 'highlight' ? marked : [{ embedding: encodeVector([0, 1]) }])),
+      countDocuments: jest.fn(async () => marked.length),
       aggregate: jest.fn(async () => rows)
     };
     return {
@@ -225,7 +226,10 @@ describe('addedBy', () => {
         aggregate: jest.fn(async ([match]) => match.$match['highlights._id'].$in.map(key => held[String(key)]).filter(Boolean))
       },
       Question: { find: jest.fn(() => chain([{ _id: id(5), text: 'When does scale stop helping?' }])) },
-      WikiPage: { find: jest.fn(() => chain([{ _id: id(6), title: 'Checklists', claims: [{ claimId: 'c1', text: 'Checklists catch what memory drops.' }] }])) }
+      WikiPage: { find: jest.fn(() => chain([{ _id: id(6), title: 'Checklists', claims: [
+        { claimId: 'c1', text: 'Checklists catch what memory drops on a long and busy day.', sourceRefIds: ['s1', 's2'] },
+        { claimId: 'c2', text: 'A retired sentence that once said checklists slow surgeons down.', sourceRefIds: ['s1', 's2'], checkInStatus: 'retired' }
+      ] }])) }
     };
   };
   const highlight = (n, cosine, articleId = there) => ({ objectType: 'highlight', objectId: id(n), score: score(cosine), metadata: { articleId } });
@@ -238,6 +242,7 @@ describe('addedBy', () => {
       highlight(2, 0.7, book),
       { objectType: 'question', objectId: id(5), score: score(0.66), metadata: {} },
       { objectType: 'wiki_claim', objectId: `${id(6)}:c1`, score: score(0.75), metadata: { pageId: id(6), claimId: 'c1' } },
+      { objectType: 'wiki_claim', objectId: `${id(6)}:c2`, score: score(0.95), metadata: { pageId: id(6), claimId: 'c2' } },
       highlight(4, 0.6),
       highlight(1, 0.99)
     ]);
@@ -249,10 +254,11 @@ describe('addedBy', () => {
       ['answers', `question:${id(5)}`]
     ]);
     expect(added[0].to).toMatchObject({ type: 'highlight', articleId: there, title: 'The Checklist Manifesto', quote });
-    expect(added[1].to).toMatchObject({ type: 'wiki_page', title: 'Checklists', quote: 'Checklists catch what memory drops.' });
+    expect(added[1].to).toMatchObject({ type: 'wiki_page', title: 'Checklists', quote: 'Checklists catch what memory drops on a long and busy day.' });
     expect(added[2].to.quote).toBe('Why do experts skip the obvious step?');
     expect(embedText).not.toHaveBeenCalled();
     expect(models.VectorItem.aggregate).toHaveBeenCalledTimes(1);
+    expect(models.VectorItem.aggregate.mock.calls[0][0][0].$vectorSearch.limit).toBe(7);
   });
 
   it('asks with the source\'s own text when nothing in it is marked, and never offers the same work back', async () => {

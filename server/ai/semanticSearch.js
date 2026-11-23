@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { embedText, embedTexts, isEmbeddingConfigured } = require('./embed');
+const { isEmbeddableWikiClaim } = require('./embeddingJobs');
 const { searchVectorItems, similarToVectorItem, rawCosineToAtlasScore, decodeVector } = require('./vectorStore');
 const { VectorItem, TagMeta, Article, Question, WikiPage } = require('../models');
 
@@ -354,24 +355,21 @@ const addedBy = async ({ userId, articleId, models = {} }) => {
   const vectorsOf = filter => vectors.find({ userId, ...filter }).select('embedding').limit(ADDED_FROM).lean();
   const marked = await vectorsOf({ objectType: 'highlight', 'metadata.articleId': id });
   const own = marked.length ? marked : await vectorsOf({ objectType: 'article', objectId: id });
+  // The source's own marks are each other's nearest, so they are asked past before the six count.
+  const limit = MARGIN_CANDIDATES + await vectors.countDocuments({ userId, objectType: 'highlight', 'metadata.articleId': id });
   const rows = (await Promise.all(own.map(item => searchVectorItems({
-    VectorItem: vectors, userId, vector: decodeVector(item.embedding), limit: MARGIN_CANDIDATES, objectTypes: ADDED_TYPES
+    VectorItem: vectors, userId, vector: decodeVector(item.embedding), limit, objectTypes: ADDED_TYPES
   })))).flat().filter(row => (
     Number(row.score) >= MARGIN_FLOOR
     && Number(row.score) < MARGIN_SAME_PASSAGE
     && String(row.metadata?.articleId || '') !== id
   ));
-  const best = new Map();
-  rows.forEach(row => {
-    const key = targetOf(row);
-    if (!best.has(key) || best.get(key).score < row.score) best.set(key, row);
-  });
-  const ids = type => [...best.values()].filter(row => row.objectType === type).map(row => String(row.objectId));
-  const pageIds = [...best.values()].filter(row => row.objectType === 'wiki_claim').map(row => String(row.metadata?.pageId));
+  const ids = type => [...new Set(rows.filter(row => row.objectType === type).map(row => String(row.objectId)))];
+  const pageIds = [...new Set(rows.filter(row => row.objectType === 'wiki_claim').map(row => String(row.metadata?.pageId)))];
   const [marks, questions, pages] = await Promise.all([
     highlightsById({ Article: articles, userId, ids: ids('highlight') }),
     (models.Question || Question).find({ _id: { $in: ids('question').filter(mongoose.Types.ObjectId.isValid) }, userId, status: 'open', archived: { $ne: true } }).select('text').lean(),
-    (models.WikiPage || WikiPage).find({ _id: { $in: pageIds.filter(mongoose.Types.ObjectId.isValid) }, userId, status: { $ne: 'archived' } }).select('title claims.claimId claims.text').lean()
+    (models.WikiPage || WikiPage).find({ _id: { $in: pageIds.filter(mongoose.Types.ObjectId.isValid) }, userId, status: { $ne: 'archived' } }).select('title claims').lean()
   ]);
   const work = workOf(source.title);
   const questionsById = new Map(questions.map(question => [String(question._id), question]));
@@ -384,7 +382,8 @@ const addedBy = async ({ userId, articleId, models = {} }) => {
     if (row.objectType === 'wiki_claim') {
       const page = pagesById.get(String(row.metadata?.pageId));
       const claim = page?.claims?.find(item => String(item.claimId) === String(row.metadata?.claimId));
-      return page && { kind: 'belongs', to: { type: 'wiki_page', id: String(page._id), title: page.title, quote: plain(claim?.text) } };
+      // A claim retired since it was indexed keeps its vector, but no longer says where anything belongs.
+      return isEmbeddableWikiClaim(claim) && { kind: 'belongs', to: { type: 'wiki_page', id: String(page._id), title: page.title, quote: plain(claim.text) } };
     }
     const mark = marks.get(String(row.objectId));
     if (!mark || (work && workOf(mark.articleTitle) === work)) return null;
@@ -392,10 +391,11 @@ const addedBy = async ({ userId, articleId, models = {} }) => {
     if (isQuestionLine(mark)) return { kind: 'answers', to: { ...to, quote: plain(mark.note) } };
     return plain(mark.text).length >= MARGIN_MIN_QUOTE_CHARS && { kind: 'echo', to: { ...to, quote: plain(mark.text) } };
   };
-  const found = [...best.values()]
+  // Strongest first; each thing it reaches once, by its best match; ADDED_EACH of each kind.
+  const found = rows
     .sort((a, b) => Number(b.score) - Number(a.score))
     .map(row => ({ ...connectionOf(row), key: targetOf(row), score: Number(row.score) }))
-    .filter(connection => connection.kind);
+    .filter((connection, at, all) => connection.kind && all.findIndex(other => other.kind && other.key === connection.key) === at);
   return found.filter((connection, at) => found.slice(0, at).filter(other => other.kind === connection.kind).length < ADDED_EACH);
 };
 

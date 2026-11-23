@@ -32,6 +32,7 @@ const libraryOf = (vectors, articles, questions, pages) => {
   return {
     VectorItem: {
       find: filter => lean(vectors.filter(matches(filter))),
+      countDocuments: async filter => vectors.filter(matches(filter)).length,
       aggregate: async ([{ $vectorSearch: { queryVector, limit, filter } }]) => {
         const asked = decodeVector(queryVector);
         return vectors
@@ -73,7 +74,7 @@ const main = async () => {
     ...incoming.map(source => ({ _id: source._id, title: source.title, highlights: source.marks.map((text, m) => ({ _id: source.markIds[m], text, note: '' })) }))
   ];
   const questions = QUESTIONS.map(question => ({ _id: id(question.n), text: question.text }));
-  const pages = PAGES.map(page => ({ _id: id(page.n), title: page.title, claims: page.claims.map((text, c) => ({ claimId: `c${c}`, text })) }));
+  const pages = PAGES.map(page => ({ _id: id(page.n), title: page.title, claims: page.claims.map((text, c) => ({ claimId: `c${c}`, text, sourceRefIds: ['s1', 's2'] })) }));
 
   const items = [
     ...marks.map(mark => ({ objectType: 'highlight', objectId: mark._id, metadata: { articleId: workId(mark.work) }, text: [mark.text, mark.note].filter(Boolean).join('\n') })),
