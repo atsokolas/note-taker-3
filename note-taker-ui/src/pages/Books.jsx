@@ -606,7 +606,8 @@ const BookTitle = ({ book, onChange }) => {
     }
   };
   const onKeyDown = (event) => {
-    if (!['Enter', 'Escape'].includes(event.key)) return;
+    // Enter and Esc inside a Japanese or Chinese composition belong to the composition.
+    if (event.nativeEvent.isComposing || !['Enter', 'Escape'].includes(event.key)) return;
     event.preventDefault();
     if (event.key === 'Escape') event.currentTarget.textContent = title;
     event.currentTarget.blur();
