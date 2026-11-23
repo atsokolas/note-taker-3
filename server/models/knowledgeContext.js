@@ -1,11 +1,14 @@
 // Capability stays in server memory; a JSON option or filter cannot grant Work access.
+/** @type {{ keys: import('mongoose').IndexDefinition, options: import('mongoose').IndexOptions }} */
 const workOperationIndex = {
   keys: { userId: 1, operationId: 1 },
   options: { unique: true, partialFilterExpression: { knowledgeContext: 'work', operationId: { $type: 'string' } } }
 };
 const workQueries = new WeakSet();
 const personalContext = () => ({ $or: [{ knowledgeContext: 'personal' }, { knowledgeContext: { $exists: false } }] });
+/** @template {WeakKey} Q @param {Q} query @returns {Q} */
 const inWork = query => { workQueries.add(query); return query; };
+/** Pipeline stages are whatever a caller wrote, so they stay untyped. @param {any[]} pipeline @param {object} scope */
 function scopePipeline(pipeline, scope, filterRoot = true) {
   for (const stage of pipeline) {
     if (stage.$lookup) {
@@ -33,6 +36,7 @@ function scopePipeline(pipeline, scope, filterRoot = true) {
   else if (pipeline[0]?.$match?.$text) pipeline[0].$match = { $and: [pipeline[0].$match, scope] };
   else pipeline.unshift(match);
 }
+/** @param {import('mongoose').Schema<any>} schema */
 function knowledgeContext(schema) {
   schema.add({ knowledgeContext: { type: String, enum: ['personal', 'work'], default: 'personal', immutable: true } });
   schema.pre(['find', 'findOne', 'countDocuments', 'distinct', 'findOneAndUpdate', 'findOneAndDelete', 'updateOne', 'updateMany', 'deleteOne', 'deleteMany', 'replaceOne', 'findOneAndReplace'], function () {

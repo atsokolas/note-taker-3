@@ -2222,7 +2222,8 @@ const generateCollaborativeReply = async ({
   limit = DEFAULT_LIMIT,
   premiumWebResearchAvailable = false,
   skillInvocation = {},
-  signal = null
+  signal = null,
+  onStep = undefined
 }) => {
   const userObjectId = toObjectId(userId);
   if (!userObjectId) throw createError(400, 'userId must be a valid ObjectId.');
@@ -2453,7 +2454,8 @@ const generateCollaborativeReply = async ({
         changes,
         quotable: standing?.views || [],
         chat: chatComplete,
-        signal
+        signal,
+        onStep
       });
       if (turn && !leaksInternalReasoning(turn.reply)) {
         finalReply = stripRawObjectIds(turn.reply, contextItem?.title || 'this wiki page');

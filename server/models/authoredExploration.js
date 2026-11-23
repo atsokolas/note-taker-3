@@ -1,3 +1,4 @@
+/** @param {typeof import('mongoose')} mongoose */
 const buildAuthoredExplorationModel = (mongoose) => {
   const sourceAnchorSchema = new mongoose.Schema({
     prefix: { type: String, default: '', maxlength: 500 },
@@ -87,7 +88,7 @@ const buildAuthoredExplorationModel = (mongoose) => {
     mutationId: { type: String, required: true, maxlength: 100 },
     status: { type: String, enum: ['pending', 'complete'], default: 'pending' },
     snapshot: {
-      origin: { type: originSchema, default: () => ({}) },
+      origin: { type: originSchema, default: /** @returns {object} */ () => ({}) },
       draft: { type: draftSchema, default: undefined },
       primarySource: { type: keptSourceSchema, default: undefined }
     },
@@ -106,7 +107,7 @@ const buildAuthoredExplorationModel = (mongoose) => {
     savedVersions: { type: [new mongoose.Schema({
       revision: { type: Number, required: true },
       savedAt: { type: Date, required: true },
-      origin: { type: originSchema, default: () => ({}) },
+      origin: { type: originSchema, default: /** @returns {object} */ () => ({}) },
       draft: { type: draftSchema, required: true }
     }, { _id: false })], default: [], select: false },
     mutations: { type: [mutationSchema], default: [] },
