@@ -44,7 +44,25 @@ test('the shelf shows each book with what was written in it and the last line', 
   expect(book).toHaveAttribute('href', '/books/b1');
   expect(book).toHaveTextContent('pp. 188–190 · 1 quote, 1 question');
   expect(book).toHaveTextContent('Last marked p. 190');
-  expect(book).toHaveTextContent('Is he cherry-picking the base year?');
+  const preview = screen.getByRole('complementary', { name: 'The Better Angels of Our Nature' });
+  expect(preview).toHaveTextContent('Is he cherry-picking the base year?');
+  expect(screen.getByRole('link', { name: 'Open at p. 190' })).toHaveAttribute('href', '/books/b1?highlight=m2');
+});
+
+test('filters and previews title-only records without needing artwork or a reading position', async () => {
+  listBooks.mockResolvedValue([
+    { _id: 'finished', title: 'Persuasion', finishedOn: '2026-11-12', closingLine: 'I would read it again.' },
+    { _id: 'reading', title: 'An Island Notebook' }
+  ]);
+  at();
+  await screen.findByRole('button', { name: 'Preview An Island Notebook' });
+  fireEvent.click(screen.getByRole('button', { name: 'Reading' }));
+  expect(screen.queryByRole('link', { name: /Persuasion/ })).not.toBeInTheDocument();
+  expect(screen.getByRole('complementary', { name: 'An Island Notebook' })).toHaveTextContent('Nothing written yet.');
+  expect(screen.getByRole('link', { name: 'Open book' })).toHaveAttribute('href', '/books/reading');
+  expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Finished' }));
+  expect(screen.getByRole('complementary', { name: 'Persuasion' })).toHaveTextContent('I would read it again.');
 });
 
 test('naming a book opens its page', async () => {
@@ -195,7 +213,7 @@ test('reading a book again keeps the first reading: its sentence, and its marks 
   });
   readAgain.mockResolvedValue({
     finishedOn: '', closingLine: '',
-    readBefore: [{ finishedOn: '2025-10-19', closingLine: 'Nobody is only what they do.', until: '2026-10-24T09:00:00Z' }]
+    readBefore: [{ finishedOn: '2025-10-19', closingLine: 'Nobody is only what they do.', until: new Date().toISOString() }]
   });
   const { container } = at('b2');
   fireEvent.click(screen.getByRole('button', { name: 'Read it again' }));
@@ -221,7 +239,11 @@ test('the book says where it went in your wiki, one line per page', async () => 
 test('a book set down a month ago says so on the shelf, and stays there', async () => {
   listBooks.mockResolvedValue([{ _id: 'b1', title: 'Leviathan', createdAt: '2026-01-01T00:00:00Z', marks: [{ _id: 'm1', note: 'Hobbes on fear', page: 40, createdAt: '2026-02-03T20:00:00Z' }] }]);
   at();
-  expect(await screen.findByRole('link', { name: /Leviathan/ })).toHaveTextContent(/Set down in February 2026 · p\. 40 · 1 note/);
+  const book = await screen.findByRole('link', { name: /Leviathan/ });
+  expect(book).toHaveTextContent('Set down in February 2026');
+  expect(book).toHaveTextContent('Last marked p. 40');
+  expect(book).toHaveTextContent('1 note');
+  expect(book.textContent.match(/p\. 40/g)).toHaveLength(1);
 });
 
 test('a book changed lately is not set down, whatever its marks’ dates', async () => {
