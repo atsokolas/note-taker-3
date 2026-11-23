@@ -3,12 +3,14 @@
  * in FEEDBACK_ADMIN_USERNAMES, a comma-separated list of usernames. With no
  * list configured, nobody is an admin.
  */
-const isAdminUsername = (username) => Boolean(username) && String(process.env.FEEDBACK_ADMIN_USERNAMES || '')
+/** @param {string | undefined} username */
+const isAdminUsername = (username) => !!username && String(process.env.FEEDBACK_ADMIN_USERNAMES || '')
   .split(',')
   .map(name => name.trim())
   .filter(Boolean)
   .includes(username);
 
+/** @type {import('../types/request').Handler} */
 const requireAdmin = (req, res, next) => {
   if (isAdminUsername(req.user?.username)) return next();
   return res.status(403).json({ error: 'Not authorized.' });

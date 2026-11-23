@@ -7,6 +7,7 @@ const { notebookCuttings, sanitizeNotebookWorkbench, sanitizeNotebookTarget } = 
 const { passageFromTarget } = require('../utils/notebookWordingOptions');
 const { generateNotebookWordingOptions } = require('../services/notebookWordingOptionsService');
 const express = require('express');
+const { shaped, z } = require('../utils/requestShape');
 const { createHash } = require('node:crypto');
 const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
@@ -375,7 +376,7 @@ const buildNotebookRouter = ({
     }
   });
 
-  router.post('/api/notebook/folders', authenticateToken, async (req, res) => {
+  router.post('/api/notebook/folders', authenticateToken, shaped({ body: z.object({ name: z.string().optional() }) }), async (req, res) => {
     try {
       const userId = req.user.id;
       const { name, parentFolderId, sortOrder, importMeta } = req.body;

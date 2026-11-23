@@ -1,5 +1,12 @@
 const crypto = require('crypto');
 
+/** A concept's workspace as saved, or as a patch sent it: read field by field. */
+/** @typedef {import('../types/request').Fields} Fields */
+/**
+ * @typedef {{ version: number, outlineSections: Fields[], attachedItems: Fields[], connections: Fields[],
+ *   updatedAt: string, groups?: Fields[], items?: Fields[] }} Workspace
+ */
+
 const WORKSPACE_VERSION = 1;
 const DEFAULT_GROUP_TITLE = 'Workspace';
 const WORKSPACE_ITEM_TYPES = new Set([
@@ -12,6 +19,7 @@ const WORKSPACE_ITEM_TYPES = new Set([
   'wiki_claim'
 ]);
 const WORKSPACE_ITEM_STAGES = new Set(['inbox', 'working', 'draft', 'archive']);
+/** @type {Record<string, string>} */
 const LEGACY_STAGE_MAP = {
   claim: 'draft',
   evidence: 'draft'
@@ -32,21 +40,27 @@ const makeId = () => (
     : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 );
 
+/** @param {unknown} value */
 const toSafeString = (value) => String(value || '').trim();
+/** @param {unknown} value */
 const toSafeOrder = (value, fallback = 0) => {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
 };
+/** @param {unknown} value */
 const toSafeStatus = (value, fallback = 'active') => {
   const status = toSafeString(value).toLowerCase();
   return WORKSPACE_ITEM_STATUSES.has(status) ? status : fallback;
 };
+/** @param {unknown} value */
 const toSafeConnectionType = (value, fallback = 'related') => {
   const type = toSafeString(value).toLowerCase();
   return WORKSPACE_CONNECTION_TYPES.has(type) ? type : fallback;
 };
+/** @param {unknown} value */
 const toSafeHtml = (value, fallback = '') => String(value ?? fallback).trim().slice(0, 32000);
 
+/** @param {unknown} value */
 const normalizeStage = (value, fallback = 'working') => {
   const raw = toSafeString(value).toLowerCase();
   const stage = LEGACY_STAGE_MAP[raw] || raw;
@@ -58,6 +72,7 @@ const defaultSections = () => STAGE_SECTION_DEFAULTS.map((section, index) => ({
   order: index
 }));
 
+/** @param {Fields} section */
 const toLegacyGroup = (section) => ({
   id: section.id,
   title: section.title,
@@ -66,6 +81,7 @@ const toLegacyGroup = (section) => ({
   order: toSafeOrder(section.order)
 });
 
+/** @param {Fields} item */
 const toLegacyItem = (item) => ({
   id: item.id,
   type: item.type,
@@ -79,6 +95,7 @@ const toLegacyItem = (item) => ({
   order: toSafeOrder(item.order)
 });
 
+/** @param {Fields} group */
 const toCanonicalSection = (group) => ({
   id: toSafeString(group.id) || makeId(),
   title: toSafeString(group.title) || DEFAULT_GROUP_TITLE,
@@ -87,6 +104,7 @@ const toCanonicalSection = (group) => ({
   order: toSafeOrder(group.order)
 });
 
+/** @param {Fields} item */
 const toCanonicalItem = (item, index = 0) => {
   const rawStatus = toSafeStatus(item.status, 'active');
   const fallbackStage = rawStatus === 'archived' ? 'archive' : 'working';
@@ -107,9 +125,12 @@ const toCanonicalItem = (item, index = 0) => {
   };
 };
 
+/** @param {unknown} workspace @returns {Fields} */
 const cloneWorkspace = (workspace) => JSON.parse(JSON.stringify(workspace || {}));
+/** @param {string} sectionId */
 const sectionScopeKey = (sectionId, parentId = '') => `${sectionId}::${parentId || ''}`;
 
+/** @param {Fields[]} sections */
 const ensureStageSections = (sections) => {
   const byId = new Map();
   sections.forEach((section) => {
@@ -137,7 +158,9 @@ const ensureStageSections = (sections) => {
     }));
 };
 
+/** @param {any} workspaceInput @param {Fields | Fields[]} [scopeInput] @returns {Workspace} */
 const normalizeOrders = (workspaceInput, scopeInput) => {
+  /** @type {Workspace} */
   const workspace = workspaceInput && typeof workspaceInput === 'object'
     ? workspaceInput
     : {
@@ -175,7 +198,9 @@ const normalizeOrders = (workspaceInput, scopeInput) => {
       return true;
     });
 
+  /** @type {Map<string, Fields>} */
   const itemById = new Map();
+  /** @type {Fields[]} */
   const dedupedItems = [];
   workspace.attachedItems.forEach((item) => {
     let nextId = item.id;
@@ -215,6 +240,7 @@ const normalizeOrders = (workspaceInput, scopeInput) => {
     }
   });
 
+  /** @type {Set<string>} */
   const allScopes = new Set();
   workspace.attachedItems.forEach((item) => {
     allScopes.add(sectionScopeKey(item.sectionId, item.parentId));
@@ -266,7 +292,7 @@ const normalizeOrders = (workspaceInput, scopeInput) => {
             type
           };
         })
-        .filter(Boolean)
+        .filter(connection => connection !== null)
     : [];
 
   workspace.version = WORKSPACE_VERSION;
@@ -277,6 +303,7 @@ const normalizeOrders = (workspaceInput, scopeInput) => {
   return workspace;
 };
 
+/** @param {Fields | null | undefined} concept */
 const ensureWorkspace = (concept) => {
   const source = concept && typeof concept === 'object' ? concept.workspace || {} : {};
   return normalizeOrders({
@@ -292,13 +319,14 @@ const ensureWorkspace = (concept) => {
   });
 };
 
+/** @param {Fields[]} items @param {string} candidateParentId @param {string} itemId */
 const isDescendant = (items, candidateParentId, itemId) => {
+  /** @type {Map<string, string[]>} */
   const byParent = new Map();
   items.forEach((item) => {
     const parent = toSafeString(item.parentId);
     if (!parent) return;
-    if (!byParent.has(parent)) byParent.set(parent, []);
-    byParent.get(parent).push(item.id);
+    byParent.set(parent, [...(byParent.get(parent) || []), item.id]);
   });
 
   const stack = [candidateParentId];
@@ -314,9 +342,11 @@ const isDescendant = (items, candidateParentId, itemId) => {
   return false;
 };
 
+/** @param {unknown} workspaceInput @param {Fields | null | undefined} opInput @returns {Workspace} */
 const applyPatchOp = (workspaceInput, opInput) => {
   const workspace = ensureWorkspace({ workspace: cloneWorkspace(workspaceInput) });
   const operation = toSafeString(opInput?.op);
+  /** @type {Fields} */
   const payload = opInput && typeof opInput.payload === 'object' && opInput.payload
     ? opInput.payload
     : {};
@@ -325,7 +355,9 @@ const applyPatchOp = (workspaceInput, opInput) => {
     throw new Error('PATCH body must include op.');
   }
 
+  /** @param {string} sectionId @returns {Fields | undefined} */
   const getSection = (sectionId) => workspace.outlineSections.find(section => section.id === sectionId);
+  /** @param {string} itemId @returns {Fields | undefined} */
   const getItem = (itemId) => workspace.attachedItems.find(item => item.id === itemId);
   const pruneConnections = () => {
     const itemIds = new Set(workspace.attachedItems.map(item => item.id));

@@ -24,7 +24,7 @@ const ROOT = path.resolve(__dirname, '..');
 const BASELINE = path.join(__dirname, 'typecheck-baseline.json');
 const UNDEFINED_NAME = / error TS(2304|2552):/;
 
-const STRICT = ['models'];
+const STRICT = ['models', 'utils', 'lib'];
 
 const errorsByFile = (project) => {
   const tsc = spawnSync(process.execPath, [require.resolve('typescript/bin/tsc'), '-p', project, '--pretty', 'false'],

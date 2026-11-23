@@ -24,9 +24,8 @@ test('an operator smuggled into a login body is refused', async () => {
   assert.deepStrictEqual(await response.json(), { error: 'Field names cannot start with $.' });
 });
 
-test('an operator nested deep in a body or in the query string is refused', async () => {
+test('an operator nested deep in a body is refused', async () => {
   assert.strictEqual((await post({ page: { blocks: [{ attrs: { $where: '1' } }] } })).status, 400);
-  assert.strictEqual((await fetch(`${base}/echo?id[$gt]=`)).status, 400);
 });
 
 test('ordinary bodies, dollar amounts and all, pass untouched', async () => {

@@ -22,6 +22,12 @@ const { Agent } = require('undici');
  * and a bad article URL are the same failure with different consequences.
  */
 
+/**
+ * @typedef {{ url?: string, method?: string, subject?: string, accept?: string, userAgent?: string,
+ *   timeoutMs?: number, signal?: AbortSignal | null, fetchImpl?: typeof fetch,
+ *   lookup?: (host: string, options: { all: true, verbatim: true }) => Promise<{ address: string }[]> }} PublicRequest
+ */
+
 const DEFAULT_MAX_BYTES = 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_DEADLINE_MS = 20000;
@@ -41,6 +47,7 @@ const NOT_PUBLIC = /** @type {[string, number][]} */ ([
   return list;
 }, new net.BlockList());
 
+/** @param {unknown} [address] */
 const isPrivateAddress = (address = '') => {
   const value = String(address || '').trim();
   const family = net.isIP(value);
@@ -61,13 +68,12 @@ const publicLookup = (hostname, options, callback) => {
 };
 const pinnedToPublic = new Agent({ connect: { lookup: publicLookup } });
 
+/** @param {string} message @returns {never} */
 const refuse = (message) => {
-  const error = new Error(message);
-  error.statusCode = 400;
-  throw error;
+  throw Object.assign(new Error(message), { statusCode: 400 });
 };
 
-/** The URL, proven public, or the reason it is not. */
+/** The URL, proven public, or the reason it is not. @param {unknown} value @param {Pick<PublicRequest, 'lookup' | 'subject'>} [options] */
 const validatePublicUrl = async (value, { lookup = dns.promises.lookup, subject = 'This URL' } = {}) => {
   let parsed;
   try {
@@ -102,6 +108,7 @@ const validatePublicUrl = async (value, { lookup = dns.promises.lookup, subject 
  * stop reading incrementally, because a server that lies about one can lie
  * about the other.
  */
+/** @param {Response} response */
 const readBoundedBody = async (response, maxBytes = DEFAULT_MAX_BYTES, subject = 'The response') => {
   const tooBig = () => { throw new Error(`${subject} exceeds the size limit.`); };
   const declared = Number(response.headers?.get?.('content-length') || 0);
@@ -134,6 +141,7 @@ const readBoundedBody = async (response, maxBytes = DEFAULT_MAX_BYTES, subject =
  * Redirects are followed manually so every hop is re-validated. A public host
  * that redirects to 127.0.0.1 is the whole reason this function exists.
  */
+/** @param {PublicRequest} [request] */
 const requestPublic = async ({
   url,
   method = 'GET',
@@ -178,6 +186,7 @@ const requestPublic = async ({
 };
 
 /** Fetch a public URL and return its text. */
+/** @param {PublicRequest & { contentTypePattern?: RegExp | null, contentTypeMessage?: string, maxBytes?: number, deadlineMs?: number }} [request] */
 const fetchPublicText = async ({
   contentTypePattern = null,
   contentTypeMessage = '',
@@ -193,9 +202,7 @@ const fetchPublicText = async ({
   try {
     const { response, url } = await requestPublic({ ...request, subject, signal: deadline.signal });
     if (!response?.ok) {
-      const error = new Error(`${subject} request failed with HTTP ${response?.status || 'unknown'}.`);
-      error.status = response?.status || 0;
-      throw error;
+      throw Object.assign(new Error(`${subject} request failed with HTTP ${response?.status || 'unknown'}.`), { status: response?.status || 0 });
     }
     const contentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
     if (contentTypePattern && contentType && !contentTypePattern.test(contentType)) {
@@ -209,12 +216,14 @@ const fetchPublicText = async ({
 
 /* Not Found and Gone are the only answers that mean the page is no longer
    there. A 403, a 500 or a timeout is a door that did not open today. */
+/** @param {number} status */
 const isGoneStatus = (status) => status === 404 || status === 410;
 
 /**
  * The status a public URL answers a HEAD with, or 0 when it would not say.
  * Nothing is read: a check, not a fetch.
  */
+/** @param {PublicRequest} [request] */
 const publicUrlStatus = async ({ url, timeoutMs = 5000, ...request } = {}) => {
   try {
     const { response } = await requestPublic({ ...request, url, timeoutMs, method: 'HEAD', accept: '*/*' });

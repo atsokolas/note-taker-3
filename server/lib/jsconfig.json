@@ -1,0 +1,1 @@
+{ "extends": "../jsconfig.json", "compilerOptions": { "strict": true }, "include": ["*.js", "../types/*.d.ts"], "exclude": ["*.test.js"] }

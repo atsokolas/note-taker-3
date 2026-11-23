@@ -10,9 +10,12 @@ const mongoose = require('mongoose');
  * parallel; the count says how many there were.
  */
 
+/** @typedef {Record<'db' | 'ai', { ms: number, count: number }>} Ledger */
+/** @type {AsyncLocalStorage<Ledger>} */
 const ledgers = new AsyncLocalStorage();
-const KINDS = ['db', 'ai'];
+const KINDS = /** @type {const} */ (['db', 'ai']);
 
+/** @template T @param {'db' | 'ai'} kind @param {() => Promise<T>} work @returns {Promise<T>} */
 const timed = async (kind, work) => {
   const ledger = ledgers.getStore();
   if (!ledger) return work();
@@ -30,20 +33,22 @@ const timed = async (kind, work) => {
 const timeMongoose = () => {
   [mongoose.Query.prototype, mongoose.Aggregate.prototype].forEach((proto) => {
     const exec = proto.exec;
-    proto.exec = function timedExec(...args) { return timed('db', () => exec.apply(this, args)); };
+    proto.exec = function timedExec(/** @type {any[]} */ ...args) { return timed('db', () => exec.apply(this, /** @type {any} */ (args))); };
   });
   // Model.create calls the $save alias, so both names get the one timed save.
   const save = mongoose.Model.prototype.save;
-  mongoose.Model.prototype.save = mongoose.Model.prototype.$save = function timedSave(...args) {
+  mongoose.Model.prototype.save = mongoose.Model.prototype.$save = function timedSave(/** @type {any[]} */ ...args) {
     return timed('db', () => save.apply(this, args));
   };
 };
 
+/** @param {Ledger} ledger @param {number} total */
 const summarize = (ledger, total) => [
   ...KINDS.map(kind => `${kind};dur=${ledger[kind].ms.toFixed(1)};desc="${ledger[kind].count}"`),
   `total;dur=${total.toFixed(1)}`
 ].join(', ');
 
+/** @type {import('../types/request').Handler} */
 const requestTiming = (req, res, next) => {
   // A caller's id is kept only if it is plainly an id, so it cannot write lines into the log.
   const offered = String(req.headers['x-request-id'] || '');
@@ -54,9 +59,9 @@ const requestTiming = (req, res, next) => {
   res.setHeader('X-Request-Id', requestId);
 
   const writeHead = res.writeHead;
-  res.writeHead = function writeHeadWithTiming(...args) {
+  res.writeHead = function writeHeadWithTiming(/** @type {any[]} */ ...args) {
     if (!res.headersSent) res.setHeader('Server-Timing', summarize(ledger, performance.now() - started));
-    return writeHead.apply(this, args);
+    return writeHead.apply(this, /** @type {any} */ (args));
   };
   // The path only: query strings carry OAuth codes and states.
   res.on('finish', () => {

@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const { ensureWorkspace } = require('./utils/workspaceUtils');
 const { requestTiming, timeMongoose } = require('./utils/requestTiming');
 const { refuseQueryOperators } = require('./utils/refuseQueryOperators');
+const { flatQuery } = require('./utils/flatQuery');
 const {
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
@@ -34,6 +35,7 @@ dotenv.config();
 const { onBehalfOf } = require('./ai/modelBudget');
 const { takeSharesDown } = require('./services/accountShares');
 const app = express();
+app.set('query parser', flatQuery);
 const PORT = process.env.PORT || 3000;
 // Where the server reaches its own API, as an agent would: the hosted MCP and the built-in agent.
 const internalApiUrl = process.env.NOEIS_MCP_INTERNAL_API_URL || `http://127.0.0.1:${PORT}`;

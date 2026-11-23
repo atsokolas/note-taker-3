@@ -6,14 +6,18 @@
 const { isProceduralShelf } = require('./proceduralShelf');
 const { plainTextFrom, sentenceBoundaryTrim } = require('./editorialText');
 
+/** @typedef {import('../types/request').Fields} Fields */
+
 const FEED_RAIL_CAP = 7;
 
+/** @param {Fields} [folder] */
 const isScreenedFolder = (folder = {}) => (
   folder?.asFeed === true
   && !isProceduralShelf(folder?.name)
   && Boolean(String(folder?.name || '').trim())
 );
 
+/** @param {Fields[]} [folders] */
 const feedFolderIdsFrom = (folders = []) => (Array.isArray(folders) ? folders : [])
   .filter(isScreenedFolder)
   .map((folder) => folder._id)
@@ -26,6 +30,7 @@ const firstGraphOf = (html = '') => {
   return sentenceBoundaryTrim(prose, { maxLength: 280, fallback: '' });
 };
 
+/** @param {Fields[]} [folders] @param {Fields[]} [arrivals] */
 const rankFeedTopics = (folders = [], arrivals = []) => {
   const arrivalByFolder = new Map((Array.isArray(arrivals) ? arrivals : []).map((row) => [
     String(row?._id || ''),
@@ -42,8 +47,8 @@ const rankFeedTopics = (folders = [], arrivals = []) => {
         arrivedAt: arrival.arrivedAt || null
       };
     })
-    .filter(Boolean)
-    .sort((left, right) => new Date(right.arrivedAt || 0) - new Date(left.arrivedAt || 0))
+    .filter(topic => topic !== null)
+    .sort((left, right) => new Date(right.arrivedAt || 0).getTime() - new Date(left.arrivedAt || 0).getTime())
     .slice(0, FEED_RAIL_CAP);
 };
 
