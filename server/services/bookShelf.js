@@ -15,9 +15,17 @@ const BOOK_MARKS = 'title finishedOn highlights._id highlights.text highlights.n
 const SHELF_BOOK = `${BOOK_MARKS} highlights.importMeta.sourcePath author createdAt updatedAt closingLine readBefore`;
 const shelfMark = ({ importMeta, ...mark }) => ({ ...mark, location: importMeta?.sourcePath || '' });
 
-/* A book already on the shelf, under any address an import gives it or by its title. */
-const bookOnShelf = (shelf, book) => shelf.find(item => [book.url, ...book.aliases].includes(item.url))
-  || shelf.find(item => sameWords(item.title) === sameWords(book.title));
+// Whoever brought a book, Kindle, Readwise or the desk, addresses it by the same title and author.
+const addressOf = url => String(url).replace(/^import:\/\/[^/]+\//, '');
+
+/* A book already on the shelf, under any address an import gives it, from any
+   provider, or by its title. The address outlives a rename; the title is a
+   last resort. */
+const bookOnShelf = (shelf, book) => {
+  const addresses = [book.url, ...book.aliases].map(addressOf);
+  return shelf.find(item => addresses.includes(addressOf(item.url)))
+    || shelf.find(item => sameWords(item.title) === sameWords(book.title));
+};
 
 // A question is a line of your own, with no words of the book's, ending in "?".
 const isQuestion = mark => !mark.text && /\?\s*$/.test(mark.note || '');

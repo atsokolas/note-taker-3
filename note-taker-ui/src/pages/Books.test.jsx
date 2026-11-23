@@ -2,13 +2,13 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as Router from 'react-router-dom';
 import Books from './Books';
-import { askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook, takeBookBack } from '../api/imports';
+import { askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, renameBook, reopenBook, startBook, takeBookBack } from '../api/imports';
 import { updateHighlight } from '../api/highlights';
 import useArticleDetail from '../hooks/useArticleDetail';
 import { listWikiPages, settleIntoWiki } from '../api/wiki';
 import { fetchMarginNotes } from '../api/retrieval';
 
-jest.mock('../api/imports', () => ({ askBook: jest.fn(), beforeBook: jest.fn(), bookEcho: jest.fn(), lendBook: jest.fn(), takeBookBack: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
+jest.mock('../api/imports', () => ({ askBook: jest.fn(), beforeBook: jest.fn(), bookEcho: jest.fn(), lendBook: jest.fn(), takeBookBack: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), renameBook: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
 jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn(), settleIntoWiki: jest.fn() }));
@@ -66,6 +66,35 @@ test('a book has a page of its own: its name, and the desk', () => {
   expect(screen.getByText('George Eliot')).toBeInTheDocument();
   expect(screen.getByRole('region', { name: 'Reading desk' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: '← Books' })).toHaveAttribute('href', '/books');
+});
+
+test('a book’s name is typed over in place: Enter keeps it, Esc puts the old one back', async () => {
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch', author: 'George Eliot' }, highlights: [], error: '' });
+  renameBook.mockResolvedValue({ title: 'Middlemarch: A Study of Provincial Life' });
+  at('b2');
+  const name = screen.getByRole('heading', { level: 1, name: 'Middlemarch' });
+  name.textContent = 'Middle';
+  fireEvent.keyDown(name, { key: 'Escape' });
+  expect(name).toHaveTextContent('Middlemarch');
+  expect(renameBook).not.toHaveBeenCalled();
+
+  name.focus();
+  name.textContent = '  Middlemarch: A Study of Provincial Life ';
+  fireEvent.keyDown(name, { key: 'Enter' });
+  expect(renameBook).toHaveBeenCalledTimes(1);
+  expect(renameBook).toHaveBeenCalledWith('b2', 'Middlemarch: A Study of Provincial Life');
+  await waitFor(() => expect(document.title).toMatch(/Provincial/));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Middlemarch: A Study of Provincial Life' })).toBeInTheDocument();
+});
+
+test('a book’s name typed away to nothing stays its name', () => {
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch' }, highlights: [], error: '' });
+  at('b2');
+  const name = screen.getByRole('heading', { level: 1, name: 'Middlemarch' });
+  name.textContent = '   ';
+  fireEvent.blur(name);
+  expect(name).toHaveTextContent('Middlemarch');
+  expect(renameBook).not.toHaveBeenCalled();
 });
 
 test('a book opened from the shelf goes back to that history entry', () => {

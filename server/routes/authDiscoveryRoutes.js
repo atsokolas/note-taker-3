@@ -96,7 +96,7 @@ const buildAuthDiscoveryRouter = ({
     loginThrottle.fail(name, ip);
     return false;
   };
-  const signIn = user => jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  const signIn = user => jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '7d', audience: 'session' });
 
   router.post('/api/auth/register', async (req, res) => {
     try {

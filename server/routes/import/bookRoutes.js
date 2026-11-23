@@ -100,6 +100,20 @@ module.exports = (router, {
     }
   });
 
+  /* Renaming a book. Its address stays, so its Kindle and Readwise marks still land in it. */
+  router.put('/api/books/:id/title', authenticateToken, async (req, res) => {
+    try {
+      const title = toTrimmedString(req.body?.title).slice(0, 400);
+      if (!title) return res.status(400).json({ error: 'A book needs its title.' });
+      const book = await Article.findOneAndUpdate({ _id: req.params.id, userId: req.user.id, url: BOOK_URL }, { $set: { title } });
+      if (!book) return res.status(404).json({ error: 'That book is not on your shelf.' });
+      return res.json({ title });
+    } catch (error) {
+      console.error('Error renaming a book:', error);
+      res.status(500).json({ error: 'The book could not be renamed.' });
+    }
+  });
+
   /* Reading it again: the reading just finished is kept, sentence and all,
      and its marks stay where they are, in fainter ink. */
   router.post('/api/books/:id/again', authenticateToken, async (req, res) => {
