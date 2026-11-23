@@ -299,3 +299,14 @@ test('Everything nests to-dos under this week’s priorities, keeps the rest in 
   const next = await within(screen.getByRole('region', { name: 'Everything' })).findByRole('region', { name: 'Next' });
   expect(within(next).getByRole('checkbox', { name: 'Book the offsite' })).toBeInTheDocument();
 });
+
+test('an in-place title keeps its words while an IME is composing, and saves on a deliberate Enter', async () => {
+  work('needs');
+  const title = await screen.findByRole('textbox', { name: 'Rename Confirm service-training dates' });
+  title.focus();
+  fireEvent.change(title, { target: { value: '研修の日程を確認' } });
+  fireEvent.keyDown(title, { key: 'Enter', isComposing: true });
+  expect(title).toHaveFocus();
+  fireEvent.keyDown(title, { key: 'Enter' });
+  await waitFor(() => expect(records.find(x => x._id === 'task').title).toBe('研修の日程を確認'));
+});

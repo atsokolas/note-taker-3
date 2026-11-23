@@ -16,6 +16,7 @@ export function InPlace({ value, onCommit, onCancel, wraps = false, ...field }) 
   const fit = node => { if (wraps && node) { node.style.height = 'auto'; node.style.height = `${node.scrollHeight}px`; } };
   const settle = input => { const next = input.value.trim(); if (next && next !== value) onCommit(next); else { input.value = value; fit(input); onCancel?.(); } };
   return <Field key={value} ref={fit} rows={wraps ? 1 : undefined} defaultValue={value} {...field} onInput={event => fit(event.currentTarget)} onBlur={event => settle(event.currentTarget)} onKeyDown={event => {
+    if (event.nativeEvent.isComposing) return; // Enter and Escape belong to the IME while it is composing.
     if (event.key === 'Escape') event.currentTarget.value = value;
     if (['Enter', 'Escape'].includes(event.key)) { event.preventDefault(); event.currentTarget.blur(); }
   }} />;
