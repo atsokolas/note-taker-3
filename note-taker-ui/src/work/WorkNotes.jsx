@@ -55,8 +55,9 @@ function ItemVersion({ record, folders }) {
 }
 const viewKey = account => `noeis:work-view:${account}`;
 const actionLinks = { needs: 'new', outstanding: 'next', waiting: 'waiting', someday: 'someday', upcoming: 'upcoming' };
-const viewOf = value => Object.hasOwn(actionLinks, value) ? 'actions' : value || 'today';
-const actionList = (value, view) => Object.hasOwn(ACTION_LISTS, value) ? value : actionLinks[view] || 'next';
+// Work opens on Actions; a link that names a day opens that day.
+const viewOf = (value, date) => Object.hasOwn(actionLinks, value) ? 'actions' : value || (validDay(date) ? 'today' : 'actions');
+const actionList = (value, view) => Object.hasOwn(ACTION_LISTS, value) ? value : actionLinks[view] || 'all';
 const rememberedView = account => { try { const value = JSON.parse(localStorage.getItem(viewKey(account)) || '{}'); if (!value || typeof value !== 'object' || Array.isArray(value)) return {}; if (value.timeZone) new Intl.DateTimeFormat('en', { timeZone: value.timeZone }).format(); return value; } catch (_) { return {}; } };
 
 export default function WorkNotes() {
@@ -72,8 +73,9 @@ export default function WorkNotes() {
   const openedDay = useRef(today);
   useEffect(() => { const refresh = () => setToday(dayInZone(new Date(), timeZone)); refresh(); const clock = window.setInterval(refresh, 60000); return () => window.clearInterval(clock); }, [timeZone]);
   const [day, setDay] = useState(() => validDay(params.get('date')) ? params.get('date') : today);
-  const [view, setView] = useState(viewOf(params.get('view')));
-  const filter = actionList(params.get('list'), params.get('view'));
+  const [view, setView] = useState(viewOf(params.get('view'), params.get('date')));
+  // The list is state beside the view, so moving to a list renders it in one pass, never the previous list first.
+  const [filter, setFilter] = useState(actionList(params.get('list'), params.get('view')));
   const [folder, setFolder] = useState(params.get('folder') || 'all');
   const [calendarMode, setCalendarMode] = useState(() => preferences.calendarMode === 'week' ? 'week' : 'compact');
   const [folderEditing, setFolderEditing] = useState(null);
@@ -136,7 +138,7 @@ export default function WorkNotes() {
   const jot = jots.find(item => item.clientId === jotChoice) || jots[0];
   const url = React.useCallback((patch = {}, replace = true) => {
     const next = { date: day, view, folder, list: filter, note: note?._id || '', ...patch };
-    const value = new URLSearchParams({ date: next.date, view: next.view, ...(next.view === 'actions' && next.list !== 'next' ? { list: next.list } : {}), ...(next.folder && next.folder !== 'all' ? { folder: next.folder } : next.view === 'inbox' ? { folder: '' } : {}), ...(next.note ? { note: next.note } : {}), ...(next.entry ? { entry: next.entry } : {}) });
+    const value = new URLSearchParams({ date: next.date, view: next.view, ...(next.view === 'actions' && next.list !== 'all' ? { list: next.list } : {}), ...(next.folder && next.folder !== 'all' ? { folder: next.folder } : next.view === 'inbox' ? { folder: '' } : {}), ...(next.note ? { note: next.note } : {}), ...(next.entry ? { entry: next.entry } : {}) });
     ownURL.current = value.toString(); setParams(value, { replace });
   }, [day, view, folder, filter, note?._id, setParams]);
   const restoreURL = useRef(url); restoreURL.current = url;
@@ -146,7 +148,7 @@ export default function WorkNotes() {
     if (params.toString() === ownURL.current) return; ownURL.current = params.toString();
     if (!session.canLeave()) { restoreURL.current(); setSheet('recovery'); return; }
     if (initialized.current && params.get('capture') === '1') { quickNote(); return; }
-    setView(viewOf(params.get('view'))); setFolder(params.get('folder') || 'all');
+    setView(viewOf(params.get('view'), params.get('date'))); setFilter(actionList(params.get('list'), params.get('view'))); setFolder(params.get('folder') || 'all');
     if (validDay(params.get('date'))) setDay(params.get('date'));
     setSelected(params.get('note') || ''); setFresh('');
   }, [params, quickNote, session]);
@@ -268,10 +270,10 @@ export default function WorkNotes() {
     try { await navigator.clipboard.writeText([...session.pending().map(([, draft]) => `${draft.note.title || ''}\n${noteWords(draft.note)}\n${draft.note.workingState?.nextTimeLine?.text || ''}`), ...session.open.recovery().map(draft => `${KIND_LABEL[draft.kind]}: ${draft.title}`)].join('\n\n')); setNotice('Writing copied.'); }
     catch (_) { setNotice('Couldn’t copy. Select the text, or download a copy.'); }
   };
-  const scope = (nextView, nextFolder = 'all', { list = 'next', task = '', date = today } = {}) => leave(() => {
+  const scope = (nextView, nextFolder = 'all', { list = 'all', task = '', date = today } = {}) => leave(() => {
     const nextDay = plannerViews.includes(nextView) ? date : day;
     focusTask.current = task;
-    setView(nextView); setFolder(nextFolder); setDay(nextDay); setSelected(''); setFresh(''); setMobileShelf(false);
+    setView(nextView); setFilter(list); setFolder(nextFolder); setDay(nextDay); setSelected(''); setFresh(''); setMobileShelf(false);
     url({ view: nextView, folder: nextFolder, list, date: nextDay, note: '' }, false);
   });
   // A day is a view of its own: choosing one shows the day, never a note from it.
@@ -518,7 +520,7 @@ export default function WorkNotes() {
           {plannerView ? <WorkWeekly session={session} today={today} day={view === 'today' ? day : today} timeZone={timeZone} items={items} folders={folders} notes={notes} onAction={action} onEdit={editItem} onNew={newItem} onOpen={open} onWeek={onWeek} showPlan={view === 'week'}>
             {view === 'today' ? planner : <section className={`work-${view}-page`}>
               <header className="work-day-header"><h1 className="work-page-title">{view === 'actions' ? 'Actions' : 'Weekly review'}</h1>{weekLink}</header>
-              {view === 'actions' ? <WorkActions filter={filter} onFilter={list => url({ list }, false)} needs={needs} items={items} notes={notes} folders={folders} projects={projectRecords} today={today} onSort={sortLine} onAction={action} onOpen={open} onEdit={editItem} onStart={startMeeting} onNew={newItem} />
+              {view === 'actions' ? <WorkActions filter={filter} onFilter={list => { setFilter(list); url({ list }, false); }} needs={needs} items={items} notes={notes} folders={folders} projects={projectRecords} today={today} onSort={sortLine} onRename={(id, title) => editItemPatch(id, { title })} onAction={action} onOpen={open} onEdit={editItem} onStart={startMeeting} onNew={newItem} />
                 : !session.loading() && !session.error() ? <>
                   <WorkWeekClose initiallyOpen week={weekDays(today)[0]} today={today} timeZone={timeZone} items={items.filter(item => ['task', 'question'].includes(item.kind))} notes={notes} session={session} onAction={action} onSort={sortLine} onOpen={open} onMonday={item => selectDay(item.plannedOn, undefined, item.clientId)} />
                   {needs.new.length ? <button className="work-review-sort" onClick={() => scope('actions', 'all', { list: 'new' })}>To sort <small>{needs.new.length}</small></button> : null}

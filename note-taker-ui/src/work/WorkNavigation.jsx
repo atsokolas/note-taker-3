@@ -2,7 +2,7 @@ import React from 'react';
 import WorkIcon from './WorkIcon';
 import { displayRange, weekDays } from './workPlannerModel';
 
-const views = { today: 'Today', actions: 'Actions', review: 'Review' };
+const views = { actions: 'Actions', today: 'Today', review: 'Review' };
 export const plannerViews = [...Object.keys(views), 'week'];
 
 export function WorkNavigation({ view, onScope, unsorted }) {

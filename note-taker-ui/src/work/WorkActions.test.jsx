@@ -54,10 +54,10 @@ test('legacy action links open the appropriate list and only show that list', as
 test('sorting a note follow-up saves the person on the same record', async () => {
   work('needs');
   const list = within(await screen.findByRole('region', { name: 'To sort' }));
-  fireEvent.click(await list.findByLabelText('Actions for Confirm service-training dates'));
-  fireEvent.click(list.getByRole('button', { name: 'Waiting on…' }));
-  fireEvent.change(list.getByRole('textbox', { name: 'Who is Confirm service-training dates waiting on?' }), { target: { value: 'Ana' } });
-  fireEvent.click(list.getByRole('button', { name: 'Save' }));
+  fireEvent.change(await list.findByRole('combobox', { name: 'List for Confirm service-training dates' }), { target: { value: 'waiting' } });
+  const person = list.getByRole('textbox', { name: 'Who is Confirm service-training dates waiting on?' });
+  fireEvent.change(person, { target: { value: 'Ana' } });
+  fireEvent.blur(person);
   await waitFor(() => expect(records.find(x => x._id === 'task').workItem).toMatchObject({ list: 'waiting', waitingOn: 'Ana', noteId: 'note' }));
   expect(records[0].content).toBe(original);
 });
@@ -107,8 +107,7 @@ test('one typed line with @name lands in Owed to you, and Nudge drafts a message
   fireEvent.click(rail().getByRole('button', { name: /Actions/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Waiting on' }));
   const owed = within(screen.getByRole('region', { name: 'Waiting on' }));
-  expect(await owed.findByText('data room access')).toBeInTheDocument();
-  expect(owed.getByText('Waiting on Priya')).toBeInTheDocument();
+  expect(await owed.findByRole('textbox', { name: 'Who is data room access waiting on?' })).toHaveValue('Priya');
   const nudgeMenu = owed.getByLabelText('Actions for The pilot numbers');
   fireEvent.click(nudgeMenu);
   fireEvent.click(within(nudgeMenu.closest('details')).getByRole('button', { name: 'Draft a nudge' }));
@@ -201,13 +200,13 @@ test('Someday returns an item to To sort on its review date', async () => {
   expect(within(list).queryByText('Confirm service-training dates')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: /To sort/ }));
   const unsorted = await screen.findByRole('region', { name: 'To sort' });
-  expect(await within(unsorted).findByText('Confirm service-training dates')).toBeInTheDocument();
+  expect(await within(unsorted).findByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
 });
 
 test('Next keeps scheduled actions reachable behind one disclosure', async () => {
   const day = records[1].takenOn;
   records[1].workItem = { ...records[1].workItem, list: 'next', plannedOn: day };
-  work('actions');
+  work('actions&list=next');
   await screen.findByRole('region', { name: 'Next' });
   const scheduled = await screen.findByText('Scheduled');
   expect(screen.getByLabelText('Confirm service-training dates')).not.toBeVisible();
@@ -219,9 +218,10 @@ test('Next shows the linked priority once on the canonical task row', async () =
   const day = records[1].takenOn;
   records[1].workItem.list = 'next';
   records.push({ _id: 'week', revision: 0, title: 'Week', workItem: { kind: 'week', plannedOn: weekDays(day)[0], priorities: [{ id: 'p', title: 'Ship the pilot', taskIds: ['task'], status: 'active', reviewed: true }] } });
-  work('actions');
+  work('actions&list=next');
   const list = within(await screen.findByRole('region', { name: 'Next' }));
   expect(await list.findAllByRole('checkbox', { name: 'Confirm service-training dates' })).toHaveLength(1);
+  expect(within(list.getByRole('region', { name: 'Ship the pilot' })).getByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
   fireEvent.click(list.getByRole('button', { name: 'Ship the pilot' }));
   expect(await screen.findByRole('region', { name: 'Ship the pilot' })).toHaveTextContent('Confirm service-training dates');
 });
@@ -267,4 +267,35 @@ test('a Friday waiting follow-up opens on Monday with its source, due date and p
   } finally {
     jest.useRealTimers();
   }
+});
+
+test('Everything nests to-dos under this week’s priorities, keeps the rest in their lists, and edits each field in place', async () => {
+  const day = records[1].takenOn;
+  records[1].workItem.list = 'next';
+  records.push({ _id: 'week', revision: 0, title: 'Week', workItem: { kind: 'week', plannedOn: weekDays(day)[0], priorities: [{ id: 'p', title: 'Ship the pilot', taskIds: ['task', 'owed'], status: 'active', reviewed: true }, { id: 'q', title: 'Hire a lead', taskIds: [], status: 'active', reviewed: true }] } },
+    { _id: 'loose', revision: 0, title: 'Book the offsite', takenOn: day, workItem: { kind: 'task', list: 'someday', sortedOn: day, history: [] } });
+  work('actions');
+  const everything = within(await screen.findByRole('region', { name: 'Everything' }));
+  const pilot = within(await everything.findByRole('region', { name: 'Ship the pilot' }));
+  expect(pilot.getAllByRole('checkbox').map(box => box.getAttribute('aria-label'))).toEqual(['Confirm service-training dates', 'The pilot numbers']);
+  expect(pilot.getByRole('combobox', { name: 'List for The pilot numbers' })).toHaveValue('waiting');
+  expect(pilot.getByRole('textbox', { name: 'Who is The pilot numbers waiting on?' })).toHaveValue('Mira');
+  expect(within(everything.getByRole('region', { name: 'Hire a lead' })).getByText('Drag a to-do here.')).toBeInTheDocument();
+  expect(within(everything.getByRole('region', { name: 'Someday' })).getByRole('checkbox', { name: 'Book the offsite' })).toBeInTheDocument();
+  expect(everything.queryByRole('region', { name: 'Next' })).toBeNull();
+
+  const person = pilot.getByRole('textbox', { name: 'Who is The pilot numbers waiting on?' });
+  person.focus();
+  fireEvent.change(person, { target: { value: 'Ana' } });
+  fireEvent.keyDown(person, { key: 'Enter' });
+  fireEvent.change(pilot.getByLabelText('Due date for Confirm service-training dates'), { target: { value: '2026-12-01' } });
+  const title = pilot.getByRole('textbox', { name: 'Rename Confirm service-training dates' });
+  fireEvent.change(title, { target: { value: 'Confirm the training dates' } });
+  fireEvent.blur(title);
+  await waitFor(() => expect(records.find(x => x._id === 'owed').workItem).toMatchObject({ list: 'waiting', waitingOn: 'Ana' }));
+  await waitFor(() => expect(records.find(x => x._id === 'task')).toMatchObject({ title: 'Confirm the training dates', workItem: { dueOn: '2026-12-01', noteId: 'note' } }));
+  fireEvent.change(everything.getByRole('combobox', { name: 'List for Book the offsite' }), { target: { value: 'next' } });
+  await waitFor(() => expect(records.find(x => x._id === 'loose').workItem).toMatchObject({ list: 'next' }));
+  const next = await within(screen.getByRole('region', { name: 'Everything' })).findByRole('region', { name: 'Next' });
+  expect(within(next).getByRole('checkbox', { name: 'Book the offsite' })).toBeInTheDocument();
 });

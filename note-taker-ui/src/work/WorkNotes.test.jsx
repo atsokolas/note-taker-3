@@ -400,15 +400,19 @@ test('a new page shows one original written date through save, edits and reload 
   expect(screen.getByLabelText('Work note writing')).toHaveValue('Only my words');
 });
 
-test('Today keeps the schedule and notes, and Actions opens only its chosen list', async () => {
+test('Work opens on Everything; Today keeps the schedule and notes, and each list opens alone', async () => {
   window.history.replaceState({}, '', '/work');
   render(<WorkNotes />);
+  await screen.findByRole('heading', { name: 'Actions' });
+  expect(screen.getByRole('region', { name: 'Everything' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /^Today$/ }));
   await screen.findByRole('heading', { name: 'Today' });
   expect(screen.getByText('To-dos').closest('details')).toHaveAttribute('open');
   expect(screen.getByRole('heading', { name: 'Schedule' })).toBeInTheDocument();
   expect(screen.getByRole('complementary', { name: 'Notes' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /^Actions$/ }));
   await screen.findByRole('heading', { name: 'Actions' });
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
   expect(screen.getByRole('region', { name: 'Next' })).toBeInTheDocument();
   expect(screen.queryByRole('region', { name: 'Waiting on' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Waiting on' }));
