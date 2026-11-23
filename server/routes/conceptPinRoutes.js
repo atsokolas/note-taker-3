@@ -1,4 +1,8 @@
 const express = require('express');
+const { shaped, z } = require('../utils/requestShape');
+
+const ids = z.array(z.string()).optional();
+const pinsShape = z.object({ addHighlightIds: ids, removeHighlightIds: ids, addArticleIds: ids, removeArticleIds: ids });
 const { sameName } = require('../utils/sameName');
 
 const buildConceptPinRouter = ({
@@ -59,7 +63,7 @@ const buildConceptPinRouter = ({
     }
   });
 
-  router.put('/api/concepts/:name/pins', authenticateToken, async (req, res) => {
+  router.put('/api/concepts/:name/pins', authenticateToken, shaped({ body: pinsShape }), async (req, res) => {
     try {
       const userId = new mongoose.Types.ObjectId(req.user.id);
       const cleanName = String(req.params.name || '').trim();

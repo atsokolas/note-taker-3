@@ -1,5 +1,13 @@
 const { personalContext } = require('../models/knowledgeContext');
 const express = require('express');
+const { shaped, z } = require('../utils/requestShape');
+
+const questionShape = z.object({
+  text: z.string().optional(),
+  linkedTagName: z.string().optional(),
+  conceptName: z.string().optional(),
+  linkedHighlightIds: z.array(z.string()).optional()
+});
 const {
   buildWikiOpenQuestionRows,
   filterWikiOpenQuestions
@@ -334,7 +342,7 @@ const buildConceptQuestionBoardRouter = ({
     }
   });
 
-  router.post('/api/questions', authenticateToken, async (req, res) => {
+  router.post('/api/questions', authenticateToken, shaped({ body: questionShape }), async (req, res) => {
     try {
       const userId = req.user.id;
       const {
@@ -376,7 +384,7 @@ const buildConceptQuestionBoardRouter = ({
     }
   });
 
-  router.put('/api/questions/:id', authenticateToken, async (req, res) => {
+  router.put('/api/questions/:id', authenticateToken, shaped({ body: questionShape }), async (req, res) => {
     try {
       const userId = req.user.id;
       const { id } = req.params;
