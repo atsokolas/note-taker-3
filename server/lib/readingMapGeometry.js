@@ -10,15 +10,22 @@
  *                └──── first two components become the page
  */
 
+/** @typedef {number[]} Vector */
+
+/** @param {Vector} a @param {Vector} b */
 const dot = (a, b) => a.reduce((sum, value, index) => sum + value * b[index], 0);
+/** @param {Vector} v */
 const norm = (v) => Math.sqrt(dot(v, v));
+/** @param {Vector} a @param {Vector} b */
 const distance2 = (a, b) => a.reduce((sum, value, index) => sum + (value - b[index]) ** 2, 0);
 
+/** @param {Vector} v */
 const normalize = (v) => {
   const length = norm(v);
   return length ? v.map(value => value / length) : v.map(() => 0);
 };
 
+/** @param {Vector[]} rows @returns {Vector} */
 const mean = (rows) => {
   const out = new Array(rows[0]?.length || 0).fill(0);
   rows.forEach(row => row.forEach((value, index) => { out[index] += value / rows.length; }));
@@ -29,10 +36,12 @@ const mean = (rows) => {
    vector is fixed rather than random, and each component's sign is set so
    its largest coordinate is positive — otherwise the map could flip between
    two equally true mirror images. Returns each row's scores. */
+/** @param {Vector[]} rows */
 const pca = (rows, dimensions = 2, iterations = 40) => {
   const width = rows[0]?.length || 0;
   const centre = mean(rows);
   const centred = rows.map(row => row.map((value, index) => value - centre[index]));
+  /** @type {Vector[]} */
   const components = [];
   for (let c = 0; c < Math.min(dimensions, width); c += 1) {
     let v = normalize(Array.from({ length: width }, (_, j) => 1 + ((j * 7 + c * 3) % 11) / 11));
@@ -55,6 +64,7 @@ const pca = (rows, dimensions = 2, iterations = 40) => {
 
 /* Lloyd's k-means from a farthest-point start: the first centre is fixed,
    each next one the point farthest from those chosen. */
+/** @param {Vector[]} points @param {number} k @param {number} first @param {number} iterations */
 const lloyd = (points, k, first, iterations) => {
   const centres = [points[first]];
   while (centres.length < k) {
@@ -84,6 +94,7 @@ const lloyd = (points, k, first, iterations) => {
 /* A farthest-point start is at the mercy of an outlier, so several fixed
    starts are run — the point nearest the middle, then points spread through
    the list — and the tightest result is kept. Still deterministic. */
+/** @param {Vector[]} points @param {number} k */
 const kmeans = (points, k, { starts = 6, iterations = 60 } = {}) => {
   const middle = mean(points);
   const nearestMiddle = points.reduce((best, p, i) => (
@@ -100,6 +111,7 @@ const kmeans = (points, k, { starts = 6, iterations = 60 } = {}) => {
 
 /* Mean silhouette: how much nearer each point sits to its own cluster than
    to the next one. It is what decides how many subjects a library holds. */
+/** @param {Vector[]} points @param {number[]} assignment @param {number} k */
 const silhouette = (points, assignment, k) => {
   const scores = points.map((p, i) => {
     const sums = new Array(k).fill(0);
@@ -126,9 +138,11 @@ const SOURCES_PER_SUBJECT = 40;
 
 /* Try from that floor up to eight subjects (never a cluster thinner than
    four on average) and keep the clearest. Ties go to fewer. */
+/** @param {Vector[]} points */
 const clusterBySilhouette = (points, maxK = 8) => {
   const ceiling = Math.max(2, Math.min(maxK, Math.floor(points.length / 4)));
   const floor = Math.min(ceiling, Math.max(2, Math.ceil(points.length / SOURCES_PER_SUBJECT)));
+  /** @type {(ReturnType<typeof lloyd> & { k: number, score: number }) | null} */
   let best = null;
   for (let k = floor; k <= ceiling; k += 1) {
     const run = kmeans(points, k);
@@ -141,11 +155,12 @@ const clusterBySilhouette = (points, maxK = 8) => {
 /* Fit to the unit square without distorting it, gather each cluster toward
    its middle so subjects read as places, then nudge apart any dots sitting on
    top of each other. */
+/** @param {Vector[]} scores2d @param {number[]} assignment */
 const layout = (scores2d, assignment, { gather = 0.42, spacing = 0.045, passes = 24 } = {}) => {
   const reach = Math.max(1e-9, ...scores2d.flat().map(Math.abs));
   let points = scores2d.map(([x, y]) => [x / reach, y / reach]);
   const ids = [...new Set(assignment)];
-  const centreOf = (id) => mean(points.filter((_, i) => assignment[i] === id));
+  const centreOf = (/** @type {number} */ id) => mean(points.filter((_, i) => assignment[i] === id));
   const centres = Object.fromEntries(ids.map(id => [id, centreOf(id)]));
   points = points.map(([x, y], i) => {
     const [cx, cy] = centres[assignment[i]];
@@ -158,7 +173,8 @@ const layout = (scores2d, assignment, { gather = 0.42, spacing = 0.045, passes =
         const dy = points[j][1] - points[i][1];
         const d = Math.hypot(dx, dy);
         if (d >= spacing) continue;
-        const angle = d ? null : ((i * 37 + j * 17) % 360) * (Math.PI / 180);
+        // Dots on the exact same spot part along a fixed angle, so the map never jitters.
+        const angle = ((i * 37 + j * 17) % 360) * (Math.PI / 180);
         const ux = d ? dx / d : Math.cos(angle);
         const uy = d ? dy / d : Math.sin(angle);
         const push = (spacing - d) / 2;
@@ -173,6 +189,7 @@ const layout = (scores2d, assignment, { gather = 0.42, spacing = 0.045, passes =
 /* The emptiest point on the page: the grid cell farthest from every dot and
    every label already placed. Used only to set a blind spot's name down
    where the reading is not — never to decide that one exists. */
+/** @param {Vector[]} occupied */
 const emptiestPoint = (occupied, { inset = 0.82, steps = 24 } = {}) => {
   let best = { x: 0, y: 0, gap: -1 };
   for (let i = 0; i <= steps; i += 1) {
