@@ -1,6 +1,6 @@
 /* The reading desk's grammar, and what it reads back off the marks.
 
-   A line is typed with the book open beside it, so it has no modes: a number
+   A scribble can be typed in shorthand: a number
    in front turns to that page, a quote mark makes it the book's words, and
    anything else is the reader's own. A question is a thought ending in "?".
    A #word anywhere files the mark under that concept.
@@ -21,10 +21,16 @@ const MORNING = 5;
 // A thought that ends here was finished.
 const ENDED = /[.!?…"”»)]\s*$/;
 
-export const readLine = (raw = '', page = null) => {
-  const tags = [...String(raw).matchAll(TAG)].map(match => match[2]);
+export const CAPTURE_KINDS = { scribble: 'Scribble', quote: 'Quote', thought: 'Big thought' };
+
+export const readLine = (raw = '', page = null, kind = 'scribble') => {
+  const source = String(raw);
+  if (kind === 'quote') return { page, text: source.trim() };
+  const tags = [...source.matchAll(TAG)].map(match => match[2]);
   const filed = tags.length ? { tags } : {};
-  let line = String(raw).replace(TAG, '$1').replace(/\s+/g, ' ').trim();
+  const words = source.replace(TAG, '$1').trim();
+  if (kind === 'thought') return { page: null, note: words, ...filed };
+  let line = words.replace(/\s+/g, ' ');
   const turned = PAGE_FIRST.exec(line);
   if (turned) {
     page = Number(turned[1]) || page;
