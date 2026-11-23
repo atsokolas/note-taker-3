@@ -2,51 +2,26 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { cleanWikiSummary } = require('../services/wikiSourceRefs');
-const { contradictions } = require('../services/disagreements');
+const { whatItAdded, aboutOf } = require('../services/whatItAdded');
 
 const TITLE_KEPT = 300;
 const TEXT_KEPT = 2000;
 const KEY = /^(highlight|question|wiki_page):[a-f\d]{24}$/i;
 // The relation an inked connection is kept as, by what Noeis saw.
 const RELATION = { echo: 'related', answers: 'supports', belongs: 'contained_by', argues: 'contradicts' };
-// What may argue: a passage it echoes or a page line it belongs beside. The source's side, as read.
-const ARGUABLE = new Set(['echo', 'belongs']);
-const SOURCE_SAYS = 1200;
 
-/* What a source added, as Noeis drew it: echoes, answers and where it
-   belongs, in pencil until the reader inks one (an ordinary Connection from
-   the source) or strikes it (a Verdict in
-   Noeis's hand, kept with what it was about, so it is never offered again
-   and agents read it as the reader's taste). An echo or page line the
-   source contradicts is shown as what it argues with, judged by the model
-   once and kept. Inking a page it belongs on
-   also sends the source to that page, so the wiki writes a cited line the
-   reader accepts there. Readers and agents may ask; only the reader inks
-   and strikes. */
+/* What a source added, as Noeis drew it and the model confirmed: echoes,
+   answers, where it belongs and what it argues with, in pencil until the
+   reader inks one (an ordinary Connection from the source) or strikes it (a
+   Verdict in Noeis's hand, kept with what it was about, so it is never
+   offered again and agents read it as the reader's taste). Inking a page it
+   belongs on also sends the source to that page, so the wiki writes a cited
+   line the reader accepts there. Readers and agents may ask; only the reader
+   inks and strikes. */
 const buildAddedRouter = ({
-  authenticateToken, humanOnly, Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent,
-  addedBy = asked => require('../ai/semanticSearch').addedBy(asked), judge = contradictions
+  authenticateToken, humanOnly, Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent, added = whatItAdded
 }) => {
   const router = express.Router();
-  const aboutOf = (articleId, key) => `${articleId}>${key}`;
-  // Which connections the source argues with, by about: the source's side of each.
-  const arguing = async ({ userId, articleId, found }) => {
-    const open = found.filter(connection => ARGUABLE.has(connection.kind) && connection.to.quote);
-    const abouts = open.map(connection => aboutOf(articleId, connection.key));
-    const kept = open.length ? await ConnectionJudgment.find({ userId, about: { $in: abouts } }).select('about argues says').lean() : [];
-    const unjudged = open.filter(connection => !kept.some(row => row.about === aboutOf(articleId, connection.key)));
-    if (unjudged.length) {
-      const source = await Article.findOne({ _id: articleId, userId }).select('title content highlights.text').lean();
-      const says = ((source?.highlights || []).map(mark => mark.text).filter(Boolean).join('\n') || cleanWikiSummary(source?.content, SOURCE_SAYS)).slice(0, SOURCE_SAYS);
-      const judged = says ? await judge({
-        pairs: unjudged.map(({ to }) => ({ a: { who: source.title || 'the new source', says }, b: { who: to.title || 'what you hold', says: to.quote } }))
-      }) : [];
-      const answered = judged.map(row => ({ userId, about: aboutOf(articleId, unjudged[row.index].key), argues: row.contradicts, says: row.contradicts ? row.a.slice(0, 500) : '' }));
-      if (answered.length) await ConnectionJudgment.insertMany(answered, { ordered: false }).catch(() => {});
-      kept.push(...answered);
-    }
-    return new Map(kept.filter(row => row.argues).map(row => [row.about, row.says]));
-  };
   const named = ({ params, body }) => mongoose.isValidObjectId(params.articleId) && KEY.test(String(body?.key || ''));
 
   router.get('/api/added/:articleId', authenticateToken, async (req, res) => {
@@ -54,24 +29,16 @@ const buildAddedRouter = ({
     if (!mongoose.isValidObjectId(articleId)) return res.status(400).json({ error: 'Name a source of yours.' });
     const userId = req.user.id;
     try {
-      const found = await addedBy({ userId, articleId });
-      const [inked, struck, argues] = await Promise.all([
+      const found = await added({ userId, articleId, models: { Article, ConnectionJudgment } });
+      const [inked, struck] = await Promise.all([
         Connection.find({ userId, fromType: 'article', fromId: articleId }).select('toType toId').lean(),
-        Verdict.find({ userId, kind: 'connection', about: { $in: found.map(connection => aboutOf(articleId, connection.key)) } }).select('about').lean(),
-        arguing({ userId, articleId, found }).catch((error) => {
-          console.warn('[added] argues check failed', String(error?.message || error).slice(0, 160));
-          return new Map();
-        })
+        Verdict.find({ userId, kind: 'connection', about: { $in: found.map(connection => aboutOf(articleId, connection.key)) } }).select('about').lean()
       ]);
       const inkedAs = new Map(inked.map(row => [`${row.toType}:${row.toId}`, String(row._id)]));
       const gone = new Set(struck.map(row => row.about));
-      const added = found
+      return res.json({ added: found
         .filter(connection => !gone.has(aboutOf(articleId, connection.key)))
-        .map(({ score, ...connection }) => {
-          const about = aboutOf(articleId, connection.key);
-          return { ...connection, ...(argues.has(about) ? { kind: 'argues', says: argues.get(about) } : {}), inked: inkedAs.get(connection.key) || null };
-        });
-      return res.json({ added });
+        .map(({ score, ...connection }) => ({ ...connection, inked: inkedAs.get(connection.key) || null })) });
     } catch (error) {
       console.warn('[added] lookup failed', String(error?.message || error).slice(0, 160));
       return res.json({ added: [] });

@@ -330,16 +330,20 @@ const heardBefore = ({ userId, text, bookId, echo = false, now = Date.now(), mod
   })
 );
 
-/* What a source added to what you already hold: for each passage of it you
-   marked (or, with none marked, its own text), the closest of your own, at
-   the margin's floor. A passage you marked in another work is an echo; a
-   question of yours, open in Think or typed beside a book, is one it
-   answers; a wiki page holding a sentence close to it is where it belongs.
-   The strongest ADDED_EACH of each kind. Found from vectors already stored,
-   so it costs no embedding call. Silence: nothing indexed or nothing close
-   is an empty list. */
+/* What a source may have added to what you already hold: for each passage
+   of it you marked (or, with none marked, its own text), the closest of your
+   own. A passage you marked in another work is an echo; a question of yours,
+   open in Think or typed beside a book, is one it answers; a wiki page
+   holding a sentence close to it is where it belongs. The floor sits low
+   (raw cosine 0.30): on the connections eval the right answers scored 0.31
+   to 0.57 and a source on nothing held stayed under 0.15, so the vectors
+   only rank, and the model reads each pair before it is offered
+   (services/whatItAdded.js). The strongest ADDED_ASKED of each kind. Found
+   from vectors already stored, so it costs no embedding call. Silence:
+   nothing indexed or nothing close is an empty list. */
 const ADDED_FROM = 12;
-const ADDED_EACH = 3;
+const ADDED_ASKED = 6;
+const ADDED_FLOOR = rawCosineToAtlasScore(0.30);
 const ADDED_TYPES = ['highlight', 'question', 'wiki_claim'];
 const isQuestionLine = mark => !mark.text && /\?\s*$/.test(mark.note || '');
 const targetOf = row => (row.objectType === 'wiki_claim' ? `wiki_page:${row.metadata?.pageId}` : `${row.objectType}:${row.objectId}`);
@@ -360,7 +364,7 @@ const addedBy = async ({ userId, articleId, models = {} }) => {
   const rows = (await Promise.all(own.map(item => searchVectorItems({
     VectorItem: vectors, userId, vector: decodeVector(item.embedding), limit, objectTypes: ADDED_TYPES
   })))).flat().filter(row => (
-    Number(row.score) >= MARGIN_FLOOR
+    Number(row.score) >= ADDED_FLOOR
     && Number(row.score) < MARGIN_SAME_PASSAGE
     && String(row.metadata?.articleId || '') !== id
   ));
@@ -391,12 +395,12 @@ const addedBy = async ({ userId, articleId, models = {} }) => {
     if (isQuestionLine(mark)) return { kind: 'answers', to: { ...to, quote: plain(mark.note) } };
     return plain(mark.text).length >= MARGIN_MIN_QUOTE_CHARS && { kind: 'echo', to: { ...to, quote: plain(mark.text) } };
   };
-  // Strongest first; each thing it reaches once, by its best match; ADDED_EACH of each kind.
+  // Strongest first; each thing it reaches once, by its best match; ADDED_ASKED of each kind.
   const found = rows
     .sort((a, b) => Number(b.score) - Number(a.score))
     .map(row => ({ ...connectionOf(row), key: targetOf(row), score: Number(row.score) }))
     .filter((connection, at, all) => connection.kind && all.findIndex(other => other.kind && other.key === connection.key) === at);
-  return found.filter((connection, at) => found.slice(0, at).filter(other => other.kind === connection.kind).length < ADDED_EACH);
+  return found.filter((connection, at) => found.slice(0, at).filter(other => other.kind === connection.kind).length < ADDED_ASKED);
 };
 
 module.exports = {

@@ -233,12 +233,13 @@ connectionSchema.index({ userId: 1, toType: 1, toId: 1, createdAt: -1 });
 
 const Connection = mongoose.model('Connection', connectionSchema);
 
-/* Whether a source argues with something it connects to, as the model
-   judged it once: about is "source>type:id", says is the source's side. */
+/* How a source bears on something it seems close to, as the model judged
+   it once: about is "source>type:id"; relation is argues, bears or none;
+   says is the source's side when it argues. */
 const connectionJudgmentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   about: { type: String, required: true },
-  argues: { type: Boolean, required: true },
+  relation: { type: String, enum: ['argues', 'bears', 'none'], required: true },
   says: { type: String, default: '' }
 }, { timestamps: true });
 connectionJudgmentSchema.index({ userId: 1, about: 1 }, { unique: true });

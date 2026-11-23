@@ -22,7 +22,7 @@ test('real Mongo: what an agent wrote that contradicts a held view is kept as a 
     const asked = [];
     const chat = async ({ messages }) => {
       asked.push(messages[1].content);
-      return { text: JSON.stringify({ pairs: [{ pair: 1, contradicts: true, a: 'Interviews predict hiring well.', b: 'Interviews predict hiring poorly.' }] }) };
+      return { text: JSON.stringify({ pairs: [{ pair: 1, relation: 'argues', a: 'Interviews predict hiring well.', b: 'Interviews predict hiring poorly.' }] }) };
     };
     const found = await checkDisagreements({ userId, agent: 'Codex', wrote: [{ kind: 'note', id: String(note._id), title: 'Hiring loop' }], models: { ...models, Disagreement }, chat });
 
