@@ -837,17 +837,16 @@ const buildImportRouter = ({
 
   const createNotionState = ({ userId }) => jwt.sign(
     {
-      provider: 'notion',
       userId: String(userId || '').trim(),
       nonce: crypto.randomUUID()
     },
     process.env.JWT_SECRET,
-    { expiresIn: '10m' }
+    { expiresIn: '10m', audience: 'notion-state' }
   );
 
   const verifyNotionState = (value = '') => {
-    const decoded = jwt.verify(String(value || ''), process.env.JWT_SECRET);
-    if (decoded?.provider !== 'notion' || !decoded?.userId) {
+    const decoded = jwt.verify(String(value || ''), process.env.JWT_SECRET, { audience: 'notion-state' });
+    if (!decoded?.userId) {
       throw new Error('Invalid Notion OAuth state.');
     }
     return decoded;
@@ -898,7 +897,6 @@ const buildImportRouter = ({
     clientSecret = ''
   }) => jwt.sign(
     {
-      provider: 'readwise',
       userId: String(userId || '').trim(),
       nonce: crypto.randomUUID(),
       oauthPayload: encryptSecret(JSON.stringify({
@@ -908,16 +906,12 @@ const buildImportRouter = ({
       }))
     },
     process.env.JWT_SECRET,
-    { expiresIn: '10m' }
+    { expiresIn: '10m', audience: 'readwise-state' }
   );
 
   const verifyReadwiseState = (value = '') => {
-    const decoded = jwt.verify(String(value || ''), process.env.JWT_SECRET);
-    if (
-      decoded?.provider !== 'readwise'
-      || !decoded?.userId
-      || !decoded?.oauthPayload
-    ) {
+    const decoded = jwt.verify(String(value || ''), process.env.JWT_SECRET, { audience: 'readwise-state' });
+    if (!decoded?.userId || !decoded?.oauthPayload) {
       throw new Error('Invalid Readwise OAuth state.');
     }
     let oauthPayload = {};

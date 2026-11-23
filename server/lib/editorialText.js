@@ -42,8 +42,10 @@ const plainTextFrom = (value = '') => normalizeSpaces(String(value || '').replac
  * item) each end their line, so a heading stays its own line instead of
  * running into the sentence after it.
  */
+/** @param {any} node */
 const isBlockNode = node => Boolean(node) && typeof node === 'object' && Array.isArray(node.content);
 
+/** A rich-text node, a list of them, or a string. @param {any} node @returns {string} */
 const docText = (node) => {
   if (!node) return '';
   if (typeof node === 'string') return node;
@@ -53,7 +55,7 @@ const docText = (node) => {
     if (node.type === 'hardBreak') return '\n';
   }
   const children = Array.isArray(node) ? node : (node.content || []);
-  return children.reduce((text, child) => {
+  return children.reduce((/** @type {string} */ text, /** @type {any} */ child) => {
     const piece = docText(child);
     if (!piece) return text;
     return text && isBlockNode(child) ? `${text.trimEnd()}\n${piece.trim()}` : `${text}${piece}`;

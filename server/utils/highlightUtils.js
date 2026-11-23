@@ -1,3 +1,5 @@
+/** @typedef {import('../types/request').Fields} Fields */
+
 const DEFAULT_HIGHLIGHT_COLOR = '#f6e27a';
 
 const HIGHLIGHT_AGGREGATE_PROJECTION = Object.freeze({
@@ -14,6 +16,7 @@ const HIGHLIGHT_AGGREGATE_PROJECTION = Object.freeze({
   createdAt: '$highlights.createdAt'
 });
 
+/** @param {unknown} value */
 const normalizeHighlightColor = (value) => {
   const candidate = String(value || '').trim();
   if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(candidate)) {
@@ -24,10 +27,12 @@ const normalizeHighlightColor = (value) => {
   return DEFAULT_HIGHLIGHT_COLOR;
 };
 
+/** @param {Fields | undefined} anchor @param {unknown} [fallbackText] */
 const normalizeHighlightAnchor = (anchor, fallbackText = '') => {
   if (!anchor || typeof anchor !== 'object') return undefined;
   const text = String(anchor.text || fallbackText || '').trim();
   if (!text) return undefined;
+  /** @type {{ text: string, prefix: string, suffix: string, startOffsetApprox?: number }} */
   const normalized = {
     text,
     prefix: String(anchor.prefix || ''),
@@ -39,6 +44,7 @@ const normalizeHighlightAnchor = (anchor, fallbackText = '') => {
   return normalized;
 };
 
+/** @param {Fields & { normalizeTags: (tags: unknown) => string[] }} highlight */
 const buildHighlightDocument = ({
   text,
   note = '',
@@ -58,8 +64,13 @@ const buildHighlightDocument = ({
   anchor: normalizeHighlightAnchor(anchor, text)
 });
 
+/**
+ * @param {Fields} article @param {Fields} highlight
+ * @param {{ includeAnchor?: boolean, normalizeItemType?: (value: unknown, fallback?: string) => string }} [options]
+ */
 const serializeHighlightWithArticle = (article, highlight, options = {}) => {
   const { includeAnchor = false, normalizeItemType = (value) => value || 'note' } = options;
+  /** @type {Fields} */
   const payload = {
     _id: highlight._id,
     articleId: article._id,

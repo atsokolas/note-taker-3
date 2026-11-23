@@ -45,10 +45,10 @@ const { rawCosineToAtlasScore } = require('../ai/vectorStore');
    paper can fall back to the label rather than call them "agent". */
 const tokenRuntime = (req = {}) => (req.agentToken?.runtime ? normalizeRuntime(req.agentToken.runtime) : '');
 
-/* Who is writing. The token's label is evidence; `name` was never set, so the
-   masthead used to go blank and a non-ObjectId token id used to 500 the save. */
+/* Who is writing. The token's label is evidence; a non-ObjectId token id used
+   to 500 the save. */
 const scribe = (req = {}) => ({
-  label: String(req.agentToken?.label || req.agentToken?.name || req.body?.writtenBy || '').trim().slice(0, 200),
+  label: String(req.agentToken?.label || req.body?.writtenBy || '').trim().slice(0, 200),
   agentTokenId: String(req.agentToken?.id || req.agentToken?._id || '').trim(),
   runtime: tokenRuntime(req)
 });
@@ -641,7 +641,7 @@ const buildEditionRouter = ({
       const maxItems = Math.min(Math.max(Number(req.body?.maxItems) || 15, 1), 40);
       const minItems = Math.min(Math.max(Number(req.body?.minItems) || 1, 1), maxItems);
       const configuredBy = {
-        label: String(req.body?.configuredBy || req.agentToken?.label || req.agentToken?.name || '').trim().slice(0, 200),
+        label: String(req.body?.configuredBy || req.agentToken?.label || '').trim().slice(0, 200),
         agentTokenId: String(req.agentToken?.id || req.agentToken?._id || '').trim(),
         runtime: tokenRuntime(req)
       };

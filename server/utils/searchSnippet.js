@@ -9,6 +9,7 @@ const STOP_WORDS = new Set([
   'you', 'your'
 ]);
 
+/** @param {unknown} [value] */
 const cleanText = (value = '') => String(value || '')
   .replace(/<[^>]+>/g, ' ')
   .replace(/&nbsp;/gi, ' ')
@@ -20,6 +21,7 @@ const cleanText = (value = '') => String(value || '')
   .replace(/\s+/g, ' ')
   .trim();
 
+/** @param {unknown} [query] */
 const queryTokens = (query = '') => (
   (String(query || '').toLowerCase().match(/[a-z0-9']+/g) || [])
     .filter((token) => token.length > 2 && !STOP_WORDS.has(token))
@@ -48,6 +50,7 @@ const highlightFieldMatch = (query = '') => {
 /* Open the line that earned the match, not the first 280 characters.
    Find and the Search page both read this preview; a leading slice drops
    ordinary long articles after the client re-checks the truncated text. */
+/** @param {unknown} text @param {unknown} query */
 const snippetAroundQuery = (text, query, { limit = SNIPPET_LIMIT } = {}) => {
   const clean = cleanText(text);
   if (!clean) return '';

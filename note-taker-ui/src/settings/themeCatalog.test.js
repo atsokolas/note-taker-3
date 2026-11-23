@@ -25,7 +25,7 @@ describe('theme catalog', () => {
   });
 
   it('keeps the first-paint script and the saved-settings schema in step with the catalog', () => {
-    const html = fs.readFileSync(path.join(uiRoot, 'public', 'index.html'), 'utf8');
+    const html = fs.readFileSync(path.join(uiRoot, 'public', 'first-paint.js'), 'utf8');
     const models = fs.readFileSync(path.join(uiRoot, '..', 'server', 'models', 'account.js'), 'utf8');
     THEME_CATALOG.forEach(({ id, scheme, family }) => {
       expect(html).toContain(`'${id}': ['${scheme}', '${family}', `);

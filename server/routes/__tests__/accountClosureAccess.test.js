@@ -65,9 +65,9 @@ test('a provider approval reaches no provider until the account that started it 
   const { server, base } = await listen(app);
   try {
     for (const provider of ['notion', 'readwise']) {
-      const payload = { provider, userId: id };
+      const payload = { userId: id };
       if (provider === 'readwise') payload.oauthPayload = encryptSecret(JSON.stringify({ codeVerifier: 'unusable-synthetic-verifier', clientId: 'synthetic-client' }));
-      const state = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '10m' });
+      const state = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '10m', audience: `${provider}-state` });
       const code = 'unusable-synthetic-code';
       const result = await global.fetch(`${base}/api/import/${provider}/oauth/callback?${new URLSearchParams({ state, code })}`, { redirect: 'manual' });
       assert.equal(result.status, 302);

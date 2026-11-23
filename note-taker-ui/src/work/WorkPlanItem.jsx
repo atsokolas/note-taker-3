@@ -8,17 +8,32 @@ import { displayDay } from './workPlannerModel';
 
 // The week owns linking; every canonical task row offers the same keyboard alternative to dragging.
 export const WorkTaskAssignment = createContext(null);
-export function WorkTaskRow({ item, today, folders = [], notes = [], onOpen, onAction, onEdit, aside = null, actions = null, canPlan = true, ink }) {
+
+// Text written in place: Enter or leaving the field saves it, Escape puts the words back.
+// A title is a textarea that grows with its words, so a long one wraps instead of being cut off.
+export function InPlace({ value, onCommit, onCancel, wraps = false, ...field }) {
+  const Field = wraps ? 'textarea' : 'input';
+  const fit = node => { if (wraps && node) { node.style.height = 'auto'; node.style.height = `${node.scrollHeight}px`; } };
+  const settle = input => { const next = input.value.trim(); if (next && next !== value) onCommit(next); else { input.value = value; fit(input); onCancel?.(); } };
+  return <Field key={value} ref={fit} rows={wraps ? 1 : undefined} defaultValue={value} {...field} onInput={event => fit(event.currentTarget)} onBlur={event => settle(event.currentTarget)} onKeyDown={event => {
+    if (event.nativeEvent.isComposing) return; // Enter and Escape belong to the IME while it is composing.
+    if (event.key === 'Escape') event.currentTarget.value = value;
+    if (['Enter', 'Escape'].includes(event.key)) { event.preventDefault(); event.currentTarget.blur(); }
+  }} />;
+}
+
+export function WorkTaskRow({ item, today, folders = [], notes = [], onOpen, onAction, onEdit, onTitle, aside = null, actions = null, canPlan = true, ink }) {
   const assignment = useContext(WorkTaskAssignment);
   const priority = assignment?.priorities.find(priority => priority.taskIds.includes(item._id));
   const folder = folders.find(folder => folder._id === (item.folder?._id || item.folder));
   const note = notes.find(note => item.noteId && [note._id, note.clientId].includes(item.noteId));
   return <div {...taskDragProps(item)} data-ink={ink} className={`work-planner-task work-rail-task ${item.completed ? 'is-done' : ''}`}>
-    <WorkTaskGrip item={item} /><label><input type="checkbox" data-work-task={item.clientId} aria-label={item.title} checked={Boolean(item.completed)} onChange={() => onAction(item.clientId, { type: item.completed ? 'reopen' : 'complete' })} /><span>{item.title}</span></label>
+    <WorkTaskGrip item={item} /><label><input type="checkbox" data-work-task={item.clientId} aria-label={item.title} checked={Boolean(item.completed)} onChange={() => onAction(item.clientId, { type: item.completed ? 'reopen' : 'complete' })} />
+      {onTitle ? <InPlace wraps className="work-task-title" aria-label={`Rename ${item.title}`} value={item.title} onCommit={title => onTitle(item.clientId, title)} /> : <span>{item.title}</span>}</label>
     <div className="work-rail-source">{item.origin ? <WorkItemSource origin={item.origin} /> : note && onOpen ? <button onClick={() => onOpen(note.clientId)}>{noteTitle(note)}</button> : folder?.name ? <span>{folder.name}</span> : null}
       {folder?.archivedAt ? <small>Archived folder</small> : null}{item.previousPlannedOn && item.previousPlannedOn !== item.plannedOn ? <small>From {displayDay(item.previousPlannedOn, { weekday: 'short', day: 'numeric' })}</small> : null}
       {priority && assignment.onWeek ? <button className="work-task-priority" onClick={assignment.onWeek}>{priority.title}</button> : null}
-      {item.dueOn ? <small>Due {displayDay(item.dueOn)}{item.dueOn < today && !item.completed ? ' · overdue' : ''}</small> : null}{item.pending ? <small>Pending sync</small> : null}{aside}
+      {/* A row that edits in place shows its due date as a field. */}{item.dueOn && !onTitle ? <small>Due {displayDay(item.dueOn)}{item.dueOn < today && !item.completed ? ' · overdue' : ''}</small> : null}{item.pending ? <small>Pending sync</small> : null}{aside}
     </div>
     <WorkMenu actions label={`Actions for ${item.title}`} icon="more" className="work-task-menu">
       {onEdit ? <button onClick={() => onEdit(item)}>{item.conflicted ? 'Review both versions' : 'Edit to-do'}</button> : null}

@@ -10,6 +10,6 @@
     "maxNodeModuleJsDepth": 0,
     "types": ["node"]
   },
-  "include": ["**/*.js"],
+  "include": ["**/*.js", "types/*.d.ts"],
   "exclude": ["**/*.test.js", "**/__tests__/**", "node_modules"]
 }
