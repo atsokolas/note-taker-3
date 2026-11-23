@@ -4,6 +4,7 @@ const {
   maintainWikiPage,
   selectCandidateSources
 } = require('./wikiMaintenanceService');
+const { isEmbeddableWikiClaim } = require('../ai/embeddingJobs');
 
 const {
   attachClaimCitationIds,
@@ -1673,6 +1674,19 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     operationalPaths.forEach(path => expect(selectedPaths).toContain(path));
     expect(candidates.find(source => source.metadata?.path === 'server/services/wikiMaintenancePublicationService.js')?.metadata?.commitSha).toBe(currentHead);
+  });
+
+  it('writes nothing on a topic page with no model that could pass for a claim the reader holds', () => {
+    const { article } = fallbackMaintenance({
+      page: { title: 'Investing', pageType: 'topic' },
+      candidates: [1, 2, 3, 4].map(index => ({ index, type: 'article', title: `Source ${index}`, text: 'Evidence.', updatedAt: new Date() }))
+    });
+    const written = [article.summary, ...article.sections.flatMap(section => section.paragraphs)].map(({ text }) => text);
+    const held = text => isEmbeddableWikiClaim({ text, sourceRefIds: ['s1', 's2'] });
+
+    expect(written).toHaveLength(5);
+    expect(written.filter(held)).toEqual([]);
+    expect(held('Diversification protects a portfolio only while its holdings fail for different reasons.')).toBe(true);
   });
 
   it('falls back to a developer dossier for GitHub repo pages when model output is unavailable', () => {

@@ -1,5 +1,6 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { embedText } = require('../ai/embed');
+const { claimSourceCount, isEmbeddableWikiClaim } = require('../ai/embeddingJobs');
 const { searchVectorItems, rawCosineToAtlasScore } = require('../ai/vectorStore');
 const { wordBoundaryTrim } = require('../lib/editorialText');
 
@@ -59,7 +60,7 @@ const QUESTION_MIN_AGE_MS = 60 * DAY_MS;
 // against, and every one of them is old enough to qualify on age alone — so
 // without this the oldest thing in the drawer is always junk, and Resolution
 // spends its one card explaining what "New question" has to do with this
-// week's reading. Same discipline as META_CLAIM_RE on the claims side.
+// week's reading. Same discipline as isEmbeddableWikiClaim on the claims side.
 const PLACEHOLDER_QUESTION_RE = /^(new question|untitled|question|what|why|how|test)\s*\??$|\b(temp|test|retest|can be deleted|ignore this|placeholder)\b/i;
 const NO_REPEAT_MS = 60 * DAY_MS;
 const SUPPRESSION_MS = 60 * DAY_MS;
@@ -130,11 +131,6 @@ const PLACEHOLDER_LINE_RE = /\b(do(es)? (x|y)|<[^>]{1,30}>|\[[^\]]{1,30}\]|lorem
 // circular — observed live on 2026-07-27, where a claim generated from an
 // article was "superseded" by the article it came from.
 const CLAIM_MIN_AGE_MS = 30 * DAY_MS;
-
-// Claims the maintenance process writes *about* a page rather than about its
-// subject. They are process artifacts, not positions, and reading one back as
-// something the user believes is nonsense.
-const META_CLAIM_RE = /\b(the recurring pattern across|the page should|this page|the useful claim is narrower|topic label|source ledger|maintenance run)\b/i;
 
 const MECHANICS = Object.freeze(['connection', 'collision', 'resolution', 'convergence', 'thread']);
 
@@ -924,23 +920,12 @@ const collectClaimCandidates = async ({ userId, models = {}, now = new Date() } 
   const rows = [];
   (pages || []).forEach(page => {
     (page.claims || []).forEach(claim => {
-      if (claim?.checkInStatus === 'retired' || claim?.retiredAt) return;
-      const sources = Math.max(
-        Array.isArray(claim.sourceRefIds) ? claim.sourceRefIds.length : 0,
-        Array.isArray(claim.citationIds) ? claim.citationIds.length : 0
-      );
-      if (sources < 2) return;
-      const text = clean(claim.text, 800);
-      if (text.length < 40) return;
+      if (!isEmbeddableWikiClaim(claim)) return;
       // A claim the agent wrote from the same reading is not a
       // conviction the user has been holding — challenging it with its own
       // source is circular. Only claims that have stood for a while qualify.
       const writtenAt = asDate(claim.createdAt) || asDate(page.createdAt);
       if (!writtenAt || now.getTime() - writtenAt.getTime() < CLAIM_MIN_AGE_MS) return;
-
-      // Maintenance bookkeeping that talks about the page rather than the
-      // subject. These are artifacts of the wiki process, not positions.
-      if (META_CLAIM_RE.test(text)) return;
       rows.push({
         type: 'claim',
         id: `${idString(page)}:${claim.claimId}`,
@@ -948,11 +933,11 @@ const collectClaimCandidates = async ({ userId, models = {}, now = new Date() } 
         pageTitle: clean(page.title || 'Untitled wiki page', 200),
         claimId: String(claim.claimId),
         title: clean(page.title || 'Untitled wiki page', 200),
-        text,
+        text: clean(claim.text, 800),
         at: asDate(claim.createdAt) || asDate(page.createdAt),
         writtenAt,
         href: wikiClaimHref(idString(page), claim.claimId),
-        sourceCount: sources
+        sourceCount: claimSourceCount(claim)
       });
     });
   });

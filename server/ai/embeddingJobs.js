@@ -69,28 +69,22 @@ const COLLECTIONS = {
   claims: 'wiki_claims'
 };
 
-/**
- * Only claims the Reading Loop's collision mechanic could ever use are worth
- * embedding — a claim with one source is not a conviction, a retired one is not
- * held, and maintenance bookkeeping is not a position. Filtering here keeps the
- * index at the ~280 claims that matter rather than the ~860 that exist.
- *
- * Deliberately duplicated from readingLoopService rather than imported: that
- * module requires this one for COLLECTIONS, and a cycle is worse than four
- * lines of repetition. Keep the two in step.
- */
-const CLAIM_META_RE = /\b(the recurring pattern across|the page should|this page|the useful claim is narrower|topic label|source ledger|maintenance run)\b/i;
+// What maintenance writes about a page rather than its subject, the no-model fallback's filler included.
+const CLAIM_META_RE = /\b(the recurring pattern across|the page should|this page|the useful claim is narrower|topic label|source ledger|maintenance run|should not be read as a complete answer|the current evidence base is broad enough|the main risk is false coherence|the page needs a rebuild)\b/i;
 
-const isEmbeddableWikiClaim = (claim = {}) => {
+const claimSourceCount = (claim = {}) => Math.max(
+  Array.isArray(claim.sourceRefIds) ? claim.sourceRefIds.length : 0,
+  Array.isArray(claim.citationIds) ? claim.citationIds.length : 0
+);
+
+/* A claim the reader could be said to hold: two sources behind it, long enough
+   to be a position, not retired, and about its subject rather than its page.
+   It decides what is embedded, what the Reading Loop may collide with and
+   where a source belongs. */
+const isEmbeddableWikiClaim = (claim) => {
   if (!claim || claim.checkInStatus === 'retired' || claim.retiredAt) return false;
-  const sources = Math.max(
-    Array.isArray(claim.sourceRefIds) ? claim.sourceRefIds.length : 0,
-    Array.isArray(claim.citationIds) ? claim.citationIds.length : 0
-  );
-  if (sources < 2) return false;
-  const text = String(claim.text || '').trim();
-  if (text.length < 40) return false;
-  return !CLAIM_META_RE.test(text);
+  const text = String(claim.text || '').replace(/\s+/g, ' ').trim();
+  return claimSourceCount(claim) >= 2 && text.length >= 40 && !CLAIM_META_RE.test(text);
 };
 
 const trimText = (value = '', max = 4000) => {
@@ -805,6 +799,7 @@ module.exports = {
   buildJudgmentEmbeddingJob,
   enqueueJudgmentEmbedding,
   enqueueWikiClaimEmbeddings,
+  claimSourceCount,
   isEmbeddableWikiClaim,
   enqueueHighlightEmbedding,
   enqueueArticleEmbedding,

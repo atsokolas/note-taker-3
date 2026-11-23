@@ -228,7 +228,8 @@ describe('addedBy', () => {
       Question: { find: jest.fn(() => chain([{ _id: id(5), text: 'When does scale stop helping?' }])) },
       WikiPage: { find: jest.fn(() => chain([{ _id: id(6), title: 'Checklists', claims: [
         { claimId: 'c1', text: 'Checklists catch what memory drops on a long and busy day.', sourceRefIds: ['s1', 's2'] },
-        { claimId: 'c2', text: 'A retired sentence that once said checklists slow surgeons down.', sourceRefIds: ['s1', 's2'], checkInStatus: 'retired' }
+        { claimId: 'c2', text: 'A retired sentence that once said checklists slow surgeons down.', sourceRefIds: ['s1', 's2'], checkInStatus: 'retired' },
+        { claimId: 'c3', text: 'Checklists should not be read as a complete answer. The defensible core is narrower.', sourceRefIds: ['s1', 's2'] }
       ] }])) }
     };
   };
@@ -243,6 +244,7 @@ describe('addedBy', () => {
       { objectType: 'question', objectId: id(5), score: score(0.66), metadata: {} },
       { objectType: 'wiki_claim', objectId: `${id(6)}:c1`, score: score(0.75), metadata: { pageId: id(6), claimId: 'c1' } },
       { objectType: 'wiki_claim', objectId: `${id(6)}:c2`, score: score(0.95), metadata: { pageId: id(6), claimId: 'c2' } },
+      { objectType: 'wiki_claim', objectId: `${id(6)}:c3`, score: score(0.9), metadata: { pageId: id(6), claimId: 'c3' } },
       highlight(4, 0.6),
       highlight(1, 0.99)
     ]);
