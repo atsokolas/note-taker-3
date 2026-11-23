@@ -10,7 +10,6 @@ const {
   reconcileVectorSubIds
 } = require('./vectorStore');
 const { buildArticleVectorUnits } = require('./articlePassages');
-const { CLAIM_META_RE } = require('./wikiClaimMeta');
 const { EmbeddingJob, VectorItem } = require('../models');
 const { isReviewer, HOLD_REASON } = require('../services/reviewerRehearsalBudget');
 
@@ -75,7 +74,13 @@ const COLLECTIONS = {
  * embedding — a claim with one source is not a conviction, a retired one is not
  * held, and maintenance bookkeeping is not a position. Filtering here keeps the
  * index at the ~280 claims that matter rather than the ~860 that exist.
+ *
+ * Deliberately duplicated from readingLoopService rather than imported: that
+ * module requires this one for COLLECTIONS, and a cycle is worse than four
+ * lines of repetition. Keep the two in step.
  */
+const CLAIM_META_RE = /\b(the recurring pattern across|the page should|this page|the useful claim is narrower|topic label|source ledger|maintenance run)\b/i;
+
 const isEmbeddableWikiClaim = (claim = {}) => {
   if (!claim || claim.checkInStatus === 'retired' || claim.retiredAt) return false;
   const sources = Math.max(
