@@ -1,48 +1,17 @@
-# Think Home Visual Regression Baseline
+# Think and Books home regression checks
 
-Use this checklist to capture and compare Think Home UI after design-token/shell changes.
+Build the web UI in CI mode. Use a signed-in fixture with a working draft, an open question, an answered question, a recent closure, and a source explicitly kept in Library. In Books, include a title-only book, a marked book, a book set down, and a finished book. Check Chromium at 1440px and 430px and WebKit at 1320px. At phone width check touch and 125% text size. Repeat with reduced motion.
 
-## Capture Matrix
+## Think
 
-- `think-home-light-desktop.png` (`1440x900`)
-- `think-home-dark-desktop.png` (`1440x900`)
-- `think-home-light-tablet.png` (`1024x768`)
-- `think-home-dark-tablet.png` (`1024x768`)
+- Open `/think`. The most recent working draft with a saved “Next time” line leads. Without a saved line, the latest working draft leads. Verify the empty state after loading a shelf with no working drafts.
+- Choose **Write the next sentence** and verify that focus and the caret land at the saved block and character offset. A missing block falls back to the end of the draft. The source return and separate Partner controls still work.
+- Follow an Evergreen row to the owned source, and **Browse keepers** to Library's Keepers shelf. Archived, hidden and uninked sources are excluded by the existing kept collection. With no returned sources the shelf stays quiet.
+- Verify that the overview includes the open question and recent closure. Start a named idea and confirm that the new record opens through the notebook route.
 
-## Page State
+## Books
 
-- Route: `/think?tab=home`
-- Logged in user with:
-  - notebook entries
-  - concepts
-  - questions
-  - return queue items
-  - recent highlights/articles
-- Right drawer expanded for one capture, collapsed for one quick sanity check (optional)
-
-## Capture Rules
-
-- Browser zoom `100%`
-- Stable window size (do not maximize between captures)
-- Same theme + same dataset across before/after comparison
-- Wait for Think Home lists to finish loading before capture
-- Avoid hover states during capture
-
-## What To Compare
-
-- Borders reduced (no “outlined everywhere” look)
-- Surface hierarchy: shell < panel < card (max two visible elevations)
-- Typography hierarchy:
-  - `Think`
-  - section titles
-  - item titles
-  - metadata
-- Header density reduced (tabs + utility buttons calmer)
-- Notebook panel visually quieter than main content
-- Working Memory drawer readable but not dominant
-- No overflow/clipping at tablet width
-
-## Notes
-
-- This repo currently does not include an automated screenshot runner.
-- Store captured baselines in `docs/ui-regression/screenshots/` (create locally if missing).
+- Open `/books` and filter by Reading, Set down and Finished. A book with just a title opens directly and shows no invented page, author, artwork or preview quote.
+- Select a preview and check that its heading receives focus. Open at the previewed mark and verify the highlight ID and page. The catalogue's last marked page and the previewed note's page may differ.
+- Return using both browser Back and the book's Books link. Verify the previous filter, row focus, position and bookmark. If the book disappeared, focus returns to the catalogue heading.
+- Reconfirm the anniversary sentence, echoes, open questions and book renaming on the existing routes.

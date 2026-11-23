@@ -577,7 +577,7 @@ const ThinkNotes = () => {
 
       <main
         ref={noteSurface}
-        className={`think-notes__note${loadingEntry ? ' is-loading' : ''}`}
+        className={`think-notes__note${view === 'home' ? ' is-desk' : ''}${loadingEntry ? ' is-loading' : ''}`}
         aria-labelledby={openTarget ? 'think-note-title' : undefined}
         aria-busy={loadingEntry ? 'true' : undefined}
         inert={contextTakesFocus ? '' : undefined}
@@ -650,6 +650,7 @@ const ThinkNotes = () => {
               working={working}
               ideas={piecesIn('ideas')}
               closed={piecesIn('closed')}
+              questions={piecesIn('questions').filter(item => !item.settled)}
               onOpen={openEntry}
               onView={openView}
               onStart={title => startNote({ title })}

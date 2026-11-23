@@ -160,10 +160,10 @@ export const counted = (n, one, many = `${one}s`) => (n ? `${n} ${n === 1 ? one 
 
 /* A run of marks as a receipt: the pages it covered and what was written.
    Tonight's sitting at the desk, or a whole book on the shelf. */
-export const tallyLine = (marks = []) => {
+export const tallyLine = (marks = [], shownPage = null) => {
   if (!marks.length) return '';
   const pages = marks.map(mark => mark.page).filter(Boolean);
-  const span = !pages.length ? ''
+  const span = pages.every(page => page === shownPage) ? ''
     : Math.min(...pages) === Math.max(...pages) ? `p. ${pages[0]}` : `pp. ${Math.min(...pages)}–${Math.max(...pages)}`;
   const kinds = marks.map(kindOf);
   const tally = [
@@ -195,7 +195,7 @@ export const lastTime = (marks = []) => {
   const newest = [...marks].sort((a, b) => at(b) - at(a));
   const mark = newest.find(ownWords) || newest.find(found => found.text);
   if (!mark) return null;
-  return { page: mark.page || null, words: wordsOf(mark), own: Boolean(ownWords(mark)) };
+  return { id: mark._id, page: mark.page || null, words: wordsOf(mark), own: Boolean(ownWords(mark)) };
 };
 
 /* The line a bare /argue or /who is about: the newest one kept, quote or note. */
