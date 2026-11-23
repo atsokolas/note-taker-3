@@ -196,7 +196,8 @@ test('reading a book again keeps the first reading: its sentence, and its marks 
   });
   readAgain.mockResolvedValue({
     finishedOn: '', closingLine: '',
-    readBefore: [{ finishedOn: '2025-10-19', closingLine: 'Nobody is only what they do.', until: '2026-10-24T09:00:00Z' }]
+    // Begun again three days ago, so the book is open, not set down.
+    readBefore: [{ finishedOn: '2025-10-19', closingLine: 'Nobody is only what they do.', until: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() }]
   });
   const { container } = at('b2');
   fireEvent.click(screen.getByRole('button', { name: 'Read it again' }));
