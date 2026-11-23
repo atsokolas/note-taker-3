@@ -26,6 +26,25 @@ describe('runAgentLoop', () => {
     expect(chat.mock.calls[1][0].messages.at(-1)).toMatchObject({ role: 'tool', tool_call_id: 'search_library-1' });
   });
 
+  it('tells the reader what it is reading while it works, and nothing of the answer', async () => {
+    const steps = [];
+    const chat = scripted(
+      { toolCalls: [call('search_library', { query: 'fatigue decisions' })] },
+      { toolCalls: [call('read_source', { id: 'sleep' })] },
+      { text: 'It says "sleep is the single best predictor".' },
+      { text: 'It says "fatigue narrows attention to the default option".' }
+    );
+    const result = await runAgentLoop({ messages, search: async () => [sleep], read: async () => sleep, chat, onStep: step => steps.push(step) });
+    expect(steps).toEqual([
+      { stage: 'search', summary: 'Searching your library for “fatigue decisions”.' },
+      { stage: 'retrieve', summary: 'Found 1 passage.' },
+      { stage: 'read_source', summary: 'Reading “Sleep debt and decisions”.' },
+      { stage: 'check', summary: 'Checking every quotation against the sources.' }
+    ]);
+    expect(JSON.stringify(steps)).not.toMatch(/default option|predictor/);
+    expect(result.reply).toMatch(/default option/);
+  });
+
   it('reads a source in full by id', async () => {
     const read = jest.fn(async () => sleep);
     const chat = scripted(

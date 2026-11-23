@@ -100,7 +100,10 @@ const runAgentLoop = async ({
   quotable = [],
   chat,
   route = 'partner_chat',
-  signal
+  signal,
+  // Told each thing the loop does while it works, so a reader waiting on the
+  // answer sees what it is reading. Never shown any of the answer itself.
+  onStep = _step => {}
 }) => {
   // Without a library to search (a published question answers only from what
   // was published), the turn answers from the passages it was given.
@@ -121,8 +124,11 @@ const runAgentLoop = async ({
     const name = call?.function?.name;
     const args = parseArguments(call?.function?.arguments);
     if (name === 'search_library') {
-      const found = (await search(String(args.query || ''))).slice(0, TOOL_RESULT_PASSAGES);
+      const query = String(args.query || '');
+      onStep({ stage: 'search', summary: `Searching your library for “${query.slice(0, 80)}”.` });
+      const found = (await search(query)).slice(0, TOOL_RESULT_PASSAGES);
       show(found);
+      onStep({ stage: 'retrieve', summary: found.length ? `Found ${found.length} passage${found.length === 1 ? '' : 's'}.` : 'Found nothing on that.' });
       return found.length
         ? found.map(item => ({
           id: item.id,
@@ -134,6 +140,7 @@ const runAgentLoop = async ({
         : { result: 'Nothing in the library bears on this query.' };
     }
     if (name === 'read_page_history' && history) {
+      onStep({ stage: 'read_history', summary: 'Reading how this page changed.' });
       const record = await history();
       if (!record?.fullText) return { result: 'This page has no recorded history.' };
       show([record]);
@@ -152,6 +159,7 @@ const runAgentLoop = async ({
     if (name === 'read_source') {
       const source = await read(String(args.id || ''));
       if (!source) return { result: 'No source with that id.' };
+      onStep({ stage: 'read_source', summary: `Reading “${String(source.title || 'a source').slice(0, 80)}”.` });
       show([source]);
       return { id: source.id, title: source.title, text: String(source.fullText || '').slice(0, READ_LIMIT) };
     }
@@ -194,6 +202,7 @@ const runAgentLoop = async ({
   let reply = String(completion?.text || '').trim();
   let invented = inventedQuotes(reply, texts());
   if (reply && invented.length) {
+    onStep({ stage: 'check', summary: 'Checking every quotation against the sources.' });
     conversation.push({ role: 'assistant', content: reply });
     conversation.push({
       role: 'user',
