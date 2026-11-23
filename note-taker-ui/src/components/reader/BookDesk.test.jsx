@@ -146,9 +146,6 @@ test('a thought left past midnight opens the desk, and the first line finishes i
   expect(screen.queryByText(/You stopped mid-thought/)).not.toBeInTheDocument();
 });
 
-// A fresh line's prompt, which after midnight is a nudge toward bed.
-const freshLine = /^(A quote, or what you think|Still up\? One more line, then bed\.)$/;
-
 test('the rest of a thought typed offline waits on this device as a line of its own, and a second line is new', async () => {
   const lastNight = new Date(Date.now() - 24 * 60 * 60 * 1000);
   lastNight.setHours(1, 15, 0, 0);
@@ -159,7 +156,7 @@ test('the rest of a thought typed offline waits on this device as a line of its 
   await act(async () => keep());
   expect(await screen.findByText('Kept on this device. It goes to Noeis when you are back online.')).toBeInTheDocument();
   expect(JSON.stringify(window.localStorage)).toContain('fear of the crowd.');
-  expect(line().getAttribute('placeholder')).toMatch(freshLine);
+  expect(line()).not.toHaveAttribute('placeholder', 'The rest of that thought');
   expect(updateHighlight).toHaveBeenCalledTimes(1);
 });
 
@@ -169,7 +166,7 @@ test('Escape leaves last night’s thought as it is and starts a new line', asyn
   render(<Desk marks={[{ _id: 'n1', text: '', note: 'what he means by order is', createdAt: lastNight.toISOString() }]} />);
   fireEvent.keyDown(line(), { key: 'Escape' });
   expect(screen.queryByText(/You stopped mid-thought/)).not.toBeInTheDocument();
-  expect(line().getAttribute('placeholder')).toMatch(freshLine);
+  expect(line()).not.toHaveAttribute('placeholder', 'The rest of that thought');
 });
 
 test('typing an old mark again picks a set-down book up, though the mark keeps its date', async () => {

@@ -185,6 +185,15 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
     const later = (await (await fetch(`${url}/api/books?today=2026-10-18`)).json()).books.find(item => String(item._id) === bookId);
     assert.deepEqual(later.returning, { years: 1, days: 0, line: 'Selection keeps what variation offers.' }, 'the first sentence still comes back');
 
+    // Renaming it: the title changes, the address its imports land at does not.
+    const rename = title => fetch(`${url}/api/books/${bookId}/title`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) });
+    const addressed = (await Article.findById(bookId).lean()).url;
+    assert.deepEqual(await (await rename('  On the Origin of Species  ')).json(), { title: 'On the Origin of Species' });
+    assert.equal((await rename(' ')).status, 400, 'a book keeps a title');
+    const renamed = await Article.findById(bookId).lean();
+    assert.deepEqual([renamed.title, renamed.url], ['On the Origin of Species', addressed]);
+    await rename('The Origin of Species');
+
     // Lending it: a friend reads the copy as it stands, with nothing of the account, until it is taken back.
     const put = route => fetch(`${url}${route}`, { method: 'PUT' }).then(r => r.json());
     const { lentAs } = await put(`/api/books/${bookId}/lent`);
@@ -212,6 +221,7 @@ test('real Mongo: a book started at the desk is the one its Kindle and EPUB land
 
     const notABook = await Article.create({ userId, url: 'https://example.com/essay', title: 'An essay' });
     assert.equal((await fetch(`${url}/api/books/${notABook._id}/closed`, { method: 'PUT' })).status, 404);
+    assert.equal((await fetch(`${url}/api/books/${notABook._id}/title`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: '{"title":"A book now"}' })).status, 404);
     assert.equal((await post(`/api/books/${notABook._id}/heard`, { line: 'anything at all' })).status, 404);
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));

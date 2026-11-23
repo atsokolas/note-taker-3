@@ -67,6 +67,22 @@
   margin-top: var(--space-2);
 }
 
+/* A book's name is typed over in place, on the hairline the desk's own line has. */
+.books__name {
+  cursor: text;
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+.books__name:hover {
+  border-bottom-color: var(--border-subtle-2);
+}
+
+.books__name:focus {
+  outline: none;
+  border-bottom-color: var(--muted);
+}
+
 .books__author {
   margin: 0;
   color: var(--muted);
