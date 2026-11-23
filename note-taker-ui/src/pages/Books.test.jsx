@@ -6,13 +6,13 @@ import { askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, 
 import { updateHighlight } from '../api/highlights';
 import useArticleDetail from '../hooks/useArticleDetail';
 import { listWikiPages, settleIntoWiki } from '../api/wiki';
-import { fetchMarginNotes } from '../api/retrieval';
+import { fetchAdded, fetchMarginNotes } from '../api/retrieval';
 
 jest.mock('../api/imports', () => ({ askBook: jest.fn(), beforeBook: jest.fn(), bookEcho: jest.fn(), lendBook: jest.fn(), takeBookBack: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
 jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn(), settleIntoWiki: jest.fn() }));
-jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn() }));
+jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn(), fetchAdded: jest.fn() }));
 
 const at = (id) => {
   jest.spyOn(Router, 'useParams').mockReturnValue(id ? { id } : {});
@@ -24,6 +24,7 @@ beforeEach(() => {
   useArticleDetail.mockReturnValue({ article: null, highlights: [], error: '' });
   listWikiPages.mockResolvedValue([]);
   fetchMarginNotes.mockResolvedValue([]);
+  fetchAdded.mockResolvedValue([]);
   listBookQuestions.mockResolvedValue([]);
   bookEcho.mockResolvedValue(null);
   beforeBook.mockResolvedValue([]);

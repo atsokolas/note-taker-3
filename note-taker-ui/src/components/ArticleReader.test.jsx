@@ -15,7 +15,7 @@ import { getNotebookSummaries } from '../api/notebook';
 import { listReturnQueue } from '../api/returnQueue';
 import { canExplainBack } from '../api/readingRoom';
 import { listWikiPages } from '../api/wiki';
-import { fetchMarginNotes } from '../api/retrieval';
+import { fetchAdded, fetchMarginNotes } from '../api/retrieval';
 import { fileReadingProposal, getPushesAgainst } from '../api/judgmentResolution';
 import useTextSelection from './reader/useTextSelection';
 import { handOffSentence, resetFirstPaint } from '../motion/columnMotion';
@@ -33,7 +33,7 @@ jest.mock('../api/highlights', () => ({
 jest.mock('../api/wiki', () => ({
   listWikiPages: jest.fn(async () => [])
 }));
-jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn(async () => []) }));
+jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn(async () => []), fetchAdded: jest.fn() }));
 jest.mock('../api/concepts', () => ({ getConcepts: jest.fn() }));
 jest.mock('../api/notebook', () => ({ getNotebookSummaries: jest.fn() }));
 jest.mock('../api/returnQueue', () => ({ listReturnQueue: jest.fn() }));
@@ -75,6 +75,7 @@ const render = async (ui) => {
 };
 
 beforeEach(() => {
+  fetchAdded.mockResolvedValue([]);
   canExplainBack.mockResolvedValue(false);
   getConcepts.mockResolvedValue([]);
   getNotebookSummaries.mockResolvedValue([]);
