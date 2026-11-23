@@ -1,6 +1,4 @@
-/* The reading desk: the marks set like a printed book's pages, page numbers
-   in the gutter, and one line at the foot to type into. Quotes are the
-   book's type; your words are the hand beside them. */
+/* Quotes use the book's type, with your words in the hand beside them. */
 
 .book-desk {
   display: grid;
@@ -25,6 +23,10 @@
 .book-desk__lede q {
   font-family: var(--font-serif);
   color: var(--text);
+}
+
+.book-desk__lede .book-desk__action {
+  font-weight: 400;
 }
 
 .book-desk__pages,
@@ -135,34 +137,104 @@ blockquote + .book-desk__own {
   to { background: transparent; }
 }
 
-/* The line is written on, not typed into a box: a page number in the
-   gutter like every folio above it, and one rule that inks when you write. */
 .book-desk__line {
   display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
-  align-items: baseline;
-  margin-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle-2);
+  scroll-margin-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+.book-desk__kinds,
+.book-desk__actions,
+.book-desk__place {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--muted);
+  font: 0.82rem/1.5 var(--font-sans);
+}
+
+.book-desk__actions {
+  justify-content: space-between;
+}
+
+.book-desk__place {
+  gap: var(--space-2);
+}
+
+.book-desk__place .book-desk__action {
+  font-weight: 400;
+}
+
+.book-desk__kinds label {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.book-desk__kinds input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.book-desk__kinds label:has(:checked),
+.book-desk__action {
+  color: var(--noeis-action);
+  font-weight: 600;
+}
+
+.book-desk__kinds label:has(:checked)::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 var(--space-2);
+  border-bottom: 1px solid currentColor;
+}
+
+.book-desk__kinds label:has(:focus-visible) {
+  outline: 2px solid var(--noeis-action);
+  outline-offset: 2px;
+}
+
+.book-desk__action {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: start;
+  text-decoration: underline;
+  text-decoration-color: var(--border-subtle-2);
+  text-underline-offset: 0.22em;
+}
+
+.book-desk__action:hover,
+.book-desk__action:focus-visible {
+  text-decoration-color: currentColor;
 }
 
 .book-desk__turn {
   display: flex;
   align-items: baseline;
   gap: 0.2em;
-  min-height: 44px;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-variant: all-small-caps;
-  letter-spacing: 0.08em;
+  font: 1rem/1.5 var(--font-serif);
 }
 
 .book-desk__turn input {
-  width: 4ch;
+  min-width: 2ch;
+  max-width: 6ch;
+  min-height: 44px;
   padding: 0;
   font: inherit;
-  font-variant-numeric: oldstyle-nums tabular-nums;
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline;
+  text-decoration-color: var(--border-subtle-2);
+  text-underline-offset: 0.22em;
 }
 
-.book-desk__turn input:focus-visible,
 .book-desk__type textarea:focus-visible {
   outline: none;
 }
@@ -179,8 +251,12 @@ blockquote + .book-desk__own {
   transition: border-color 160ms ease-out;
 }
 
-.book-desk__line:focus-within .book-desk__type {
+.book-desk__type:focus-within {
   border-bottom-color: var(--muted);
+}
+
+.book-desk__turn input:focus {
+  text-decoration-color: var(--noeis-action);
 }
 
 .book-desk__mirror,
@@ -227,17 +303,16 @@ blockquote + .book-desk__own {
    line stays until the next one. */
 .book-desk__hint {
   margin: calc(var(--space-4) * -1) 0 0;
-  padding-left: 4.5rem;
-  min-height: 1.2em;
   color: var(--muted);
   font-size: 0.78rem;
-  opacity: 0;
-  transition: opacity 160ms ease-out;
 }
 
-.book-desk__hint[data-said],
-.book-desk__line:focus-within + .book-desk__hint {
-  opacity: 1;
+.book-desk__hint:not([data-said]):not(.book-desk__line:has(textarea:focus:not(:placeholder-shown)) + *) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
 /* The camera, offered only while a quote waits for its middle. */
@@ -269,13 +344,8 @@ blockquote + .book-desk__own {
     padding-left: 3.25rem;
   }
 
-  .book-desk__page,
-  .book-desk__line {
+  .book-desk__page {
     grid-template-columns: 3.25rem minmax(0, 1fr);
-  }
-
-  .book-desk__hint {
-    padding-left: 3.25rem;
   }
 
   /* The margin is too narrow to hang a query in beside the page number,
@@ -290,18 +360,12 @@ blockquote + .book-desk__own {
   }
 }
 
-/* Brought into view, the line stops clear of anything floating at the bottom. */
-.book-desk__line {
-  scroll-margin-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-}
-
 @media (prefers-reduced-motion: reduce) {
   .book-desk__mark[data-inked] blockquote {
     animation: none;
   }
 
-  .book-desk__type,
-  .book-desk__hint {
+  .book-desk__type {
     transition: none;
   }
 }

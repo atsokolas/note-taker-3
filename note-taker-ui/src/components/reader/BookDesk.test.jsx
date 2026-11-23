@@ -25,13 +25,14 @@ const KINDLE = {
 };
 
 /* The desk as the reader holds it: the marks live with the parent. */
-const Desk = ({ marks: initial, readBefore, createdAt }) => {
+const Desk = ({ marks: initial, readBefore, createdAt, onOpenMark }) => {
   const [marks, setMarks] = useState(initial);
   return (
     <MemoryRouter>
       <BookDesk
         article={{ _id: 'book-1', title: 'The Better Angels', url: 'import://kindle/the-better-angels-pinker', readBefore, createdAt }}
         marks={marks}
+        onOpenMark={onOpenMark}
         onAdd={mark => setMarks(current => [...current, mark])}
         onReplace={(id, mark) => setMarks(current => current.map(item => (item._id === id ? { ...item, ...mark } : item)))}
         onRemove={id => setMarks(current => current.filter(item => item._id !== id))}
@@ -58,7 +59,7 @@ test('a number turns the page, and the page stays for the lines after it', async
     .mockResolvedValueOnce({ _id: 'n1', text: '', note: 'he is conflating risk and uncertainty', page: 212, createdAt: new Date().toISOString() })
     .mockResolvedValueOnce({ _id: 'n2', text: '', note: 'or is he?', page: 212, createdAt: new Date().toISOString() });
   render(<Desk marks={[]} />);
-  expect(screen.getByText(/A page number sets the page/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Save scribble' })).toBeInTheDocument();
 
   type('212 he is conflating risk and uncertainty');
   await act(async () => keep());
@@ -71,6 +72,53 @@ test('a number turns the page, and the page stays for the lines after it', async
   expect(await screen.findByText(sittingLabel(new Date()))).toBeInTheDocument();
   expect(screen.getByText('p. 212 · 1 note, 1 question')).toBeInTheDocument();
   expect(screen.getByText('p. 212')).toBeInTheDocument();
+});
+
+test('the words from last time open the mark they came from', () => {
+  const onOpenMark = jest.fn();
+  render(<Desk marks={[KINDLE]} onOpenMark={onOpenMark} />);
+  fireEvent.click(screen.getByRole('button', { name: KINDLE.text }));
+  expect(onOpenMark).toHaveBeenCalledWith(KINDLE._id);
+});
+
+test('explicit capture keeps quotations literal and big thoughts independent of the page', async () => {
+  const text = '1984 was the year. #1 still counted.';
+  const note = 'One thought.\n\nAnd another paragraph.';
+  const createdAt = new Date().toISOString();
+  createHighlight
+    .mockResolvedValueOnce({ _id: 'q1', text, note: '', page: 98, createdAt })
+    .mockResolvedValueOnce({ _id: 'n1', text: '', note, createdAt });
+  render(<Desk marks={[]} />);
+  fireEvent.change(screen.getByLabelText('Page you are on'), { target: { value: '98' } });
+  fireEvent.click(screen.getByRole('radio', { name: 'Quote' }));
+  type(text);
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Save quote' })));
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text, note: '', page: 98, captureId: LINE_ID });
+
+  fireEvent.click(screen.getByRole('radio', { name: 'Big thought' }));
+  expect(screen.queryByLabelText('Page you are on')).not.toBeInTheDocument();
+  type(note);
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Save big thought' })));
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note, captureId: LINE_ID });
+  fireEvent.click(screen.getByRole('radio', { name: 'Scribble' }));
+  expect(screen.getByLabelText('Page you are on')).toHaveValue('98');
+});
+
+test('a reading place survives reopening after a note on an earlier page', async () => {
+  const note = { _id: 'n1', text: '', note: 'A thought about an earlier page.', page: 9, createdAt: new Date().toISOString() };
+  createHighlight.mockResolvedValue(note);
+  const { unmount } = render(<Desk marks={[]} />);
+  const goTo = value => fireEvent.change(screen.getByLabelText('Page you are on'), { target: { value } });
+  goTo('98');
+  fireEvent.click(screen.getByRole('button', { name: 'Keep my place' }));
+  goTo('9');
+  type(note.note);
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Save scribble' })));
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: note.note, page: 9, captureId: LINE_ID });
+  unmount();
+  render(<Desk marks={[note]} />);
+  expect(screen.getByLabelText('Page you are on')).toHaveValue('98');
+  expect(screen.getByText('Place kept')).toBeInTheDocument();
 });
 
 test('the book finishes a quote you marked on the Kindle, and it stays one mark', async () => {

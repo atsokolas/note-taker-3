@@ -596,6 +596,7 @@ const showMark = (id, smooth = false) => {
   const mark = document.querySelector(`[data-highlight-id="highlight-${id}"]`);
   if (!mark) return;
   mark.scrollIntoView?.({ block: 'center', behavior: smooth ? 'smooth' : 'auto' });
+  if (mark.hasAttribute('tabindex')) mark.focus({ preventScroll: true });
   mark.setAttribute('data-found', '');
   mark.addEventListener('animationend', () => mark.removeAttribute('data-found'), { once: true });
 };
@@ -751,6 +752,7 @@ const Book = ({ id }) => {
               onAdd={addHighlightOptimistic}
               onReplace={replaceHighlight}
               onRemove={removeHighlight}
+              onOpenMark={showMark}
               doorFor={doorFor}
             />
           </div>
