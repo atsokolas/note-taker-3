@@ -13,6 +13,7 @@ const getKey = () => (
 
 /* A keyed fingerprint of a value for one purpose: proof that we minted it,
    with nothing stored. */
+/** @param {string} purpose @param {unknown} value */
 const seal = (purpose, value) => (
   crypto.createHmac('sha256', getKey()).update(`${purpose}:${value}`).digest('hex')
 );
