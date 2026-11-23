@@ -4,6 +4,7 @@
  * string methods on or hand to Mongo. Here a field sent twice is no field (as
  * OAuth requires of its parameters) and brackets are just characters.
  */
+/** @param {string} search @returns {Record<string, string>} */
 const flatQuery = (search) => {
   const query = Object.create(null);
   const seen = new Set();

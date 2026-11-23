@@ -1,4 +1,12 @@
 // What the server's middleware puts on a request, so every route reads one contract.
+import type { Request, Response, NextFunction } from 'express';
+
+/** A record as it arrived, from a request or from Mongo: its fields are whatever was sent. */
+export type Fields = Record<string, any>;
+
+/** Middleware as this server writes it: it may return the response it sent. */
+export type Handler = (req: Request, res: Response, next: NextFunction) => void | Response | Promise<unknown>;
+
 declare global {
   namespace Express {
     interface Request {

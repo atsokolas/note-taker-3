@@ -1,9 +1,13 @@
+/** @typedef {import('../types/request').Fields} Fields */
+
 const INQUIRY_SCOPE = 'library';
 const INQUIRY_PASSAGE_LIMIT = 8;
 const INQUIRY_STATUSES = new Set(['idle', 'stopped', 'partial', 'miss', 'complete']);
 
+/** @param {unknown} value */
 const textOf = (value) => String(value || '').trim();
 
+/** @param {Fields} [row] */
 const normalizeInquiryPassage = (row = {}) => ({
   key: textOf(row.key),
   kind: textOf(row.kind) || 'article',
@@ -14,6 +18,7 @@ const normalizeInquiryPassage = (row = {}) => ({
   href: textOf(row.href)
 });
 
+/** @param {Fields} [run] */
 const normalizeInquiryRun = (run = {}) => {
   const requested = textOf(run.status);
   const status = INQUIRY_STATUSES.has(requested)
@@ -37,12 +42,14 @@ const normalizeInquiryRun = (run = {}) => {
   };
 };
 
+/** @param {Fields} [inquiry] */
 const normalizeInquiry = (inquiry = {}) => ({
   brief: textOf(inquiry.brief),
   scope: INQUIRY_SCOPE,
   run: normalizeInquiryRun(inquiry.run)
 });
 
+/** @param {Fields | null | undefined} question */
 const inquiryIsDependable = (question) => {
   const run = normalizeInquiry(question?.inquiry).run;
   if (run.status !== 'complete' && run.status !== 'partial') return false;

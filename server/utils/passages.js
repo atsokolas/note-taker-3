@@ -10,10 +10,15 @@ const LONGEST_PASSAGE = 3000;
 // A Kindle highlight and the note typed beside it a moment later are one thought.
 const SAME_MOMENT_MS = 2 * 60 * 1000;
 
+/** @param {unknown} value @returns {string[]} */
 const wordsOf = value => String(value || '').match(WORDS) || [];
+/** @param {unknown} value */
 const sameWords = value => wordsOf(value).join(' ').toLowerCase();
+/** @param {unknown} text */
 const isUnfinished = text => ELLIPSIS.test(String(text || ''));
+/** @param {string} word */
 const escape = word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** @param {string[]} words */
 const run = words => new RegExp(`(?<![\\p{L}\\p{N}])${words.map(escape).join('[^\\p{L}\\p{N}]+')}(?![\\p{L}\\p{N}])`, 'iu');
 
 /* The words of `text` that `typed` stands for, as `text` prints them, or ''
@@ -45,6 +50,7 @@ const joinNotes = (held = '', arriving = '') => (
    typed on its own at the moment this passage was marked. It takes the
    book's words and the arriving note, and is returned; null when the
    passage is new. */
+/** @param {{ text?: string, note?: string, createdAt: Date | string }[]} [highlights] */
 const absorbPassage = (highlights = [], { text = '', note = '', at = null } = {}) => {
   const moment = at ? new Date(at).getTime() : NaN;
   const held = highlights.find(mark => (mark.text

@@ -1,3 +1,6 @@
+/** A workbench arrives from the browser; every field is read as if it could be anything. */
+/** @typedef {import('../types/request').Fields} Fields */
+
 const LIMITS = Object.freeze({
   materials: 80,
   trials: 40,
@@ -14,12 +17,15 @@ const LIMITS = Object.freeze({
   baseText: 20000
 });
 
+/** @param {unknown} value @param {number} [max] */
 const string = (value, max) => String(value || '').trim().slice(0, max);
+/** @param {unknown} value */
 const date = (value, fallback = new Date()) => {
-  const parsed = value ? new Date(value) : fallback;
+  const parsed = value ? new Date(/** @type {string | number | Date} */ (value)) : fallback;
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 };
 
+/** @param {Fields | undefined} [value] */
 const target = (value = {}) => ({
   blockId: string(value?.blockId, 160),
   offset: Math.max(0, Math.min(Number(value?.offset) || 0, LIMITS.baseText)),
@@ -30,6 +36,7 @@ const target = (value = {}) => ({
 });
 
 const materialKinds = new Set(['highlight', 'article', 'concept', 'question', 'wiki']);
+/** @param {Fields | undefined} value @param {number} index */
 const material = (value, index) => {
   const kind = string(value?.kind, 20);
   if (!materialKinds.has(kind)) return null;
@@ -48,6 +55,7 @@ const material = (value, index) => {
   };
 };
 
+/** @param {Fields | undefined} value @param {number} index */
 const trial = (value, index) => {
   const savedTarget = target(value?.target);
   if (value?.target?.scope && !savedTarget.scope) return null;
@@ -62,6 +70,7 @@ const trial = (value, index) => {
   };
 };
 
+/** @param {Fields | undefined} value @param {number} index */
 const thought = (value, index) => {
   const text = string(value?.text, LIMITS.text);
   if (!text) return null;
@@ -73,6 +82,7 @@ const thought = (value, index) => {
   };
 };
 
+/** @param {Fields | undefined} value @param {number} index */
 const dimmedPassage = (value, index) => {
   const text = string(value?.text, LIMITS.baseText);
   const blockId = string(value?.blockId, 160);
@@ -84,23 +94,26 @@ const dimmedPassage = (value, index) => {
 /* One line of the outline beside a draft. Depth makes the tree; a point that
    has gone into the draft remembers the heading it became. Empty lines are
    kept, because a writer leaves them while thinking. */
+/** @param {Fields | undefined} value @param {number} index */
 const outlinePoint = (value, index) => ({
   id: string(value?.id, 160) || `point-${index}`,
   text: String(value?.text || '').slice(0, LIMITS.point),
-  depth: Math.max(0, Math.min(Number.parseInt(value?.depth, 10) || 0, LIMITS.depth)),
+  depth: Math.max(0, Math.min(Number.parseInt(String(value?.depth), 10) || 0, LIMITS.depth)),
   folded: Boolean(value?.folded),
   blockId: string(value?.blockId, 160)
 });
 
+/** @template T @param {unknown} value @param {number} limit @param {(value: any, index: number) => T | null} normalize @returns {T[]} */
 const list = (value, limit, normalize) => (Array.isArray(value) ? value : [])
   .slice(0, limit)
   .map(normalize)
-  .filter(Boolean);
+  .filter(/** @returns {item is T} */ item => Boolean(item));
 
+/** @param {Fields} [value] @param {{ revision?: unknown }} [options] */
 const sanitizeNotebookWorkbench = (value = {}, { revision } = {}) => {
   const sourceRevision = revision === undefined ? value?.revision : revision;
   return {
-    revision: Math.max(0, Number.parseInt(sourceRevision, 10) || 0),
+    revision: Math.max(0, Number.parseInt(String(sourceRevision), 10) || 0),
     materials: list(value?.materials, LIMITS.materials, material),
     trials: list(value?.trials, LIMITS.trials, trial),
     looseThoughts: list(value?.looseThoughts, LIMITS.looseThoughts, thought),
@@ -119,11 +132,14 @@ const sanitizeNotebookWorkbench = (value = {}, { revision } = {}) => {
   };
 };
 
-const time = value => new Date(value || 0).getTime() || 0;
+/** @param {unknown} value */
+const time = value => new Date(/** @type {string | number | Date} */ (value || 0)).getTime() || 0;
 
 /** Every dimmed passage and scratchpad thought, newest first, with the piece it came from. */
+/** @param {Fields[]} [entries] */
 const notebookCuttings = (entries = []) => entries.flatMap(entry => {
   const piece = { noteId: String(entry._id), noteTitle: String(entry.title || '').trim() || 'Untitled' };
+  /** @param {string} kind @param {Fields[] | undefined} items */
   const from = (kind, items) => (items || [])
     .filter(item => String(item?.text || '').trim())
     .map(item => ({ ...piece, id: `${kind}:${piece.noteId}:${item.id}`, kind, text: item.text, createdAt: item.createdAt || null }));

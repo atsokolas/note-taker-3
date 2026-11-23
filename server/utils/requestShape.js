@@ -9,8 +9,10 @@ const { z } = require('zod');
  *   router.post('/api/notes', auth, shaped({ body: z.object({ title: z.string() }) }), handler)
  */
 
+/** @type {Record<string, string>} */
 const NOUNS = { string: 'text', number: 'a number', boolean: 'true or false', array: 'a list', object: 'an object', date: 'a date' };
 
+/** @param {import('zod').ZodIssue} issue @param {string} part */
 const sayIssue = (issue, part) => {
   const field = issue.path.join('.') || part;
   if (issue.code === 'invalid_type') return `${field} must be ${NOUNS[issue.expected] || issue.expected}.`;
@@ -19,8 +21,9 @@ const sayIssue = (issue, part) => {
   return `${field}: ${issue.message}`;
 };
 
+/** @param {Partial<Record<'params' | 'query' | 'body', import('zod').ZodTypeAny>>} shapes @returns {import('../types/request').Handler} */
 const shaped = shapes => (req, res, next) => {
-  for (const part of ['params', 'query', 'body']) {
+  for (const part of /** @type {const} */ (['params', 'query', 'body'])) {
     if (!shapes[part]) continue;
     const result = shapes[part].safeParse(req[part] ?? {});
     if (!result.success) return res.status(400).json({ error: sayIssue(result.error.issues[0], part) });

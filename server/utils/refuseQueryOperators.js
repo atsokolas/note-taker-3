@@ -6,11 +6,13 @@
  * does is refused here, once, before any route can pass it on.
  */
 
+/** @param {unknown} value @returns {boolean} */
 const carriesOperator = (value, depth = 0) => {
   if (!value || typeof value !== 'object' || depth > 32) return false;
   return Object.entries(value).some(([key, inner]) => key.startsWith('$') || carriesOperator(inner, depth + 1));
 };
 
+/** @type {import('../types/request').Handler} */
 const refuseQueryOperators = (req, res, next) => {
   if (carriesOperator(req.body)) {
     return res.status(400).json({ error: 'Field names cannot start with $.' });
