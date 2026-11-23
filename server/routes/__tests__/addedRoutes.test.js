@@ -28,14 +28,25 @@ test('what a source added: pencil until inked, gone once struck', async () => {
     find: query => lean(verdicts.filter(row => query.about.$in.includes(row.about))),
     create: async row => verdicts.push(row)
   };
-  const addedBy = async () => [echo, answer, page].map(key => ({ kind: 'echo', key, to: { title: key }, score: 0.9 }));
+  const addedBy = async () => [echo, answer, page].map(key => ({ kind: key === answer ? 'answers' : 'echo', key, to: { title: key, quote: `${key} says` }, score: 0.9 }));
+  // The page line is contradicted; the model is asked once, and the judgment kept.
+  const judgments = [];
+  const ConnectionJudgment = {
+    find: ({ about }) => lean(judgments.filter(row => about.$in.includes(row.about))),
+    insertMany: async rows => judgments.push(...rows)
+  };
+  const asked = [];
+  const judge = async ({ pairs }) => {
+    asked.push(pairs.map(({ b }) => b.who));
+    return pairs.map(({ b }, index) => ({ index, contradicts: b.who === page, a: 'Checklists slow surgeons down.', b: '' }));
+  };
 
   const app = express();
   app.use(express.json());
   app.use(buildAddedRouter({
     authenticateToken: (req, _res, next) => { req.user = { id: userId }; next(); },
     humanOnly: (_req, res, next) => (agent ? res.status(403).json({}) : next()),
-    Article, Connection, Verdict, WikiSourceEvent, addedBy
+    Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent, addedBy, judge
   }));
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const call = async (path, body) => {
@@ -46,7 +57,10 @@ test('what a source added: pencil until inked, gone once struck', async () => {
   };
   try {
     const first = await call(`/api/added/${source}`);
-    assert.deepEqual(first.added.map(({ key, inked }) => [key, inked]), [[echo, null], [answer, 'c1'], [page, null]]);
+    assert.deepEqual(first.added.map(({ kind, key, inked }) => [kind, key, inked]), [['echo', echo, null], ['answers', answer, 'c1'], ['argues', page, null]]);
+    assert.equal(first.added[2].says, 'Checklists slow surgeons down.');
+    assert.equal((await call(`/api/added/${source}`)).added[2].kind, 'argues');
+    assert.deepEqual(asked, [[echo, page]]);
     assert.equal('score' in first.added[0], false);
 
     agent = true;

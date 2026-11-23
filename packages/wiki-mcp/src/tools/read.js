@@ -43,7 +43,7 @@ export const readTools = [
   },
   {
     name: 'added',
-    description: 'What one saved source added to what the reader already holds, as Noeis connected it: passages they marked elsewhere that it echoes, questions of theirs it answers, and wiki pages it belongs on, each quoted with its link. `inked` names a connection the reader took up; without it the connection is Noeis\'s pencil, not yet their view. Pass the `id` of an article or book.',
+    description: 'What one saved source added to what the reader already holds, as Noeis connected it: passages they marked elsewhere that it echoes or argues with (`says` is its side), questions of theirs it answers, and wiki pages it belongs on, each quoted with its link. `inked` names a connection the reader took up; without it the connection is Noeis\'s pencil, not yet their view. Pass the `id` of an article or book.',
     inputSchema: {
       id: z.string().min(1).describe('The id of a saved article or book.')
     },

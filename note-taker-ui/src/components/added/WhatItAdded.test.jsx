@@ -13,12 +13,13 @@ const echo = {
   inked: null
 };
 const question = { kind: 'answers', key: 'question:q1', to: { type: 'question', id: 'q1', title: 'When does scale stop helping?' }, inked: 'c1' };
+const argues = { kind: 'argues', key: 'wiki_page:p2', to: { type: 'wiki_page', id: 'p2', title: 'Surgery', quote: 'Experienced surgeons need no checklist.' }, says: 'Even veteran surgeons cut complications with one.', inked: null };
 const page = { kind: 'belongs', key: 'wiki_page:p1', to: { type: 'wiki_page', id: 'p1', title: 'Checklists', quote: 'Checklists catch what memory drops.' }, inked: null };
 
 const shown = () => render(<MemoryRouter><WhatItAdded articleId="a1" /></MemoryRouter>);
 
 beforeEach(() => {
-  fetchAdded.mockResolvedValue([echo, question, page]);
+  fetchAdded.mockResolvedValue([echo, question, page, argues]);
   inkAdded.mockResolvedValue({ inked: 'c2' });
   strikeAdded.mockResolvedValue({ struck: true });
 });
@@ -34,6 +35,7 @@ it('says what a source added, in pencil until inked, each opening where it lives
   expect(questionLine).toHaveClass('is-inked');
   expect(questionLine.querySelector('button')).toBeNull();
   expect(screen.getByRole('link', { name: 'Checklists' })).toHaveAttribute('href', '/wiki/workspace?page=p1');
+  expect(screen.getByText(/Experienced surgeons/).closest('li')).toHaveTextContent('Argues with “Experienced surgeons need no checklist.” on Surgery: here, “Even veteran surgeons cut complications with one”.');
 });
 
 it('inks a connection as yours, and strikes one so it goes', async () => {

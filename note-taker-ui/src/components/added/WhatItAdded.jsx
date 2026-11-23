@@ -6,12 +6,12 @@ import { buildPassagePath } from '../../utils/sourceRoutes';
 import './what-it-added.css';
 
 /* What a source added to what you already hold, as Noeis connected it: the
-   passages it echoes, the questions it answers, the wiki pages it belongs
-   on. Each is in pencil until you ink it (a connection of yours, from then
+   passages it echoes or argues with, the questions it answers, the wiki
+   pages it belongs on. Each is in pencil until you ink it (a connection of yours, from then
    on; a page also gets a cited line to accept) or strike it (never offered
    again). With focus on a line, i inks and
    x strikes. Nothing connected is nothing shown. */
-const LEADS = { echo: 'Echoes', answers: 'Answers', belongs: 'Belongs on' };
+const LEADS = { echo: 'Echoes', argues: 'Argues with', answers: 'Answers', belongs: 'Belongs on' };
 
 const hrefOf = ({ type, id, articleId }) => ({
   highlight: buildPassagePath({ articleId, highlightId: id }),
@@ -19,15 +19,18 @@ const hrefOf = ({ type, id, articleId }) => ({
   wiki_page: `/wiki/workspace?page=${id}`
 }[type]);
 
-const Says = ({ kind, to }) => {
+const Held = ({ kind, to }) => {
   const where = <Link to={hrefOf(to)}>{to.type === 'highlight' ? <cite>{to.title}</cite> : to.title}</Link>;
   if (to.type === 'question') return <>your question {where}</>;
-  if (to.type === 'wiki_page') return <>{where}{to.quote ? <>, beside “{clip(to.quote)}”</> : null}</>;
+  if (to.type === 'wiki_page') return kind === 'argues' ? <>“{clip(to.quote)}” on {where}</> : <>{where}{to.quote ? <>, beside “{clip(to.quote)}”</> : null}</>;
   const when = markedWhen(to.at);
   return kind === 'answers'
     ? <>“{clip(to.quote)}”, which you asked beside {where}</>
     : <>“{clip(to.quote)}”, which you marked in {where}{when ? `, ${when}` : ''}</>;
 };
+
+// An argument says what this source holds instead.
+const Says = ({ says, ...connection }) => <><Held {...connection} />{connection.kind === 'argues' && says ? <>: here, “{clip(says.replace(/[.!?]+$/, ""))}”</> : null}</>;
 
 const WhatItAdded = ({ articleId, contentKey = '', hidden = false }) => {
   const [added, setAdded] = useState([]);

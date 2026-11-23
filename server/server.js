@@ -107,6 +107,7 @@ const {
   TourState,
   ReturnQueueEntry,
   Connection,
+  ConnectionJudgment,
   ItemViewEvent,
   ConceptPath,
   ConceptPathProgress,
@@ -1237,7 +1238,7 @@ app.use(buildRecallRouter({
   semanticSearch
 }));
 
-app.use(buildAddedRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Article, Connection, Verdict, WikiSourceEvent }));
+app.use(buildAddedRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent }));
 
 app.use(buildSyncRouter({
   authenticateToken: authenticateUserOrAgentToken,

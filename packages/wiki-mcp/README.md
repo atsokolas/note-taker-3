@@ -245,7 +245,7 @@ notes, open questions, concepts, held views, wiki pages and Editions) with the
 same retrieval the in-app partner uses, so a plain question like "what have I
 written about hiring" finds the reader's own notes, and the reading that bears
 on them. `added` takes one source and says how it fits what the reader
-already holds: the passages it echoes, the questions it answers and the wiki
+already holds: the passages it echoes or argues with, the questions it answers and the wiki
 pages it belongs on, as Noeis connected them, inked or still in pencil.
 When the reader steps away they can hand work to an agent from any page in
 Noeis. It appears first in `brief`, under `handedToYou`, with the line they

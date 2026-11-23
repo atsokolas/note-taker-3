@@ -233,6 +233,18 @@ connectionSchema.index({ userId: 1, toType: 1, toId: 1, createdAt: -1 });
 
 const Connection = mongoose.model('Connection', connectionSchema);
 
+/* Whether a source argues with something it connects to, as the model
+   judged it once: about is "source>type:id", says is the source's side. */
+const connectionJudgmentSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  about: { type: String, required: true },
+  argues: { type: Boolean, required: true },
+  says: { type: String, default: '' }
+}, { timestamps: true });
+connectionJudgmentSchema.index({ userId: 1, about: 1 }, { unique: true });
+
+const ConnectionJudgment = mongoose.model('ConnectionJudgment', connectionJudgmentSchema);
+
 const itemViewEventSchema = new mongoose.Schema({
   itemType: { type: String, required: true, trim: true },
   itemId: { type: String, required: true, trim: true },
@@ -317,6 +329,7 @@ module.exports = {
   ArticleReadingState,
   ReturnQueueEntry,
   Connection,
+  ConnectionJudgment,
   ItemViewEvent,
   dropLegacyConnectionIndex,
   ReferenceEdge,

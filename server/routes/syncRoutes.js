@@ -17,7 +17,7 @@ const pencilMatter = pencil => (pencil?.agent ? `---\npencil: ${pencil.agent}, n
 const noteMarkdown = note => `${pencilMatter(note.pencil)}${buildNotebookMarkdown(note, { keepDimmed: true })}`;
 
 // How an inked connection reads as a line, by the relation the reader inked.
-const LINKED_AS = { related: 'Echoes', supports: 'Answers', contained_by: 'Belongs on' };
+const LINKED_AS = { related: 'Echoes', supports: 'Answers', contained_by: 'Belongs on', contradicts: 'Argues with' };
 
 const articleMarkdown = (article) => {
   const links = article.links || [];
