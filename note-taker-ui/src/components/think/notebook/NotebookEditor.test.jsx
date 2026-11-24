@@ -1335,6 +1335,22 @@ describe('NotebookEditor', () => {
       expect(onSave).not.toHaveBeenCalled();
     });
 
+    it('resumes a draft with the editor live before the caret goes to the end, so the page can scroll to it', () => {
+      const frames = [];
+      const frame = jest.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => frames.push(callback));
+      try {
+        render(<NotebookEditor entry={{ _id: 'note-1', title: 'Draft', blocks: [] }} onSave={jest.fn()} startWriting="next" />);
+        mockEditor.setEditable.mockClear();
+        mockEditor.commands.focus.mockClear();
+        act(() => frames.splice(0).forEach(run => run()));
+        expect(mockEditor.setEditable).toHaveBeenCalledWith(true, false);
+        expect(mockEditor.commands.focus).toHaveBeenCalledWith('end');
+        expect(mockEditor.setEditable.mock.invocationCallOrder[0]).toBeLessThan(mockEditor.commands.focus.mock.invocationCallOrder[0]);
+      } finally {
+        frame.mockRestore();
+      }
+    });
+
     it('keeps rails visible on focus and fades them only after typing', () => {
       paint();
       fireEvent.click(screen.getByTestId('editor-content'));
