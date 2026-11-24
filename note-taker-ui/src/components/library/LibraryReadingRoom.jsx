@@ -48,7 +48,7 @@ const Spine = ({ row, pulled = false, children }) => (
     <span className="nightstand__about">
       {row.shelf ? <span>{row.shelf}</span> : null}
       {row.minutes ? <span>{row.minutes} min</span> : null}
-      {pulled ? null : <span>{progressPhrase(row.ratio) || 'marked recently'}</span>}
+      {pulled ? null : <span className="sr-only">{progressPhrase(row.ratio) || 'marked recently'}</span>}
     </span>
   </li>
 );

@@ -100,10 +100,8 @@
 .reading-room:has(> .nightstand) > :not(.nightstand) { grid-column: 2; }
 .nightstand {
   display: grid;
-  gap: 28px;
-  align-items: center;
+  gap: 20px;
 }
-.nightstand:has(> .reading-room__pick) { grid-template-columns: minmax(0, 1fr) minmax(200px, 280px); }
 .nightstand__stack ul {
   list-style: none;
   margin: 0 0 14px;
@@ -114,7 +112,8 @@
 .nightstand__spine {
   position: relative;
   width: var(--length);
-  min-width: min(100%, 260px);
+  min-width: min(92%, 260px);
+  max-width: 92%;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -131,6 +130,8 @@
   transform: translateX(6%);
   box-shadow: 0 0 0 1.5px var(--noeis-thread), var(--noeis-shadow-soft, 0 6px 16px rgba(0, 0, 0, 0.12));
 }
+/* The ribbon lies under the words, so a title reads across it. */
+.nightstand__spine > * { position: relative; z-index: 1; }
 .nightstand__spine[data-ribbon]::after {
   content: '';
   position: absolute;
@@ -166,7 +167,7 @@
   .reading-room .reading-room__title, .nightstand__spine { transition: none; }
 }
 @media (max-width: 900px) {
-  .reading-room:has(> .nightstand), .nightstand:has(> .reading-room__pick) { grid-template-columns: minmax(0, 1fr); }
+  .reading-room:has(> .nightstand) { grid-template-columns: minmax(0, 1fr); }
   .reading-room > .nightstand, .reading-room:has(> .nightstand) > :not(.nightstand) { grid-column: 1; grid-row: auto; }
 }
 @media (max-width: 600px) {
