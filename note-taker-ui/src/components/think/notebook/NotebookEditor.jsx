@@ -9,6 +9,7 @@ import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
 import { EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
 import HandOff from '../../handoff/HandOff';
+import HangInMuseum from '../../museum/HangInMuseum';
 import EntryHistory from '../editor/EntryHistory';
 import { passageSlashItems } from '../editor/slashCommands';
 import { begunLine, countWords } from '../../../pages/thinkNotesModel';
@@ -1730,6 +1731,7 @@ const NotebookEditor = ({
           <Button variant="quiet" onClick={handleSettle} disabled={settlement.settling}>{settlement.action}</Button>
           <Button variant="quiet" onClick={() => setOrganizeOpen(previous => !previous)}>Structure</Button>
           <Button variant="quiet" onClick={openHistory}>History</Button>
+          {isMongoObjectId(entry._id) ? <HangInMuseum kind="note" id={entry._id} className={buttonClass('quiet')} /> : null}
           <HandOff key={entry._id} context={{ kind: 'note', id: entry._id, title: entry.title || 'Untitled' }}
             readExcerpt={() => {
               const target = domNotebookTarget(editor) || selectionNotebookTarget(editor) || highlightedRef.current;

@@ -48,6 +48,7 @@ import { sourceLabel } from './library/libraryColumnModel';
 import { formatCalendarDate } from '../utils/dateDisplay';
 import { sourceTitle } from '../utils/sourceDisplayText';
 import AddToProject from '../work/AddToProject';
+import HangInMuseum from './museum/HangInMuseum';
 
 const hasReadableContent = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
@@ -604,6 +605,7 @@ const ArticleReader = ({
             {published ? <span>{published}</span> : null}
             <OpenSource key={article._id} article={article} />
             <AddToProject kind="article" id={article._id} title={article.title} />
+            <HangInMuseum kind="article" id={article._id} />
           </div>
           {placement !== 'stream' && article.placementReason ? <p className="article-reader-why">{article.placementReason}</p> : null}
           {folioLine ? <ArticleFolioLine line={folioLine} articleId={article._id} /> : null}
