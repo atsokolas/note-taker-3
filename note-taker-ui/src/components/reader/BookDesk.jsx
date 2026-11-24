@@ -56,14 +56,20 @@ const receiptFor = (sent, saved, known, earlier) => {
     : 'Filled in from the book.';
 };
 
-/* The book's pages as you marked them, each mark under its page, earlier
-   readings in fainter ink. The desk writes into it; a lent copy only reads it. */
-export function BookPages({ marks = [], since = 0, inked = '', doorFor }) {
+/* The book's pages as you marked them: its words in the column, yours in
+   the margin beside them, earlier readings in fainter ink, and the page you
+   are on marked. The desk writes into it; a lent copy only reads it. */
+export function BookPages({ marks = [], since = 0, inked = '', here = null, doorFor }) {
   const pages = useMemo(() => pagesOf(marks), [marks]);
   return pages.length ? (
     <ol className="book-desk__pages">
       {pages.map(({ label, marks: onPage }) => (
-        <li key={`${label}-${onPage[0]._id}`} className="book-desk__page" data-folded={onPage.some(mark => kindOf(mark) === 'fold') || undefined}>
+        <li
+          key={`${label}-${onPage[0]._id}`}
+          className="book-desk__page"
+          data-folded={onPage.some(mark => kindOf(mark) === 'fold') || undefined}
+          aria-current={(here && onPage[0].page === here) ? 'page' : undefined}
+        >
           {label ? <span className="book-desk__folio">{label}</span> : null}
           <ul className="book-desk__marks">
             {onPage.filter(mark => kindOf(mark) !== 'fold').map(mark => (
@@ -79,14 +85,16 @@ export function BookPages({ marks = [], since = 0, inked = '', doorFor }) {
                 data-earlier={isEarlier(mark, since) || undefined}
               >
                 {mark.text ? <blockquote>{mark.text}</blockquote> : null}
-                {mark.note ? <p className="book-desk__own">{mark.note}</p> : null}
-                {mark.tags?.length ? (
-                  <p className="book-desk__tags">
-                    {mark.tags.map(tag => <Link key={tag} to={buildConceptPath({ name: tag })}>#{tag}</Link>)}
-                  </p>
-                ) : null}
-                {isEarlier(mark, since) ? <span className="book-desk__when">{yearOf(mark)}</span> : null}
-                {doorFor?.(mark)}
+                <div className="book-desk__margin">
+                  {mark.note ? <p className="book-desk__own">{mark.note}</p> : null}
+                  {mark.tags?.length ? (
+                    <p className="book-desk__tags">
+                      {mark.tags.map(tag => <Link key={tag} to={buildConceptPath({ name: tag })}>#{tag}</Link>)}
+                    </p>
+                  ) : null}
+                  {isEarlier(mark, since) ? <span className="book-desk__when">{yearOf(mark)}</span> : null}
+                  {doorFor?.(mark)}
+                </div>
               </li>
             ))}
           </ul>
@@ -340,6 +348,32 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
 
   return (
     <section className="book-desk" aria-label="Reading desk">
+      {Boolean(sitting.length || setDown || returning || lastReading?.finishedOn) && (
+        <p className="book-desk__lede">
+          {sitting.length ? <><span className="book-desk__label">{sittingLabel(new Date(sitting[sitting.length - 1].createdAt))}</span>{tallyLine(sitting)}</>
+            : setDown ? <><span className="book-desk__label">Set down in {monthOf(setDown)}</span>Why’d you stop?</>
+              : returning ? <>
+                <span className="book-desk__label">{returning.label}{returning.page ? `, p. ${returning.page}` : ''}</span>
+                {returning.id && onOpenMark
+                  ? <button type="button" className="book-desk__action" onClick={() => onOpenMark(returning.id)}><q className={returning.own ? 'book-desk__own' : ''}>{returning.words}</q></button>
+                  : <q className={returning.own ? 'book-desk__own' : ''}>{returning.words}</q>}
+              </>
+              : <><span className="book-desk__label">Read before, finished {monthOf(dayOf(lastReading.finishedOn))}</span>{lastReading.closingLine ? <q>{lastReading.closingLine}</q> : 'What you marked then is here in faded ink.'}</>}
+        </p>
+      )}
+      <BookPages marks={marks} since={since} inked={inked} here={page} doorFor={doorFor} />
+      {echo ? (
+        <p className="book-desk__echo">
+          <q>{echo.text}</q> You marked this in {monthOf(new Date(echo.createdAt))}{echo.articleTitle ? <>, in <cite>{echo.articleTitle}</cite></> : null}.
+        </p>
+      ) : null}
+      {waiting.length ? (
+        <label className="book-desk__photo">
+          {waiting.length === 1 ? 'Photograph the page to fill in your quote' : `Photograph the page to fill in your ${waiting.length} quotes`}
+          <input type="file" accept="image/*" capture="environment" onChange={photograph} />
+        </label>
+      ) : null}
+      {/* The line is docked under the page, so it is where your hand is however far down you read. */}
       <form className="book-desk__line" onSubmit={(event) => { event.preventDefault(); keep(); }}>
         <div className="book-desk__kinds" role="radiogroup" aria-label="What are you keeping?">
           {Object.entries(CAPTURE_KINDS).map(([value, label]) => (
@@ -387,38 +421,13 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
           )}
           <button type="submit" className="book-desk__action">Save {CAPTURE_KINDS[actionKind].toLowerCase()}</button>
         </div>
+        <p className="book-desk__hint" aria-live="polite" data-said={receipt || ghost || then || (kind === 'scribble' && line === '/') ? true : undefined}>
+          {receipt || (kind === 'scribble' && line === '/' ? 'Try /dog-ear, /argue or /who.' : ghost ? 'Tab takes the rest of the passage you marked'
+            : then ? <>In {yearOf(then)}, on this page: <q>{then.text || then.note}</q></>
+              : kind === 'scribble' && unfinished ? 'Return finishes it. Escape starts a new line.'
+                : kind === 'scribble' ? 'Return keeps the line. Option-Return adds it to your last quote.' : 'Return saves. Shift-Return adds a line.')}
+        </p>
       </form>
-      <p className="book-desk__hint" aria-live="polite" data-said={receipt || ghost || then || (kind === 'scribble' && line === '/') ? true : undefined}>
-        {receipt || (kind === 'scribble' && line === '/' ? 'Try /dog-ear, /argue or /who.' : ghost ? 'Tab takes the rest of the passage you marked'
-          : then ? <>In {yearOf(then)}, on this page: <q>{then.text || then.note}</q></>
-            : kind === 'scribble' && unfinished ? 'Return finishes it. Escape starts a new line.'
-              : kind === 'scribble' ? 'Return keeps the line. Option-Return adds it to your last quote.' : 'Return saves. Shift-Return adds a line.')}
-      </p>
-      {Boolean(sitting.length || setDown || returning || lastReading?.finishedOn) && (
-        <p className="book-desk__lede">
-          {sitting.length ? <><span className="book-desk__label">{sittingLabel(new Date(sitting[sitting.length - 1].createdAt))}</span>{tallyLine(sitting)}</>
-            : setDown ? <><span className="book-desk__label">Set down in {monthOf(setDown)}</span>Why’d you stop?</>
-              : returning ? <>
-                <span className="book-desk__label">{returning.label}{returning.page ? `, p. ${returning.page}` : ''}</span>
-                {returning.id && onOpenMark
-                  ? <button type="button" className="book-desk__action" onClick={() => onOpenMark(returning.id)}><q className={returning.own ? 'book-desk__own' : ''}>{returning.words}</q></button>
-                  : <q className={returning.own ? 'book-desk__own' : ''}>{returning.words}</q>}
-              </>
-              : <><span className="book-desk__label">Read before, finished {monthOf(dayOf(lastReading.finishedOn))}</span>{lastReading.closingLine ? <q>{lastReading.closingLine}</q> : 'What you marked then is here in faded ink.'}</>}
-        </p>
-      )}
-      <BookPages marks={marks} since={since} inked={inked} doorFor={doorFor} />
-      {echo ? (
-        <p className="book-desk__echo">
-          <q>{echo.text}</q> You marked this in {monthOf(new Date(echo.createdAt))}{echo.articleTitle ? <>, in <cite>{echo.articleTitle}</cite></> : null}.
-        </p>
-      ) : null}
-      {waiting.length ? (
-        <label className="book-desk__photo">
-          {waiting.length === 1 ? 'Photograph the page to fill in your quote' : `Photograph the page to fill in your ${waiting.length} quotes`}
-          <input type="file" accept="image/*" capture="environment" onChange={photograph} />
-        </label>
-      ) : null}
     </section>
   );
 }

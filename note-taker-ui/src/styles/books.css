@@ -91,9 +91,21 @@
   text-transform: uppercase;
 }
 
-/* The frame the library's margin notes are placed in. */
+/* One book's page: the frame the library's margin notes are placed in, and
+   wide enough on a desk for a margin beside the marks. Everything else keeps
+   to the text's measure, so the margin runs the length of the page. */
 .books--one {
+  --book-margin: 17.5rem;
+  --book-gutter: 2.5rem;
   position: relative;
+  width: min(100% - 32px, 1048px);
+  container-type: inline-size;
+}
+
+@container (min-width: 980px) {
+  .books--one > :not(.books__tools, .book-desk, :has(> .book-desk)) {
+    max-width: calc(100% - var(--book-margin) - var(--book-gutter));
+  }
 }
 
 .books--one .books__head .books__author {
@@ -301,6 +313,7 @@
 .books__questions h2,
 .books__twice h2,
 .books__beforehand h2,
+.books__closing h2,
 .books__year h2 {
   margin: 0;
   color: var(--muted);
@@ -359,7 +372,8 @@
 }
 
 .books__twice > .books__asked,
-.books__beforehand > .books__asked {
+.books__beforehand > .books__asked,
+.books__closing > .books__asked {
   margin: var(--space-2) 0 var(--space-3);
 }
 
