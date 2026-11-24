@@ -50,6 +50,7 @@
   color: var(--text-muted);
 }
 .reading-room__shelf ul,
+.reading-room__connected ul,
 .reading-room__saying ol {
   list-style: none;
   margin: 0;
@@ -70,6 +71,10 @@
 }
 .reading-room__saying ol {
   gap: 22px;
+}
+.reading-room__connected li {
+  font: 16px/1.55 var(--font-serif);
+  color: var(--text-secondary);
 }
 .reading-room__said {
   margin: 0 0 8px;

@@ -171,7 +171,7 @@
   "server/services/libraryRelevanceService.js": 18,
   "server/services/libraryRoomProjectionService.js": 7,
   "server/services/mongoBackupService.js": 8,
-  "server/services/morningPaperEmailService.js": 50,
+  "server/services/morningPaperEmailService.js": 36,
   "server/services/noeisReceiptService.js": 27,
   "server/services/notebookImportTreeService.js": 4,
   "server/services/notebookWordingOptionsService.js": 3,

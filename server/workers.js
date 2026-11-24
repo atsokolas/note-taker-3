@@ -67,7 +67,7 @@ const workers = () => {
   const {
     WikiSourceEvent, WikiPage, WikiProposal, WikiRevision, WikiMaintenanceRun, NoeisReceipt, WikiBriefingCache,
     Connection, Article, NotebookEntry, TagMeta, Question, User, WikiPageVisit, MorningPaperDelivery,
-    ImportSession, Folder, ReturnQueueEntry, EmbeddingJob
+    ImportSession, Folder, ReturnQueueEntry, EmbeddingJob, ConnectionJudgment, Verdict
   } = models;
   const reading = { Connection, Article, NotebookEntry, TagMeta, Question };
   return [
@@ -106,7 +106,7 @@ const workers = () => {
         const result = await drainDueMorningPaperEmails({
           models: {
             User, WikiPage, WikiRevision, WikiSourceEvent, WikiMaintenanceRun, WikiBriefingCache, WikiPageVisit,
-            MorningPaperDelivery, NoeisReceipt, ImportSession, Folder, ReturnQueueEntry, ...reading
+            MorningPaperDelivery, NoeisReceipt, ImportSession, Folder, ReturnQueueEntry, ConnectionJudgment, Verdict, ...reading
           },
           limit: number('MORNING_PAPER_EMAIL_BATCH_SIZE', 50)
         });

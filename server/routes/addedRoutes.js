@@ -2,11 +2,13 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { cleanWikiSummary } = require('../services/wikiSourceRefs');
-const { whatItAdded, aboutOf } = require('../services/whatItAdded');
+const { whatItAdded, lately, aboutOf } = require('../services/whatItAdded');
 
 const TITLE_KEPT = 300;
 const TEXT_KEPT = 2000;
 const KEY = /^(highlight|question|wiki_page):[a-f\d]{24}$/i;
+// What the reading room calls lately.
+const LATELY_DAYS = 7;
 // The relation an inked connection is kept as, by what Noeis saw.
 const RELATION = { echo: 'related', answers: 'supports', belongs: 'contained_by', argues: 'contradicts' };
 
@@ -22,23 +24,32 @@ const buildAddedRouter = ({
   authenticateToken, humanOnly, Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent, added = whatItAdded
 }) => {
   const router = express.Router();
+  const models = { Article, ConnectionJudgment, Verdict };
   const named = ({ params, body }) => mongoose.isValidObjectId(params.articleId) && KEY.test(String(body?.key || ''));
+
+  // What arrived this week and connected, newest first.
+  router.get('/api/added', authenticateToken, async (req, res) => {
+    try {
+      const since = new Date(Date.now() - LATELY_DAYS * 24 * 60 * 60 * 1000);
+      const told = await lately({ userId: req.user.id, since, models, added });
+      return res.json({ lately: told.map(({ score, ...connection }) => connection) });
+    } catch (error) {
+      console.warn('[added] lately failed', String(error?.message || error).slice(0, 160));
+      return res.json({ lately: [] });
+    }
+  });
 
   router.get('/api/added/:articleId', authenticateToken, async (req, res) => {
     const { articleId } = req.params;
     if (!mongoose.isValidObjectId(articleId)) return res.status(400).json({ error: 'Name a source of yours.' });
     const userId = req.user.id;
     try {
-      const found = await added({ userId, articleId, models: { Article, ConnectionJudgment } });
-      const [inked, struck] = await Promise.all([
-        Connection.find({ userId, fromType: 'article', fromId: articleId }).select('toType toId').lean(),
-        Verdict.find({ userId, kind: 'connection', about: { $in: found.map(connection => aboutOf(articleId, connection.key)) } }).select('about').lean()
+      const [found, inked] = await Promise.all([
+        added({ userId, articleId, models }),
+        Connection.find({ userId, fromType: 'article', fromId: articleId }).select('toType toId').lean()
       ]);
       const inkedAs = new Map(inked.map(row => [`${row.toType}:${row.toId}`, String(row._id)]));
-      const gone = new Set(struck.map(row => row.about));
-      return res.json({ added: found
-        .filter(connection => !gone.has(aboutOf(articleId, connection.key)))
-        .map(({ score, ...connection }) => ({ ...connection, inked: inkedAs.get(connection.key) || null })) });
+      return res.json({ added: found.map(({ score, ...connection }) => ({ ...connection, inked: inkedAs.get(connection.key) || null })) });
     } catch (error) {
       console.warn('[added] lookup failed', String(error?.message || error).slice(0, 160));
       return res.json({ added: [] });

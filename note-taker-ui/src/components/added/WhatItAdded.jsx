@@ -11,7 +11,7 @@ import './what-it-added.css';
    on; a page also gets a cited line to accept) or strike it (never offered
    again). With focus on a line, i inks and
    x strikes. Nothing connected is nothing shown. */
-const LEADS = { echo: 'Echoes', argues: 'Argues with', answers: 'Answers', belongs: 'Belongs on' };
+export const LEADS = { echo: 'Echoes', argues: 'Argues with', answers: 'Answers', belongs: 'Belongs on' };
 
 const hrefOf = ({ type, id, articleId }) => ({
   highlight: buildPassagePath({ articleId, highlightId: id }),
@@ -30,7 +30,7 @@ const Held = ({ kind, to }) => {
 };
 
 // An argument says what this source holds instead.
-const Says = ({ says, ...connection }) => <><Held {...connection} />{connection.kind === 'argues' && says ? <>: here, “{clip(says.replace(/[.!?]+$/, ""))}”</> : null}</>;
+export const Says = ({ says, ...connection }) => <><Held {...connection} />{connection.kind === 'argues' && says ? <>: here, “{clip(says.replace(/[.!?]+$/, ""))}”</> : null}</>;
 
 const WhatItAdded = ({ articleId, contentKey = '', hidden = false }) => {
   const [added, setAdded] = useState([]);

@@ -440,6 +440,7 @@ const loadWorthSaying = async ({ models, userId, now = new Date(), offset = 0 })
 };
 
 module.exports = {
+  SUPPRESSED,
   FINISHED,
   STARTED,
   weekBounds,
