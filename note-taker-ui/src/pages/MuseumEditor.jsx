@@ -38,7 +38,8 @@ function WallSettings({ museum }) {
         </label>
         <p className="museum-settings__actions">
           <button type="submit" className="museum-button">Save</button>
-          <button type="button" className="museum-button is-primary" onClick={() => save(!museum.open)}>{museum.open ? 'Close the wall' : 'Open the wall'}</button>
+          {/* An empty wall has nothing for a visitor, so it offers no door yet. */}
+          {museum.open || museum.pieces.length ? <button type="button" className="museum-button is-primary" onClick={() => save(!museum.open)}>{museum.open ? 'Close the wall' : 'Open the wall'}</button> : null}
           {note ? <span role="status">{note}</span> : null}
         </p>
       </form>
