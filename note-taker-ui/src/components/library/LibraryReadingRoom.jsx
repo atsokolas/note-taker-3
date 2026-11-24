@@ -53,23 +53,27 @@ const Spine = ({ row, pulled = false, children }) => (
   </li>
 );
 
-/* What you are partway through, stacked like books by the bed, with today's
-   pick pulled out of the stack and its note beside it. */
+/* What you are partway through, stacked like books by the bed, and today's
+   pick pulled out of the stack to lie beside it with its note. */
 const Nightstand = ({ pick, stillReading, onOpen }) => (
   <div className="nightstand">
-    <div className="nightstand__stack" data-testid="reading-room-still">
-      {stillReading.length ? <h2 className="reading-room__eyebrow">Still reading</h2> : null}
-      <ul>
-        {stillReading.map((row) => (
-          <Spine key={row.articleId} row={row}><Title id={row.articleId} title={row.title} onOpen={onOpen} /></Spine>
-        ))}
-        {pick ? <Spine row={pick} pulled><Title id={pick.articleId} title={pick.title} onOpen={onOpen} /></Spine> : null}
-      </ul>
-      <p className="reading-room__rule">The longer the spine, the more you marked in it. The ribbon is where you stopped.</p>
-    </div>
+    {stillReading.length ? (
+      <div className="nightstand__stack" data-testid="reading-room-still">
+        <h2 className="reading-room__eyebrow">Still reading</h2>
+        <ul>
+          {stillReading.map((row) => (
+            <Spine key={row.articleId} row={row}><Title id={row.articleId} title={row.title} onOpen={onOpen} /></Spine>
+          ))}
+        </ul>
+        <p className="reading-room__rule">The longer the spine, the more you marked in it. The ribbon is where you stopped.</p>
+      </div>
+    ) : null}
     {pick ? (
       <div className="reading-room__pick" data-testid="reading-room-pick">
-        <span className="reading-room__eyebrow">For today</span>
+        <h2 className="reading-room__eyebrow">For today</h2>
+        <ul>
+          <Spine row={pick} pulled><Title id={pick.articleId} title={pick.title} onOpen={onOpen} /></Spine>
+        </ul>
         <p className="reading-room__detail">
           {[pickLine(pick), pick.siteName || pick.author].filter(Boolean).join(' · ')}
         </p>
