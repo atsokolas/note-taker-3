@@ -111,9 +111,9 @@
 }
 .nightstand__spine {
   position: relative;
-  width: var(--length);
+  /* An unmarked piece sits at the floor; eight marks reach the cap, and more stay there. */
+  width: min(92%, calc(56% + var(--marks) * 4.5%));
   min-width: min(92%, 260px);
-  max-width: 92%;
   box-sizing: border-box;
   display: flex;
   align-items: center;
