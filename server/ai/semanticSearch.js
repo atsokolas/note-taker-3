@@ -345,6 +345,11 @@ const ADDED_FROM = 12;
 const ADDED_ASKED = 6;
 const ADDED_FLOOR = rawCosineToAtlasScore(0.30);
 const ADDED_TYPES = ['highlight', 'question', 'wiki_claim'];
+// One quote inside the other, word for word.
+const sameQuote = (a, b) => {
+  const [x, y] = [sameWords(a), sameWords(b)];
+  return Boolean(x && y) && (x.includes(y) || y.includes(x));
+};
 const isQuestionLine = mark => !mark.text && /\?\s*$/.test(mark.note || '');
 const targetOf = row => (row.objectType === 'wiki_claim' ? `wiki_page:${row.metadata?.pageId}` : `${row.objectType}:${row.objectId}`);
 
@@ -395,11 +400,13 @@ const addedBy = async ({ userId, articleId, models = {} }) => {
     if (isQuestionLine(mark)) return { kind: 'answers', to: { ...to, quote: plain(mark.note) } };
     return plain(mark.text).length >= MARGIN_MIN_QUOTE_CHARS && { kind: 'echo', to: { ...to, quote: plain(mark.text) } };
   };
-  // Strongest first; each thing it reaches once, by its best match; ADDED_ASKED of each kind.
+  // Strongest first; each thing it reaches once, by its best match, and the same words
+  // (a line quoted in two places) once; ADDED_ASKED of each kind.
   const found = rows
     .sort((a, b) => Number(b.score) - Number(a.score))
     .map(row => ({ ...connectionOf(row), key: targetOf(row), score: Number(row.score) }))
-    .filter((connection, at, all) => connection.kind && all.findIndex(other => other.kind && other.key === connection.key) === at);
+    .filter(connection => connection.kind)
+    .reduce((kept, connection) => (kept.some(other => other.key === connection.key || sameQuote(other.to.quote, connection.to.quote)) ? kept : [...kept, connection]), []);
   return found.filter((connection, at) => found.slice(0, at).filter(other => other.kind === connection.kind).length < ADDED_ASKED);
 };
 

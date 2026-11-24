@@ -269,6 +269,14 @@ describe('addedBy', () => {
     expect(models.VectorItem.find.mock.calls.map(([filter]) => filter.objectType)).toEqual(['highlight', 'article']);
   });
 
+  it('never offers the same words twice', async () => {
+    const added = await addedBy({ userId, articleId: here, models: modelsFor([
+      highlight(1, 0.8),
+      highlight(3, 0.7)
+    ]) });
+    expect(added.map(({ key }) => key)).toEqual([`highlight:${id(1)}`]);
+  });
+
   it('offers the model the strongest six of each kind, down to a low floor', async () => {
     const works = [7, 8, 9, 10, 11, 12, 13, 14];
     Object.assign(held, ...works.map(n => ({ [id(n)]: { _id: id(n), text: `${quote} ${n}`, articleId: there, articleTitle: `Work ${n}` } })));

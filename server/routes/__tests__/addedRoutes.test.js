@@ -46,7 +46,8 @@ test('what a source added: pencil until inked, gone once struck', async () => {
   const judge = async ({ pairs }) => {
     asked.push(pairs.map(({ b }) => b.who));
     const relationOf = who => ({ [page]: 'argues', [coincidence]: 'none' }[who] || 'bears');
-    return pairs.map(({ b }, index) => ({ index, relation: relationOf(b.who), a: 'Checklists slow surgeons down.', b: '' }));
+    // The model names no side for the argument, so the source's own first mark speaks for it.
+    return pairs.map(({ b }, index) => ({ index, relation: relationOf(b.who), a: '', b: '' }));
   };
 
   const app = express();
@@ -67,7 +68,7 @@ test('what a source added: pencil until inked, gone once struck', async () => {
   try {
     const first = await call(`/api/added/${source}`);
     assert.deepEqual(first.added.map(({ kind, key, inked }) => [kind, key, inked]), [['echo', echo, null], ['answers', answer, 'c1'], ['argues', page, null]]);
-    assert.equal(first.added[2].says, 'Checklists slow surgeons down.');
+    assert.equal(first.added[2].says, 'Complications fell by a third.');
     assert.equal((await call(`/api/added/${source}`)).added[2].kind, 'argues');
     assert.deepEqual(asked, [[echo, answer, page, coincidence]]);
     assert.equal(judgments.length, 4);
