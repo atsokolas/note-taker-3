@@ -148,7 +148,8 @@ html[data-ui-theme='light'] {
   --wiki-quiet-danger: var(--noeis-danger);
 }
 
-html[data-ui-theme='dark'] {
+/* The Museum's rooms are always lit for evening, whatever the theme. */
+.museum-room, html[data-ui-theme='dark'] {
   color-scheme: dark;
   --noeis-canvas: #16140f;
   --noeis-chrome: #1a1712;

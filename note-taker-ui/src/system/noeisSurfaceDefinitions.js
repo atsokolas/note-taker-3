@@ -145,6 +145,15 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     activePrefixes: ['/marketing-analytics', '/search-console-opportunities'],
     authenticatedPrefixes: ['/marketing-analytics', '/search-console-opportunities']
   }),
+  /* The few pieces that shaped how you think, hung on one wall you can open
+     to anyone. Its visitors' address, /museum/:handle, is a public page. */
+  surface({
+    id: 'surface.museum',
+    name: 'Museum',
+    route: '/museum',
+    navigationGroup: 'secondary',
+    orientation: 'The pieces that shaped how you think, and why each one is there.'
+  }),
   // What the reader handed to agents before stepping away, and what agents left in pencil.
   surface({
     id: 'surface.away',
