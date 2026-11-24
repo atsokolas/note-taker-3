@@ -18,6 +18,7 @@ import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import useArticleDetail from '../hooks/useArticleDetail';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import { buildPassagePath } from '../utils/sourceRoutes';
+import { clothOf } from '../utils/cloth';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import AddToProject from '../work/AddToProject';
 import HangInMuseum from '../components/museum/HangInMuseum';
@@ -145,9 +146,30 @@ const catalogueEntry = (book, now) => {
     where: date ? `${status}${setDown ? ' in' : ''} ${monthOf(date)}` : status,
     page,
     tally: tallyLine(marks, page),
-    last
+    last,
+    marks: marks.length,
+    furthest: Math.max(0, ...marks.map(mark => mark.page || 0)),
+    spine: spineOf(marks, since),
+    closed: book.finishedOn ? dayOf(book.finishedOn).toLocaleDateString(undefined, { month: 'short' }) : ''
   };
 };
+
+/* A book standing on the shelf. Its width is how much you marked in it, its
+   height how far into it your marks go, its cloth the same every visit; the
+   gold ticks are where you marked. A book set down leans; a finished one
+   wears the month you closed it. */
+const Volume = ({ book, bookend, pulled, onPull }) => (
+  <li className="books__volume" data-status={book.status} data-bookend={bookend || undefined}
+    style={{ '--marks': book.marks, '--furthest': book.furthest, '--cloth': clothOf(book.title) }}>
+    <button type="button" id={shelfRowId(book.id)} aria-pressed={pulled} aria-controls="books-preview" onClick={onPull}>
+      <span className="books__volume-title">{book.title}</span>
+      {book.spine ? <span className="books__volume-ticks" aria-hidden="true">
+        {book.spine.ticks.map(tick => <i key={tick.id} data-earlier={tick.earlier || undefined} style={{ top: `${tick.at * 100}%` }} />)}
+      </span> : null}
+      {book.closed ? <span className="books__volume-colophon" aria-hidden="true">{book.closed}</span> : null}
+    </button>
+  </li>
+);
 
 const Shelf = () => {
   const navigate = useNavigate();
@@ -209,7 +231,8 @@ const Shelf = () => {
   const returning = books?.find(book => book.returning);
   const now = Date.now();
   const entries = (books || []).map(book => catalogueEntry(book, now))
-    .filter(book => status === BOOK_STATUSES[0] || book.status === status);
+    .filter(book => status === BOOK_STATUSES[0] || book.status === status)
+    .sort((a, b) => BOOK_STATUSES.indexOf(a.status) - BOOK_STATUSES.indexOf(b.status));
   const selected = entries.find(book => book.id === selectedId) || entries[0];
   const mark = selected?.last;
   const markQuery = mark?.id ? `?highlight=${encodeURIComponent(mark.id)}` : '';
@@ -246,35 +269,27 @@ const Shelf = () => {
         {selected ? (
           <div className="books__catalogue">
             <ol className="books__shelf" aria-label="Books on this shelf">
-              {entries.map(book => (
-                <li key={book.id} className="books__shelf-row" data-previewed={selected.id === book.id || undefined}>
-                  <Link to={`/books/${book.id}`} id={shelfRowId(book.id)} className="books__book"
-                    state={{ fromShelf: true }} onClick={event => remember(event, book.id)}
-                    data-shelf-bookmark={place?.id === book.id ? '' : undefined}>
-                    <span className="books__identity">
-                      <span className="books__title">{book.title}</span>
-                      {book.author ? <span className="books__author">{book.author}</span> : null}
-                    </span>
-                    <span className="books__tally">
-                      {!book.page || book.status !== 'Reading' ? <span>{book.where}</span> : null}
-                      {book.page ? <span className="books__position"><span className="sr-only">Last marked </span>p. {book.page}</span> : null}
-                      {book.tally ? <span>{book.tally}</span> : null}
-                    </span>
-                  </Link>
-                  <button type="button" className="books__preview-button" aria-label={`Preview ${book.title}`}
-                    aria-pressed={selected.id === book.id} aria-controls="books-preview" onClick={() => preview(book.id)}>
-                    Preview
-                  </button>
-                </li>
+              {entries.map((book, index) => (
+                <Volume key={book.id} book={book} pulled={selected.id === book.id} onPull={() => preview(book.id)}
+                  bookend={index && entries[index - 1].status !== book.status ? book.status : ''} />
               ))}
             </ol>
+            <p className="books__key">Wider spines are books you marked more; the gold is where you marked.</p>
             <aside className="books__preview" id="books-preview" aria-labelledby="books-preview-title">
-              <p className="books__author">{mark ? (selected.status === 'Finished' && !mark.id ? 'Your finishing line' : mark.own ? 'Your last note' : 'Your last highlight') : selected.where}</p>
-              <h2 id="books-preview-title" ref={previewTitle} tabIndex={-1}>{selected.title}</h2>
-              {selected.author ? <p className="books__quiet">{selected.author}</p> : null}
-              {mark ? <blockquote>{mark.words}</blockquote> : !selected.tally ? <p className="books__quiet">Nothing written yet.</p> : null}
+              <div>
+                {selected.author ? <p className="books__author">{selected.author}</p> : null}
+                <h2 id="books-preview-title" ref={previewTitle} tabIndex={-1}>{selected.title}</h2>
+                <p className="books__quiet">{selected.where}{selected.page ? <>, last marked at <b>p. {selected.page}</b></> : null}</p>
+                {selected.tally ? <p className="books__tally">{selected.tally}</p> : null}
+              </div>
+              <div>
+                {mark ? <>
+                  <p className="books__author">{selected.status === 'Finished' && !mark.id ? 'Your finishing line' : mark.own ? 'Your last note' : 'Your last highlight'}</p>
+                  <blockquote>{mark.words}</blockquote>
+                </> : !selected.tally ? <p className="books__quiet">Nothing written yet.</p> : null}
+              </div>
               <Link to={`/books/${selected.id}${markQuery}`} state={{ fromShelf: true }} onClick={event => remember(event, selected.id)}>
-                {markQuery ? (mark.page ? `Open at p. ${mark.page}` : 'Open at the mark') : 'Open book'} <span aria-hidden="true">↗</span>
+                {markQuery ? (mark.page ? `Open at p. ${mark.page}` : 'Open at the mark') : 'Open book'}
               </Link>
             </aside>
           </div>

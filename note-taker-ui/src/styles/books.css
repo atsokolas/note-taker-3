@@ -198,8 +198,8 @@
   margin-bottom: var(--space-5);
 }
 
-.books__catalogue-filters button,
-.books__preview-button {
+.books__catalogue-filters button {
+  padding: 0;
   border: 0;
   background: transparent;
   color: var(--text-secondary);
@@ -207,99 +207,126 @@
   font: .84rem var(--font-sans);
   cursor: pointer;
 }
-
-.books__catalogue-filters button { padding: 0; }
 .books__catalogue-filters button[aria-pressed=true] {
   box-shadow: inset 0 -2px var(--noeis-action);
   color: var(--text-primary);
   font-weight: 600;
 }
 
-.books__catalogue {
+/* The shelf: books standing on one board, bottom-aligned, read across.
+   Width is how much you marked, height how far into the book you marked. */
+.books__shelf {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  min-height: 380px;
+  margin: 0;
+  padding: var(--space-8) var(--space-1) 0;
+  overflow-x: auto;
+  list-style: none;
+  border-bottom: 12px solid var(--noeis-paper-sunken);
+  box-shadow: 0 1px 0 var(--vellum-line-strong);
+}
+.books__volume { flex: none; display: flex; }
+.books__volume[data-bookend] { margin-inline-start: var(--space-7); position: relative; }
+/* A bookend parts what you are reading, set down and finished, and says which. */
+.books__volume[data-bookend]::before,
+.books__volume[data-bookend]::after { position: absolute; inset-inline-start: calc(-1 * var(--space-5)); }
+.books__volume[data-bookend]::before { content: ''; bottom: 0; width: 8px; height: 110px; border-radius: 2px 2px 0 0; background: var(--vellum-line-strong); }
+.books__volume[data-bookend]::after { content: attr(data-bookend); top: -2.6em; color: var(--text-muted); font: .76rem/1 var(--font-sans); white-space: nowrap; }
+.books__volume button {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: clamp(38px, calc(34px + var(--marks) * 2.5px), 82px);
+  height: clamp(200px, calc(200px + var(--furthest) * .25px), 330px);
+  padding: 0;
+  border: 0;
+  border-radius: 3px 3px 1px 1px;
+  background: var(--cloth);
+  color: var(--text-primary);
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--noeis-ink) 22%, transparent);
+  cursor: pointer;
+  transform-origin: bottom left;
+  transition: transform var(--noeis-motion-fast) var(--noeis-ease-standard), box-shadow var(--noeis-motion-fast) var(--noeis-ease-standard);
+}
+.books__volume button:hover { transform: translateY(-6px); }
+.books__volume[data-status='Set down'] button { transform: rotate(-6deg); opacity: .78; }
+.books__volume button[aria-pressed=true] { transform: translateY(-20px); box-shadow: 0 0 0 2px var(--noeis-thread), var(--noeis-shadow-soft); opacity: 1; }
+.books__volume-title {
+  max-height: 100%;
+  padding: var(--space-3) 0 var(--space-6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: .95rem/1 var(--font-serif);
+  writing-mode: vertical-rl;
+  writing-mode: sideways-lr;
+}
+/* Gold ticks: where in the book you marked, read top to bottom. */
+.books__volume-ticks { position: absolute; inset: 8px 5px 8px auto; width: 7px; }
+.books__volume-ticks i { position: absolute; inset-inline: 0; height: 1.5px; background: var(--noeis-thread); }
+.books__volume-ticks i[data-earlier] { opacity: .4; }
+.books__volume-colophon {
+  position: absolute;
+  inset: auto 0 8px;
+  border-block: 1px solid color-mix(in srgb, var(--noeis-thread) 60%, transparent);
+  color: var(--noeis-thread-strong);
+  font: .62rem/14px var(--font-sans);
+  text-transform: uppercase;
+}
+.books__key { margin: var(--space-3) 0 var(--space-4); color: var(--text-muted); font: .8rem/1.4 var(--font-sans); }
+
+/* The drawer: the pulled-out book, and the page it opens at. */
+.books__preview {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(235px, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto;
   gap: clamp(18px, 3cqw, 36px);
   align-items: start;
-}
-
-.books__shelf { list-style: none; padding: 0; margin: 0; }
-.books__shelf-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  padding-inline: var(--space-3);
-  border-top: 1px solid var(--vellum-line);
-}
-.books__shelf-row:last-child { border-bottom: 1px solid var(--vellum-line); }
-.books__shelf-row[data-previewed] {
-  background: var(--vellum-panel);
-  box-shadow: inset 2px 0 var(--noeis-action);
-}
-.books .books__book {
-  display: grid;
-  position: relative;
-  grid-template-columns: minmax(0, 1fr) minmax(90px, .55fr);
-  align-items: baseline;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-2) var(--space-3) 0;
-  color: var(--text) !important;
-  text-decoration: none;
-}
-.books__book[data-shelf-bookmark]::before {
-  content: '';
-  position: absolute;
-  inset-block-start: var(--space-3);
-  inset-inline-start: -9px;
-  inline-size: 5px;
-  block-size: 15px;
-  background: var(--noeis-action);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
-}
-.books__identity, .books__tally { display: grid; gap: var(--space-1); }
-.books__title {
-  font: 1.32rem/1.1 var(--font-serif);
-  overflow-wrap: anywhere;
-}
-.books__book:hover .books__title, .books__book:focus-visible .books__title {
-  text-decoration: underline;
-  text-underline-offset: .18em;
-}
-.books__tally { color: var(--text-secondary); font: .76rem/1.4 var(--font-sans); }
-.books__position { font-variant-numeric: tabular-nums; }
-.books__preview-button { min-width: 44px; padding: 0 var(--space-1); text-decoration: underline; text-underline-offset: .2em; }
-
-.books__preview {
-  position: sticky;
-  top: 90px;
-  min-width: 0;
   padding: clamp(18px, 3cqw, 30px);
   background: var(--vellum-panel);
   border: 1px solid var(--vellum-line);
 }
 .books__preview h2 {
-  margin: var(--space-3) 0 var(--space-1);
+  margin: var(--space-1) 0 var(--space-2);
   color: var(--text-primary);
-  font: 400 clamp(1.9rem, 4cqw, 3.1rem)/1 var(--font-serif);
-  letter-spacing: -.04em;
+  font: 400 clamp(1.8rem, 4cqw, 2.4rem)/1.05 var(--font-serif);
+  letter-spacing: -.02em;
   overflow-wrap: anywhere;
   scroll-margin-top: 90px;
 }
 .books__preview .books__quiet { margin: var(--space-1) 0; }
+.books__preview .books__quiet b { color: var(--text-primary); font-weight: 500; }
 .books__preview blockquote {
-  margin: var(--space-3) 0 var(--space-2);
+  margin: var(--space-2) 0 0;
   color: var(--text-primary);
-  font: italic 1.22rem/1.34 var(--font-serif);
+  font: italic 1.25rem/1.42 var(--font-serif);
   overflow-wrap: anywhere;
 }
-.books__preview a { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; }
-@container books-catalogue (max-width: 650px) {
-  .books__catalogue { grid-template-columns: minmax(0, 1fr); }
-  .books__preview { position: static; }
+.books .books__preview a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border-radius: 999px;
+  background: var(--noeis-thread);
+  color: var(--noeis-paper) !important;
+  font: 500 .9rem var(--font-sans);
+  text-decoration: none;
+  white-space: nowrap;
+}
+@container books-catalogue (max-width: 760px) {
+  .books__preview { grid-template-columns: minmax(0, 1fr); }
+  .books__preview a { justify-self: start; }
+  .books__shelf { min-height: 280px; }
+  .books__volume button { height: clamp(170px, calc(170px + var(--furthest) * .18px), 250px); }
 }
 @container books-catalogue (max-width: 440px) {
   .books__catalogue-filters { gap: 0 var(--space-4); }
-  .books .books__book { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
-  .books__tally { display: flex; flex-wrap: wrap; column-gap: var(--space-2); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .books__volume button { transition: none; }
 }
 
 /* What you asked beside your books, ruled like the shelf above it. A
@@ -399,8 +426,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .books__tools a,
-  .books__start,
-  .books__title {
+  .books__start {
     transition: none;
   }
 }
