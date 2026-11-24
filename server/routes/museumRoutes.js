@@ -62,7 +62,7 @@ const buildMuseumRouter = ({ auth, humanOnly, Museum, Article, WikiPage, Noteboo
       ...pages.map(row => ({ kind: 'wiki', row }))
     ]
       .filter(({ row }) => row.title && !hung.has(String(row._id)))
-      .sort((left, right) => new Date(left.row.evergreenAt || 0) - new Date(right.row.evergreenAt || 0))
+      .sort((left, right) => new Date(left.row.evergreenAt || 0).getTime() - new Date(right.row.evergreenAt || 0).getTime())
       .slice(0, KEPT_OFFERED)
       .map(({ kind, row }) => ({ kind, id: String(row._id), title: row.title }));
   };
