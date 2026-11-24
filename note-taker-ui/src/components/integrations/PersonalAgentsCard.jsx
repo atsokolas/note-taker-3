@@ -2,6 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Button, Card } from '../ui';
 import { AGENT_WORKER_ROLE_OPTIONS } from '../../constants/agentWorkerRoles';
 
+// Mirrors the persona catalog in server/services/agentPersonas.js.
+const PERSONAS = [
+  { value: '', label: 'Its own' },
+  { value: 'munger', label: 'Munger' }
+];
+
 const PersonalAgentsCard = ({
   agentModel,
   entitlementsModel,
@@ -123,6 +129,16 @@ POST /api/agent/byo/protocol/handoffs/:handoffId/reject`}
                   ? agent.preferredWorkerRoles.join(', ')
                   : 'None declared'}
               </p>
+              <label className="muted small" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                Reads with the mind of
+                <select
+                  value={agent.persona || ''}
+                  disabled={Boolean(agentBusyId)}
+                  onChange={(event) => handleUpdateAgent(agent._id, { persona: event.target.value })}
+                >
+                  {PERSONAS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                </select>
+              </label>
               <p>Key prefix: {agent.apiKeyPrefix || '(hidden)'}</p>
               {agent.lastUsedAt && <p>Last used: {formatDate(agent.lastUsedAt)}</p>}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
