@@ -274,6 +274,17 @@ const run = async () => {
     standing
   })[0].content.includes('Compute stays scarce'), 'A published door never sees the private views.');
 
+  const mungerPrompt = buildPartnerChatMessages({
+    message: 'What do you make of this?',
+    contextItem: { type: 'article', title: 'Airline economics' },
+    persona: 'munger'
+  })[0].content;
+  assert.ok(mungerPrompt.includes('Read as Munger.'), 'A Munger agent speaks in Munger’s voice.');
+  assert.ok(mungerPrompt.includes('Invert, always invert'), 'It reasons from the Munger principles.');
+  assert.ok(mungerPrompt.includes('18. Let no principle become a slogan'), 'All eighteen principles travel with it.');
+  assert.ok(/quote only what the provided material quotes/.test(mungerPrompt), 'It never invents Munger quotes.');
+  assert.ok(!buildPartnerChatMessages({ message: 'Hi', contextItem: { type: 'article', title: 'A' } })[0].content.includes('Read as'), 'No persona, no borrowed voice.');
+
   const privatePrompt = buildPartnerChatMessages({
     message: 'Develop my distinction into an essay.',
     contextItem: {

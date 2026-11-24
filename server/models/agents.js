@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 const { AGENT_TOKEN_SCOPES } = require('../services/agentTokenService');
 const { pencilSchema } = require('./pieces');
+const { PERSONA_KEYS } = require('../services/agentPersonas');
 
 const connectorActionLogSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -45,6 +46,7 @@ const personalAgentSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'disabled'], default: 'active' },
   capabilities: { type: personalAgentCapabilitiesSchema, default: () => ({}) },
   preferredWorkerRoles: { type: [String], default: [] },
+  persona: { type: String, enum: ['', ...PERSONA_KEYS], default: '' },
   apiKeyHash: { type: String, required: true, trim: true },
   apiKeyPrefix: { type: String, default: '', trim: true },
   lastUsedAt: { type: Date, default: null },

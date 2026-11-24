@@ -16,7 +16,7 @@ declare global {
       agentToken?: ReturnType<typeof import('../services/agentTokenService').sanitizeAgentToken>;
       personalAgent?: {
         id: string; userId: string; name: string;
-        capabilities: Record<string, boolean>; preferredWorkerRoles: string[];
+        capabilities: Record<string, boolean>; preferredWorkerRoles: string[]; persona: string;
       };
       bridgeActor?: { userId: string; actorType: string; actorId: string; scope: string };
       thoughtEdition?: import('mongoose').Document & Record<string, any>;

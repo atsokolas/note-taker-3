@@ -20,7 +20,10 @@ const buildRouter = (overrides = {}) => buildAgentChatRouter({
     req.user = { id: 'user-1' };
     next();
   },
-  authenticatePersonalAgentKey: (_req, _res, next) => next(),
+  authenticatePersonalAgentKey: (req, _res, next) => {
+    req.personalAgent = { id: 'agent-1', userId: 'user-1', name: 'Charlie', capabilities: { read: true, search: true }, persona: 'munger' };
+    next();
+  },
   getUserAgentEntitlements: async () => ({ premiumWebResearchAvailable: false }),
   generateCollaborativeReply: async (args) => {
     overrides.calls.push(args);
@@ -142,6 +145,15 @@ const run = async () => {
       'Found 2 passages.'
     ]);
     assert.ok(!searching.includes('Answered from the selected wiki page.'));
+
+    // A personal agent reads with the mind it was given.
+    const byo = await fetch(`${url}/api/agent/byo/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: 'Strike at my thesis.' })
+    });
+    assert.strictEqual(byo.status, 200);
+    assert.strictEqual(observed.calls.at(-1).persona, 'munger', 'The agent’s persona reaches the reply.');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  createPersonalAgent,
   disablePersonalAgent,
   listPersonalAgents,
   updatePersonalAgent,
@@ -11,11 +10,7 @@ const usePersonalAgents = () => {
   const [agents, setAgents] = useState([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [agentsError, setAgentsError] = useState('');
-  const [agentName, setAgentName] = useState('');
-  const [agentDescription, setAgentDescription] = useState('');
-  const [agentWorkerRoles, setAgentWorkerRoles] = useState([]);
   const [agentBusyId, setAgentBusyId] = useState('');
-  const [creatingAgent, setCreatingAgent] = useState(false);
   const [newAgentKey, setNewAgentKey] = useState('');
 
   const loadAgents = useCallback(async () => {
@@ -43,30 +38,6 @@ const usePersonalAgents = () => {
       return bTime - aTime;
     })
   ), [agents]);
-
-  const handleCreateAgent = useCallback(async () => {
-    const name = String(agentName || '').trim();
-    if (!name || creatingAgent) return;
-    setCreatingAgent(true);
-    setAgentsError('');
-    setNewAgentKey('');
-    try {
-      const response = await createPersonalAgent({
-        name,
-        description: String(agentDescription || '').trim(),
-        preferredWorkerRoles: Array.isArray(agentWorkerRoles) ? agentWorkerRoles : []
-      });
-      await loadAgents();
-      setAgentName('');
-      setAgentDescription('');
-      setAgentWorkerRoles([]);
-      setNewAgentKey(String(response?.apiKey || '').trim());
-    } catch (error) {
-      setAgentsError(error.response?.data?.error || 'Failed to create specialist agent.');
-    } finally {
-      setCreatingAgent(false);
-    }
-  }, [agentDescription, agentName, agentWorkerRoles, creatingAgent, loadAgents]);
 
   const handleUpdateAgent = useCallback(async (agentId, payload = {}) => {
     const safeId = String(agentId || '').trim();
@@ -122,16 +93,8 @@ const usePersonalAgents = () => {
     sortedAgents,
     agentsLoading,
     agentsError,
-    agentName,
-    setAgentName,
-    agentDescription,
-    setAgentDescription,
-    agentWorkerRoles,
-    setAgentWorkerRoles,
     agentBusyId,
-    creatingAgent,
     newAgentKey,
-    handleCreateAgent,
     handleUpdateAgent,
     handleRotateKey,
     handleDisableAgent

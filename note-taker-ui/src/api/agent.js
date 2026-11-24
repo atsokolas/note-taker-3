@@ -169,11 +169,6 @@ export const listPersonalAgents = async () => {
   return Array.isArray(res.data) ? res.data : [];
 };
 
-export const createPersonalAgent = async (payload = {}) => {
-  const res = await api.post('/api/agents/personal', payload, getAuthHeaders());
-  return res.data || {};
-};
-
 export const updatePersonalAgent = async (agentId, payload = {}) => {
   const safeId = encodeURIComponent(String(agentId || '').trim());
   const res = await api.patch(`/api/agents/personal/${safeId}`, payload, getAuthHeaders());

@@ -1,4 +1,7 @@
 const express = require('express');
+const { PERSONA_KEYS, parsePersona } = require('../services/agentPersonas');
+
+const PERSONA_ERROR = `persona must be one of: ${PERSONA_KEYS.join(', ')}, or empty.`;
 
 const buildPersonalAgentRouter = ({
   mongoose,
@@ -32,6 +35,8 @@ const buildPersonalAgentRouter = ({
       const description = String(req.body?.description || '').trim();
       const capabilities = normalizePersonalAgentCapabilities(req.body?.capabilities || {});
       const preferredWorkerRoles = normalizePersonalAgentWorkerRoles(req.body?.preferredWorkerRoles || []);
+      const persona = parsePersona(req.body?.persona);
+      if (persona === null) return res.status(400).json({ error: PERSONA_ERROR });
       const apiKey = createPersonalAgentApiKey();
       const apiKeyHash = hashPersonalAgentApiKey(apiKey);
       const apiKeyPrefix = `${apiKey.slice(0, 10)}...`;
@@ -42,6 +47,7 @@ const buildPersonalAgentRouter = ({
         status: 'active',
         capabilities,
         preferredWorkerRoles,
+        persona,
         apiKeyHash,
         apiKeyPrefix,
         userId: req.user.id
@@ -83,6 +89,10 @@ const buildPersonalAgentRouter = ({
       }
       if (req.body?.preferredWorkerRoles !== undefined) {
         updates.preferredWorkerRoles = normalizePersonalAgentWorkerRoles(req.body.preferredWorkerRoles);
+      }
+      if (req.body?.persona !== undefined) {
+        updates.persona = parsePersona(req.body.persona);
+        if (updates.persona === null) return res.status(400).json({ error: PERSONA_ERROR });
       }
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({ error: 'No updates provided.' });
