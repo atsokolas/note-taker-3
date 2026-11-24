@@ -30,13 +30,7 @@ jest.mock('../hooks/integrations/usePersonalAgents', () => () => ({
   sortedAgents: [],
   agentsLoading: false,
   agentsError: '',
-  agentName: '',
-  setAgentName: jest.fn(),
-  agentWorkerRoles: [],
-  setAgentWorkerRoles: jest.fn(),
-  creatingAgent: false,
-  newAgentKey: '',
-  handleCreateAgent: jest.fn()
+  newAgentKey: ''
 }));
 
 jest.mock('../hooks/integrations/useAgentEntitlements', () => () => ({
