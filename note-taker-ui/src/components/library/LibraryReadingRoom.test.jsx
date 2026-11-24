@@ -86,7 +86,7 @@ describe('LibraryReadingRoom', () => {
     expect(screen.queryByText('For today')).not.toBeInTheDocument();
   });
 
-  it('stacks the pieces as spines, with today’s pick pulled out of the stack', async () => {
+  it('stacks the pieces as spines, with today’s pick pulled out of the stack and titled beside it', async () => {
     renderRoom({
       ...EMPTY,
       stillReading: [{ articleId: 'r1', title: 'Halfway piece', ratio: 0.5, marks: 3, minutes: 12, shelf: 'Energy' }],
@@ -98,6 +98,8 @@ describe('LibraryReadingRoom', () => {
     expect(reading).toHaveStyle({ '--marks': '3' });
     expect(screen.getByRole('button', { name: 'The oldest unread' }).closest('li')).toHaveStyle({ '--marks': '0' });
     expect(screen.getByRole('button', { name: 'The oldest unread' }).closest('li')).toHaveAttribute('data-pulled');
+    expect(screen.getByTestId('reading-room-still')).not.toHaveTextContent('The oldest unread');
+    expect(screen.getByTestId('reading-room-pick')).toHaveTextContent('For todayThe oldest unread');
   });
 
   it('shows the weather on the first visit of the week, then keeps quiet until Monday', async () => {

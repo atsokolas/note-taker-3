@@ -502,12 +502,15 @@ const NotebookEditor = ({
     if (editor) editor.setEditable(editingBody);
   }, [editor, editingBody]);
 
+  /* Editable before the caret moves: a closed editor takes no selection, so
+     focusing it would neither place the caret nor scroll to it. Quietly, since
+     opening the page is not an edit to save. */
   const resumeWriting = useCallback((target) => {
+    editor?.setEditable(true, false);
     setEditingBody(true);
     const found = focusEditorTarget(editor, target);
     setReturnTarget(found ? target : null);
     if (!found) editor?.commands.focus('end');
-    editor?.commands.scrollIntoView?.();
   }, [editor]);
 
   /* Opening a different note starts it closed again. Carrying the open state

@@ -14,8 +14,9 @@ const TAG = /(^|\s)#(\p{L}[\p{L}\p{N}_-]*)/gu;
 const WORD = /[\p{L}\p{N}]+/gu;
 // Marks further apart than this were made in different sittings.
 const SITTING_GAP_MS = 90 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 // A book untouched this long was set down.
-const SET_DOWN_MS = 30 * 24 * 60 * 60 * 1000;
+const SET_DOWN_MS = 30 * DAY_MS;
 // Before this hour on your clock, it is still last night.
 const MORNING = 5;
 // A thought that ends here was finished.
@@ -80,13 +81,20 @@ export const markedBefore = (text, marks = [], since = 0) => (
   text ? marks.find(mark => isEarlier(mark, since) && mark.text && sameWords(mark.text) === sameWords(text)) : null
 );
 
+/* A note added to an old mark touches the book, not the mark, so a later
+   change to the book counts as reading it. The day it arrived does not: a
+   Kindle or Readwise import brings years of marks in an afternoon. */
+const changedAfterArriving = (book) => {
+  const changed = new Date(book.updatedAt || 0).getTime() || 0;
+  return changed - at(book) > DAY_MS ? changed : 0;
+};
+
 /* A book you stopped reading: not finished, and nothing written in it for a
-   month. A note added to an old mark touches the book, not the mark, so the
-   book's own last change counts too. It stays on the shelf, never moved off; the desk only asks why, and
+   month. It stays on the shelf, never moved off; the desk only asks why, and
    the answer, typed in the line, is a mark that picks it up again. */
 export const setDownOn = (book = {}, marks = [], now = Date.now()) => {
   if (book.finishedOn) return null;
-  const last = Math.max(at(book), new Date(book.updatedAt || 0).getTime() || 0, readingSince(book), ...marks.map(at));
+  const last = Math.max(changedAfterArriving(book), readingSince(book), ...marks.map(at));
   return last && now - last > SET_DOWN_MS ? new Date(last) : null;
 };
 
