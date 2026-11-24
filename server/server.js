@@ -128,6 +128,7 @@ const {
   RecallCheck,
   Verdict,
   Disagreement,
+  Museum,
   AgentRun,
   AgentProposedChange,
   AgentStructureProposal,
@@ -196,6 +197,7 @@ const { buildAddedRouter } = require('./routes/addedRoutes');
 const { buildSyncRouter } = require('./routes/syncRoutes');
 const { buildHandoffRouter } = require('./routes/handoffRoutes');
 const { buildDisagreementRouter } = require('./routes/disagreementRoutes');
+const { buildMuseumRouter } = require('./routes/museumRoutes');
 const { checkDisagreements } = require('./services/disagreements');
 const { workHandoff, resumeHandoffs } = require('./services/handoffWorker');
 const { fileAgentsReadingEditions } = require('./services/agentsReadingEdition');
@@ -1268,6 +1270,7 @@ const checkWhatItWrote = ({ handoff, wrote }) => checkDisagreements({ userId: ha
   .catch(error => console.error('[disagreements] check failed', error.message));
 app.use(buildHandoffRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Handoff, Article, NotebookEntry, onHandedToNoeis: workForNoeis, onFinished: checkWhatItWrote }));
 app.use(buildDisagreementRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Disagreement }));
+app.use(buildMuseumRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Museum, Article, WikiPage, NotebookEntry }));
 
 app.use(buildSemanticSearchRouter({
   authenticateToken,

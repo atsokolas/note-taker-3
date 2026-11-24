@@ -6,6 +6,7 @@ module.exports = {
   ...require('./wiki'),
   ...require('./agents'),
   ...require('./editions'),
+  ...require('./museum'),
   ...require('./imports'),
   ...require('./search')
 };
