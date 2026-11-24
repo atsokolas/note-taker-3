@@ -24,7 +24,7 @@ import HangInMuseum from '../components/museum/HangInMuseum';
 import '../styles/books.css';
 
 // A book's paragraphs are what you marked in it and wrote beside it.
-const MARK_BLOCKS = '.book-desk__mark > blockquote, .book-desk__mark > .book-desk__own';
+const MARK_BLOCKS = '.book-desk__mark > blockquote, .book-desk__margin > .book-desk__own';
 const shelfRowId = id => `shelf-book-${id}`;
 const followsInThisTab = event => !event.defaultPrevented && event.button === 0
   && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
@@ -354,7 +354,9 @@ export const Colophon = ({ book, marks, line, whose = 'your', children }) => {
   );
 };
 
-/* Closing the book. While you read, it is one quiet line under the desk.
+const yourQuestions = n => (n === 1 ? 'your open question' : `your ${n} open questions`);
+
+/* Closing the book. While you read, it says under the desk what finishing asks of you.
    Closed, the book gets its colophon there, where a printed book keeps one:
    when you read it, how many sittings, what you wrote, and the sentence you
    said you would remember; and under it, each time you read it before. A
@@ -387,8 +389,13 @@ const Closing = ({ book, marks, saved, writeUp, onChange, children }) => {
     }
   };
   if (!book.finishedOn) {
+    const asked = openQuestionsOf(marks).length;
     return (
-      <section className="books__closing" aria-label="Closing the book">
+      <section className="books__closing" aria-labelledby="books-closing">
+        <h2 id="books-closing">When you finish</h2>
+        <p className="books__asked">
+          You’ll write one sentence to remember it by{asked ? `, and ${yourQuestions(asked)} can be put to the book, answered only from what you marked` : ''}.
+        </p>
         {asking ? <Remember label="Close the book" onKeep={keep} />
           : <button type="button" className="books__quiet-button" onClick={() => setAsking(true)}>I’ve finished it</button>}
         {said ? <p className="books__quiet" role="status">{said}</p> : null}
@@ -454,7 +461,7 @@ const AskTheAuthor = ({ book, marks, onReplace }) => {
       {/* Asked again whenever questions are open and no answer waits on you. */}
       {!open.length || asked.length ? null : (
         <button type="button" className="books__quiet-button" disabled={asking} onClick={ask}>
-          {asking ? 'Asking the book…' : `Ask the book ${open.length === 1 ? 'your open question' : `your ${open.length} open questions`}`}
+          {asking ? 'Asking the book…' : `Ask the book ${yourQuestions(open.length)}`}
         </button>
       )}
       {asked.length ? (

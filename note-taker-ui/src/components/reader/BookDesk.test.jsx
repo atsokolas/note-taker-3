@@ -379,3 +379,16 @@ test('a line nearly the same as one you marked a year ago brings the old one bac
   expect(heardBefore).toHaveBeenCalledWith('book-1', 'Most of what we call luck is preparation meeting a door left open.', { echo: true });
   expect(await screen.findByText(/You marked this in March 2024/)).toHaveTextContent('Luck is what happens when preparation meets opportunity. You marked this in March 2024, in Seneca, Letters.');
 });
+
+test('your words sit in the margin beside the passage, the page you are on is marked, and the line comes after the marks', () => {
+  const quote = { ...KINDLE, page: 88, note: 'Dig is the verb that matters.', location: '' };
+  const asked = { _id: 'q1', text: '', note: 'Does he ever say what to do when it turns up nothing?', page: 131, createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString() };
+  const { container } = render(<Desk marks={[quote, asked]} />);
+
+  const margin = screen.getByText('Dig is the verb that matters.', { selector: 'p' }).parentElement;
+  expect(margin).toHaveClass('book-desk__margin');
+  expect(margin.previousElementSibling).toHaveTextContent(KINDLE.text);
+  expect(screen.getByText(asked.note, { selector: 'p' }).closest('.book-desk__mark')).toHaveAttribute('data-kind', 'question');
+  expect(container.querySelector('.book-desk__page[aria-current="page"]')).toHaveTextContent('p. 131');
+  expect(container.querySelector('.book-desk__pages').compareDocumentPosition(line()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});

@@ -158,6 +158,9 @@ test('closing a book asks one sentence, says when it comes back, and can be undo
   closeBook.mockResolvedValue({ finishedOn: '2026-10-19', closingLine: 'Nobody is only what they do.' });
   reopenBook.mockResolvedValue({ finishedOn: '', closingLine: '' });
   at('b2');
+  expect(screen.getByRole('region', { name: 'When you finish' })).toHaveTextContent(
+    'You’ll write one sentence to remember it by, and your open question can be put to the book, answered only from what you marked.'
+  );
   fireEvent.click(screen.getByRole('button', { name: 'I’ve finished it' }));
   fireEvent.change(screen.getByLabelText('In one sentence, what will you remember?'), { target: { value: 'Nobody is only what they do.' } });
   fireEvent.click(screen.getByRole('button', { name: 'Close the book' }));
