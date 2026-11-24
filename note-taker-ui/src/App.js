@@ -63,6 +63,8 @@ import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/editions.css';
+// The Museum hangs from every reading surface, so its wall, case and label sheet load with the app.
+import './styles/museum.css';
 import './styles/think-notes.css';
 import './surface/surface-frame.css';
 import './styles/semantic-theme.css';
@@ -91,6 +93,7 @@ const Contradictions = lazy(() => import('./pages/Contradictions'));
 const ReadingMap = lazy(() => import('./pages/ReadingMap'));
 const CommonplaceBook = lazy(() => import('./pages/CommonplaceBook'));
 const Books = lazy(() => import('./pages/Books'));
+const MuseumEditor = lazy(() => import('./pages/MuseumEditor'));
 /* Not code-split. /judgment is one of the four rooms and the one a citation
    trail ends in, so its chunk is asked for on a cold open — and splitting it
    means the browser only requests it after main.js has downloaded and parsed,
@@ -117,6 +120,7 @@ const OpenSentenceStoryboard = lazy(() => import('./pages/OpenSentenceStoryboard
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
 const SharedEdition = lazy(() => import('./pages/SharedEdition'));
 const LentBook = lazy(() => import('./pages/LentBook'));
+const Museum = lazy(() => import('./pages/Museum'));
 const RetiredShare = lazy(() => import('./pages/RetiredShare'));
 const QuestionSharePreview = lazy(() => import('./pages/QuestionSharePreview'));
 const SharedWikiPage = lazy(() => import('./pages/SharedWikiPage'));
@@ -256,7 +260,8 @@ const DataIntegrationsRedirect = () => {
   return <Navigate to={`/connections${location.search}${hash}`} replace />;
 };
 
-export const isPublicSharePath = (pathname = '') => pathname.startsWith('/share/');
+// What someone shared: a page behind /share/, or a museum they opened.
+export const isPublicSharePath = (pathname = '') => pathname.startsWith('/share/') || pathname.startsWith('/museum/');
 
 export const isDesignPreviewPath = (pathname = '') => (
   pathname === '/design-preview' || pathname.startsWith('/design-preview/')
@@ -316,6 +321,8 @@ const PublicRoutes = ({ handleLoginSuccess }) => {
           <Route path="/share/questions/:slug" element={<SharedQuestion />} />
           <Route path="/share/editions/:slug" element={<SharedEdition />} />
           <Route path="/share/books/:slug" element={<LentBook />} />
+          {/* One route, so walking from the wall into a piece keeps the same wall. */}
+          <Route path="/museum/:handle/:accession?" element={<Museum />} />
           <Route path="/share/notebooks/:slug" element={<RetiredShare kind="notebooks" />} />
           <Route path="/share/volumes/:slug" element={<RetiredShare kind="volumes" />} />
           <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
@@ -824,6 +831,7 @@ function App() {
             <Route path="/library/books/:id" element={<LegacyBookRedirect />} />
             <Route path="/books" element={<Books />} />
             <Route path="/books/:id" element={<Books />} />
+            <Route path="/museum" element={<MuseumEditor />} />
             {/* Papers an agent maintains. Not a fifth room in the nav — the
                 four rooms are what you did, and an edition is something that
                 arrived. The Paper carries the door to it. */}

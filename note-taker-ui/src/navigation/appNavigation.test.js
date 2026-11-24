@@ -89,7 +89,7 @@ describe('appNavigation', () => {
     });
     /* Exact, so a room cannot creep back in unnoticed. Handed off is where
        the reader comes back to what agents did while they were away. */
-    expect(secondaryLabels).toEqual(['Handed off', 'Help']);
+    expect(secondaryLabels).toEqual(['Museum', 'Handed off', 'Help']);
   });
 
   /* Every letter is the room's own initial, so the rule is guessable and the

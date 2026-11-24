@@ -1,0 +1,217 @@
+/*
+ * The Museum. One wall, hung close in frames of different sizes, with the
+ * pieces you made lit. A frame comes down into a case to be read, and leaves
+ * the pale patch where it hung. The room is lit for evening in every theme:
+ * .museum-room takes the dark tokens in semantic-theme.css.
+ */
+.museum-room {
+  --museum-frame: #2a2419;
+  --museum-frame-lit: #e9dfc9;
+  --museum-mat-lit: #fffdf8;
+  --museum-ink-lit: #332f29;
+  --museum-tag: #e7dcc1;
+  --museum-tag-ink: #4b3a1a;
+  --museum-glow: rgba(240, 220, 170, 0.16);
+  --museum-shadow: 0 14px 30px rgba(0, 0, 0, 0.55);
+  --museum-line: 1px solid var(--noeis-rule-strong);
+  /* The page's text tokens are worked out from the ink once, at the root; work them out again in here. */
+  --text-primary: var(--noeis-ink);
+  --text-secondary: var(--noeis-ink-muted);
+  --text-muted: var(--noeis-ink-subtle);
+  --vellum-ink: var(--text-primary);
+  --vellum-muted: var(--text-secondary);
+  --vellum-subtle: var(--text-muted);
+  color: var(--noeis-ink);
+  font: 16px/1.5 var(--font-sans);
+}
+
+.museum {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 0 max(20px, calc((100% - 1320px) / 2)) 48px;
+  background: var(--noeis-canvas);
+}
+.museum-page { flex: 1 1 auto; width: 100%; min-width: 0; }
+.museum *, .museum-sheet * { box-sizing: border-box; }
+.museum :focus-visible, .museum-sheet :focus-visible { outline: 2px solid var(--noeis-thread); outline-offset: 3px; border-radius: 4px; }
+.museum a { color: inherit; text-decoration-color: var(--noeis-rule-strong); text-underline-offset: 4px; }
+.museum a:hover { text-decoration-color: var(--noeis-thread); }
+body.museum-is-viewing { overflow: hidden; }
+
+.museum__head { display: grid; grid-template-columns: auto 1fr auto; gap: 12px 28px; align-items: end; padding: 40px 0 34px; }
+.museum__head h1 { margin: 0; font: 300 clamp(44px, 6vw, 80px)/0.9 var(--font-serif); letter-spacing: -0.02em; }
+.museum__intro { margin: 0 0 6px; max-width: 30em; font: 400 18px/1.45 var(--font-serif); color: var(--noeis-ink-muted); }
+.museum__address { margin: 0 0 8px; font-size: 13px; color: var(--noeis-ink-subtle); }
+.museum__retired { margin: 0 0 18px; color: var(--noeis-ink-subtle); font-style: italic; }
+
+/* The wall: hung close, in columns, the frames finding their own heights. */
+.museum__wall {
+  columns: 4 260px;
+  column-gap: 22px;
+  margin: 0;
+  padding: 30px 26px 24px;
+  list-style: none;
+  background: radial-gradient(ellipse at 50% 0%, rgba(214, 173, 99, 0.07), transparent 60%), var(--noeis-paper-sunken);
+  border-radius: 4px;
+}
+.museum-piece { break-inside: avoid; margin: 0 0 34px; }
+.museum-piece__open { display: block; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.museum-piece__open:focus-visible { outline: none; }
+
+.museum-frame { position: relative; display: block; padding: 10px; background: var(--museum-frame); box-shadow: var(--museum-shadow), inset 0 0 0 1px rgba(223, 206, 166, 0.14); transition: transform 220ms var(--noeis-ease-standard), box-shadow 220ms var(--noeis-ease-standard); }
+.museum-piece__open:hover .museum-frame, .museum-piece__open:focus-visible .museum-frame { transform: translateY(-3px); box-shadow: 0 20px 36px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(214, 173, 99, 0.5); }
+.museum-mat { display: block; container-type: inline-size; padding: 30px 27px; background: var(--noeis-paper); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4); }
+.museum-passage, .museum-maxim { display: block; margin: 0; font-family: var(--font-serif); font-size: var(--size); color: var(--noeis-ink); overflow-wrap: break-word; }
+.museum-passage { quotes: none; line-height: 1.22; font-weight: 350; }
+.museum-maxim { font-size: min(var(--size), calc(var(--fit) * 1cqi)); line-height: 0.95; font-weight: 300; letter-spacing: -0.02em; }
+.museum-passage.is-title, .museum-maxim.is-title { font-style: italic; }
+
+/* What you made is lit from within. */
+.is-own > * > .museum-frame, .museum-vitrine__object.is-own .museum-frame { background: var(--museum-frame-lit); box-shadow: 0 0 60px var(--museum-glow), var(--museum-shadow); }
+.is-own > * > .museum-frame .museum-mat, .museum-vitrine__object.is-own .museum-mat { background: var(--museum-mat-lit); }
+.is-own > * > .museum-frame :is(.museum-passage, .museum-maxim), .museum-vitrine__object.is-own :is(.museum-passage, .museum-maxim) { color: var(--museum-ink-lit); }
+
+/* The accession tag hangs under its frame on a short string. */
+.museum-tag { position: relative; display: inline-block; margin: 14px 0 0 18px; padding: 6px 10px 6px 20px; background: var(--museum-tag); color: var(--museum-tag-ink); transform: rotate(-2deg); font: 11px/1.35 var(--font-mono); box-shadow: 0 6px 10px -6px rgba(0, 0, 0, 0.7); }
+.museum-tag::before { content: ""; position: absolute; left: 7px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--noeis-paper-sunken); }
+.museum-tag::after { content: ""; position: absolute; left: 9px; top: -14px; width: 1px; height: 12px; background: rgba(231, 220, 193, 0.5); }
+.museum-tag code { font: inherit; }
+.museum-tag span { display: block; font: 11.5px/1.35 var(--font-sans); }
+.is-own .museum-tag { background: var(--noeis-thread); color: #241a08; }
+
+/* Out on view: the wall keeps the cleaner patch where the frame hung, and its nail. */
+.museum-piece.is-out .museum-frame { background: color-mix(in srgb, var(--noeis-ink) 5%, var(--noeis-paper-sunken)); box-shadow: inset 0 0 0 1px rgba(223, 206, 166, 0.08); transform: none; }
+.museum-piece.is-out .museum-frame::before { content: ""; position: absolute; top: -8px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--noeis-ink-subtle); box-shadow: 0 2px 2px rgba(0, 0, 0, 0.6); }
+.museum-piece.is-out :is(.museum-mat, .museum-tag) { visibility: hidden; }
+
+/* The case: the wall dims and the piece comes forward to be read. */
+.museum-vitrine { position: fixed; inset: 0; z-index: 1200; display: grid; grid-template-columns: minmax(0, 1fr) 380px; background: rgba(12, 11, 8, 0.9); backdrop-filter: blur(6px); animation: museum-dim 320ms var(--noeis-ease-standard); }
+@keyframes museum-dim { from { background-color: rgba(12, 11, 8, 0); backdrop-filter: blur(0); } }
+.museum-vitrine button { min-height: 44px; padding: 0 18px; border: var(--museum-line); border-radius: 999px; background: transparent; color: var(--noeis-ink); font: 14px var(--font-sans); cursor: pointer; }
+.museum-vitrine button:hover { border-color: var(--noeis-thread); }
+.museum-vitrine__stage { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; padding: 70px 56px 34px; background: radial-gradient(ellipse 55% 50% at 50% 42%, rgba(240, 220, 170, 0.13), transparent 70%); }
+.museum-vitrine__bar { position: absolute; top: 22px; left: 30px; right: 30px; display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 13px; color: var(--noeis-ink-subtle); }
+.museum-vitrine__address { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.museum-vitrine__object { position: relative; width: min(100%, 600px); margin: 0; }
+.museum-vitrine__object .museum-frame { padding: 14px; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(223, 206, 166, 0.2); transition: none; }
+.museum-vitrine__object.is-own .museum-frame { box-shadow: 0 0 90px rgba(240, 220, 170, 0.22), 0 30px 60px rgba(0, 0, 0, 0.7); }
+.museum-vitrine__object .museum-mat { padding: 56px 54px 60px; }
+.museum-vitrine__object .museum-passage { font-size: clamp(26px, calc(var(--size) * 1.36), 38px); line-height: 1.18; }
+.museum-vitrine__object .museum-maxim { font-size: min(clamp(44px, var(--size), 88px), calc(var(--fit) * 1cqi)); }
+.museum-vitrine__object .museum-tag { position: absolute; right: -18px; bottom: -22px; margin: 0; padding: 9px 14px 9px 24px; transform: rotate(6deg); font-size: 12.5px; }
+.museum-vitrine__object .museum-tag::after { left: -34px; top: 50%; width: 44px; height: 1px; transform: rotate(-26deg); transform-origin: right; }
+.museum-vitrine__shelf { display: block; height: 10px; margin: 40px -40px 0; border-top: var(--museum-line); background: linear-gradient(rgba(0, 0, 0, 0.35), transparent); }
+.museum-vitrine__pager { display: flex; align-items: center; gap: 18px; margin-top: 40px; font-size: 14px; }
+.museum-vitrine__pager button { background: var(--noeis-paper); }
+.museum-vitrine__count { font-variant-numeric: tabular-nums; color: var(--noeis-ink-subtle); white-space: nowrap; }
+.museum-vitrine__ticks { display: flex; gap: 4px; }
+.museum-vitrine__ticks i { width: 16px; height: 3px; border-radius: 2px; background: var(--noeis-rule-strong); }
+.museum-vitrine__ticks i.is-here { background: var(--noeis-thread); }
+
+/* The placard beside the case: who, what, and the reason it is here. */
+.museum-placard { overflow-y: auto; padding: 96px 32px 32px; background: var(--noeis-paper); border-left: 1px solid var(--noeis-rule); font-size: 14px; }
+.museum-placard__author { margin: 0; font-weight: 600; }
+.museum-placard__title { margin: 2px 0; font: italic 400 28px/1.15 var(--font-serif); }
+.museum-placard__medium { margin: 0; color: var(--noeis-ink-subtle); }
+.museum-placard__why { margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--noeis-rule); font: 400 19px/1.55 var(--font-serif); white-space: pre-line; }
+.museum-placard__receipts { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 24px 0 0; color: var(--noeis-ink-muted); }
+.museum-placard__receipts > div { display: contents; }
+.museum-placard__receipts dt { color: var(--noeis-ink-subtle); }
+.museum-placard__receipts dd { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 0; }
+.museum-vitrine .museum-placard__link { min-height: 0; padding: 0; border: 0; border-radius: 0; text-align: left; text-decoration: underline; text-decoration-color: var(--noeis-rule-strong); text-underline-offset: 4px; }
+.museum-placard__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin: 26px 0 0; }
+.museum-placard .museum-placard__actions a { font-weight: 600; color: var(--noeis-ink); }
+.museum-placard .museum-placard__actions a:first-child { color: var(--noeis-thread); }
+.museum-placard__copied { margin: 8px 0 0; color: var(--noeis-ink-subtle); overflow-wrap: anywhere; }
+.museum-placard__owner { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0 0; padding-top: 18px; border-top: 1px solid var(--noeis-rule); }
+
+/* Your own wall: its name and address above, what you kept below. */
+.museum-settings { grid-column: 1 / -1; max-width: 720px; color: var(--noeis-ink-muted); }
+.museum-settings summary { cursor: pointer; color: var(--noeis-ink-subtle); font-size: 14px; }
+.museum-settings form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin-top: 16px; }
+.museum-settings label { display: grid; gap: 4px; font-size: 13px; }
+.museum-settings label.is-wide { grid-column: 1 / -1; }
+.museum-settings input, .museum-settings textarea { width: 100%; padding: 9px 12px; border: var(--museum-line); border-radius: 6px; background: var(--noeis-paper); color: var(--noeis-ink); font: 16px var(--font-serif); }
+.museum-settings .museum-settings__address { display: flex; align-items: center; gap: 2px; padding-left: 12px; border: var(--museum-line); border-radius: 6px; background: var(--noeis-paper); color: var(--noeis-ink-subtle); font-size: 14px; }
+.museum-settings .museum-settings__address input { padding-left: 0; border: 0; background: transparent; }
+.museum-settings__actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.museum-room .museum-button { min-height: 40px; padding: 0 16px; border: var(--museum-line); border-radius: 999px; background: transparent; color: var(--noeis-ink); font: 14px var(--font-sans); cursor: pointer; }
+.museum-room .museum-button.is-primary { border-color: var(--noeis-thread); background: var(--noeis-thread); color: #241a08; }
+.museum-room .museum-button:disabled { opacity: 0.5; cursor: default; }
+.museum-empty { margin: 0; padding: 60px 26px; background: var(--noeis-paper-sunken); border-radius: 4px; font: italic 22px/1.4 var(--font-serif); color: var(--noeis-ink-muted); text-align: center; }
+.museum-kept { margin-top: 40px; }
+.museum-kept h2 { margin: 0 0 4px; font: 400 22px var(--font-serif); }
+.museum-kept p { margin: 0 0 14px; color: var(--noeis-ink-subtle); font-size: 14px; }
+.museum-kept ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.museum-kept li { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; padding: 14px 16px; border: 1px solid var(--noeis-rule); border-radius: 4px; }
+.museum-kept__title { font: italic 18px/1.3 var(--font-serif); }
+.museum-kept .add-to-project-trigger { align-self: flex-start; color: var(--noeis-thread); font-size: 14px; }
+.museum-kept .add-to-project-status a { color: var(--noeis-thread); }
+
+/* The label, written when a piece is hung and whenever you have more to say. */
+.museum-sheet-backdrop { position: fixed; inset: 0; z-index: 1300; display: grid; place-items: center; padding: 24px; background: color-mix(in srgb, var(--noeis-ink) 28%, transparent); }
+.museum-sheet { display: grid; gap: 16px; width: min(100%, 560px); max-height: calc(100dvh - 48px); overflow-y: auto; padding: 26px 28px 24px; border: 1px solid var(--noeis-rule); border-radius: 10px; background: var(--noeis-paper); color: var(--noeis-ink); box-shadow: var(--noeis-shadow-float); font: 15px/1.45 var(--font-sans); }
+.museum-sheet h2 { margin: 0; font: 400 24px/1.1 var(--font-serif); }
+.museum-sheet__what { margin: -10px 0 0; font: italic 17px/1.3 var(--font-serif); color: var(--noeis-ink-muted); }
+.museum-sheet__quiet { margin: 0; color: var(--noeis-ink-subtle); }
+.museum-sheet fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.museum-sheet legend { margin-bottom: 6px; padding: 0; font-size: 13px; color: var(--noeis-ink-subtle); }
+.museum-sheet__passages { display: grid; gap: 6px; max-height: 210px; overflow-y: auto; }
+.museum-sheet .museum-sheet__passages button { padding: 8px 12px; border: 1px solid var(--noeis-rule); border-radius: 6px; background: transparent; color: var(--noeis-ink); font: 15px/1.35 var(--font-serif); text-align: left; cursor: pointer; }
+.museum-sheet .museum-sheet__passages button[aria-pressed='true'] { border-color: var(--noeis-thread); background: color-mix(in srgb, var(--noeis-thread) 10%, transparent); }
+.museum-sheet__field { display: grid; gap: 5px; min-width: 0; font-size: 13px; color: var(--noeis-ink-subtle); }
+.museum-sheet__field :is(input, textarea) { width: 100%; padding: 9px 12px; border: 1px solid var(--noeis-rule-strong); border-radius: 6px; background: var(--noeis-paper); color: var(--noeis-ink); font: 16px/1.4 var(--font-serif); resize: vertical; }
+.museum-sheet__field small { font-size: 12px; font-style: italic; }
+.museum-sheet__preview { justify-self: center; width: min(100%, 240px); padding: 14px; border-radius: 6px; background: var(--noeis-paper-sunken); pointer-events: none; }
+.museum-sheet__preview .museum-mat { padding: 18px 16px; }
+.museum-sheet__preview :is(.museum-passage, .museum-maxim) { font-size: calc(var(--size) * 0.62); }
+.museum-sheet__row { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 16px; }
+.museum-sheet__check { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 14px; }
+.museum-sheet__check input { width: 18px; height: 18px; accent-color: var(--noeis-thread); }
+.museum-sheet__more { display: grid; gap: 12px; }
+.museum-sheet__more summary { cursor: pointer; font-size: 14px; color: var(--noeis-ink-muted); }
+.museum-sheet__more[open] summary { margin-bottom: 4px; }
+.museum-sheet__more > label { margin-top: 10px; }
+.museum-sheet__led { display: grid; gap: 0; margin-top: 12px; }
+.museum-sheet__private { margin: 0; font-size: 13px; color: var(--noeis-ink-subtle); }
+.museum-sheet__error { margin: 0; color: var(--noeis-danger); }
+.museum-sheet__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.museum-sheet__actions button { min-height: 42px; padding: 0 18px; border: 1px solid var(--noeis-rule-strong); border-radius: 999px; background: transparent; color: var(--noeis-ink); font: 14px var(--font-sans); cursor: pointer; }
+.museum-sheet__actions .museum-sheet__primary { border-color: var(--noeis-ink); background: var(--noeis-ink); color: var(--noeis-paper); }
+.museum-sheet__actions .museum-sheet__down { margin-left: auto; border-color: transparent; color: var(--noeis-danger); }
+.museum-sheet__actions button:disabled { opacity: 0.45; cursor: default; }
+
+@media (max-width: 900px) {
+  .museum { padding: 0 12px 32px; }
+  .museum__head { grid-template-columns: 1fr; padding: 28px 4px 22px; }
+  .museum__intro { font-size: 16px; }
+  .museum__wall { columns: 2 120px; column-gap: 12px; padding: 16px 12px 10px; }
+  .museum-piece { margin-bottom: 24px; }
+  .museum__wall .museum-frame { padding: 6px; }
+  .museum__wall .museum-mat { padding: 16px 15px; }
+  .museum__wall .museum-passage { font-size: min(calc(var(--size) * 0.68), 18px); hyphens: auto; }
+  .museum-tag { margin: 12px 0 0 10px; padding: 5px 8px 5px 18px; font-size: 10px; }
+  .museum-tag span { font-size: 10.5px; }
+  .museum-vitrine { display: block; overflow-y: auto; background: var(--noeis-canvas); backdrop-filter: none; animation: none; }
+  .museum-vitrine__stage { padding: 68px 22px 26px; }
+  .museum-vitrine__bar { top: 16px; left: 16px; right: 16px; font-size: 11px; }
+  .museum-vitrine__object .museum-frame { padding: 9px; }
+  .museum-vitrine__object .museum-mat { padding: 32px 26px 36px; }
+  .museum-vitrine__object .museum-passage { font-size: clamp(22px, calc(var(--size) * 0.95), 26px); }
+  .museum-vitrine__object .museum-maxim { font-size: min(clamp(36px, calc(var(--size) * 0.7), 60px), calc(var(--fit) * 1cqi)); }
+  .museum-vitrine__object .museum-tag { right: -4px; bottom: -18px; }
+  .museum-vitrine__shelf { margin: 30px -14px 0; }
+  .museum-vitrine__pager { width: 100%; justify-content: space-between; margin-top: 34px; }
+  .museum-vitrine__ticks { display: none; }
+  .museum-placard { padding: 26px 22px 34px; border: 0; border-top: 1px solid var(--noeis-rule); }
+  .museum-settings form { grid-template-columns: 1fr; }
+  .museum-sheet-backdrop { align-items: end; padding: 0; }
+  .museum-sheet { width: 100%; max-height: 92dvh; border-radius: 14px 14px 0 0; padding: 22px 18px calc(18px + env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .museum-frame { transition: none; }
+  .museum-vitrine { animation: none; }
+}
