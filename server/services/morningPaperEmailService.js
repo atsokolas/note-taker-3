@@ -364,8 +364,9 @@ const sendMorningPaperForUser = async ({ user, models, env = process.env, fetchI
   const settings = user?.morningPaper?.toObject?.() || user?.morningPaper || {};
   const localDate = localDateForTimezone(now, settings.timezone || 'UTC');
   const cache = await models.WikiBriefingCache.findOne({ userId: user._id }).lean();
-  const briefing = cache?.payload || null;
-  const briefingVersion = String(cache?.generatedAt || briefing?.generatedAt || 'missing');
+  // No briefing cached yet is an empty one: a book or an arrival can still be the morning's news.
+  const briefing = cache?.payload || {};
+  const briefingVersion = String(cache?.generatedAt || briefing.generatedAt || 'missing');
   const prior = await models.MorningPaperDelivery.findOne({ userId: user._id, localDate, briefingVersion }).lean();
   if (prior) return { duplicate: true, delivery: prior };
   const delivery = new models.MorningPaperDelivery({
@@ -417,7 +418,7 @@ const sendMorningPaperForUser = async ({ user, models, env = process.env, fetchI
   const arrived = models.ConnectionJudgment
     ? await lately({ userId: user._id, since: new Date(now.getTime() - 24 * 60 * 60 * 1000), models }).catch(() => [])
     : [];
-  if ((!briefing || briefingIsEmpty(briefing)) && movements.length === 0 && !closedBook && !books?.answered && !books?.stopped && !arrived.length) return skip('quiet day');
+  if (briefingIsEmpty(briefing) && movements.length === 0 && !closedBook && !books?.answered && !books?.stopped && !arrived.length) return skip('quiet day');
   const token = signUnsubscribeToken({ userId: user._id, version: settings.unsubscribeTokenVersion || 1, secret: config.unsubscribeSecret });
   const unsubscribeUrl = `${config.apiBaseUrl}/api/morning-paper/unsubscribe?token=${encodeURIComponent(token)}`;
   const offset = offsetMinutesFor(now, settings.timezone || 'UTC');
@@ -427,7 +428,7 @@ const sendMorningPaperForUser = async ({ user, models, env = process.env, fetchI
   }
   /* A piece the paper already asks back for is not offered twice. */
   const pick = await waitingTonight({ Article: models.Article, userId: user._id }).catch(() => null);
-  const askedFor = (briefing?.askedBack || []).map(row => row?.title);
+  const askedFor = (briefing.askedBack || []).map(row => row?.title);
   const nightstand = pick && !askedFor.includes(pick.title) ? pick : null;
   const rendered = renderMorningPaperEmail({ briefing, movements, worthSaying, nightstand, closedBook, books, arrived, unsubscribeUrl, appBaseUrl: config.appBaseUrl });
   try {

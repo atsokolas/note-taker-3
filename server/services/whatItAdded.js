@@ -1,6 +1,7 @@
 const { addedBy } = require('../ai/semanticSearch');
 const { cleanWikiSummary } = require('./wikiSourceRefs');
 const { relations } = require('./disagreements');
+const { SUPPRESSED } = require('./readingRoomService');
 
 const ADDED_EACH = 3;
 const SOURCE_SAYS = 1200;
@@ -56,11 +57,12 @@ const whatItAdded = async ({ userId, articleId, models, find = addedBy, judge = 
   return offered.filter((connection, at) => offered.slice(0, at).filter(other => other.kind === connection.kind).length < ADDED_EACH);
 };
 
-/* What arrived lately and connected: of the newest sources saved since,
+/* What arrived lately and connected: of the newest sources saved since and
+   not hidden from the Library,
    the ones that added something, each with the strongest thing it added, so
    the reading room and the morning paper can say it before you open them. */
 const lately = async ({ userId, since, models, added = whatItAdded }) => {
-  const sources = await models.Article.find({ userId, createdAt: { $gte: since } })
+  const sources = await models.Article.find({ userId, ...SUPPRESSED, createdAt: { $gte: since } })
     .sort({ createdAt: -1 }).limit(LATELY_ASKED).select('title').lean();
   const told = [];
   for (const source of sources) {
