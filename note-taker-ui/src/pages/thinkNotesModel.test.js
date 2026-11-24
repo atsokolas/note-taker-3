@@ -181,4 +181,13 @@ describe('whereYouStopped', () => {
     expect(whereYouStopped('One thought.')).toEqual({ before: '', last: 'One thought.' });
     expect(whereYouStopped('')).toEqual({ before: '', last: '' });
   });
+
+  it('reads a saved note from its blocks, and a summary from its last line', () => {
+    const [saved, summary] = buildThinkEntries({ notes: [
+      { _id: 'n1', lastLine: 'The old ending.', blocks: [{ text: 'First.' }, { text: 'The new ending.' }, { text: ' ' }], updatedAt: '2026-11-02' },
+      { _id: 'n2', lastLine: 'From the summary.', updatedAt: '2026-11-01' }
+    ], filter: 'note' });
+    expect(saved.lastLine).toBe('The new ending.');
+    expect(summary.lastLine).toBe('From the summary.');
+  });
 });

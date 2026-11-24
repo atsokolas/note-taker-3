@@ -97,9 +97,14 @@ const shelfOf = (article) => {
   return folder && !isProceduralShelf(folder) ? folder : '';
 };
 
-/* What the nightstand draws a piece by: how long it is to read, and where it lives.
-   A piece with no body text has no reading time, not a one-minute one. */
-const spineOf = (article) => ({ minutes: article.contentLength ? readingMinutes(article.contentLength) : 0, shelf: shelfOf(article) });
+/* What the nightstand draws a piece by: how much you marked in it, how long it
+   is to read, and where it lives. A piece with no body text has no reading time,
+   not a one-minute one. */
+const spineOf = (article) => ({
+  marks: (article.highlights || []).length,
+  minutes: article.contentLength ? readingMinutes(article.contentLength) : 0,
+  shelf: shelfOf(article)
+});
 
 const stillReading = (articles = [], now = new Date()) => articles
   .map((article) => ({ article, since: partwaySince(article, now) }))

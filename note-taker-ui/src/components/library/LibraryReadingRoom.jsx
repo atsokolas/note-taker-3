@@ -3,7 +3,7 @@ import { getReadingRoom, getWorthSayingPhrasing } from '../../api/readingRoom';
 import { fetchLately } from '../../api/retrieval';
 import { LEADS, Says } from '../added/WhatItAdded';
 import { scopedKey } from '../../utils/browserScope';
-import { pickLine, progressPhrase, showsWeather, spineLength, weekKey } from './libraryReadingRoomModel';
+import { pickLine, progressPhrase, showsWeather, weekKey } from './libraryReadingRoomModel';
 import { clothOf } from '../../utils/cloth';
 import '../../styles/library-reading-room.css';
 
@@ -35,14 +35,14 @@ const Title = ({ id, title, onOpen, options }) => (
   </button>
 );
 
-/* A spine on the nightstand: as long as the piece takes to read, in the
+/* A spine on the nightstand: longer the more you marked in it, in the
    cloth of its shelf, with a ribbon where you stopped. */
 const Spine = ({ row, pulled = false, children }) => (
   <li
     className="nightstand__spine"
     data-pulled={pulled || undefined}
     data-ribbon={row.ratio > 0 || undefined}
-    style={{ '--length': spineLength(row.minutes), '--cloth': clothOf(row.shelf), '--ribbon': row.ratio }}
+    style={{ '--marks': row.marks || 0, '--cloth': clothOf(row.shelf), '--ribbon': row.ratio }}
   >
     {children}
     <span className="nightstand__about">
@@ -65,7 +65,7 @@ const Nightstand = ({ pick, stillReading, onOpen }) => (
         ))}
         {pick ? <Spine row={pick} pulled><Title id={pick.articleId} title={pick.title} onOpen={onOpen} /></Spine> : null}
       </ul>
-      <p className="reading-room__rule">The longer the spine, the longer the read. The ribbon is where you stopped.</p>
+      <p className="reading-room__rule">The longer the spine, the more you marked in it. The ribbon is where you stopped.</p>
     </div>
     {pick ? (
       <div className="reading-room__pick" data-testid="reading-room-pick">
