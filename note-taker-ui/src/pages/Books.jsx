@@ -149,10 +149,21 @@ const catalogueEntry = (book, now) => {
     last,
     marks: marks.length,
     furthest: Math.max(0, ...marks.map(mark => mark.page || 0)),
-    spine: spineOf(marks, since),
+    ticks: shelfTicks(spineOf(marks, since)?.ticks),
     closed: book.finishedOn ? dayOf(book.finishedOn).toLocaleDateString(undefined, { month: 'short' }) : ''
   };
 };
+
+/* A standing spine has room for this many ticks, top to bottom. Marks that
+   would sit closer share one, current ink over an earlier reading's, so a
+   heavily marked book still reads as marks and never as one gold bar. */
+const SHELF_TICK_ROWS = 40;
+const shelfTicks = (ticks = []) => [...new Map([...ticks]
+  .sort((a, b) => Boolean(b.earlier) - Boolean(a.earlier))
+  .map(tick => {
+    const row = Math.round(tick.at * SHELF_TICK_ROWS);
+    return [row, { ...tick, at: row / SHELF_TICK_ROWS }];
+  })).values()];
 
 /* A book standing on the shelf. Its width is how much you marked in it, its
    height how far into it your marks go, its cloth the same every visit; the
@@ -163,8 +174,8 @@ const Volume = ({ book, bookend, pulled, onPull }) => (
     style={{ '--marks': book.marks, '--furthest': book.furthest, '--cloth': clothOf(book.title) }}>
     <button type="button" id={shelfRowId(book.id)} aria-pressed={pulled} aria-controls="books-preview" onClick={onPull}>
       <span className="books__volume-title">{book.title}</span>
-      {book.spine ? <span className="books__volume-ticks" aria-hidden="true">
-        {book.spine.ticks.map(tick => <i key={tick.id} data-earlier={tick.earlier || undefined} style={{ top: `${tick.at * 100}%` }} />)}
+      {book.ticks.length ? <span className="books__volume-ticks" aria-hidden="true">
+        {book.ticks.map(tick => <i key={tick.id} data-earlier={tick.earlier || undefined} style={{ top: `${tick.at * 100}%` }} />)}
       </span> : null}
       {book.closed ? <span className="books__volume-colophon" aria-hidden="true">{book.closed}</span> : null}
     </button>

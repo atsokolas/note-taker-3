@@ -66,6 +66,18 @@ test('the shelf stands what you are reading before what you set down and finishe
   expect(screen.getByRole('link', { name: 'Open book' })).toHaveAttribute('href', '/books/done');
 });
 
+test('a heavily marked book keeps distinct ticks on its spine, not a bar', async () => {
+  listBooks.mockResolvedValue([{
+    _id: 'pb', title: 'The Power Broker',
+    marks: Array.from({ length: 400 }, (_, index) => ({ _id: `m${index}`, text: 'A line.', page: index * 4 + 1, createdAt: '2026-11-20T20:00:00Z' }))
+  }]);
+  at();
+  const spine = await screen.findByRole('button', { name: 'The Power Broker' });
+  const ticks = spine.querySelectorAll('.books__volume-ticks i');
+  expect(ticks.length).toBe(41);
+  expect(new Set([...ticks].map(tick => tick.style.top)).size).toBe(41);
+});
+
 test('back from a book, the shelf is scrolled to where its spine stood', async () => {
   window.history.replaceState({ bookshelfPlace: { id: 'b1', status: 'Reading', top: 0, left: 240 } }, '');
   listBooks.mockResolvedValue([{ _id: 'b1', title: 'Middlemarch' }]);
