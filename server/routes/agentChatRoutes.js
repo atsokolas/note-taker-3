@@ -436,10 +436,12 @@ const buildAgentChatRouter = ({
     onStep,
     proposalActor,
     canPropose,
+    persona,
     beforeRecord = async result => result
   }) => {
     const generated = await generateCollaborativeReply({
       userId,
+      persona,
       message: body.message,
       history: thread ? threadMessagesToHistory(thread.messages) : body.history,
       context,
@@ -709,7 +711,8 @@ const buildAgentChatRouter = ({
         source: 'byo_chat',
         requestId: req.requestId,
         proposalActor: actor,
-        canPropose: capabilities.proposeChanges
+        canPropose: capabilities.proposeChanges,
+        persona: req.personalAgent.persona
       });
       return res.status(200).json({
         ...turn,

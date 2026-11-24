@@ -200,6 +200,7 @@ const sanitizePersonalAgent = (doc) => ({
   status: normalizePersonalAgentStatus(doc?.status, 'active'),
   capabilities: normalizePersonalAgentCapabilities(doc?.capabilities || {}),
   preferredWorkerRoles: normalizePersonalAgentWorkerRoles(doc?.preferredWorkerRoles || []),
+  persona: String(doc?.persona || ''),
   apiKeyPrefix: String(doc?.apiKeyPrefix || ''),
   lastUsedAt: doc?.lastUsedAt ? new Date(doc.lastUsedAt).toISOString() : null,
   createdAt: doc?.createdAt ? new Date(doc.createdAt).toISOString() : null,

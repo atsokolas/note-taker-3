@@ -11,6 +11,7 @@ const {
   shareRecordSuccessionLines
 } = require('./authoredThinkShare');
 const { buildLivingThesisCriticMandate } = require('./agentWorkerRoles');
+const { buildPersonaMandate } = require('./agentPersonas');
 const { brokerAgentTurn, resolveAgentCapability, isSharedQuestionContext, sharedQuestionReadCapability } = require('./agentCapabilityBroker');
 const { resolveAgentModelRoute } = require('./agentModelRouter');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
@@ -1106,7 +1107,7 @@ const standingContextLines = (standing = null) => [
   standing?.sources?.length ? `Most recently the reader saved: ${standing.sources.join('; ')}.` : ''
 ];
 
-const buildPartnerSystemPrompt = ({ contextItem = null, standing = null } = {}) => {
+const buildPartnerSystemPrompt = ({ contextItem = null, standing = null, persona = '' } = {}) => {
   const contextLabel = toSafeString(contextItem?.title) || 'the active workspace';
   const wikiHint = contextItem?.type === 'wiki_page'
     ? [
@@ -1163,6 +1164,7 @@ const buildPartnerSystemPrompt = ({ contextItem = null, standing = null } = {}) 
       : '',
     'Answer the reader’s exact question first. If the request is too vague to act on, ask one short question instead.',
     livingThesisCriticHint,
+    buildPersonaMandate(persona),
     ...(contextItem?.type === 'shared_question' ? [] : standingContextLines(standing))
   ].filter(Boolean).join(' ');
 };
@@ -1298,12 +1300,13 @@ const buildPartnerChatMessages = ({
   context = {},
   contextItem = null,
   relatedItems = [],
-  standing = null
+  standing = null,
+  persona = ''
 } = {}) => {
   const messages = [
     {
       role: 'system',
-      content: buildPartnerSystemPrompt({ contextItem, standing })
+      content: buildPartnerSystemPrompt({ contextItem, standing, persona })
     },
     {
       role: 'user',
@@ -2222,6 +2225,7 @@ const generateCollaborativeReply = async ({
   limit = DEFAULT_LIMIT,
   premiumWebResearchAvailable = false,
   skillInvocation = {},
+  persona = '',
   signal = null,
   onStep = undefined
 }) => {
@@ -2437,7 +2441,8 @@ const generateCollaborativeReply = async ({
           context,
           contextItem,
           relatedItems,
-          standing
+          standing,
+          persona
         }),
         sources: [contextItem, ...marginSources, ...relatedItems].filter(Boolean),
         ...(sharedQuestionScoped ? {} : {

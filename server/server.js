@@ -544,7 +544,7 @@ async function authenticatePersonalAgentKey(req, res, next) {
       _id: agentId,
       apiKeyHash,
       status: 'active'
-    }).select('_id userId name status capabilities preferredWorkerRoles');
+    }).select('_id userId name status capabilities preferredWorkerRoles persona');
 
     if (!personalAgent) {
       return res.status(401).json({ error: 'AGENT_AUTH_INVALID' });
@@ -562,7 +562,8 @@ async function authenticatePersonalAgentKey(req, res, next) {
       userId: String(personalAgent.userId),
       name: String(personalAgent.name || ''),
       capabilities: normalizePersonalAgentCapabilities(personalAgent.capabilities || {}),
-      preferredWorkerRoles: normalizePersonalAgentWorkerRoles(personalAgent.preferredWorkerRoles || [])
+      preferredWorkerRoles: normalizePersonalAgentWorkerRoles(personalAgent.preferredWorkerRoles || []),
+      persona: String(personalAgent.persona || '')
     };
     onBehalfOf(req.personalAgent.userId, next);
   } catch (error) {
