@@ -11,7 +11,8 @@ import {
   readThinkTarget,
   readThinkView,
   targetParams,
-  thinkView
+  thinkView,
+  whereYouStopped
 } from './thinkNotesModel';
 
 const notes = [
@@ -171,5 +172,13 @@ describe('writing recognition', () => {
     expect(results[0].title).toBe('A phrase I remember');
     expect(buildWritingResults([{kind:'notebook',id:'note-1',title:'My note'}], 'room + time')[0].href)
       .toBe('/think?tab=notebook&entryId=note-1&find=room+%2B+time');
+  });
+});
+
+describe('whereYouStopped', () => {
+  it('keeps the last two sentences, the very last apart', () => {
+    expect(whereYouStopped('nt to wait. It was the float. Stripe sees the payment “first.” And then')).toEqual({ before: 'Stripe sees the payment “first.”', last: 'And then' });
+    expect(whereYouStopped('One thought.')).toEqual({ before: '', last: 'One thought.' });
+    expect(whereYouStopped('')).toEqual({ before: '', last: '' });
   });
 });

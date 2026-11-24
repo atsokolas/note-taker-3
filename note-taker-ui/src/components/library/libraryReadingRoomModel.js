@@ -87,3 +87,11 @@ export const pickLine = (pick = {}, now = new Date()) => {
   if (progress) return when ? `Saved in ${when}. You are ${progress}.` : `You are ${progress}.`;
   return when ? `Saved in ${when}, not yet opened.` : 'Not yet opened.';
 };
+
+/* A spine's length on the nightstand: a ten-minute piece is two-thirds the
+   width of the stack, a long evening fills it. Unknown length sits short. */
+export const spineLength = (minutes) => {
+  const value = Number(minutes);
+  if (!Number.isFinite(value) || value <= 0) return '52%';
+  return `${Math.min(100, Math.round(46 + Math.log2(value + 1) * 7))}%`;
+};

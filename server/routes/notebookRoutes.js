@@ -166,10 +166,16 @@ const buildNotebookRouter = ({
           : 0;
         const compactParam = String(req.query.compact || '').trim().toLowerCase();
         const compact = compactParam === '1' || compactParam === 'true';
-        const firstText = { $arrayElemAt: [{ $filter: {
+        const written = { $filter: {
           input: { $ifNull: ['$blocks.text', []] }, as: 'text',
           cond: { $regexMatch: { input: { $ifNull: ['$$text', ''] }, regex: /\S/ } }
-        } }, 0] };
+        } };
+        const firstText = { $arrayElemAt: [written, 0] };
+        /* Where you stopped: the end of the last thing you wrote, enough for its last two sentences. */
+        const lastLine = { $let: {
+          vars: { text: { $ifNull: [{ $arrayElemAt: [written, -1] }, ''] } },
+          in: { $substrCP: ['$$text', { $max: [0, { $subtract: [{ $strLenCP: '$$text' }, 600] }] }, 600] }
+        } };
         const pipeline = [
           { $match: { userId: new mongoose.Types.ObjectId(userId) } },
           {
@@ -180,6 +186,7 @@ const buildNotebookRouter = ({
               board: 1,
               pencil: 1,
               'workingState.nextTimeLine.text': 1,
+              lastLine,
               ...(compact ? {} : {
                 claimId: 1, tags: 1, linkedArticleId: 1, linkedHighlightIds: 1, importMeta: 1,
                 blockCount: { $size: { $ifNull: ['$blocks', []] } }

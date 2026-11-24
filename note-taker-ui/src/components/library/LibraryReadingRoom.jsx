@@ -3,7 +3,8 @@ import { getReadingRoom, getWorthSayingPhrasing } from '../../api/readingRoom';
 import { fetchLately } from '../../api/retrieval';
 import { LEADS, Says } from '../added/WhatItAdded';
 import { scopedKey } from '../../utils/browserScope';
-import { pickLine, progressPhrase, showsWeather, weekKey } from './libraryReadingRoomModel';
+import { pickLine, progressPhrase, showsWeather, spineLength, weekKey } from './libraryReadingRoomModel';
+import { clothOf } from '../../utils/cloth';
 import '../../styles/library-reading-room.css';
 
 const WEATHER_KEY = 'library.readingWeather.seenWeek';
@@ -32,6 +33,50 @@ const Title = ({ id, title, onOpen, options }) => (
   <button type="button" className="reading-room__title" onClick={() => onOpen?.(id, options)}>
     {title || 'Untitled'}
   </button>
+);
+
+/* A spine on the nightstand: as long as the piece takes to read, in the
+   cloth of its shelf, with a ribbon where you stopped. */
+const Spine = ({ row, pulled = false, children }) => (
+  <li
+    className="nightstand__spine"
+    data-pulled={pulled || undefined}
+    data-ribbon={row.ratio > 0 || undefined}
+    style={{ '--length': spineLength(row.minutes), '--cloth': clothOf(row.shelf), '--ribbon': row.ratio }}
+  >
+    {children}
+    <span className="nightstand__about">
+      {row.shelf ? <span>{row.shelf}</span> : null}
+      {row.minutes ? <span>{row.minutes} min</span> : null}
+      {pulled ? null : <span className="sr-only">{progressPhrase(row.ratio) || 'marked recently'}</span>}
+    </span>
+  </li>
+);
+
+/* What you are partway through, stacked like books by the bed, with today's
+   pick pulled out of the stack and its note beside it. */
+const Nightstand = ({ pick, stillReading, onOpen }) => (
+  <div className="nightstand">
+    <div className="nightstand__stack" data-testid="reading-room-still">
+      {stillReading.length ? <h2 className="reading-room__eyebrow">Still reading</h2> : null}
+      <ul>
+        {stillReading.map((row) => (
+          <Spine key={row.articleId} row={row}><Title id={row.articleId} title={row.title} onOpen={onOpen} /></Spine>
+        ))}
+        {pick ? <Spine row={pick} pulled><Title id={pick.articleId} title={pick.title} onOpen={onOpen} /></Spine> : null}
+      </ul>
+      <p className="reading-room__rule">The longer the spine, the longer the read. The ribbon is where you stopped.</p>
+    </div>
+    {pick ? (
+      <div className="reading-room__pick" data-testid="reading-room-pick">
+        <span className="reading-room__eyebrow">For today</span>
+        <p className="reading-room__detail">
+          {[pickLine(pick), pick.siteName || pick.author].filter(Boolean).join(' · ')}
+        </p>
+        <p className="reading-room__rule">One a day, from the oldest things you saved.</p>
+      </div>
+    ) : null}
+  </div>
 );
 
 /**
@@ -89,30 +134,7 @@ export default function LibraryReadingRoom({ onOpen }) {
         </p>
       ) : null}
 
-      {pick ? (
-        <div className="reading-room__pick" data-testid="reading-room-pick">
-          <span className="reading-room__eyebrow">For today</span>
-          <Title id={pick.articleId} title={pick.title} onOpen={onOpen} />
-          <p className="reading-room__detail">
-            {[pickLine(pick), pick.siteName || pick.author].filter(Boolean).join(' · ')}
-          </p>
-          <p className="reading-room__rule">One a day, from the oldest things you saved.</p>
-        </div>
-      ) : null}
-
-      {stillReading.length ? (
-        <div className="reading-room__shelf" data-testid="reading-room-still">
-          <h2 className="reading-room__eyebrow">Still reading</h2>
-          <ul>
-            {stillReading.map((row) => (
-              <li key={row.articleId}>
-                <Title id={row.articleId} title={row.title} onOpen={onOpen} />
-                <span>{progressPhrase(row.ratio) || 'marked recently'}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      {pick || stillReading.length ? <Nightstand pick={pick} stillReading={stillReading} onOpen={onOpen} /> : null}
 
       {connected.length ? (
         <div className="reading-room__connected" data-testid="reading-room-connected">

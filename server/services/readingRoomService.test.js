@@ -77,6 +77,15 @@ test('still reading lists the latest three partway pieces and is empty when noth
   assert.deepEqual(stillReading([article()], NOW), []);
 });
 
+test('a piece on the nightstand carries its reading time and the shelf you named', () => {
+  const [row] = stillReading([article({ contentLength: 13800, folder: { name: 'Energy' }, readingState: { ratio: 0.5, visitedAt: ago(1) } })], NOW);
+  assert.equal(row.minutes, 10);
+  assert.equal(row.shelf, 'Energy');
+  const [bare] = stillReading([article({ contentLength: 0, readingState: { ratio: 0.5, visitedAt: ago(1) } })], NOW);
+  assert.equal(bare.shelf, '');
+  assert.equal(bare.minutes, 0, 'no body text is no reading time, not one minute');
+});
+
 test('the pick rotates daily through the seven oldest unopened or half-read pieces you saved yourself', () => {
   const shelf = Array.from({ length: 9 }, (_, index) => article({ createdAt: ago(80 - index) }));
   const ids = new Set();

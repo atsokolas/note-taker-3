@@ -36,12 +36,9 @@
 .reading-room .reading-room__title:focus-visible {
   color: var(--library-accent);
 }
-.reading-room .reading-room__pick .reading-room__title {
-  font: 400 clamp(24px, 2.6vw, 32px) / 1.2 var(--font-serif);
-}
 .reading-room__detail {
-  margin: 10px 0 0;
-  font: 14px/1.5 var(--noeis-ui-font, sans-serif);
+  margin: 0;
+  font: 17px/1.5 var(--font-serif);
   color: var(--text-secondary);
 }
 .reading-room__rule {
@@ -92,15 +89,89 @@
   font: 13px/1.5 var(--noeis-ui-font, sans-serif);
   color: var(--text-muted);
 }
+/* With a nightstand the room reads in two columns: the stack, and what
+   the week brought beside it. */
+.reading-room:has(> .nightstand) {
+  grid-template-columns: minmax(0, 1.5fr) minmax(240px, 0.75fr);
+  column-gap: 48px;
+  align-items: start;
+}
+.reading-room > .nightstand { grid-column: 1; grid-row: 1 / span 5; }
+.reading-room:has(> .nightstand) > :not(.nightstand) { grid-column: 2; }
+.nightstand {
+  display: grid;
+  gap: 20px;
+}
+.nightstand__stack ul {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.nightstand__spine {
+  position: relative;
+  width: var(--length);
+  min-width: min(92%, 260px);
+  max-width: 92%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  border-radius: 3px;
+  background: var(--cloth);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--noeis-ink) 10%, transparent);
+  transition: transform var(--noeis-motion-fast, 160ms) var(--noeis-ease-standard, ease-out);
+}
+.nightstand__spine:nth-child(even) { margin-left: 3%; }
+.nightstand__spine[data-pulled] {
+  transform: translateX(6%);
+  box-shadow: 0 0 0 1.5px var(--noeis-thread), var(--noeis-shadow-soft, 0 6px 16px rgba(0, 0, 0, 0.12));
+}
+/* The ribbon lies under the words, so a title reads across it. */
+.nightstand__spine > * { position: relative; z-index: 1; }
+.nightstand__spine[data-ribbon]::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: calc(var(--ribbon) * 100%);
+  width: 3px;
+  border-radius: 1px;
+  background: var(--noeis-thread);
+}
+.reading-room .nightstand__spine .reading-room__title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 16px/1.3 var(--font-serif);
+  color: var(--text-primary);
+}
+.nightstand__about {
+  display: flex;
+  flex: none;
+  gap: 10px;
+  font: 12px/1.4 var(--noeis-ui-font, sans-serif);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
 @keyframes reading-room-arrive {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .reading-room { animation: none; }
-  .reading-room .reading-room__title { transition: none; }
+  .reading-room .reading-room__title, .nightstand__spine { transition: none; }
+}
+@media (max-width: 900px) {
+  .reading-room:has(> .nightstand) { grid-template-columns: minmax(0, 1fr); }
+  .reading-room > .nightstand, .reading-room:has(> .nightstand) > :not(.nightstand) { grid-column: 1; grid-row: auto; }
 }
 @media (max-width: 600px) {
+  .nightstand__about > :first-child:not(:last-child) { display: none; }
   .reading-room { gap: 24px; margin-bottom: 32px; }
   .reading-room .reading-room__shelf .reading-room__title { font-size: 16px; }
 }

@@ -41,13 +41,29 @@ test('the shelf shows each book with what was written in it and the last line', 
     ]
   }]);
   at();
-  const book = await screen.findByRole('link', { name: /The Better Angels of Our Nature/ });
-  expect(book).toHaveAttribute('href', '/books/b1');
-  expect(book).toHaveTextContent('pp. 188–190 · 1 quote, 1 question');
-  expect(book).toHaveTextContent('Last marked p. 190');
+  const book = await screen.findByRole('button', { name: 'The Better Angels of Our Nature' });
+  expect(book).toHaveAttribute('aria-pressed', 'true');
+  expect(book.closest('li')).toHaveStyle({ '--marks': '2', '--furthest': '190' });
   const preview = screen.getByRole('complementary', { name: 'The Better Angels of Our Nature' });
+  expect(preview).toHaveTextContent('pp. 188–190 · 1 quote, 1 question');
+  expect(preview).toHaveTextContent('last marked at p. 190');
   expect(preview).toHaveTextContent('Is he cherry-picking the base year?');
   expect(screen.getByRole('link', { name: 'Open at p. 190' })).toHaveAttribute('href', '/books/b1?highlight=m2');
+});
+
+test('the shelf stands what you are reading before what you set down and finished, with a bookend between', async () => {
+  listBooks.mockResolvedValue([
+    { _id: 'done', title: 'Persuasion', finishedOn: '2026-11-12' },
+    { _id: 'now', title: 'Middlemarch' }
+  ]);
+  at();
+  await screen.findByRole('button', { name: 'Middlemarch' });
+  const spines = screen.getAllByRole('listitem').filter(item => item.classList.contains('books__volume'));
+  expect(spines.map(item => item.textContent)).toEqual(['Middlemarch', 'PersuasionNov']);
+  expect(spines[1]).toHaveAttribute('data-bookend', 'Finished');
+  fireEvent.click(screen.getByRole('button', { name: 'Persuasion' }));
+  expect(screen.getByRole('button', { name: 'Persuasion' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('link', { name: 'Open book' })).toHaveAttribute('href', '/books/done');
 });
 
 test('filters and previews title-only records without needing artwork or a reading position', async () => {
@@ -56,9 +72,9 @@ test('filters and previews title-only records without needing artwork or a readi
     { _id: 'reading', title: 'An Island Notebook' }
   ]);
   at();
-  await screen.findByRole('button', { name: 'Preview An Island Notebook' });
+  await screen.findByRole('button', { name: 'An Island Notebook' });
   fireEvent.click(screen.getByRole('button', { name: 'Reading' }));
-  expect(screen.queryByRole('link', { name: /Persuasion/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Persuasion/ })).not.toBeInTheDocument();
   expect(screen.getByRole('complementary', { name: 'An Island Notebook' })).toHaveTextContent('Nothing written yet.');
   expect(screen.getByRole('link', { name: 'Open book' })).toHaveAttribute('href', '/books/reading');
   expect(screen.queryByRole('img')).not.toBeInTheDocument();
@@ -136,13 +152,14 @@ test('a book closed a year ago this week comes back at the top of the shelf with
   const back = await screen.findByRole('link', { name: /A year ago today/ });
   expect(back).toHaveAttribute('href', '/books/b2');
   expect(back).toHaveTextContent('You finished Middlemarch and said you’d remember:Nobody is only what they do.Do you?');
-  expect(screen.getByRole('link', { name: /^Middlemarch/ })).toHaveTextContent(/Finished October 2025/);
+  fireEvent.click(screen.getByRole('button', { name: 'Middlemarch' }));
+  expect(screen.getByRole('complementary', { name: 'Middlemarch' })).toHaveTextContent(/Finished October 2025/);
 });
 
 test('nothing comes back when no book is having its anniversary', async () => {
   listBooks.mockResolvedValue([{ _id: 'b2', title: 'Middlemarch', finishedOn: '2026-10-01', closingLine: 'x', returning: null, marks: [] }]);
   at();
-  await screen.findByRole('link', { name: /Middlemarch/ });
+  await screen.findByRole('button', { name: 'Middlemarch' });
   expect(screen.queryByText(/ago/)).not.toBeInTheDocument();
 });
 
@@ -243,17 +260,18 @@ test('the book says where it went in your wiki, one line per page', async () => 
 test('a book set down a month ago says so on the shelf, and stays there', async () => {
   listBooks.mockResolvedValue([{ _id: 'b1', title: 'Leviathan', createdAt: '2026-01-01T00:00:00Z', marks: [{ _id: 'm1', note: 'Hobbes on fear', page: 40, createdAt: '2026-02-03T20:00:00Z' }] }]);
   at();
-  const book = await screen.findByRole('link', { name: /Leviathan/ });
-  expect(book).toHaveTextContent('Set down in February 2026');
-  expect(book).toHaveTextContent('Last marked p. 40');
+  await screen.findByRole('button', { name: 'Leviathan' });
+  const book = screen.getByRole('complementary', { name: 'Leviathan' });
+  expect(book).toHaveTextContent('Set down in February 2026, last marked at p. 40');
   expect(book).toHaveTextContent('1 note');
-  expect(book.textContent.match(/p\. 40/g)).toHaveLength(1);
+  expect(screen.getByRole('button', { name: 'Leviathan' }).closest('li')).toHaveAttribute('data-status', 'Set down');
 });
 
 test('a book changed lately is not set down, whatever its marks’ dates', async () => {
   listBooks.mockResolvedValue([{ _id: 'b1', title: 'Leviathan', createdAt: '2026-01-01T00:00:00Z', updatedAt: new Date().toISOString(), marks: [{ _id: 'm1', note: 'Hobbes on fear', page: 40, createdAt: '2026-02-03T20:00:00Z' }] }]);
   at();
-  expect(await screen.findByRole('link', { name: /Leviathan/ })).not.toHaveTextContent(/Set down/);
+  await screen.findByRole('button', { name: 'Leviathan' });
+  expect(screen.getByRole('complementary', { name: 'Leviathan' })).not.toHaveTextContent(/Set down/);
 });
 
 test('beside a mark, the closest thing you marked in another book', async () => {

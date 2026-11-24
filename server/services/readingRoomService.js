@@ -1,5 +1,6 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { isProceduralShelf } = require('../lib/proceduralShelf');
+const { lengthProjection, readingMinutes } = require('./nightstand');
 const { stripTags } = require('./readableArticle');
 
 /*
@@ -90,6 +91,16 @@ const partwaySince = (article, now = new Date()) => {
   return Math.max(placed, marked);
 };
 
+/* The shelf a piece stands on, as you named it; a procedural shelf has no name worth showing. */
+const shelfOf = (article) => {
+  const folder = clean(article.folder?.name);
+  return folder && !isProceduralShelf(folder) ? folder : '';
+};
+
+/* What the nightstand draws a piece by: how long it is to read, and where it lives.
+   A piece with no body text has no reading time, not a one-minute one. */
+const spineOf = (article) => ({ minutes: article.contentLength ? readingMinutes(article.contentLength) : 0, shelf: shelfOf(article) });
+
 const stillReading = (articles = [], now = new Date()) => articles
   .map((article) => ({ article, since: partwaySince(article, now) }))
   .filter(({ since }) => since > 0)
@@ -99,7 +110,8 @@ const stillReading = (articles = [], now = new Date()) => articles
     articleId: idOf(article),
     title: clean(article.title),
     siteName: clean(article.siteName),
-    ratio: article.readingState ? Number(article.readingState.ratio) : null
+    ratio: article.readingState ? Number(article.readingState.ratio) : null,
+    ...spineOf(article)
   }));
 
 const deliberate = (article) => (article.placement || 'stream') === 'stream' && article.folder?.asFeed !== true;
@@ -139,7 +151,8 @@ const pickForToday = (articles = [], { now = new Date(), offset = 0, exclude = [
     siteName: clean(article.siteName),
     author: clean(article.author),
     savedAt: article.createdAt,
-    ratio: article.readingState ? Number(article.readingState.ratio) : null
+    ratio: article.readingState ? Number(article.readingState.ratio) : null,
+    ...spineOf(article)
   };
 };
 
@@ -164,8 +177,8 @@ const subjectsOf = (article, highlights) => {
     if (name && !tags.has(name.toLowerCase())) tags.set(name.toLowerCase(), name);
   }));
   if (tags.size) return [...tags.entries()];
-  const folder = clean(article.folder?.name);
-  return folder && !isProceduralShelf(folder) ? [[folder.toLowerCase(), folder]] : [];
+  const shelf = shelfOf(article);
+  return shelf ? [[shelf.toLowerCase(), shelf]] : [];
 };
 
 /*
@@ -392,7 +405,7 @@ const loadRoomArticles = async ({ Article, ArticleReadingState = null, userId, m
     {
       $project: {
         title: 1, siteName: 1, author: 1, createdAt: 1, placement: 1, folder: 1, evergreen: 1,
-        contentLength: { $strLenCP: { $ifNull: ['$content', ''] } },
+        contentLength: lengthProjection,
         highlights: {
           $map: {
             input: { $ifNull: ['$highlights', []] },
