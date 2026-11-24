@@ -86,6 +86,18 @@ describe('LibraryReadingRoom', () => {
     expect(screen.queryByText('For today')).not.toBeInTheDocument();
   });
 
+  it('stacks the pieces as spines, with today’s pick pulled out of the stack', async () => {
+    renderRoom({
+      ...EMPTY,
+      stillReading: [{ articleId: 'r1', title: 'Halfway piece', ratio: 0.5, minutes: 12, shelf: 'Energy' }],
+      pick: { articleId: 'p1', title: 'The oldest unread', minutes: 40, shelf: '' }
+    });
+    const reading = (await screen.findByRole('button', { name: 'Halfway piece' })).closest('li');
+    expect(reading).toHaveTextContent('Energy12 minabout halfway');
+    expect(reading).toHaveAttribute('data-ribbon');
+    expect(screen.getByRole('button', { name: 'The oldest unread' }).closest('li')).toHaveAttribute('data-pulled');
+  });
+
   it('shows the weather on the first visit of the week, then keeps quiet until Monday', async () => {
     at(WEDNESDAY);
     const room = { ...EMPTY, weather: { line: 'Mostly semiconductors, with a chance of Stoicism.' } };
