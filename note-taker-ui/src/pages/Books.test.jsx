@@ -299,6 +299,14 @@ test('a book changed lately is not set down, whatever its marks’ dates', async
   expect(screen.getByRole('complementary', { name: 'Leviathan' })).not.toHaveTextContent(/Set down/);
 });
 
+test('an imported book was set down when you last marked it, not the day it arrived', async () => {
+  const arrived = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+  listBooks.mockResolvedValue([{ _id: 'b1', title: 'Thinking in Systems', createdAt: arrived, updatedAt: arrived, marks: [{ _id: 'm1', text: 'A system is more than the sum of its parts.', createdAt: '2024-03-02T20:00:00Z' }] }]);
+  at();
+  await screen.findByRole('button', { name: 'Thinking in Systems' });
+  expect(screen.getByRole('complementary', { name: 'Thinking in Systems' })).toHaveTextContent('Set down in March 2024');
+});
+
 test('beside a mark, the closest thing you marked in another book', async () => {
   const quote = 'He built the roads first, and the parks came after, because the roads carried the votes.';
   useArticleDetail.mockReturnValue({
