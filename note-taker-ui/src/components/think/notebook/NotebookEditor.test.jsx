@@ -44,6 +44,7 @@ const mockEditor = {
   },
   commands: {
     focus: jest.fn(),
+    scrollIntoView: jest.fn(),
     setContent: jest.fn(),
     insertContent: jest.fn()
   },
@@ -1342,10 +1343,12 @@ describe('NotebookEditor', () => {
         render(<NotebookEditor entry={{ _id: 'note-1', title: 'Draft', blocks: [] }} onSave={jest.fn()} startWriting="next" />);
         mockEditor.setEditable.mockClear();
         mockEditor.commands.focus.mockClear();
+        mockEditor.commands.scrollIntoView.mockClear();
         act(() => frames.splice(0).forEach(run => run()));
         expect(mockEditor.setEditable).toHaveBeenCalledWith(true, false);
         expect(mockEditor.commands.focus).toHaveBeenCalledWith('end');
         expect(mockEditor.setEditable.mock.invocationCallOrder[0]).toBeLessThan(mockEditor.commands.focus.mock.invocationCallOrder[0]);
+        expect(mockEditor.commands.focus.mock.invocationCallOrder[0]).toBeLessThan(mockEditor.commands.scrollIntoView.mock.invocationCallOrder.at(-1));
       } finally {
         frame.mockRestore();
       }
