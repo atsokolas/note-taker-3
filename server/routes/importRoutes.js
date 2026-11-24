@@ -1932,7 +1932,7 @@ const buildImportRouter = ({
         article.highlights.push({
           text: highlightText,
           note: toTrimmedString(highlightRow.note),
-          tags: highlightTags.length > 0 ? highlightTags : (documentTags.length > 0 ? documentTags : ['imported']),
+          tags: highlightTags.length > 0 ? highlightTags : documentTags,
           createdAt: highlightRow.highlighted_at || highlightRow.created_at || new Date(),
           // A paper book read through Readwise's own app knows its printed page.
           ...(highlightRow.location_type === 'page' && Number(highlightRow.location) > 0 ? { page: Number(highlightRow.location) } : {}),
