@@ -63,6 +63,12 @@ export const fetchAdded = async (articleId) => {
   return Array.isArray(response.data?.added) ? response.data.added : [];
 };
 
+// What arrived this week and connected: each source with the strongest thing it added.
+export const fetchLately = async () => {
+  const response = await api.get('/api/added', getAuthHeaders());
+  return Array.isArray(response.data?.lately) ? response.data.lately : [];
+};
+
 export const inkAdded = async ({ articleId, key, kind }) => {
   const response = await api.post(`/api/added/${encodeURIComponent(articleId)}/ink`, { key, kind }, getAuthHeaders());
   return response.data;

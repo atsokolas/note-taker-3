@@ -24,14 +24,17 @@ test('what a source added: pencil until inked, gone once struck', async () => {
     findOne: query => lean(connections.find(same(query)) || null),
     create: async row => { connections.push({ _id: `c${connections.length + 1}`, ...row }); return connections.at(-1); }
   };
-  const Article = { findOne: ({ _id }) => lean(_id === source ? { title: 'Checklists in surgery', highlights: [{ text: 'Complications fell by a third.' }], content: '<p>The WHO checklist.</p>' } : null) };
+  const Article = {
+    // The week's arrivals, newest first: this source and one that connects to nothing.
+    find: () => ({ sort: () => ({ limit: () => ({ select: () => ({ lean: async () => [{ _id: source, title: 'Checklists in surgery' }, { _id: '64b0000000000000000000a2', title: 'Sourdough' }] }) }) }) }),
+    findOne: ({ _id }) => lean(_id === source ? { title: 'Checklists in surgery', highlights: [{ text: 'Complications fell by a third.' }], content: '<p>The WHO checklist.</p>' } : null) };
   const sent = [];
   class WikiSourceEvent { constructor(row) { Object.assign(this, row); } async save() { sent.push(this); } }
   const Verdict = {
     find: query => lean(verdicts.filter(row => query.about.$in.includes(row.about))),
     create: async row => verdicts.push(row)
   };
-  const addedBy = async () => [echo, answer, page, coincidence].map(key => ({ kind: key === answer ? 'answers' : 'echo', key, to: { title: key, quote: `${key} says` }, score: 0.9 }));
+  const addedBy = async ({ articleId }) => (articleId !== source ? [] : [echo, answer, page, coincidence].map(key => ({ kind: key === answer ? 'answers' : 'echo', key, to: { title: key, quote: `${key} says` }, score: 0.9 })));
   // The page line is contradicted and the coincidence only shares words; the model is asked once, and its reading kept.
   // A judgment kept before relations were read (argues alone) is read again.
   const judgments = [{ userId, about: `${source}>${echo}`, argues: false }];
@@ -84,6 +87,9 @@ test('what a source added: pencil until inked, gone once struck', async () => {
     ]);
 
     assert.deepEqual((await call(`/api/added/${source}`)).added.map(({ key }) => key), [echo, answer]);
+
+    // Lately: the arrival that connected, with the strongest thing it added and not what was struck.
+    assert.deepEqual((await call('/api/added')).lately.map(({ articleId, title, kind, key }) => [articleId, title, kind, key]), [[source, 'Checklists in surgery', 'echo', echo]]);
 
     // Inking keeps the connection as the reader's; inking a page also sends the source there, once.
     assert.equal((await call(`/api/added/${source}/ink`, { key: echo, kind: 'nonsense' })).code, 400);

@@ -4,6 +4,9 @@ const { relations } = require('./disagreements');
 
 const ADDED_EACH = 3;
 const SOURCE_SAYS = 1200;
+// Lately: the newest sources asked, and how many that connected are told.
+const LATELY_ASKED = 10;
+const LATELY_TOLD = 3;
 // What may argue: a passage it echoes or a page line it belongs beside.
 const ARGUABLE = new Set(['echo', 'belongs']);
 
@@ -13,11 +16,15 @@ const aboutOf = (articleId, key) => `${articleId}>${key}`;
    close; the model reads each new pair once and says whether the source
    bears on it, argues with it, or only shares its words, and that judgment
    is kept, so a pair is never read twice. Only what bears or argues is
-   offered, the strongest ADDED_EACH of each kind. A pair the model could not
-   read this time is left out and read next time. */
+   offered, the strongest ADDED_EACH of each kind, and never one the reader
+   struck. A pair the model could not read this time is left out and read
+   next time. */
 const whatItAdded = async ({ userId, articleId, models, find = addedBy, judge = relations }) => {
-  const { Article, ConnectionJudgment } = models;
-  const found = await find({ userId, articleId, models });
+  const { Article, ConnectionJudgment, Verdict } = models;
+  const close = await find({ userId, articleId, models });
+  const struck = close.length ? await Verdict.find({ userId, kind: 'connection', about: { $in: close.map(({ key }) => aboutOf(articleId, key)) } }).select('about').lean() : [];
+  const gone = new Set(struck.map(row => row.about));
+  const found = close.filter(({ key }) => !gone.has(aboutOf(articleId, key)));
   if (!found.length) return [];
   const kept = await ConnectionJudgment.find({ userId, about: { $in: found.map(({ key }) => aboutOf(articleId, key)) }, relation: { $exists: true } })
     .select('about relation says').lean();
@@ -49,4 +56,19 @@ const whatItAdded = async ({ userId, articleId, models, find = addedBy, judge = 
   return offered.filter((connection, at) => offered.slice(0, at).filter(other => other.kind === connection.kind).length < ADDED_EACH);
 };
 
-module.exports = { whatItAdded, aboutOf };
+/* What arrived lately and connected: of the newest sources saved since,
+   the ones that added something, each with the strongest thing it added, so
+   the reading room and the morning paper can say it before you open them. */
+const lately = async ({ userId, since, models, added = whatItAdded }) => {
+  const sources = await models.Article.find({ userId, createdAt: { $gte: since } })
+    .sort({ createdAt: -1 }).limit(LATELY_ASKED).select('title').lean();
+  const told = [];
+  for (const source of sources) {
+    if (told.length >= LATELY_TOLD) break;
+    const [first] = await added({ userId, articleId: String(source._id), models });
+    if (first) told.push({ articleId: String(source._id), title: source.title || '', ...first });
+  }
+  return told;
+};
+
+module.exports = { whatItAdded, lately, aboutOf };

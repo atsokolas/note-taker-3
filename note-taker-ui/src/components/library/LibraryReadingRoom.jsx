@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getReadingRoom, getWorthSayingPhrasing } from '../../api/readingRoom';
+import { fetchLately } from '../../api/retrieval';
+import { LEADS, Says } from '../added/WhatItAdded';
 import { scopedKey } from '../../utils/browserScope';
 import { pickLine, progressPhrase, showsWeather, weekKey } from './libraryReadingRoomModel';
 import '../../styles/library-reading-room.css';
@@ -39,7 +41,15 @@ const Title = ({ id, title, onOpen, options }) => (
 export default function LibraryReadingRoom({ onOpen }) {
   const [room, setRoom] = useState(null);
   const [said, setSaid] = useState(null);
+  const [connected, setConnected] = useState([]);
   const weatherVisible = useWeatherVisible();
+
+  // Asked after the room: the model may read a new arrival's pairs first.
+  useEffect(() => {
+    let live = true;
+    fetchLately().then((rows) => { if (live) setConnected(rows); }).catch(() => {});
+    return () => { live = false; };
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -68,7 +78,7 @@ export default function LibraryReadingRoom({ onOpen }) {
   const pick = room.pick?.articleId ? room.pick : null;
   const stillReading = Array.isArray(room.stillReading) ? room.stillReading : [];
   const arrivals = Array.isArray(room.newFromSources) ? room.newFromSources : [];
-  if (!weather && !pick && !stillReading.length && !arrivals.length && !worthSaying.length) return null;
+  if (!weather && !pick && !stillReading.length && !arrivals.length && !worthSaying.length && !connected.length) return null;
 
   return (
     <section className="reading-room" aria-label="Reading room" data-testid="library-reading-room">
@@ -98,6 +108,19 @@ export default function LibraryReadingRoom({ onOpen }) {
               <li key={row.articleId}>
                 <Title id={row.articleId} title={row.title} onOpen={onOpen} />
                 <span>{progressPhrase(row.ratio) || 'marked recently'}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {connected.length ? (
+        <div className="reading-room__connected" data-testid="reading-room-connected">
+          <h2 className="reading-room__eyebrow">Connected this week</h2>
+          <ul>
+            {connected.map(({ articleId, title, ...connection }) => (
+              <li key={articleId}>
+                <Title id={articleId} title={title} onOpen={onOpen} /> {LEADS[connection.kind].toLowerCase()} <Says {...connection} />.
               </li>
             ))}
           </ul>
