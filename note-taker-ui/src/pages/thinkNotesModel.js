@@ -103,6 +103,11 @@ export const isTarget = (item, target) => Boolean(item && target && item.kind ==
   item.id.toLowerCase() === target.id.toLowerCase() || (item.recordId && item.recordId === target.id)
 ));
 
+/* A saved note carries its blocks; the summary only its last line. */
+const lastWritten = (entry) => normalizeSpaces(Array.isArray(entry?.blocks)
+  ? entry.blocks.map(block => block?.text).filter(text => text?.trim()).at(-1)
+  : entry?.lastLine);
+
 const suppressed = (row) => Boolean(row?.archived || row?.hiddenFromHome || row?.debugOnly);
 
 /**
@@ -117,7 +122,7 @@ export const buildThinkEntries = ({ notes = [], concepts = [], questions = [], f
     id: idOf(entry),
     title: noteTitle(entry),
     nextTimeLine: normalizeSpaces(entry?.workingState?.nextTimeLine?.text),
-    lastLine: normalizeSpaces(entry?.lastLine),
+    lastLine: lastWritten(entry),
     stage: stageOf(entry?.board),
     board: entry?.board || null,
     createdAt: entry?.createdAt || null,

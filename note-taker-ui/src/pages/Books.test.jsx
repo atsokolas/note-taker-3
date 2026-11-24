@@ -66,6 +66,19 @@ test('the shelf stands what you are reading before what you set down and finishe
   expect(screen.getByRole('link', { name: 'Open book' })).toHaveAttribute('href', '/books/done');
 });
 
+test('back from a book, the shelf is scrolled to where its spine stood', async () => {
+  window.history.replaceState({ bookshelfPlace: { id: 'b1', status: 'Reading', top: 0, left: 240 } }, '');
+  listBooks.mockResolvedValue([{ _id: 'b1', title: 'Middlemarch' }]);
+  try {
+    at();
+    const spine = await screen.findByRole('button', { name: 'Middlemarch' });
+    await waitFor(() => expect(spine).toHaveFocus());
+    expect(spine.closest('ol').scrollLeft).toBe(240);
+  } finally {
+    window.history.replaceState(null, '');
+  }
+});
+
 test('filters and previews title-only records without needing artwork or a reading position', async () => {
   listBooks.mockResolvedValue([
     { _id: 'finished', title: 'Persuasion', finishedOn: '2026-11-12', closingLine: 'I would read it again.' },

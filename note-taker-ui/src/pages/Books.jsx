@@ -196,7 +196,9 @@ const Shelf = () => {
     const frame = requestAnimationFrame(() => {
       const row = document.getElementById(shelfRowId(place.id));
       (row || document.getElementById('books-title'))?.focus({ preventScroll: true });
-      if (row) window.scrollBy({ top: row.getBoundingClientRect().top - place.top, behavior: 'instant' });
+      if (!row) return;
+      row.closest('ol').scrollLeft = place.left;
+      window.scrollBy({ top: row.getBoundingClientRect().top - place.top, behavior: 'instant' });
     });
     return () => cancelAnimationFrame(frame);
   }, [books, error, place]);
@@ -205,7 +207,7 @@ const Shelf = () => {
     if (!followsInThisTab(event)) return;
     const row = document.getElementById(shelfRowId(id));
     if (row) window.history.replaceState({
-      ...window.history.state, bookshelfPlace: { id, status, top: row.getBoundingClientRect().top }
+      ...window.history.state, bookshelfPlace: { id, status, top: row.getBoundingClientRect().top, left: row.closest('ol').scrollLeft }
     }, '');
   };
 
