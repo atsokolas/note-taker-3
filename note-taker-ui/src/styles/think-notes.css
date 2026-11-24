@@ -954,11 +954,21 @@ body.think-rails-away .next-sentence { opacity: 0.35; }
 .think-desk__lead, .think-desk__evergreen { padding: clamp(18px, 3cqw, 32px); min-width: 0; }
 .think-desk__lead { background: var(--noeis-paper); border-inline-start: 2px solid var(--noeis-action); }
 .think-notes .think-desk h2 { margin: 0 0 var(--space-2); color: var(--text-primary); font: 400 1.5rem/1.1 var(--font-serif); letter-spacing: -.02em; text-transform: none; }
-.think-notes .think-desk__lead h2 { margin: var(--space-3) 0; font-size: clamp(2.2rem, 6cqw, 4.15rem); line-height: .98; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.think-notes .think-desk__lead h2 { margin: var(--space-3) 0 var(--space-5); font-size: clamp(2rem, 5cqw, 2.9rem); line-height: 1.06; letter-spacing: -.02em; overflow-wrap: anywhere; }
 .think-desk__lead p { margin-block: 0 var(--space-3); }
-.think-desk__next { border-inline-start: 1px solid var(--vellum-line-strong); padding-inline-start: var(--space-3); }
-.think-desk__next p { font: 1.22rem/1.35 var(--font-serif); margin-top: var(--space-2); white-space: pre-line; }
+/* Your own paragraph, ending where you stopped: the last sentence in full ink. */
+.think-desk__written { max-width: 64ch; color: var(--text-secondary); font: 1.3rem/1.68 var(--font-serif); }
+.think-desk__written span { color: var(--text-primary); }
+.think-desk__next { margin-top: var(--space-5); border-inline-start: 2px solid var(--noeis-thread); padding-inline-start: var(--space-4); }
+.think-desk__next .think-desk__label { font: .8rem/1.4 var(--font-sans); text-transform: none; letter-spacing: 0; }
+.think-desk__next p { font: italic 1.15rem/1.5 var(--font-serif); color: var(--noeis-thread-strong); margin-top: var(--space-1); white-space: pre-line; }
 .think-notes .think-desk button.think-desk__resume { padding: 0 var(--space-3); background: var(--text-primary); color: var(--noeis-paper); font-size: .87rem; }
+/* The line the next sentence goes on, with the caret already waiting. */
+.think-notes .think-desk button.think-desk__resume[data-line] { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: 64px; margin-top: var(--space-4); padding: 0; border-bottom: 1px solid var(--vellum-line); background: transparent; color: var(--text-muted); font: 1.3rem/1.68 var(--font-serif); }
+.think-desk__resume[data-line]::before { content: ''; width: 2px; height: 1.4em; background: var(--noeis-thread); animation: think-desk-caret 1.1s steps(1) infinite; }
+.think-notes .think-desk button.think-desk__resume[data-line]:hover { color: var(--text-primary); }
+@keyframes think-desk-caret { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .think-desk__resume[data-line]::before { animation: none; } }
 .think-desk__evergreen { background: var(--noeis-active); border-inline-start: 1px solid var(--vellum-line); }
 .think-desk ul { padding: 0; margin: 0; list-style: none; }
 .think-desk li { border-top: 1px solid var(--vellum-line); padding-block: var(--space-2); }

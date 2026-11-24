@@ -7,6 +7,7 @@ import { sourceTitle } from '../../utils/sourceDisplayText';
 import { inkAge } from '../../utils/inkAge';
 import { sourceLabel } from '../library/libraryColumnModel';
 import { dayLabel } from './notebook/notebookStages';
+import { whereYouStopped } from '../../pages/thinkNotesModel';
 
 const DESK_LIMIT = 4;
 const WHERE = { dimmed: 'Dimmed in', aside: 'Set aside in' };
@@ -38,6 +39,20 @@ const DeskList = ({ title, items, view, onOpen, onView, detail = item => dayLabe
     {items.length > DESK_LIMIT ? <button type="button" className="think-desk__more" onClick={() => onView(view)}>See all</button> : null}
   </section>
 ) : null;
+
+/* The desk opens on your own unfinished paragraph, ending where you stopped,
+   and the line below it is where the next sentence goes. */
+const WhereYouStopped = ({ lead, onOpen }) => {
+  const { before, last } = whereYouStopped(lead.lastLine);
+  const resumes = Boolean(last || lead.nextTimeLine);
+  return <>
+    <p className="think-desk__label">Where you stopped{lead.updatedAt ? `, ${dayLabel(lead.updatedAt)}` : ''}</p>
+    <h2>{lead.title}</h2>
+    {last ? <p className="think-desk__written">{before ? <>{before} </> : null}<span>{last}</span></p> : null}
+    {lead.nextTimeLine ? <div className="think-desk__next"><span className="think-desk__label">You left yourself a note</span><p>{lead.nextTimeLine}</p></div> : null}
+    <button type="button" className="think-desk__resume" data-line={resumes || undefined} onClick={() => onOpen(lead, { write: resumes })}>{resumes ? 'Write the next sentence' : 'Open draft'}</button>
+  </>;
+};
 
 const ThinkDesk = ({ working, ideas, closed, questions = [], onOpen, onView, onStart, creating, children }) => {
   const [thought, setThought] = useState('');
@@ -77,12 +92,7 @@ const ThinkDesk = ({ working, ideas, closed, questions = [], onOpen, onView, onS
       </header>
       <div className="think-desk__spread">
         <section className="think-desk__lead" aria-label={lead ? 'Continue writing' : undefined}>
-          {lead ? <>
-            <p className="think-desk__label">Continue writing</p>
-            <h2>{lead.title}</h2>
-            {lead.nextTimeLine ? <div className="think-desk__next"><span className="think-desk__label">Next time</span><p>{lead.nextTimeLine}</p></div> : null}
-            <button type="button" className="think-desk__resume" onClick={() => onOpen(lead, { write: Boolean(lead.nextTimeLine) })}>{lead.nextTimeLine ? 'Write the next sentence' : 'Open draft'}</button>
-          </> : <>
+          {lead ? <WhereYouStopped lead={lead} onOpen={onOpen} /> : <>
             <h2>Nothing is underway.</h2>
             <p>Open an idea and choose Working to keep it on your desk.</p>
           </>}

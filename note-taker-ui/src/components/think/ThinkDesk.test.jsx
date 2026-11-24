@@ -37,3 +37,21 @@ it('shows a bounded shelf of actual Keepers and links to the source', async () =
   expect(await screen.findByRole('link', { name: 'The craft of attention' })).toHaveAttribute('href', '/library?articleId=source-1');
   expect(screen.getByRole('link', { name: 'Browse keepers' })).toHaveAttribute('href', '/library?scope=kept');
 });
+
+it('opens on the last thing you wrote, and the line below it is for the next sentence', async () => {
+  getNotebookCuttings.mockResolvedValue([]);
+  getLibraryCollection.mockResolvedValue({ items: [] });
+  const onOpen = jest.fn();
+  const draft = {
+    id: 'moat', kind: 'note', title: 'On patience', updatedAt: ago(2),
+    lastLine: 'Float is money that arrives early. So Buffett could wait. Stripe sees the payment first.',
+    nextTimeLine: 'Say why patience is the moat.'
+  };
+  render(<ThinkDesk working={[draft]} ideas={[]} closed={[]} onOpen={onOpen} onView={jest.fn()} onStart={jest.fn()} />);
+
+  expect(screen.getByText('Stripe sees the payment first.').closest('p')).toHaveTextContent(/^So Buffett could wait\. Stripe sees the payment first\.$/);
+  expect(screen.getByText('Say why patience is the moat.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Write the next sentence' }));
+  expect(onOpen).toHaveBeenCalledWith(draft, { write: true });
+  await screen.findByText('Where you stopped, 2 days ago');
+});

@@ -79,6 +79,8 @@ test('real Mongo: moving a note on the board files it without touching the writi
     const byTitle = Object.fromEntries(shelf.map(row => [row.title, row]));
     assert.equal(byTitle['On moats'].board.stage, 'done', 'the shelf summary carries where each note stands');
     assert.equal(byTitle.Older.board.stage, 'done');
+    assert.equal(byTitle['On moats'].lastLine, 'Prices stay low.', 'the summary carries where you stopped writing');
+    assert.equal(byTitle.Older.lastLine, '');
   } finally {
     server?.close();
     await mongoose.disconnect();
