@@ -722,7 +722,9 @@ function App() {
     setPaletteOpen(true);
   }, []);
 
-  const closePalette = useCallback(() => {
+  // Focus goes back where it was, unless the palette handed it on (to the Partner).
+  const closePalette = useCallback(({ handedOn = false } = {}) => {
+    if (handedOn) paletteReturnFocusRef.current = null;
     setPaletteOpen(false);
   }, []);
 

@@ -504,7 +504,8 @@ describe('CommandPalette', () => {
       const { onClose } = await renderPalette();
       fireEvent.click(await screen.findByText('Ask the Partner'));
       expect(opened).toHaveBeenCalled();
-      expect(onClose).toHaveBeenCalled();
+      // Focus is handed on to the Partner, not sent back to the page under it.
+      expect(onClose).toHaveBeenCalledWith({ handedOn: true });
 
       await renderPalette();
       fireEvent.change(screen.getAllByPlaceholderText('Find a note, highlight or page…').pop(), { target: { value: 'why do moats erode' } });

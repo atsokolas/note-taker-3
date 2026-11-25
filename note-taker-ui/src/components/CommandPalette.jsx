@@ -883,7 +883,8 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
           id: 'action-ask-partner',
           type: 'Action',
           label: q ? `Ask the Partner: “${q.slice(0, 60)}”` : 'Ask the Partner',
-          action: () => (q ? ask(q) : window.dispatchEvent(new Event('noeis:open-agent')))
+          action: () => (q ? ask(q) : window.dispatchEvent(new Event('noeis:open-agent'))),
+          handsOnFocus: true
         } : null
       ]
     };
@@ -1090,7 +1091,7 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
   const handleSelect = (item) => {
     if (!item || (loading && !item.immediate && !restoring.current)) return;
     if (item.action) {
-      onClose();
+      onClose({ handedOn: Boolean(item.handsOnFocus) });
       item.action();
       return;
     }
