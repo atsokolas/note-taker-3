@@ -20,10 +20,10 @@ const RELATION = { echo: 'related', answers: 'supports', belongs: 'contained_by'
    Verdict in Noeis's hand, kept with what it was about, so it is never
    offered again and agents read it as the reader's taste). Inking a page it
    belongs on also sends the source to that page, so the wiki writes a cited
-   line the reader accepts there. Readers and agents may ask; only the reader
-   inks and strikes. */
+   line the reader accepts there. Readers and agents may ask; only the reader,
+   here or from their own desktop, inks and strikes. */
 const buildAddedRouter = ({
-  authenticateToken, humanOnly, Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent, added = whatItAdded
+  authenticateToken, ownDesktop, Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent, added = whatItAdded
 }) => {
   const router = express.Router();
   const models = { Article, ConnectionJudgment, Verdict };
@@ -69,7 +69,7 @@ const buildAddedRouter = ({
     }
   });
 
-  router.post('/api/added/:articleId/ink', authenticateToken, humanOnly, async (req, res) => {
+  router.post('/api/added/:articleId/ink', ownDesktop, async (req, res) => {
     const relationType = RELATION[req.body?.kind];
     if (!named(req) || !relationType) return res.status(400).json({ error: 'Name the source and the connection to ink.' });
     const { articleId } = req.params;
@@ -97,7 +97,7 @@ const buildAddedRouter = ({
     }
   });
 
-  router.post('/api/added/:articleId/strike', authenticateToken, humanOnly, async (req, res) => {
+  router.post('/api/added/:articleId/strike', ownDesktop, async (req, res) => {
     if (!named(req)) return res.status(400).json({ error: 'Name the source and the connection to strike.' });
     const { articleId } = req.params;
     const { key } = req.body;

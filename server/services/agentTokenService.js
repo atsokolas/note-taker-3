@@ -5,8 +5,9 @@ const { onBehalfOf } = require('../ai/modelBudget');
 
 const AGENT_TOKEN_PREFIX = 'ntk_at_';
 /* What each scope lets a token do. `capture` is a person's own desktop: it
-   brings links, files, text and passages in, sees the nightstand, and keeps
-   the place they stopped reading; it writes nothing else. `work` opens Work and is never implied by another scope:
+   brings links, files, text and passages in, sees the nightstand, keeps
+   the place they stopped reading, and inks or strikes what a source added;
+   it writes nothing else. `work` opens Work and is never implied by another scope:
    it is asked for by name, on top of read or agent-write. */
 const SCOPE_GRANTS = {
   read: ['read'],
@@ -101,7 +102,8 @@ const requireHumanReader = (req, res, next) => {
 
 /* Your own desktop is a token approved for `capture` that cannot write as an
    agent: it writes in ink, as you do. It may see the Library's lists (the
-   nightstand) and keep your place in a piece. */
+   nightstand), keep your place in a piece, and ink or strike what a source
+   added. */
 const isOwnDesktop = (token) => Boolean(token)
   && normalizeAgentTokenScopes(token.scopes || []).includes('capture')
   && !hasRequiredScope(token, 'agent-write');

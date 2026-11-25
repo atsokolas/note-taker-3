@@ -5,7 +5,7 @@ import { Button, Page, PageHeader } from '../components/ui';
 
 const SCOPE_LABELS = {
   read: 'Read and search everything you have saved and written',
-  capture: 'Save links, files, text and passages to your Library, see your Nightstand, and remember where you stopped reading',
+  capture: 'Save links, files, text and passages to your Library, see your Nightstand, remember where you stopped reading, and ink or strike what a source added',
   'agent-write': 'Save notes, file research to Editions and draft wiki pages',
   work: 'Open Work: its notes, follow-ups, folders and projects'
 };

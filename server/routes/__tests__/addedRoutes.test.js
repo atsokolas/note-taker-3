@@ -57,7 +57,7 @@ test('what a source added: pencil until inked, gone once struck', async () => {
   app.use(express.json());
   app.use(buildAddedRouter({
     authenticateToken: (req, _res, next) => { req.user = { id: userId }; next(); },
-    humanOnly: (_req, res, next) => (agent ? res.status(403).json({}) : next()),
+    ownDesktop: (req, res, next) => { req.user = { id: userId }; return agent ? res.status(403).json({}) : next(); },
     Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent,
     added: asked => whatItAdded({ ...asked, find: addedBy, judge })
   }));
