@@ -46,3 +46,11 @@
   .work-project-studio .work-between { display: grid; }
   .work-project-studio .work-log-entry .work-log-day { display: none; }
 }
+
+/* From what you keep: pencil in the margin, read-only, gone when nothing bears on the project. */
+.work-project-beside { display: grid; gap: var(--space-2); margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--border-subtle-2); color: var(--ink-agent); }
+.work-project-beside > small { font: 0.72rem/1.4 var(--font-sans); letter-spacing: 0.02em; }
+.work-project-beside a { color: inherit; font: italic 0.92rem/1.5 var(--font-serif); text-decoration: none; }
+.work-project-beside a:hover, .work-project-beside a:focus-visible { text-decoration: underline; text-underline-offset: 0.2em; }
+.work-project-beside q { quotes: '“' '”'; }
+.work-project-beside a small { display: block; font: normal 0.72rem/1.4 var(--font-sans); opacity: 0.8; }
