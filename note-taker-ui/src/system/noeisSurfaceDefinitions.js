@@ -110,6 +110,16 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     orientation: 'Calls you have made, with the evidence, to check later.',
     authenticatedPrefixes: ['/judgment', '/mirror', '/welcome']
   }),
+  /* The few pieces that shaped how you think, hung on one wall you can open
+     to anyone. Its visitors' address, /museum/:handle, is a public page. */
+  surface({
+    id: 'surface.museum',
+    name: 'Museum',
+    route: '/museum',
+    navigationGroup: 'primary',
+    verb: 'Show',
+    orientation: 'The pieces that shaped how you think, and why each one is there.'
+  }),
   /* Private writing for your job: meetings, follow-ups, the week. It is a
      room you walk into from the bar, but no agent or Partner works in it. */
   surface({
@@ -144,15 +154,6 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     route: '/marketing-analytics',
     activePrefixes: ['/marketing-analytics', '/search-console-opportunities'],
     authenticatedPrefixes: ['/marketing-analytics', '/search-console-opportunities']
-  }),
-  /* The few pieces that shaped how you think, hung on one wall you can open
-     to anyone. Its visitors' address, /museum/:handle, is a public page. */
-  surface({
-    id: 'surface.museum',
-    name: 'Museum',
-    route: '/museum',
-    navigationGroup: 'secondary',
-    orientation: 'The pieces that shaped how you think, and why each one is there.'
   }),
   // What the reader handed to agents before stepping away, and what agents left in pencil.
   surface({
