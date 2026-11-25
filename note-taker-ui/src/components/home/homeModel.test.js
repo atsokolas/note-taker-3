@@ -7,6 +7,7 @@ const ago = days => new Date(NOW - days * DAY).toISOString();
 describe('home model', () => {
   it('opens a book on its page, and anything else at the passage', () => {
     expect(pathOf({ book: true, articleId: 'b1' })).toBe('/books/b1');
+    expect(pathOf({ book: true, articleId: 'b1', highlightId: 'h1' })).toBe('/books/b1?highlight=h1');
     expect(pathOf({ articleId: 'a1' })).toContain('a1');
     expect(pathOf({ articleId: 'a1', highlightId: 'h1' })).toContain('h1');
   });

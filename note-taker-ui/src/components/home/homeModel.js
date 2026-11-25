@@ -7,10 +7,11 @@ const NUMBERS = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eig
 const counted = (n, one) => `${NUMBERS[n] || n} ${one}${n === 1 ? '' : 's'}`;
 const timeOf = value => new Date(value).getTime() || 0;
 
-// A book opens on its own page; anything else in the Library reader, at the passage.
-export const pathOf = ({ book, articleId, highlightId }) => (
-  book ? `/books/${articleId}` : highlightId ? buildCanonicalHighlightPath({ articleId, highlightId }) : buildCanonicalArticlePath(articleId)
-);
+// A book opens on its own page, anything else in the Library reader; either at the passage.
+export const pathOf = ({ book, articleId, highlightId }) => {
+  if (book) return `/books/${articleId}${highlightId ? `?highlight=${encodeURIComponent(highlightId)}` : ''}`;
+  return highlightId ? buildCanonicalHighlightPath({ articleId, highlightId }) : buildCanonicalArticlePath(articleId);
+};
 
 export const monthOf = value => new Date(value).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 
