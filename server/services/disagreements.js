@@ -13,7 +13,7 @@ const YOU = '';
 
 const SYSTEM = `You compare pairs of passages from one reader's workspace: what an agent wrote or a source says (A), against something the reader holds (B): a view, a passage they marked, a question they asked, a line on one of their wiki pages, or what another agent wrote. Say how A bears on B:
 - "argues" when both cannot be true, or both cannot be acted on, as stated.
-- "bears" when A makes the same point as B, gives evidence for it, carries it to a new case, or answers B when B is a question.
+- "bears" when A makes the same point as B, gives evidence for it, carries it to a new case, or when one is a question the other answers.
 - "none" when they only share words or a topic. A different emphasis, or a claim about something else, is none.
 Answer with JSON only: {"pairs":[{"pair":<number>,"relation":"argues"|"bears"|"none","a":"<what A says, one sentence>","b":"<what B says, one sentence>"}]}`;
 
