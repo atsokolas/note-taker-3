@@ -196,6 +196,11 @@ for (const file of qml) {
   assert.doesNotMatch(source, /\b(Image|AnimatedImage|BorderImage)\s*\{|RichText|StyledText|MarkdownText/, `${file} loads no image and renders no markup`);
 }
 
+// The bar wears the logo noeis.io does.
+const strands = text => [...text.matchAll(/(?: d=|path: )"([^"]+)"/g)].map(m => m[1]);
+assert.deepStrictEqual(strands(read('NoeisMark.qml')),
+  strands(fs.readFileSync(path.join(__dirname, '..', 'note-taker-ui', 'src', 'assets', 'noeis-mark.svg'), 'utf8')), 'the mark is the woven N');
+
 // Every network call from the scripts is https only, with a deadline; the
 // session is written by one private writer, never by FileView.
 for (const file of ['bin/noeis-open', 'bin/noeis-setup']) {

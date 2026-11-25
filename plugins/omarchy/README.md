@@ -211,7 +211,7 @@ rm -f ~/.config/noeis/omarchy.json
 | `Reader.qml` | The reading window |
 | `BarWidget.qml` | The mark in the bar; hosts the panel and hands the Service its settings |
 | `Panel.qml` | The panel: connecting, the field, search results, the nightstand, receipts |
-| `NoeisMark.qml` | The three-ring mark, drawn natively at bar size |
+| `NoeisMark.qml` | The woven N, drawn natively at bar size |
 | `Model.js` | The decisions, tested in node by `scripts/omarchy_plugin.test.js` |
 | `bin/noeis-open` | The reading window, links onto the nightstand, files into your Library, and noeis.io itself with `--web` |
 | `bin/noeis-setup` | Keys, launcher entries and the Share menu; optional, with `--dry-run` and `--remove` |
