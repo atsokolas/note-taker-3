@@ -37,6 +37,7 @@ const WORKSPACE = {
   },
   '/api/brief': {
     topic: 'hiring',
+    kept: [{ kind: 'thread', id: 't1', title: 'A thread through Taste and Hiring', keptAt: '2026-11-20' }],
     note: [{ kind: 'note', id: 'n1', title: 'Hiring notes', passage: 'Hire for slope, not intercept.' }],
     question: [{ kind: 'question', id: 'q1', title: 'Do work samples beat interviews?', passage: 'Do work samples beat interviews?' }],
     pencil: [{ kind: 'note', id: 'n2', title: 'Panels', passage: 'Panels overweight charisma.', pencil: 'Codex' }],
@@ -116,6 +117,7 @@ const run = async () => {
     const brief = await client.brief({ topic: ' hiring ' });
     assert.strictEqual(calls[0].searchParams.get('topic'), 'hiring');
     assert.strictEqual(brief.question[0].link, 'https://www.noeis.io/think?tab=questions&questionId=q1');
+    assert.strictEqual(brief.kept[0].link, 'https://www.noeis.io/threads/t1');
     assert.deepStrictEqual(brief.pencil.map(hit => [hit.id, hit.pencil]), [['n2', 'Codex']]);
     // What the reading added links to the source; the reader's taste is a summary, passed through as it came.
     assert.strictEqual(brief.added[0].link, 'https://www.noeis.io/articles/a1');

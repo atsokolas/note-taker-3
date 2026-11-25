@@ -441,21 +441,6 @@
   .book-desk__line:not(:focus-within) .book-desk__kinds {
     display: none;
   }
-
-  /* The Partner floats at the end of the line, so the line stops short of it;
-     while you type, the Partner steps out of the line's way. */
-  .book-desk__actions,
-  .book-desk__hint {
-    margin-right: 76px;
-  }
-
-  :root:has(.book-desk__line:focus-within) .agent-rail-drawer__trigger {
-    display: none;
-  }
-
-  .book-desk__line:focus-within :is(.book-desk__actions, .book-desk__hint) {
-    margin-right: 0;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

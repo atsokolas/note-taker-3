@@ -31,29 +31,28 @@ describe('AppShell landmarks', () => {
     expect(screen.getAllByRole('main')).toHaveLength(1);
   });
 
-  it('opens the one Partner as an accessible sheet, by button or ⌘J', () => {
+  it('opens the one Partner as an accessible sheet with ⌘J or from ⌘K, with no pill on the page', () => {
     render(
       <AppShell topBar={<header>Top bar</header>} partner={<aside aria-label="Partner">Partner work</aside>}>
         <main>Library</main>
       </AppShell>
     );
 
-    const trigger = screen.getByRole('button', { name: 'Partner' });
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: 'Partner' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    fireEvent.click(trigger);
-    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.keyDown(window, { key: 'j', metaKey: true });
     expect(screen.getByRole('dialog', { name: 'Partner' })).toContainElement(
       screen.getByRole('complementary', { name: 'Partner' })
     );
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    fireEvent.keyDown(window, { key: 'j', metaKey: true });
-    expect(trigger).toHaveAttribute('aria-expanded', 'true');
     fireEvent.keyDown(window, { key: 'j', ctrlKey: true });
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('dialog', { name: 'Partner' })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'j', ctrlKey: true });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     act(() => { window.dispatchEvent(new Event('noeis:open-agent')); });
     expect(screen.getByRole('dialog', { name: 'Partner' })).toBeInTheDocument();
@@ -69,7 +68,7 @@ describe('AppShell landmarks', () => {
       </AppShell>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Partner' }));
+    fireEvent.keyDown(window, { key: 'j', metaKey: true });
     const close = screen.getByRole('button', { name: 'Close' });
     const question = screen.getByRole('textbox', { name: 'Agent question' });
 

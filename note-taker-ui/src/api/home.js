@@ -13,3 +13,4 @@ export const readThread = async threadId => (await api.get(`/api/threads/${encod
 export const answerThread = async (threadId, answer) => (
   (await api.patch(`/api/threads/${encodeURIComponent(threadId)}`, { answer }, getAuthHeaders())).data
 );
+export const readKept = async () => (await api.get('/api/kept', getAuthHeaders())).data?.kept || [];

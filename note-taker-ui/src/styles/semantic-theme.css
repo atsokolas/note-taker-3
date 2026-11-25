@@ -739,8 +739,7 @@ html:is([data-ui-family='palette'], [data-ui-scheme='dark']) :is(
     .palette-card,
     .system-status__drawer,
     .agent-rail,
-    .agent-rail-drawer__sheet,
-    .agent-rail-drawer__trigger
+    .agent-rail-drawer__sheet
   ) {
     animation: none !important;
     scroll-behavior: auto !important;

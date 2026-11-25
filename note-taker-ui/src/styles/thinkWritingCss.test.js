@@ -12,7 +12,7 @@ describe('Think writing focus mode', () => {
     expect(notes).not.toMatch(/think-rails-away[^{]*\{[^}]*--drawer-width/);
     expect(css).not.toMatch(/think-rails-away[^{]*\{[^}]*(width|grid-template-columns)/);
     expect(css).toContain('body:is(.think-rails-away, .think-focus-held) [data-writing-rail] > *');
-    expect(css).toMatch(/body\.think-rails-away :is\(\.topbar, \.think-notes__toggles, \.agent-rail-drawer__trigger, \.notebook-arrangement, \.think-focus-mode--rail\) \{[^}]*opacity: 0;/);
+    expect(css).toMatch(/body\.think-rails-away :is\(\.topbar, \.think-notes__toggles, \.notebook-arrangement, \.think-focus-mode--rail\) \{[^}]*opacity: 0;/);
   });
 
   it('fades only when motion is welcome', () => {

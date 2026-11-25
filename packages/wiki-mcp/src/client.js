@@ -1107,6 +1107,7 @@ export class NoeisClient {
       view: `${app}/wiki/workspace?page=${id}`,
       wiki_page: `${app}/wiki/workspace?page=${id}`,
       edition: `${app}/editions/${id}`,
+      thread: `${app}/threads/${id}`,
       handoff: `${app}/away?handoff=${id}`
     }[hit.kind] || app;
   }

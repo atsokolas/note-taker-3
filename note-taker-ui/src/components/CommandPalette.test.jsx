@@ -27,6 +27,9 @@ jest.mock('react-router-dom', () => ({
   useNavigationType: () => 'POP'
 }));
 
+const mockRail = { canAsk: false, ask: jest.fn() };
+jest.mock('../agent/AgentRailContext', () => ({ useAgentRail: () => mockRail }));
+
 jest.mock('../api', () => ({
   get: jest.fn(),
   post: jest.fn()
@@ -491,6 +494,48 @@ describe('CommandPalette', () => {
     expect(screen.queryByText('New Wiki page')).not.toBeInTheDocument();
     expect(screen.queryByText('Concepts')).not.toBeInTheDocument();
     expect(screen.queryByText('Notebook')).not.toBeInTheDocument();
+  });
+
+  it('asks the Partner from here, since it has no pill on the page', async () => {
+    mockRail.canAsk = true;
+    const opened = jest.fn();
+    window.addEventListener('noeis:open-agent', opened);
+    try {
+      const { onClose } = await renderPalette();
+      fireEvent.click(await screen.findByText('Ask the Partner'));
+      expect(opened).toHaveBeenCalled();
+      // Focus is handed on to the Partner, not sent back to the page under it.
+      expect(onClose).toHaveBeenCalledWith({ handedOn: true });
+
+      await renderPalette();
+      fireEvent.change(screen.getAllByPlaceholderText('Find a note, highlight or page…').pop(), { target: { value: 'why do moats erode' } });
+      await flushSearch();
+      fireEvent.click(screen.getByText('Ask the Partner: “why do moats erode”'));
+      expect(mockRail.ask).toHaveBeenCalledWith('why do moats erode');
+    } finally {
+      mockRail.canAsk = false;
+      window.removeEventListener('noeis:open-agent', opened);
+    }
+  });
+
+  it('asks what you keep first, before anything else in the library', async () => {
+    api.get.mockImplementation((path) => (path === '/api/kept'
+      ? Promise.resolve({ data: { kept: [
+        { kind: 'mark', articleId: 'm1', highlightId: 'h1', title: 'Meditations', text: 'The best revenge is not to be like your enemy.' },
+        { kind: 'thread', threadId: 't1', title: 'A thread through Vegetius and Meditations', marks: 3 }
+      ] } })
+      : Promise.resolve({ data: [] })));
+
+    await renderPalette();
+    const headings = () => [...document.querySelectorAll('.palette-group-title')].map(title => title.textContent);
+    expect(await screen.findByText('A thread through Vegetius and Meditations')).toBeInTheDocument();
+    expect(headings()[0]).toBe('Kept');
+
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), { target: { value: 'revenge' } });
+    await flushSearch();
+    expect(headings()[0]).toBe('Kept');
+    fireEvent.click(screen.getByText('“The best revenge is not to be like your enemy.” · Meditations'));
+    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('h1'));
   });
 
   it('opens the first search result before wiki creation when pressing Enter', async () => {

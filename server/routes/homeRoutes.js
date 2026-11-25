@@ -1,6 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { SINKS_AFTER_DAYS, home } = require('../services/home');
+const { SINKS_AFTER_DAYS, home, readKept } = require('../services/home');
 const { echoToday } = require('../services/bookShelf');
 const { calendarDay } = require('../services/closedBooks');
 const { THREAD_ANSWERS, refused, threadAsItIs, threadFrom, timeToLook, waiting } = require('../services/threads');
@@ -74,6 +74,16 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thre
     } catch (error) {
       console.error('Error reading home:', error);
       return res.status(500).json({ error: 'Home could not be read.' });
+    }
+  });
+
+  // Kept alone, for ⌘K: what you keep is asked first.
+  router.get('/api/kept', authenticateToken, async (req, res) => {
+    try {
+      return res.json({ kept: await readKept({ Article, Thread, userId: req.user.id }) });
+    } catch (error) {
+      console.error('Error reading kept:', error);
+      return res.status(500).json({ error: 'Kept could not be read.' });
     }
   });
 

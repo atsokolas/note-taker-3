@@ -22,7 +22,8 @@ with `read`. Seventeen core tools are listed; add more with
 
 If `brief` lists anything under `handedToYou`, the reader handed it to you before
 stepping away: `take_handoff`, do it, then `finish_handoff` with what you did,
-what is still open and what you would do next. Its `taste` is what the reader
+what is still open and what you would do next. Its `kept` is what the reader keeps for good (sources, passages and threads
+they kept): start from it. Its `taste` is what the reader
 inked and struck of agents' pencil lately, with why: write the way they keep.
 Its `disagreements` are where an agent's pencil runs against a view the reader
 holds, or against another agent: name them when you work near one.
