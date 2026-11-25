@@ -1,4 +1,5 @@
 // Books: the shelf, the reading desk's lines, asking and arguing with a book, lending one.
+const { isValidObjectId } = require('mongoose');
 const { calendarDay, bookReturning } = require('../../services/closedBooks');
 const {
   shelveBooks,
@@ -12,6 +13,9 @@ const {
 } = require('../../services/bookShelf');
 const { BOOK_URL } = require('../../services/import/exportFiles');
 const { isUnfinished, passageIn } = require('../../utils/passages');
+
+const ECHOES_KEPT = 500;
+const echoes = new Map();
 
 module.exports = (router, {
   Article,
@@ -34,10 +38,10 @@ module.exports = (router, {
     try {
       // Today as the reader's calendar has it, for the book coming back.
       const today = calendarDay(req.query?.today);
-      await shelveBooks({ Article, userId: req.user.id });
-      const books = await Article.find({ userId: req.user.id, url: BOOK_URL })
-        .select(SHELF_BOOK)
-        .lean();
+      const readShelf = () => Article.find({ userId: req.user.id, url: BOOK_URL }).select(SHELF_BOOK).lean();
+      // Read while Readwise's strays are looked for; read again only if one was shelved.
+      const [shelved, read] = await Promise.all([shelveBooks({ Article, userId: req.user.id }), readShelf()]);
+      const books = shelved ? await readShelf() : read;
       const shelf = books.map(({ highlights = [], ...book }) => ({
         ...book,
         returning: bookReturning(book, today),
@@ -54,11 +58,31 @@ module.exports = (router, {
   /* Today's echo: a passage from one of your books and nearly the same
      thought, marked in another work long before or after. Null on a day
      with none. The day is the reader's own, sent as a calendar day. */
+  // A day with no pair stands as it is; a pair stands while both passages read as they did.
+  const sameText = (a, b) => String(a || '').replace(/\s+/g, ' ').trim() === String(b || '').replace(/\s+/g, ' ').trim();
+  const stillStands = async (pair, books, userId) => {
+    if (!pair) return true;
+    const { mark, echo } = pair;
+    const kept = books.some(book => (book.highlights || []).some(held => String(held._id) === String(mark._id) && held.text === mark.text));
+    if (!kept) return false;
+    if (!isValidObjectId(echo.articleId) || !isValidObjectId(echo._id)) return false;
+    const other = await Article.findOne({ _id: echo.articleId, userId, 'highlights._id': echo._id }).select({ 'highlights.$': 1 }).lean();
+    return sameText(other?.highlights?.[0]?.text, echo.text);
+  };
+
   router.get('/api/books/echo', authenticateToken, async (req, res) => {
     try {
+      const today = calendarDay(req.query.today);
       const books = await Article.find({ userId: req.user.id, url: BOOK_URL }).select(BOOK_MARKS).lean();
-      const echo = await echoToday({ books, today: calendarDay(req.query.today), echoOf: mark => echoOf({ userId: req.user.id, mark }) });
-      return res.json({ echo });
+      /* The pair holds all day, so it is looked for once a day, and again
+         when a mark is added or taken away, or either passage of the pair
+         was rewritten or deleted since. */
+      const key = `${req.user.id}:${today}:${books.reduce((sum, book) => sum + (book.highlights || []).length, 0)}`;
+      if (!echoes.has(key) || !(await stillStands(echoes.get(key), books, req.user.id))) {
+        echoes.set(key, await echoToday({ books, today, echoOf: mark => echoOf({ userId: req.user.id, mark }) }));
+        if (echoes.size > ECHOES_KEPT) echoes.delete(echoes.keys().next().value);
+      }
+      return res.json({ echo: echoes.get(key) });
     } catch (error) {
       console.error('Error finding the day’s echo:', error);
       res.status(500).json({ error: 'The echo could not be found.' });

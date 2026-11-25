@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { NOEIS_GO_TO_SHORTCUTS, NOEIS_MOVES } from '../navigation/appNavigation';
-import { WRITE_ON_KEYS } from './think/notebook/writeOn';
 
 /**
  * KeyboardShortcutOverlay — modal that lists every global shortcut.
@@ -11,6 +10,20 @@ import { WRITE_ON_KEYS } from './think/notebook/writeOn';
  */
 const CAPS = { ArrowLeft: '←', ArrowRight: '→' };
 const capOf = key => CAPS[key] || (key.length === 1 ? key.toUpperCase() : key);
+
+/* Three moves borrowed from Jason Fried's Write_On, kept on the keyboard so the
+   hand never leaves the page: dim what you might cut, set a paragraph aside,
+   and turn an underlined passage through its wordings where it stands. Control
+   on every platform, as Write_On does; Write_On's Control-/ already opens
+   arrangement here, so dimming takes the full stop. The keys themselves are
+   handled in think/notebook/writeOn.js; they are listed here so this overlay,
+   which loads with every page, never pulls in the editor. */
+const WRITE_ON_KEYS = [
+  { keys: ['Ctrl', '.'], label: 'Dim the sentence or selection, or bring it back' },
+  { keys: ['Ctrl', 'Shift', 'X'], label: 'Set the paragraph or selection aside in the scratchpad' },
+  { keys: ['Alt', '↑'], label: 'Previous wording of an underlined passage' },
+  { keys: ['Alt', '↓'], label: 'Next wording of an underlined passage' }
+];
 
 export const SHORTCUT_SECTIONS = [
   {

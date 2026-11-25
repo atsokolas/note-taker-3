@@ -19,13 +19,13 @@ const at = (path, params = {}) => {
 };
 
 /* Every paper you keep, fresh while you read: each visible minute, and on
-   return to the tab. A direct link to an issue older than the stand still
-   resolves. */
+   return to the tab, with each paper's newest issue already opened. A direct
+   link to an issue older than the stand still resolves. */
 const useStand = (issueId) => {
   const [editions, setEditions] = useState(null);
   const [error, setError] = useState('');
   const load = useCallback(async () => {
-    const rows = await listEditions({ limit: 500 });
+    const rows = await listEditions({ limit: 500, open: 'newest' });
     return issueId && !rows.some(row => row._id === issueId) ? [...rows, await getEdition(issueId)] : rows;
   }, [issueId]);
 

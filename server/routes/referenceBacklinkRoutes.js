@@ -65,37 +65,32 @@ const buildReferenceBacklinkRouter = ({
     try {
       const userId = req.user.id;
       const { id } = req.params;
-      const article = await Article.findOne({ _id: id, userId }).select('highlights title').lean();
+      const article = await Article.findOne({ _id: id, userId }).select('highlights._id').lean();
       if (!article) {
         return res.status(404).json({ error: 'Article not found.' });
       }
       const highlightIds = (article.highlights || []).map(h => h._id);
-      const directEdges = await ReferenceEdge.find({
-        userId,
-        targetType: 'article',
-        targetId: id
-      }).lean();
-      const highlightEdges = highlightIds.length > 0
-        ? await ReferenceEdge.find({
+      // One round trip to the database for everything that points here.
+      const [edges, concepts, collections] = await Promise.all([
+        ReferenceEdge.find({
           userId,
-          targetType: 'highlight',
-          targetId: { $in: highlightIds }
-        }).lean()
-        : [];
-      const notebookBlocks = await buildNotebookBlocksFromEdges({
-        userId,
-        edges: [...directEdges, ...highlightEdges]
-      });
-      const concepts = await TagMeta.find({ userId, pinnedArticleIds: id })
-        .select('name description updatedAt')
-        .lean();
-      const collections = await Collection.find({
-        userId,
-        $or: [
-          { articleIds: id },
-          { highlightIds: { $in: highlightIds } }
-        ]
-      }).select('name slug updatedAt').lean();
+          $or: [
+            { targetType: 'article', targetId: id },
+            ...(highlightIds.length ? [{ targetType: 'highlight', targetId: { $in: highlightIds } }] : [])
+          ]
+        }).lean(),
+        TagMeta.find({ userId, pinnedArticleIds: id })
+          .select('name description updatedAt')
+          .lean(),
+        Collection.find({
+          userId,
+          $or: [
+            { articleIds: id },
+            { highlightIds: { $in: highlightIds } }
+          ]
+        }).select('name slug updatedAt').lean()
+      ]);
+      const notebookBlocks = await buildNotebookBlocksFromEdges({ userId, edges });
       res.status(200).json({
         notebookBlocks,
         concepts,
