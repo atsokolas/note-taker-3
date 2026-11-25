@@ -504,15 +504,16 @@ const NotebookEditor = ({
 
   /* Editable before the caret moves: a closed editor takes no selection, so
      focusing it would neither place the caret nor scroll to it. Quietly, since
-     opening the page is not an edit to save. Focus alone does not scroll Think's
-     own scrolling shell, so the page is brought to the caret explicitly. */
+     opening the page is not an edit to save. Tiptap lands focus a frame later,
+     and its own scroll misses Think's scrolling shell, so the page is brought to
+     the caret in the frame after it lands. */
   const resumeWriting = useCallback((target) => {
     editor?.setEditable(true, false);
     setEditingBody(true);
     const found = focusEditorTarget(editor, target);
     setReturnTarget(found ? target : null);
     if (!found) editor?.commands.focus('end');
-    editor?.commands.scrollIntoView();
+    window.requestAnimationFrame(() => editor?.commands.scrollIntoView());
   }, [editor]);
 
   /* Opening a different note starts it closed again. Carrying the open state

@@ -1345,6 +1345,8 @@ describe('NotebookEditor', () => {
         mockEditor.commands.focus.mockClear();
         mockEditor.commands.scrollIntoView.mockClear();
         act(() => frames.splice(0).forEach(run => run()));
+        expect(mockEditor.commands.scrollIntoView).not.toHaveBeenCalled();
+        act(() => frames.splice(0).forEach(run => run()));
         expect(mockEditor.setEditable).toHaveBeenCalledWith(true, false);
         expect(mockEditor.commands.focus).toHaveBeenCalledWith('end');
         expect(mockEditor.setEditable.mock.invocationCallOrder[0]).toBeLessThan(mockEditor.commands.focus.mock.invocationCallOrder[0]);
