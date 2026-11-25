@@ -33,7 +33,9 @@ export default async function middleware(request) {
     ]);
     if (!shellResponse.ok) return passThrough();
     const shell = await shellResponse.text();
-    const headers = { 'content-type': 'text/html; charset=utf-8' };
+    // The shell carries the content security policy from vercel.json; keep it.
+    const policy = shellResponse.headers.get('content-security-policy');
+    const headers = { 'content-type': 'text/html; charset=utf-8', ...(policy && { 'content-security-policy': policy }) };
     if (apiResponse.status === 404) {
       return new Response(shell.replace('content="index,follow"', 'content="noindex"'), { status: 404, headers });
     }
@@ -42,7 +44,7 @@ export default async function middleware(request) {
     if (!snapshot) return passThrough();
     return new Response(injectSnapshot(shell, snapshot), {
       status: 200,
-      headers: { ...headers, 'cache-control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600' }
+      headers: { ...headers, 'cache-control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=60' }
     });
   } catch (error) {
     return passThrough();

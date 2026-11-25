@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { CHATGPT_ACCESS_PROFILE, isChatgptRequestAllowed } = require('./chatgptAccessPolicy');
 const { runtimeLabel } = require('./agentRuntime');
+const { onBehalfOf } = require('../ai/modelBudget');
 
 const AGENT_TOKEN_PREFIX = 'ntk_at_';
 /* What each scope lets a token do. `capture` is a person's own desktop: it
@@ -163,7 +164,7 @@ const buildAuthenticateAgentToken = ({
       }
 
       if (token.oauthFamilyId && !isChatgptRequestAllowed(req)) {
-        return res.status(403).json({ error: 'This ChatGPT connection cannot perform this action. Wiki changes require review; use NOEIS to accept or publish them.', code: 'CHATGPT_ACTION_NOT_ALLOWED' });
+        return res.status(403).json({ error: 'This connected app cannot perform this action. Wiki changes require review; use NOEIS to accept or publish them.', code: 'CHATGPT_ACTION_NOT_ALLOWED' });
       }
 
       const requiredScope = configuredScope || requiredScopeForRequest(req);
@@ -173,21 +174,23 @@ const buildAuthenticateAgentToken = ({
 
       if (consume) {
         const dayStart = getUtcDayStart(current);
-        const windowStart = token.quotaWindowStartedAt ? new Date(token.quotaWindowStartedAt) : null;
-        if (!windowStart || windowStart.getTime() < dayStart.getTime()) {
-          token.callsToday = 0;
-          token.quotaWindowStartedAt = dayStart;
-        }
-
+        // A new day starts the count again; only the first request of the day can reset it.
+        await AgentToken.updateOne(
+          { _id: token._id, $or: [{ quotaWindowStartedAt: null }, { quotaWindowStartedAt: { $lt: dayStart } }] },
+          { $set: { callsToday: 0, quotaWindowStartedAt: dayStart } }
+        );
+        // Checking and counting are one step, so parallel calls cannot all slip under the quota.
         const quota = Number(token.dailyQuota || 0);
-        if (quota > 0 && Number(token.callsToday || 0) >= quota) {
+        const counted = await AgentToken.findOneAndUpdate(
+          { _id: token._id, quotaWindowStartedAt: dayStart, ...(quota > 0 ? { callsToday: { $lt: quota } } : {}) },
+          { $inc: { callsToday: 1 }, $set: { lastUsedAt: current } },
+          { new: true }
+        );
+        if (!counted) {
           res.set('Retry-After', String(getSecondsUntilNextUtcDay(current)));
           return res.status(429).json({ error: 'Agent token daily quota exceeded.' });
         }
-
-        token.callsToday = Number(token.callsToday || 0) + 1;
-        token.lastUsedAt = current;
-        if (typeof token.save === 'function') await token.save();
+        Object.assign(token, { callsToday: counted.callsToday, quotaWindowStartedAt: dayStart, lastUsedAt: current });
       }
 
       req.user = { id: String(token.userId || '') };
@@ -197,7 +200,7 @@ const buildAuthenticateAgentToken = ({
         tokenSource: 'agent-token',
         scopes: req.agentToken.scopes
       };
-      return next();
+      return onBehalfOf(req.user.id, next);
     } catch (error) {
       return next(error);
     }

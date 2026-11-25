@@ -15,7 +15,6 @@ describe('AgentConnectAuthorize', () => {
     getAgentConnectApprovalSession.mockResolvedValue({
       session: {
         sessionId: 'nac_123',
-        deviceCode: 'ABCD-1234',
         runtimeLabel: 'Hermes',
         label: 'Hermes local',
         scopes: ['read'],
@@ -31,8 +30,7 @@ describe('AgentConnectAuthorize', () => {
         label: 'Hermes local',
         status: 'approved',
         scopes: ['read']
-      },
-      token: { label: 'Hermes local' }
+      }
     });
   });
 
@@ -44,7 +42,9 @@ describe('AgentConnectAuthorize', () => {
     );
 
     expect(await screen.findByText('Hermes, as it describes itself')).toBeInTheDocument();
-    expect(screen.getByText('ABCD-1234')).toBeInTheDocument();
+    expect(screen.queryByText('ABCD-1234')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('The code your agent shows'), { target: { value: 'ABCD-1234' } });
     expect(screen.getByText('Read and search everything you have saved and written')).toBeInTheDocument();
     expect(screen.getByText('https://api.noeis.example')).toBeInTheDocument();
 

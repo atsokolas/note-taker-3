@@ -84,12 +84,12 @@ Item {
   function readAt(id) { return ["omarchy-shell", "noeis", "readArticle", String(id)] }
   readonly property var connectAgain: ["omarchy-shell", "shell", "toggle", "io.noeis"]
 
+  function bin(name) { return decodeURIComponent(String(Qt.resolvedUrl("bin/" + name)).replace(/^file:\/\//, "")) }
+
   // noeis.io itself, only when asked for by name: in its own window, wearing
   // the theme (bin/noeis-open --web).
-  readonly property string noeisOpen: decodeURIComponent(String(Qt.resolvedUrl("bin/noeis-open")).replace(/^file:\/\//, ""))
-
   function visit(path) {
-    Quickshell.execDetached([noeisOpen, "--web", path])
+    Quickshell.execDetached([bin("noeis-open"), "--web", path])
   }
 
   // ---- Session. Read here, written only by sessionWriter.
@@ -210,16 +210,15 @@ Item {
     }
   }
 
-  // Text read off the screen. Omarchy's capture puts what it read on the
-  // clipboard; a clipboard that did not change means the region was let go.
+  // Text read off the screen; none means the region was let go.
   Process {
     id: screenTextProc
-    property string before: ""
-    command: ["omarchy-capture-text"]
-    onExited: function(code) {
-      if (code !== 0) return root.notify("No text could be read there.", null, true)
-      root.paste(false, function(after) { if (after !== screenTextProc.before) root.bring(after, "") })
+    command: [root.bin("noeis-screen-text")]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: if (text) root.bring(text, "")
     }
+    onExited: function(code) { if (code !== 0) root.notify("No text could be read there.", null, true) }
   }
 
   IpcHandler {
@@ -241,10 +240,7 @@ Item {
 
     function saveScreenText(): void {
       if (!root.signedIn) return root.notify(Model.problem(401), root.connectAgain, true)
-      root.paste(false, function(before) {
-        screenTextProc.before = before
-        screenTextProc.running = true
-      })
+      screenTextProc.running = true
     }
   }
 

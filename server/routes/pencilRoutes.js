@@ -50,8 +50,10 @@ const buildPencilRouter = ({
     },
     article: {
       find: async ({ userId, id }) => {
-        const article = await Article.findOne({ _id: id, userId }).select('title url pencil').lean();
-        return article && { pencil: article.pencil, title: article.title, text: article.url };
+        const article = await Article.findOne({ _id: id, userId }).select('title url pencil highlights.pencil').lean();
+        // Marks you made on it are ink, and a strike never takes ink.
+        const yours = (article?.highlights || []).some(mark => !mark.pencil?.agent);
+        return article && { pencil: article.pencil, title: article.title, text: article.url, yours };
       },
       ink: ({ userId, id }) => Article.updateOne({ _id: id, userId }, { $set: { pencil: null, 'highlights.$[].pencil': null } }),
       strike: async ({ userId, id }) => {
@@ -126,6 +128,7 @@ const buildPencilRouter = ({
       const found = await KINDS[target.kind].find(scope);
       if (!found) return res.status(404).json({ error: 'Nothing of yours has that id.' });
       if (!found.pencil?.agent) return res.status(409).json({ error: 'Only pencil can be struck; this is yours.' });
+      if (found.yours) return res.status(409).json({ error: 'You have marked it, so it is yours now. Ink it, or delete it yourself.' });
       await record({ req, verdict: 'strike', target, found });
       return res.json({ ...target, struck: await KINDS[target.kind].strike(scope) });
     } catch (error) {

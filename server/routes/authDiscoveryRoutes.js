@@ -44,15 +44,17 @@ const findByUsername = async (User, username) => {
   return matches.length === 1 ? matches[0] : null;
 };
 
-/* Failed logins, per name and per address, forgotten after a quiet quarter
-   hour. In memory: one server, and a restart forgiving everyone is fine. */
+/* Failed logins, per name from one address and per address, forgotten after
+   a quiet quarter hour. A name is counted from where it is tried, so wrong
+   passwords sent from elsewhere never lock you out. In memory: one server,
+   and a restart forgiving everyone is fine. */
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-/* Ten wrong passwords for one name; more for one address, which can be a
-   whole office behind one router. */
+/* Ten wrong passwords for one name from one address; more for one address,
+   which can be a whole office behind one router. */
 const LOGIN_MAX_FAILURES = { u: 10, ip: 50 };
 const createLoginThrottle = ({ now = () => Date.now() } = {}) => {
   const failures = new Map();
-  const keys = (username, ip) => [`u:${String(username || '').trim().toLowerCase()}`, `ip:${ip || ''}`];
+  const keys = (username, ip) => [`u:${String(username || '').trim().toLowerCase()}|${ip || ''}`, `ip:${ip || ''}`];
   const live = (key) => {
     const entry = failures.get(key);
     if (entry && now() - entry.since > LOGIN_WINDOW_MS) failures.delete(key);
@@ -64,7 +66,7 @@ const createLoginThrottle = ({ now = () => Date.now() } = {}) => {
       const entry = live(key) || { count: 0, since: now() };
       failures.set(key, { ...entry, count: entry.count + 1 });
     }),
-    clear: username => failures.delete(keys(username)[0])
+    clear: (username, ip) => failures.delete(keys(username, ip)[0])
   };
 };
 
@@ -78,9 +80,23 @@ const buildAuthDiscoveryRouter = ({
   TourState = null,
   trackEvent = () => {},
   EVENT_NAMES = {},
+  takeSharesDown,
   loginThrottle = createLoginThrottle()
 }) => {
   const router = express.Router();
+  /* Wherever a password is checked, wrong tries count against the same
+     throttle, and a name with no account takes as long to refuse as one with. */
+  const NO_ACCOUNT = '$2b$10$WWvhvjo3q0l/E3nXUdEdKOFVvCFEhAwaCFvbkQN9LH8qebhNGYtvq';
+  const passwordFits = async (user, password, name, ip) => {
+    const fits = await bcrypt.compare(String(password || ''), user?.password || NO_ACCOUNT);
+    if (fits && user && !user.accountDisabledAt) {
+      loginThrottle.clear(name, ip);
+      return true;
+    }
+    loginThrottle.fail(name, ip);
+    return false;
+  };
+  const signIn = user => jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '7d', audience: 'session' });
 
   router.post('/api/auth/register', async (req, res) => {
     try {
@@ -132,23 +148,10 @@ const buildAuthDiscoveryRouter = ({
       }
 
       const user = await findByUsername(User, username);
-      const isMatch = Boolean(user && !user.accountDisabledAt && await bcrypt.compare(String(password), user.password));
-      if (!isMatch) {
-        loginThrottle.fail(username, req.ip);
+      if (!await passwordFits(user, password, username, req.ip)) {
         return res.status(401).json({ error: 'That username and password do not match.' });
       }
-      loginThrottle.clear(username);
-
-      const token = jwt.sign(
-        { id: user._id, username: user.username },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      res.clearCookie('token');
-      res.clearCookie('authToken');
-      res.clearCookie('jwt');
-      res.status(200).json({ token, username: user.username, userId: user._id });
+      res.status(200).json({ token: signIn(user), username: user.username, userId: user._id });
     } catch (error) {
       console.error("❌ Error logging in user:", error);
       res.status(500).json({ error: "Internal server error.", details: error.message });
@@ -177,12 +180,14 @@ const buildAuthDiscoveryRouter = ({
     try {
       const user = await User.findById(req.user.id);
       if (!user || user.accountDisabledAt) return res.status(404).json({ error: 'Account not found.' });
-      const isMatch = await bcrypt.compare(String(req.body?.password || ''), user.password);
-      if (!isMatch) return res.status(401).json({ error: 'That is not your current password.' });
+      if (loginThrottle.blocked(user.username, req.ip)) return res.status(429).json({ error: 'Too many tries. Wait fifteen minutes and try again.' });
+      if (!await passwordFits(user, req.body?.password, user.username, req.ip)) return res.status(401).json({ error: 'That is not your current password.' });
       const validation = validateRegistration({ username: user.username, password: req.body?.newPassword });
       if (validation.error) return res.status(400).json({ error: validation.error });
-      await User.updateOne({ _id: user._id }, { $set: { password: await bcrypt.hash(validation.password, 10) } });
-      return res.status(200).json({ changed: true });
+      // Every other sign-in ends with the old password; this one carries on with a new token.
+      const signedInSince = new Date(Math.floor(Date.now() / 1000) * 1000);
+      await User.updateOne({ _id: user._id }, { $set: { password: await bcrypt.hash(validation.password, 10), signedInSince } });
+      return res.status(200).json({ changed: true, token: signIn(user) });
     } catch (error) {
       console.error('Error changing password:', error);
       return res.status(500).json({ error: 'Internal server error.' });
@@ -201,8 +206,8 @@ const buildAuthDiscoveryRouter = ({
       if (!user || user.accountDisabledAt) {
         return res.status(404).json({ error: 'Account not found.' });
       }
-      const isMatch = await bcrypt.compare(String(req.body?.password || ''), user.password);
-      if (!isMatch) {
+      if (loginThrottle.blocked(user.username, req.ip)) return res.status(429).json({ error: 'Too many tries. Wait fifteen minutes and try again.' });
+      if (!await passwordFits(user, req.body?.password, user.username, req.ip)) {
         return res.status(401).json({ error: 'That password is not right.' });
       }
       const now = new Date();
@@ -210,6 +215,7 @@ const buildAuthDiscoveryRouter = ({
         { _id: user._id, accountDisabledAt: null },
         { $set: { accountDisabledAt: now, accountDeletionRequestedAt: now, 'morningPaper.enabled': false } }
       );
+      await takeSharesDown(user._id);
       return res.status(200).json({ closed: true, erasureRequestedAt: now.toISOString() });
     } catch (error) {
       console.error('❌ Error deleting account:', error);
@@ -269,5 +275,6 @@ const buildAuthDiscoveryRouter = ({
 };
 
 module.exports = {
-  buildAuthDiscoveryRouter
+  buildAuthDiscoveryRouter,
+  createLoginThrottle
 };

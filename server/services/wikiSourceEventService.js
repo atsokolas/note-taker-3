@@ -164,7 +164,7 @@ const createWikiSourceEvent = async ({
   status = 'pending',
   metadata = {},
   reviewerPolicy = policy
-} = {}) => {
+}) => {
   if (!WikiSourceEvent || !userId) return null;
   const normalizedSourceType = SOURCE_TYPES.has(String(sourceType || '')) ? String(sourceType) : '';
   if (!normalizedSourceType) return null;

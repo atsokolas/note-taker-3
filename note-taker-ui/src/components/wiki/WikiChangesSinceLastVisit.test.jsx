@@ -17,7 +17,7 @@ describe('WikiChangesSinceLastVisit', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('summarizes counts and pluralizes correctly when claims are added or removed', () => {
+  it('says what kinds of change came, in words and never as counts', () => {
     render(
       <WikiChangesSinceLastVisit
         lastViewedAt={new Date(Date.now() - 5 * 60_000).toISOString()}
@@ -26,7 +26,7 @@ describe('WikiChangesSinceLastVisit', () => {
         onMarkReviewed={() => {}}
       />
     );
-    expect(screen.getByText(/1 new · 2 removed claims/)).toBeInTheDocument();
+    expect(screen.getByText('Claims added and taken out')).toBeInTheDocument();
     expect(screen.getByText(/last here 5m ago/)).toBeInTheDocument();
   });
 
@@ -40,7 +40,7 @@ describe('WikiChangesSinceLastVisit', () => {
         onMarkReviewed={() => {}}
       />
     );
-    expect(screen.getByText(/1 evidence update claim/)).toBeInTheDocument();
+    expect(screen.getByText('Claims given new sources')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('wiki-changes-banner-toggle'));
     expect(screen.getByText('New sources')).toBeInTheDocument();
     expect(screen.getByText('evidence changed')).toBeInTheDocument();
@@ -74,8 +74,7 @@ describe('WikiChangesSinceLastVisit', () => {
     expect(screen.getByText('added 0')).toBeInTheDocument();
     expect(screen.getByText('added 2')).toBeInTheDocument();
     expect(screen.queryByText('added 3')).toBeNull();
-    expect(screen.getByText(/2 more new claims/)).toBeInTheDocument();
-    expect(screen.getByText(/1 more removed claim\./)).toBeInTheDocument();
+    expect(screen.getAllByText('And more on the page.')).toHaveLength(2);
   });
 
   it('calls onMarkReviewed when the primary action is clicked', () => {

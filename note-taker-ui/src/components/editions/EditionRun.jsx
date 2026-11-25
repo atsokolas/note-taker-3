@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-  issueLine, newCountOf, plural, runGrid, sectionTones, stateOf, updatedLine, WATCH_STATUS, watchThreads, windowLine
+  hasNew, issueLine, plural, runGrid, sectionTones, stateOf, updatedLine, WATCH_STATUS, watchThreads, windowLine
 } from '../../pages/editionModel';
 
 const SAID = {
@@ -37,7 +37,7 @@ export function RunMark({ cells = [], tones = {} }) {
 
 /* What is still waiting on an issue, and what the reader took from it. */
 const yoursLine = (issue) => [
-  issue.newCount ? `${issue.newCount} new` : '',
+  hasNew([issue]) ? 'not read yet' : '',
   issue.savedCount ? `kept ${issue.savedCount} of ${issue.itemCount}` : ''
 ].filter(Boolean).join(' · ');
 
@@ -48,7 +48,6 @@ const yoursLine = (issue) => [
 export default function EditionRun({ paper }) {
   const grid = runGrid(paper);
   const tones = sectionTones(grid.sections);
-  const news = newCountOf(paper.issues);
   return (
     <section className="edition-run" aria-labelledby="edition-run-title">
       <header className="edition-run__head">
@@ -56,7 +55,7 @@ export default function EditionRun({ paper }) {
         <p>
           {[
             plural(paper.issues.length, paper.issueLabel.toLowerCase()),
-            news ? `${news} new` : ''
+            hasNew(paper.issues) ? 'something new' : ''
           ].filter(Boolean).join(' · ')}
         </p>
       </header>

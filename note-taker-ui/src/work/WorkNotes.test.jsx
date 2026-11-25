@@ -10,7 +10,7 @@ runInNovember2026();
 
 jest.mock('react-router-dom', () => {
   const React = require('react');
-  return { useNavigate: () => jest.fn(), useSearchParams: () => {
+  return { Link: ({ to, children, ...rest }) => <a href={to} {...rest}>{children}</a>, useNavigate: () => jest.fn(), useSearchParams: () => {
     const [search, setSearch] = React.useState(() => global.window.location.search);
     const set = React.useCallback(next => setSearch(new URLSearchParams(next).toString()), []);
     React.useEffect(() => { const moved = () => setSearch(global.window.location.search); global.window.addEventListener('popstate', moved); return () => global.window.removeEventListener('popstate', moved); }, []);
@@ -22,7 +22,7 @@ jest.mock('./WorkNoteEditor', () => ({ note, onChange, fresh, heading, footer, o
 const deviceWords = () => JSON.stringify(Object.entries(localStorage).filter(([key]) => key.startsWith(draftKey('owner'))));
 const source = { _id: 'a', title: 'Charging windows', content: 'Original account', folder: 'f', revision: 2, occurredOn: '2026-10-26', withText: 'Mira', workingState: { revision: 2, nextTimeLine: { text: '  Check the window.\n', target: null } } };
 const older = { ...source, _id: 'b', title: 'Smaller depot', occurredOn: '2026-10-12', workingState: { revision: 1, nextTimeLine: { text: '' } } };
-const open = async () => { render(<WorkNotes />); const rail = screen.getByRole('complementary'); fireEvent.click(await within(rail).findByRole('button', { name: 'Pilot' })); fireEvent.click(within(rail).getByRole('button', { name: /Charging windows/ })); fireEvent.click(screen.getByLabelText('Note information')); fireEvent.click(screen.getByRole('region', { name: 'Open' }).querySelector('summary')); };
+const open = async () => { render(<WorkNotes />); const rail = screen.getByRole('complementary', { name: 'Work notes' }); fireEvent.click(await within(rail).findByRole('button', { name: 'Pilot' })); fireEvent.click(within(rail).getByRole('button', { name: /Charging windows/ })); fireEvent.click(screen.getByLabelText('Note information')); fireEvent.click(screen.getByRole('region', { name: 'Open' }).querySelector('summary')); };
 beforeEach(() => {
   forgetWorkSession('owner'); forgetWorkSession('other'); jest.clearAllMocks(); window.history.replaceState({}, '', '/think?context=work&date=2026-10-26'); localStorage.clear(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.x`);
   api.get.mockResolvedValue({ data: { entries: [source, older], items: [], folders: [{ _id: 'f', name: 'Pilot' }] } });
@@ -32,18 +32,18 @@ beforeEach(() => {
 test('opens Work without personal rooms; search and inbox are scoped', async () => {
   await open(); expect(screen.queryByText('Partner')).toBeNull();
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'smaller' } });
-  expect(within(screen.getByRole('complementary')).queryByRole('button', { name: /Charging windows/ })).toBeNull(); expect(screen.getByRole('button', { name: /Smaller depot/ })).toBeInTheDocument();
+  expect(within(screen.getByRole('complementary', { name: 'Work notes' })).queryByRole('button', { name: /Charging windows/ })).toBeNull(); expect(screen.getByRole('button', { name: /Smaller depot/ })).toBeInTheDocument();
   expect(api.get.mock.calls.every(([path]) => path.startsWith('/api/work-notes'))).toBe(true);
 });
 test('the day picker lives on Today only', async () => {
   await open(); expect(screen.getByText('Choose a day')).toBeInTheDocument();
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: 'Inbox' }));
+  fireEvent.click(within(screen.getByRole('complementary', { name: 'Work notes' })).getByRole('button', { name: 'Inbox' }));
   expect(screen.queryByText('Choose a day')).toBeNull();
 });
 test('the picker keeps its disclosure and gives focus to the selected date across weeks and months', async () => {
   window.history.replaceState({}, '', '/work?date=2026-10-31');
   render(<WorkNotes />);
-  fireEvent.click(await screen.findByText('Choose a day'));
+  await screen.findByText('Calendar', { selector: 'summary' });
   const days = within(screen.getByRole('group', { name: 'Calendar navigation' }));
   const saturday = days.getByRole('button', { name: 'Sat 31 Oct' });
   saturday.focus();
@@ -57,7 +57,7 @@ test('the picker keeps its disclosure and gives focus to the selected date acros
   expect(monday).toHaveFocus();
   fireEvent.keyDown(monday, { key: 'End' });
   expect(days.getByRole('button', { name: 'Sun 8 Nov' })).toHaveFocus();
-  expect(screen.getByText('Choose a day').closest('details')).toHaveAttribute('open');
+  expect(screen.getByText('Calendar', { selector: 'summary' }).closest('details')).toHaveAttribute('open');
 });
 test('new note is untitled and untouched capture closes without creating anything', async () => {
   await open(); fireEvent.click(screen.getByRole('button', { name: 'New note' }));
@@ -85,7 +85,7 @@ test('confirm creates one fresh page with immutable line outside editable prose 
   await screen.findByText(/you left yourself/); expect(api.post).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('');
   expect(screen.getByText('Check the window.')).toBeInTheDocument();
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Charging windows.*26 Oct/ }));
+  fireEvent.click(within(screen.getByRole('complementary', { name: 'Work notes' })).getByRole('button', { name: /Charging windows.*26 Oct/ }));
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('Original account');
 });
 test('changed source asks for re-review and a new explicit confirmation', async () => {
@@ -101,14 +101,14 @@ test('filing from the place line changes only metadata, and the rail follows the
   await waitFor(() => expect(api.put).toHaveBeenCalled()); expect(api.put.mock.calls[0][1]).toMatchObject({ folder: null, occurredOn: '2026-10-26', content: 'Original account' });
   expect(await screen.findByText('Filed in the inbox.')).toBeInTheDocument();
   expect(screen.getByRole('group', { name: 'Where this note lives' })).toHaveTextContent(/^In your Inbox, written Mon 26 Oct, with Mira\. File in Pilot or a new folder\./);
-  const rail = screen.getByRole('complementary');
+  const rail = screen.getByRole('complementary', { name: 'Work notes' });
   expect(within(rail).getByRole('button', { name: /Charging windows/ })).toHaveAttribute('aria-current', 'page');
   expect(within(rail).getByLabelText('1 unfiled')).toBeInTheDocument();
 });
 test('storage failure keeps page open with copy and recovery choices', async () => {
   await open(); const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
   fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'Unsaved' } });
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /^Today/ }));
+  fireEvent.click(within(screen.getByRole('complementary', { name: 'Work notes' })).getByRole('button', { name: /^Today/ }));
   expect(screen.getByRole('dialog', { name: 'Keep your writing' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Download a copy' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Stay' })); set.mockRestore();
@@ -151,7 +151,7 @@ test('Cancel and reopening Continue restore the uncertain request and prevent ch
   const original = api.post.mock.calls[0][1].operationId;
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'smaller' } });
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  fireEvent.click(within(screen.getByRole('complementary', { name: 'Work notes' })).getByRole('button', { name: /Smaller depot/ }));
   fireEvent.click(screen.getByRole('button', { name: /Continue this note:/ }));
   const dialog = await screen.findByRole('dialog', { name: 'Continue from this note' });
   expect(within(dialog).getByText('Charging windows')).toBeInTheDocument();
@@ -283,7 +283,7 @@ test('leaving under storage failure offers a copy before anything is discarded',
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: jest.fn().mockResolvedValue() } });
   try {
     fireEvent.change(screen.getByLabelText('Work note writing'), { target: { value: 'Only memory words' } });
-    fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /^Today/ }));
+    fireEvent.click(within(screen.getByRole('complementary', { name: 'Work notes' })).getByRole('button', { name: /^Today/ }));
     const dialog = screen.getByRole('dialog', { name: 'Keep your writing' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Copy writing' })); await screen.findByText('Writing copied.');
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Only memory words'));
@@ -309,7 +309,7 @@ test('inline draft survives Escape, note switching and remount; explicit Cancel 
   fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
   const input = screen.getByLabelText('Open item title'); fireEvent.change(input, { target: { value: 'Keep me' } });
   fireEvent.keyDown(input, { key: 'Escape' }); expect(screen.queryByLabelText('Open item title')).toBeNull();
-  const rail = screen.getByRole('complementary'); fireEvent.click(within(rail).getByRole('button', { name: /Smaller depot/ }));
+  const rail = screen.getByRole('complementary', { name: 'Work notes' }); fireEvent.click(within(rail).getByRole('button', { name: /Smaller depot/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' })); expect(screen.getByLabelText('Open item title')).toHaveValue('');
   fireEvent.click(within(rail).getByRole('button', { name: /Charging windows/ }));
   expect(screen.getByLabelText('Open item title')).toHaveValue('Keep me');
@@ -342,7 +342,7 @@ test('unsafe inline draft is retained through departure protection and original 
   fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Keep in this page' } });
   expect(screen.getByRole('alert')).toHaveTextContent(/not saved on this device/);
   fireEvent.click(screen.getByRole('button', { name: 'Add' })); expect(api.post).not.toHaveBeenCalled();
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  fireEvent.click(within(screen.getByRole('complementary', { name: 'Work notes' })).getByRole('button', { name: /Smaller depot/ }));
   expect(screen.getByRole('dialog', { name: 'Keep your writing' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Stay' })); set.mockRestore();
   expect(screen.getByLabelText('Open item title')).toHaveValue('Keep in this page');
@@ -352,7 +352,7 @@ test('recovery Copy includes unsafe Open writing and Discard and leave actually 
   await open(); fireEvent.click(screen.getByRole('button', { name: 'Add a to-do' }));
   const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
   fireEvent.change(screen.getByLabelText('Open item title'), { target: { value: 'Recover this question' } });
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  fireEvent.click(within(screen.getByRole('complementary', { name: 'Work notes' })).getByRole('button', { name: /Smaller depot/ }));
   const writeText = jest.fn().mockResolvedValue(); Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
   fireEvent.click(screen.getByRole('button', { name: 'Copy writing' }));
   await screen.findByText('Writing copied.'); expect(writeText).toHaveBeenCalledWith(expect.stringContaining('Recover this question'));
@@ -400,20 +400,24 @@ test('a new page shows one original written date through save, edits and reload 
   expect(screen.getByLabelText('Work note writing')).toHaveValue('Only my words');
 });
 
-test('home puts today and Next together in the right rail, not twice on the daily page', async () => {
+test('Work opens on Everything; Today keeps the schedule and notes, and each list opens alone', async () => {
   window.history.replaceState({}, '', '/work');
   render(<WorkNotes />);
-  await screen.findByRole('heading', { name: 'This week' });
-  const rail = screen.getByRole('complementary', { name: 'Open to-dos' });
-  const todaySummary = within(rail).getByText('Today’s to-dos');
-  const nextSummary = within(rail).getByText('Next', { selector: 'summary' });
-  expect(todaySummary.closest('details')).toHaveAttribute('open');
-  expect(nextSummary.closest('details')).toHaveAttribute('open');
-  expect(todaySummary.closest('details').nextElementSibling).toBe(nextSummary.closest('details'));
-  expect(screen.getAllByText('Today’s to-dos')).toHaveLength(1);
-  fireEvent.click(todaySummary); fireEvent.click(nextSummary);
-  expect(todaySummary.closest('details')).not.toHaveAttribute('open');
-  expect(nextSummary.closest('details')).not.toHaveAttribute('open');
+  await screen.findByRole('heading', { name: 'Actions' });
+  expect(screen.getByRole('region', { name: 'Everything' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /^Today$/ }));
+  await screen.findByRole('heading', { name: 'Today' });
+  expect(screen.getByText('To-dos').closest('details')).toHaveAttribute('open');
+  expect(screen.getByRole('heading', { name: 'Schedule' })).toBeInTheDocument();
+  expect(screen.getByRole('complementary', { name: 'Notes' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /^Actions$/ }));
+  await screen.findByRole('heading', { name: 'Actions' });
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  expect(screen.getByRole('region', { name: 'Next' })).toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Waiting on' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Waiting on' }));
+  expect(screen.queryByRole('region', { name: 'Next' })).toBeNull();
+  expect(screen.getByRole('region', { name: 'Waiting on' })).toBeInTheDocument();
 });
 
 test('note deletion is recoverable from editor and sidebar without deleting linked tasks', async () => {
@@ -442,7 +446,7 @@ test('opening a note from Trash returns to writing', async () => {
   fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete note?' })).getByRole('button', { name: 'Delete note' }));
   await screen.findByText(/moved to Deleted/);
   fireEvent.click(screen.getByRole('button', { name: 'Deleted (1)' }));
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  fireEvent.click(within(screen.getByRole('complementary', { name: 'Work notes' })).getByRole('button', { name: /Smaller depot/ }));
   expect(screen.getByRole('textbox', { name: 'Work note writing' })).toHaveValue('Original account');
   expect(screen.queryByRole('region', { name: 'Deleted' })).not.toBeInTheDocument();
 });
@@ -452,7 +456,7 @@ test('a slow deletion never dismisses a newer opened note', async () => {
   api.put.mockImplementationOnce((_, body) => new Promise(resolve => { finish = () => resolve({ data: { ...source, ...body, revision: 3 } }); }));
   fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'Delete note', exact: true }));
   fireEvent.click(within(await screen.findByRole('dialog', { name: 'Delete note?' })).getByRole('button', { name: 'Delete note' }));
-  fireEvent.click(within(screen.getByRole('complementary')).getByRole('button', { name: /Smaller depot/ }));
+  fireEvent.click(within(screen.getByRole('complementary', { name: 'Work notes' })).getByRole('button', { name: /Smaller depot/ }));
   await waitFor(() => expect(finish).toEqual(expect.any(Function)));
   await act(async () => finish());
   expect(screen.getByRole('textbox', { name: 'Note title' })).toHaveValue('Smaller depot');
@@ -519,7 +523,7 @@ test('a note opened from its project keeps the expanded week planner reachable',
   const project = { _id: 'p', kind: 'project', name: 'Launch', revision: 0 };
   api.get.mockResolvedValue({ data: { entries: [{ ...source, project: 'p' }], items: [], folders: [project, { _id: 'f', name: 'Pilot' }] } });
   render(<WorkNotes />);
-  fireEvent.click(await within(screen.getByRole('complementary')).findByRole('button', { name: 'Launch', exact: true }));
+  fireEvent.click(await within(screen.getByRole('complementary', { name: 'Work notes' })).findByRole('button', { name: 'Launch', exact: true }));
   fireEvent.click(within(screen.getByRole('region', { name: 'Log' })).getByRole('button', { name: /Charging windows/ }));
   expect(screen.getByLabelText('Work note writing')).toHaveValue(source.content);
   fireEvent.click(screen.getByLabelText('Note information'));

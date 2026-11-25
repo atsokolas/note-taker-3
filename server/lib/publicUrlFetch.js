@@ -1,5 +1,6 @@
-const dns = require('dns').promises;
+const dns = require('dns');
 const net = require('net');
+const { Agent } = require('undici');
 
 /**
  * Fetching a URL the reader supplied, safely.
@@ -21,43 +22,59 @@ const net = require('net');
  * and a bad article URL are the same failure with different consequences.
  */
 
+/**
+ * @typedef {{ url?: string, method?: string, subject?: string, accept?: string, userAgent?: string,
+ *   timeoutMs?: number, signal?: AbortSignal | null, fetchImpl?: typeof fetch,
+ *   lookup?: (host: string, options: { all: true, verbatim: true }) => Promise<{ address: string }[]> }} PublicRequest
+ */
+
 const DEFAULT_MAX_BYTES = 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_DEADLINE_MS = 20000;
 const MAX_REDIRECTS = 3;
 
-const isPrivateIpv4 = (address = '') => {
-  const octets = String(address).split('.').map(Number);
-  if (octets.length !== 4 || octets.some(value => !Number.isInteger(value) || value < 0 || value > 255)) return true;
-  const [a, b] = octets;
-  return a === 0 || a === 10 || a === 127 || a >= 224
-    || (a === 100 && b >= 64 && b <= 127)
-    || (a === 169 && b === 254)
-    || (a === 172 && b >= 16 && b <= 31)
-    || (a === 192 && b === 168)
-    || (a === 198 && (b === 18 || b === 19));
-};
+/* Every address that is not the public internet. IPv4 rules also catch the
+   same address written as IPv6 (::ffff:7f00:1); NAT64, 6to4 and Teredo carry
+   an IPv4 address inside, so they are refused whole. */
+const NOT_PUBLIC = /** @type {[string, number][]} */ ([
+  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16],
+  ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15],
+  ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 3],
+  ['::', 96], ['64:ff9b::', 96], ['64:ff9b:1::', 48], ['100::', 64], ['2001::', 32], ['2001:db8::', 32],
+  ['2002::', 16], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8]
+]).reduce((list, [network, prefix]) => {
+  list.addSubnet(network, prefix, net.isIPv4(network) ? 'ipv4' : 'ipv6');
+  return list;
+}, new net.BlockList());
 
+/** @param {unknown} [address] */
 const isPrivateAddress = (address = '') => {
-  const value = String(address || '').trim().toLowerCase();
-  if (!value) return true;
-  if (net.isIPv4(value)) return isPrivateIpv4(value);
-  if (!net.isIPv6(value)) return true;
-  if (value === '::' || value === '::1') return true;
-  /* An IPv4-mapped address is an IPv4 address wearing a hat. */
-  const mapped = value.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isPrivateIpv4(mapped[1]);
-  return /^(fc|fd|fe8|fe9|fea|feb)/.test(value);
+  const value = String(address || '').trim();
+  const family = net.isIP(value);
+  return !family || NOT_PUBLIC.check(value, family === 4 ? 'ipv4' : 'ipv6');
 };
 
+/* The check happens on the address the socket actually dials, so a name that
+   answers public to the check and private to the connection gets nowhere. */
+/** @param {string} hostname @param {{ all?: boolean }} options @param {Function} callback */
+const publicLookup = (hostname, options, callback) => {
+  dns.lookup(hostname, { ...options, all: true }, (error, /** @type {dns.LookupAddress[]} */ addresses) => {
+    if (error) return callback(error);
+    if (!addresses.length || addresses.some(row => isPrivateAddress(row.address))) {
+      return callback(Object.assign(new Error(`${hostname} does not resolve only to public addresses.`), { code: 'ENOTPUBLIC' }));
+    }
+    return options.all ? callback(null, addresses) : callback(null, addresses[0].address, addresses[0].family);
+  });
+};
+const pinnedToPublic = new Agent({ connect: { lookup: publicLookup } });
+
+/** @param {string} message @returns {never} */
 const refuse = (message) => {
-  const error = new Error(message);
-  error.statusCode = 400;
-  throw error;
+  throw Object.assign(new Error(message), { statusCode: 400 });
 };
 
-/** The URL, proven public, or the reason it is not. */
-const validatePublicUrl = async (value, { lookup = dns.lookup, subject = 'This URL' } = {}) => {
+/** The URL, proven public, or the reason it is not. @param {unknown} value @param {Pick<PublicRequest, 'lookup' | 'subject'>} [options] */
+const validatePublicUrl = async (value, { lookup = dns.promises.lookup, subject = 'This URL' } = {}) => {
   let parsed;
   try {
     parsed = new URL(String(value || '').trim());
@@ -71,7 +88,7 @@ const validatePublicUrl = async (value, { lookup = dns.lookup, subject = 'This U
     || (parsed.port && parsed.protocol === 'https:' && parsed.port !== '443')) {
     return refuse(`${subject} must use the standard HTTP(S) port.`);
   }
-  const host = parsed.hostname.toLowerCase();
+  const host = parsed.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1');
   if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) {
     return refuse(`${subject} must resolve to a public host.`);
   }
@@ -91,6 +108,7 @@ const validatePublicUrl = async (value, { lookup = dns.lookup, subject = 'This U
  * stop reading incrementally, because a server that lies about one can lie
  * about the other.
  */
+/** @param {Response} response */
 const readBoundedBody = async (response, maxBytes = DEFAULT_MAX_BYTES, subject = 'The response') => {
   const tooBig = () => { throw new Error(`${subject} exceeds the size limit.`); };
   const declared = Number(response.headers?.get?.('content-length') || 0);
@@ -123,6 +141,7 @@ const readBoundedBody = async (response, maxBytes = DEFAULT_MAX_BYTES, subject =
  * Redirects are followed manually so every hop is re-validated. A public host
  * that redirects to 127.0.0.1 is the whole reason this function exists.
  */
+/** @param {PublicRequest} [request] */
 const requestPublic = async ({
   url,
   method = 'GET',
@@ -132,7 +151,7 @@ const requestPublic = async ({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   signal = null,
   fetchImpl = global.fetch,
-  lookup = dns.lookup
+  lookup = dns.promises.lookup
 } = {}) => {
   if (typeof fetchImpl !== 'function') throw new Error('fetch is not available.');
   let current = await validatePublicUrl(url, { lookup, subject });
@@ -144,12 +163,13 @@ const requestPublic = async ({
     signal?.addEventListener('abort', () => controller.abort(), { once: true });
     let response;
     try {
-      response = await fetchImpl(current, {
+      response = await fetchImpl(current, /** @type {RequestInit} */ ({
         method,
         redirect: 'manual',
+        dispatcher: pinnedToPublic,
         signal: controller.signal,
         headers: { Accept: accept, 'User-Agent': userAgent }
-      });
+      }));
     } finally {
       clearTimeout(timer);
     }
@@ -166,6 +186,7 @@ const requestPublic = async ({
 };
 
 /** Fetch a public URL and return its text. */
+/** @param {PublicRequest & { contentTypePattern?: RegExp | null, contentTypeMessage?: string, maxBytes?: number, deadlineMs?: number }} [request] */
 const fetchPublicText = async ({
   contentTypePattern = null,
   contentTypeMessage = '',
@@ -181,9 +202,7 @@ const fetchPublicText = async ({
   try {
     const { response, url } = await requestPublic({ ...request, subject, signal: deadline.signal });
     if (!response?.ok) {
-      const error = new Error(`${subject} request failed with HTTP ${response?.status || 'unknown'}.`);
-      error.status = response?.status || 0;
-      throw error;
+      throw Object.assign(new Error(`${subject} request failed with HTTP ${response?.status || 'unknown'}.`), { status: response?.status || 0 });
     }
     const contentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
     if (contentTypePattern && contentType && !contentTypePattern.test(contentType)) {
@@ -197,12 +216,14 @@ const fetchPublicText = async ({
 
 /* Not Found and Gone are the only answers that mean the page is no longer
    there. A 403, a 500 or a timeout is a door that did not open today. */
+/** @param {number} status */
 const isGoneStatus = (status) => status === 404 || status === 410;
 
 /**
  * The status a public URL answers a HEAD with, or 0 when it would not say.
  * Nothing is read: a check, not a fetch.
  */
+/** @param {PublicRequest} [request] */
 const publicUrlStatus = async ({ url, timeoutMs = 5000, ...request } = {}) => {
   try {
     const { response } = await requestPublic({ ...request, url, timeoutMs, method: 'HEAD', accept: '*/*' });

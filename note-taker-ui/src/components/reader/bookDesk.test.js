@@ -1,4 +1,4 @@
-import { BOOK_SAYS, bookendsOf, readingsOf, completionFor, kindOf, lastTime, midThought, pageNow, pagesOf, readLine, sittingLabel, sittingOf, spineOf, tallyLine } from './bookDesk';
+import { BOOK_SAYS, bookendsOf, readingsOf, completionFor, kindOf, lastLine, lastTime, midThought, mostlyWhen, openQuestionsOf, pageNow, pagesOf, readLine, sittingLabel, sittingOf, sittingsOf, spineOf, tallyLine } from './bookDesk';
 
 const at = minutes => new Date(Date.UTC(2026, 9, 19, 21, minutes)).toISOString();
 const NOW = Date.UTC(2026, 9, 19, 22, 0);
@@ -64,6 +64,15 @@ test('last time is the last thing you wrote in your own words, or the last passa
   ]).words).toBe('why stop here?');
 });
 
+test('a bare command is about the newest line kept, quote or note, never a fold', () => {
+  expect(lastLine([
+    { page: 186, note: 'is this just survivorship?', createdAt: at(1) },
+    { page: 188, text: 'A passage after it.', createdAt: at(2) },
+    { page: 189, tags: ['dog-ear'], createdAt: at(3) }
+  ])).toBe('A passage after it.');
+  expect(lastLine([])).toBe('');
+});
+
 test('a sitting is named by the hour of its newest mark', () => {
   const hour = h => new Date(2026, 9, 25, h, 30);
   expect([2, 9, 15, 21].map(h => sittingLabel(hour(h)))).toEqual(['Past midnight', 'This morning', 'This afternoon', 'Tonight']);
@@ -127,4 +136,18 @@ test('the thought you fell asleep on is the last line of a sitting past midnight
   expect(midThought([quote, { ...trailing, note: 'is it?' }])).toBeNull();
   expect(midThought([quote, { ...trailing, createdAt: night(22, 10) }])).toBeNull();
   expect(midThought([quote])).toBeNull();
+});
+
+test('a book read mostly at night says so, and only when most sittings agree', () => {
+  const sitting = (day, hour) => ({ _id: `${day}-${hour}`, note: 'x', createdAt: new Date(2026, 9, day, hour).toISOString() });
+  expect(mostlyWhen(sittingsOf([sitting(1, 23), sitting(2, 1), sitting(3, 22), sitting(4, 9)]))).toBe('after 10 PM');
+  expect(mostlyWhen(sittingsOf([sitting(1, 8), sitting(2, 9), sitting(3, 14)]))).toBe('in the mornings');
+  expect(mostlyWhen(sittingsOf([sitting(1, 8), sitting(2, 14), sitting(3, 20)]))).toBe('');
+  expect(mostlyWhen(sittingsOf([sitting(1, 23), sitting(2, 23)]))).toBe('');
+});
+
+test('a question stays open until the book answers it under your words', () => {
+  const asked = { _id: 'q1', note: 'Is Dorothea foolish?' };
+  const answered = { _id: 'q2', note: `Why Casaubon?\n\n${BOOK_SAYS}He wanted a monument.` };
+  expect(openQuestionsOf([asked, answered, { _id: 'n', note: 'She is not.' }])).toEqual([asked]);
 });

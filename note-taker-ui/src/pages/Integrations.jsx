@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Page, PageHeader } from '../components/ui';
 import { getMorningPaperSettings } from '../api/dailyLoop';
 import AgentLaunchLinkCard from '../components/integrations/AgentLaunchLinkCard';
@@ -20,22 +20,19 @@ import DataIntegrations from './DataIntegrations';
 import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
-/* Email-in, said once and quietly: where to forward, and from which address.
-   Absent until the inbound address is configured. */
+/* Email-in, said once and quietly: the reader's own address to forward to.
+   Absent until email-in is configured. */
 const ForwardingLine = () => {
-  const [settings, setSettings] = useState(null);
+  const [address, setAddress] = useState('');
   useEffect(() => {
     let live = true;
-    getMorningPaperSettings().then(value => { if (live) setSettings(value); }).catch(() => {});
+    getMorningPaperSettings().then(value => { if (live) setAddress(value?.inboundAddress || ''); }).catch(() => {});
     return () => { live = false; };
   }, []);
-  if (!settings?.inboundAddress) return null;
+  if (!address) return null;
   return (
     <p className="connections-forwarding">
-      Forward newsletters to <strong>{settings.inboundAddress}</strong> from{' '}
-      {settings.emailConfirmed
-        ? <strong>{settings.email}</strong>
-        : <Link to="/settings?section=delivery">the address you confirm in Settings</Link>}.
+      Forward newsletters to <strong>{address}</strong>. The address is yours alone, so keep it to your own mail filters.
     </p>
   );
 };

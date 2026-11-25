@@ -45,10 +45,10 @@ const { rawCosineToAtlasScore } = require('../ai/vectorStore');
    paper can fall back to the label rather than call them "agent". */
 const tokenRuntime = (req = {}) => (req.agentToken?.runtime ? normalizeRuntime(req.agentToken.runtime) : '');
 
-/* Who is writing. The token's label is evidence; `name` was never set, so the
-   masthead used to go blank and a non-ObjectId token id used to 500 the save. */
+/* Who is writing. The token's label is evidence; a non-ObjectId token id used
+   to 500 the save. */
 const scribe = (req = {}) => ({
-  label: String(req.agentToken?.label || req.agentToken?.name || req.body?.writtenBy || '').trim().slice(0, 200),
+  label: String(req.agentToken?.label || req.body?.writtenBy || '').trim().slice(0, 200),
   agentTokenId: String(req.agentToken?.id || req.agentToken?._id || '').trim(),
   runtime: tokenRuntime(req)
 });
@@ -641,7 +641,7 @@ const buildEditionRouter = ({
       const maxItems = Math.min(Math.max(Number(req.body?.maxItems) || 15, 1), 40);
       const minItems = Math.min(Math.max(Number(req.body?.minItems) || 1, 1), maxItems);
       const configuredBy = {
-        label: String(req.body?.configuredBy || req.agentToken?.label || req.agentToken?.name || '').trim().slice(0, 200),
+        label: String(req.body?.configuredBy || req.agentToken?.label || '').trim().slice(0, 200),
         agentTokenId: String(req.agentToken?.id || req.agentToken?._id || '').trim(),
         runtime: tokenRuntime(req)
       };
@@ -860,6 +860,17 @@ const buildEditionRouter = ({
           .filter(entry => entry.matches).slice(0, limit)
         : found.map(edition => ({ edition }));
       const editions = matched.map(entry => entry.edition);
+      /* Asked with ?open=newest (the stand), each paper's newest issue comes
+         opened, so the front page needs no second round of requests. Newest
+         is the issue whose window starts last, as the stand reckons it. */
+      const newest = new Map();
+      if (req.query?.open === 'newest') {
+        for (const edition of editions) {
+          const held = newest.get(edition.profile);
+          if (!held || new Date(edition.windowStart) >= new Date(held.windowStart)) newest.set(edition.profile, edition);
+        }
+      }
+      const opened = new Set(newest.values());
       const receipts = new Map(await Promise.all(
         [...new Set(editions.map(edition => edition.profile))]
           .map(async key => [key, await receiptsSinceFor(req.user.id, key)])
@@ -871,6 +882,7 @@ const buildEditionRouter = ({
             profiles,
             receiptsSince: receipts.get(edition.profile)
           }),
+          ...(opened.has(edition) ? { items: (edition.items || []).map(serializeItem) } : {}),
           ...(matches ? { matches } : {})
         }))
       });
@@ -1183,6 +1195,8 @@ const buildEditionRouter = ({
     try {
       const removed = await Edition.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
       if (!removed) return res.status(404).json({ error: 'No such edition.' });
+      // A paper you threw away is not still lying open for anyone with the link.
+      await SharedEdition?.deleteOne({ userId: req.user.id, editionId: removed._id });
       return res.status(200).json({ removed: true });
     } catch (error) {
       return refuse(res, error, 'Failed to remove the edition.');

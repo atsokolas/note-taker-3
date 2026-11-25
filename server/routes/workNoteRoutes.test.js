@@ -17,7 +17,7 @@ before(async () => {
   const app = express(); app.use(express.json());
   const draftWeek = input => draftWeekEdition({ ...input, generate: async args => { weekCalls += 1; return weekAnswer(args); } });
   app.use(buildWorkNoteRouter({ NotebookEntry, NotebookFolder, readiness, draftWeek, authenticateToken(req, res, next) {
-    req.user = { id: req.headers['x-user'] || String(user) }; req.agentToken = req.headers['x-agent'] && { scopes: req.headers['x-agent'].split(',') }; next();
+    req.user = { id: req.headers['x-user'] || String(user) }; req.agentToken = req.headers['x-agent'] && { scopes: req.headers['x-agent'].split(','), label: 'Claude Code' }; next();
   } }));
   server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
   base = `http://127.0.0.1:${server.address().port}/api/work-notes`;
@@ -37,6 +37,11 @@ test('durable create, guarded save, exact continuation, branching and privacy', 
   assert.equal((await call('', 'GET', null, { 'x-agent': 'agent' })).status, 403);
   assert.equal((await call('', 'GET', null, { 'x-agent': 'read,agent-write' })).status, 403, 'read-write alone does not open Work');
   assert.equal((await call('/' + note._id, 'GET', null, { 'x-agent': 'read,work' })).body.title, 'Fictional review', 'a connection approved for Work reads it');
+  const signed = await call('', 'POST', { operationId: 'by-agent', title: 'Night notes', occurredOn: '2026-10-26', content: 'left for you' }, { 'x-agent': 'read,agent-write,work' });
+  assert.equal(signed.body.pencil.agent, 'Claude Code', 'an agent signs what it writes in Work, in pencil');
+  assert.equal(note.pencil, null, 'what you write is in ink');
+  const inked = await call('/' + signed.body._id, 'PUT', { expectedRevision: 0, content: 'mine now' });
+  assert.equal(inked.body.pencil, null, 'your edit inks it');
   assert.equal((await call('', 'POST', { operationId: 'bad', blocks: [{ type: 'highlight-ref', highlightId: String(user) }] })).status, 400);
   const save = await call('/' + note._id, 'PUT', { expectedRevision: 0, title: 'New title', content: 'saved', blocks: [], workingState: { nextTimeLine: { text: 'Return here', target: { blockId: 'p1', offset: 2, baseText: 'saved' } } } });
   assert.equal(save.status, 200); assert.equal(save.body.revision, 1);

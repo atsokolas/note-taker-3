@@ -1,0 +1,15 @@
+#!/bin/bash
+# Prints the text in a region of the screen you pick, and nothing when the
+# region is let go. Omarchy's own capture hands its text over on the clipboard,
+# where another app's could be taken for it.
+set -uo pipefail
+
+# The screen is frozen until it has been read, as Omarchy's capture does.
+hyprpicker -r -z >/dev/null 2>&1 &
+trap 'kill $! 2>/dev/null' EXIT
+sleep .1
+
+region=$(slurp 2>/dev/null) || exit 0
+text=$(grim -g "$region" - | tesseract stdin stdout --oem 1 --psm 6 -l "${OMARCHY_OCR_LANGS:-eng}" --dpi 300 -c preserve_interword_spaces=1 2>/dev/null) || exit 1
+[[ $text == *[![:space:]]* ]] || exit 1
+printf '%s' "$text"

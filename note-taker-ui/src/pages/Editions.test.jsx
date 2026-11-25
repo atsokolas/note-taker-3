@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import Editions from './Editions';
 import * as api from '../api/editions';
+import { createNotebookEntry } from '../api/notebook';
 import backendApi from '../api';
 let mockId;
 let mockSearch;
@@ -14,6 +15,7 @@ jest.mock('react-router-dom', () => ({
   useSearchParams: () => [new URLSearchParams(mockSearch)]
 }));
 jest.mock('../api/editions');
+jest.mock('../api/notebook', () => ({ createNotebookEntry: jest.fn() }));
 jest.mock('../api', () => ({ get: jest.fn().mockResolvedValue({ data: { content: '<p>Saved source.</p>' } }) }));
 jest.mock('../components/editions/editionReadingState', () => ({
   ...jest.requireActual('../components/editions/editionReadingState'),
@@ -209,11 +211,19 @@ it('sets every paper as one front page, led by the finding with the most you can
   expect(screen.getAllByText('Updated Tue, Oct 6', { exact: false })[0]).toBeVisible();
   expect(screen.getByText('recovered 46.7%').tagName).toBe('BLOCKQUOTE');
   expect(screen.getByRole('link', { name: 'A useful distinction' })).toHaveAttribute('href', '/editions/e1?item=one');
-  expect(screen.getByText(/2 new findings across 1 paper/)).toBeVisible();
+  expect(screen.getByText('Something new in Weekend Readings')).toBeVisible();
   expect(screen.getByRole('link', { name: /Back to where you stopped/ })).toHaveAttribute('href', '/editions/e1?item=one');
   expect(screen.getByRole('link', { name: /Power through/ })).toHaveAttribute('href', '/editions?power=1');
   fireEvent.keyDown(document, { key: ']' });
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions?paper=weekend');
+});
+it('prints the front page from the stand alone when each newest issue comes opened', async () => {
+  const ai = twoPapers();
+  api.listEditions.mockResolvedValue([{ ...edition, newCount: 2 }, { ...ai, newCount: 0 }]);
+  render(<Editions />);
+  expect(await screen.findByRole('link', { name: 'Few recover when a step fails.' })).toHaveAttribute('href', '/editions/ai?item=x');
+  expect(api.listEditions).toHaveBeenCalledWith({ limit: 500, open: 'newest' });
+  expect(api.getEdition).not.toHaveBeenCalled();
 });
 it('turns the stand into a newsstand of covers, and back', async () => {
   twoPapers();
@@ -223,7 +233,10 @@ it('turns the stand into a newsstand of covers, and back', async () => {
   const cover = await screen.findByRole('link', { name: /This Week in AI.*46\.7%/ });
   expect(cover).toHaveAttribute('href', '/editions?open=ai');
   expect(within(cover).getByText('Competence is not recovery')).toBeVisible();
-  expect(within(screen.getByRole('link', { name: /Weekend Readings/ })).getByText('2 new')).toBeVisible();
+  /* New is said by name, ahead of the date, and nothing ever covers the date. */
+  const weekend = screen.getByRole('link', { name: /Weekend Readings/ });
+  expect(within(weekend).getByText('New ·')).toBeVisible();
+  expect(weekend.querySelector('.stand__issue')).toHaveTextContent(/^New · Edition 2/);
   expect(screen.getByRole('button', { name: 'Newsstand' })).toHaveAttribute('aria-pressed', 'true');
   fireEvent.click(screen.getByRole('button', { name: 'Front page' }));
   expect(screen.getByRole('heading', { name: 'The Noeis Edition' })).toBeVisible();
@@ -393,6 +406,35 @@ it('clips only selected finding text and leaves the whole-finding copy available
     else delete navigator.clipboard;
   }
 });
+it('keeps the selected words in a Notebook quote with the exact finding link', async () => {
+  createNotebookEntry.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ _id: 'clipped-note' });
+  render(<Editions />);
+  const prose = await screen.findByText(item.finding);
+  const selection = window.getSelection();
+  const range = document.createRange();
+  const excerpt = 'Being informed';
+  range.setStart(prose.firstChild, 0);
+  range.setEnd(prose.firstChild, excerpt.length);
+  selection.removeAllRanges();
+  try {
+    selection.addRange(range);
+    fireEvent(document, new Event('selectionchange'));
+    const keep = await screen.findByRole('button', { name: 'Keep in Notebook' });
+    keep.focus();
+    fireEvent.click(keep);
+    expect(await screen.findByText('That didn’t save. Try again.')).toBeVisible();
+    expect(keep).toHaveFocus();
+    fireEvent.click(keep);
+    const saved = await screen.findByRole('button', { name: 'Kept in Notebook' });
+    expect(saved).toHaveFocus();
+    expect(saved).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('link', { name: /Open note/ })).toHaveAttribute('href', '/think?tab=notebook&entryId=clipped-note');
+    const payload = { source: 'edition-selection', title: item.title, blocks: [{ type: 'quote', text: excerpt, articleTitle: 'Weekend Readings · Edition 2', sourcePath: '/editions/e1#edition-item-one' }] };
+    expect(createNotebookEntry.mock.calls).toEqual([[payload], [payload]]);
+  } finally {
+    selection.removeAllRanges();
+  }
+});
 it('sets a finding aside with Not for me, and Undo brings it back', async () => {
   api.setEditionItemState.mockImplementation(async (_id, itemId, status) => ({ itemId, readerStatus: status, edition: { ...edition, items: [{ ...item, readerStatus: status }] } }));
   render(<Editions />);
@@ -427,7 +469,7 @@ it('does not insert new filings until Show, even when Keep returns the newer iss
   expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toHaveAttribute('href', '/library?articleId=article');
   expect(screen.getByText(/Saved the link/)).toBeVisible();
   expect(screen.queryByRole('heading', { name: 'An arrival' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: '1 finding added · Show' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Something new came in · Show' }));
   expect(screen.getByRole('heading', { name: 'An arrival' })).toBeVisible();
   jest.useRealTimers();
 });
@@ -465,7 +507,7 @@ it('does not let a poll started before Keep restore an older Library state', asy
   api.saveEditionItem.mockResolvedValue({ edition: { ...edition, items: [{ ...item, savedArticleId: 'article' }] }, readable: true });
   fireEvent.click(screen.getByRole('button', { name: 'Keep' })); await act(async () => {});
   await act(async () => finishPoll({ ...edition, throughLine: 'A new editorial line.' }));
-  fireEvent.click(screen.getByRole('button', { name: 'This issue has an update · Show' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Something new came in · Show' }));
   expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toBeVisible();
   jest.useRealTimers();
 });
@@ -525,4 +567,17 @@ it('shows an empty account what a paper is and the one door to get one', async (
   expect(await screen.findByRole('heading', { name: 'No paper yet.' })).toBeVisible();
   expect(screen.getByText('An example finding')).toBeVisible();
   expect(screen.getByRole('link', { name: 'Connect an agent' })).toHaveAttribute('href', '/connections');
+});
+it('prints your last word on the previous issue as a letter, its year in the ear, and stamps a late filing', async () => {
+  const last = { ...edition, _id: 'e0', number: 1, windowStart: '2026-08-25', windowEnd: '2026-08-31', items: [] };
+  const late = { ...item, itemId: 'late', title: 'Filed after press', finding: 'A finding that missed the press.', filedAt: '2026-09-09T10:00:00Z' };
+  const closed = { ...edition, windowEnd: '2026-09-07', items: [{ ...item, filedAt: '2026-09-03T10:00:00Z' }, late] };
+  api.listEditions.mockResolvedValue([last, closed]); api.getEdition.mockResolvedValue(closed);
+  api.getEditionThoughts.mockImplementation(id => Promise.resolve(id === 'e0' ? [{ itemId: '', content: 'Recovery is the real skill.' }] : []));
+  render(<Editions />); await screen.findByText(item.finding);
+  const letter = await screen.findByRole('complementary', { name: 'Letters' });
+  expect(letter).toHaveTextContent('Recovery is the real skill.You, after Edition 1');
+  expect(screen.getByText('Vol. I · Est. August 2026')).toBeVisible();
+  expect(within(document.getElementById('edition-item-late')).getByText('Late edition')).toBeVisible();
+  expect(within(document.getElementById('edition-item-one')).queryByText('Late edition')).toBeNull();
 });

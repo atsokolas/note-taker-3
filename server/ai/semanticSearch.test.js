@@ -4,13 +4,22 @@ jest.mock('./embed', () => ({
   isEmbeddingConfigured: jest.fn(() => true)
 }));
 
+// The model reads every pair: it bears unless a test says otherwise.
+jest.mock('../services/disagreements', () => ({
+  relations: jest.fn(async ({ pairs }) => pairs.map((_, index) => ({ index, relation: 'bears' })))
+}));
+
 const { embedText, embedTexts, isEmbeddingConfigured } = require('./embed');
-const { similarToSource, marginNotes, answerTo, beforeYouStart, echoOf } = require('./semanticSearch');
+const { relations } = require('../services/disagreements');
+const { similarToSource, marginNotes, answerTo, beforeYouStart, echoOf, heardBefore, addedBy } = require('./semanticSearch');
 const { encodeVector, rawCosineToAtlasScore } = require('./vectorStore');
 
 const userId = '64b000000000000000000001';
 const conceptId = '64b000000000000000000002';
 const stored = { embedding: encodeVector([1, 0]), contentHash: 'h' };
+// Nothing judged before, and nothing kept between tests.
+const ConnectionJudgment = { find: () => ({ select: () => ({ lean: async () => [] }) }), bulkWrite: async () => {} };
+const sharesOnlyWords = quote => relations.mockImplementationOnce(async ({ pairs }) => pairs.map(({ b }, index) => ({ index, relation: b.says.includes(quote) ? 'none' : 'bears' })));
 
 const vectorsWith = (rows) => {
   const VectorItem = {
@@ -66,6 +75,7 @@ describe('marginNotes', () => {
     [hid(4)]: { _id: hid(4), text: 'Pilots adopted the checklist after a prototype bomber crashed on its first demonstration flight.', articleId: there, articleTitle: 'The Checklist Manifesto' }
   };
   const models = (rowsFor) => ({
+    ConnectionJudgment,
     VectorItem: { aggregate: jest.fn(async () => rowsFor()) },
     Article: {
       aggregate: jest.fn(async ([match]) => match.$match['highlights._id'].$in.map(id => held[String(id)]).filter(Boolean)),
@@ -86,7 +96,7 @@ describe('marginNotes', () => {
     expect(embedTexts).toHaveBeenCalledWith([paragraph]);
     expect(notes).toEqual([expect.objectContaining({
       paragraph: 1,
-      relation: 'close',
+      relation: 'bears',
       highlight: expect.objectContaining({ _id: hid(1), articleTitle: 'The Checklist Manifesto', text: long })
     })]);
   });
@@ -117,9 +127,20 @@ describe('marginNotes', () => {
     held[hid(5)] = { ...held[hid(1)], _id: hid(5), text: paragraph };
     const notes = await marginNotes({
       userId, articleId: here, paragraphs: [paragraph],
-      models: models(() => [row(1, 0.6), row(2, 0.9), row(5, 0.9), row(4, 0.99)])
+      models: models(() => [row(1, 0.25), row(2, 0.9), row(5, 0.9), row(4, 0.99)])
     });
     expect(notes).toEqual([]);
+  });
+
+  it('keeps only what the model says bears on the paragraph, read once with what is being read', async () => {
+    relations.mockClear();
+    sharesOnlyWords('prototype bomber');
+    const notes = await marginNotes({
+      userId, articleId: here, paragraphs: [paragraph, `${paragraph} Again.`], models: models(() => [row(4, 0.9), row(1, 0.4)])
+    });
+    expect(notes.map(note => note.highlight._id)).toEqual([hid(1)]);
+    expect(relations).toHaveBeenCalledTimes(1);
+    expect(relations.mock.calls[0][0].pairs[0].a).toEqual({ who: 'This one', says: paragraph });
   });
 
   it('gives each paragraph one note and each passage one paragraph, strongest first, within the limit', async () => {
@@ -154,6 +175,7 @@ describe('answerTo', () => {
     [hid(4)]: { _id: hid(4), text: `${passage} Saved again.`, articleId: 'a3', articleTitle: 'The Power Broker (Full Article)', createdAt: '2026-01-01T00:00:00Z' }
   };
   const models = rows => ({
+    ConnectionJudgment,
     VectorItem: vectorsWith(rows),
     Article: { aggregate: jest.fn(async ([match]) => match.$match['highlights._id'].$in.map(id => held[String(id)]).filter(Boolean)) }
   });
@@ -166,8 +188,10 @@ describe('answerTo', () => {
     expect(embedText).not.toHaveBeenCalled();
   });
 
-  it('stays silent under the margin floor', async () => {
-    expect(await answerTo({ userId, question, models: models([row(1, 0.6)]) })).toBeNull();
+  it('stays silent under the floor, and when the model says the closest only shares words', async () => {
+    expect(await answerTo({ userId, question, models: models([row(1, 0.25)]) })).toBeNull();
+    sharesOnlyWords('parkways');
+    expect(await answerTo({ userId, question, models: models([row(1, 0.7)]) })).toBeNull();
   });
 
   it('echoes a passage with nearly the same thought marked in another work months apart, and only that', async () => {
@@ -178,6 +202,17 @@ describe('answerTo', () => {
     expect(await echoOf({ userId, mark: { ...mark, text: 'Roads first, then parks.' }, models: models([row(2, 0.9)]) })).toBeNull();
   });
 
+  it('hears a line just typed against other works, and with echo only what you marked nearly the same a year ago', async () => {
+    embedText.mockClear();
+    const line = 'The roads came first, and the parks were simply where the cars were meant to go.';
+    const now = Date.parse('2027-02-01T00:00:00Z');
+    expect(await heardBefore({ userId, text: line, bookId: 'a1', now, models: models([row(1, 0.9), row(2, 0.65)]) })).toMatchObject({ _id: hid(2), articleTitle: 'Earlier' });
+    expect(embedText).toHaveBeenCalledWith(line);
+    expect(await heardBefore({ userId, text: line, bookId: 'a9', echo: true, now, models: models([row(1, 0.8), row(2, 0.8)]) })).toMatchObject({ _id: hid(2) });
+    expect(await heardBefore({ userId, text: line, bookId: 'a9', echo: true, now, models: models([row(2, 0.65)]) })).toBeNull();
+    expect(await heardBefore({ userId, text: 'Too short to ask.', bookId: 'a9', models: models([row(2, 0.9)]) })).toBeNull();
+  });
+
   it('before you start a book, finds what you marked in other works by its title and author', async () => {
     embedText.mockClear();
     isEmbeddingConfigured.mockReturnValue(true);
@@ -186,5 +221,90 @@ describe('answerTo', () => {
     expect(embedText).toHaveBeenCalledWith('The Power Broker, by Robert Caro');
     expect(found.map(passage => passage.articleTitle)).toEqual(['Earlier']);
     expect(await beforeYouStart({ userId, book: { ...book, _id: 'a9' }, models: models([row(2, 0.5)]) })).toEqual([]);
+  });
+});
+
+describe('addedBy', () => {
+  const here = '64b0000000000000000000a1';
+  const there = '64b0000000000000000000a2';
+  const book = '64b0000000000000000000a3';
+  const id = n => `64b0000000000000000000${String(n).padStart(2, '0')}`;
+  const score = cosine => rawCosineToAtlasScore(cosine);
+  const quote = 'A checklist is not a crutch for the inexpert but a net for the expert who forgets the obvious step.';
+  const held = {
+    [id(1)]: { _id: id(1), text: quote, articleId: there, articleTitle: 'The Checklist Manifesto', createdAt: '2026-03-04T00:00:00Z' },
+    [id(2)]: { _id: id(2), text: '', note: 'Why do experts skip the obvious step?', articleId: book, articleTitle: 'Better' },
+    [id(3)]: { _id: id(3), text: `${quote} Again.`, articleId: there, articleTitle: 'Checklists (Full Article)' }
+  };
+  const chain = value => ({ select: () => ({ limit: () => ({ lean: async () => value }), lean: async () => value }) });
+  const modelsFor = (rows, { marked = [{ embedding: encodeVector([1, 0]) }], title = 'This one' } = {}) => {
+    const VectorItem = {
+      find: jest.fn(filter => chain(filter.objectType === 'highlight' ? marked : [{ embedding: encodeVector([0, 1]) }])),
+      countDocuments: jest.fn(async () => marked.length),
+      aggregate: jest.fn(async () => rows)
+    };
+    return {
+      VectorItem,
+      Article: {
+        findOne: () => chain({ title }),
+        aggregate: jest.fn(async ([match]) => match.$match['highlights._id'].$in.map(key => held[String(key)]).filter(Boolean))
+      },
+      Question: { find: jest.fn(() => chain([{ _id: id(5), text: 'When does scale stop helping?' }])) },
+      WikiPage: { find: jest.fn(() => chain([{ _id: id(6), title: 'Checklists', claims: [
+        { claimId: 'c1', text: 'Checklists catch what memory drops on a long and busy day.', sourceRefIds: ['s1', 's2'] },
+        { claimId: 'c2', text: 'A retired sentence that once said checklists slow surgeons down.', sourceRefIds: ['s1', 's2'], checkInStatus: 'retired' },
+        { claimId: 'c3', text: 'Checklists should not be read as a complete answer. The defensible core is narrower.', sourceRefIds: ['s1', 's2'] }
+      ] }])) }
+    };
+  };
+  const highlight = (n, cosine, articleId = there) => ({ objectType: 'highlight', objectId: id(n), score: score(cosine), metadata: { articleId } });
+
+  it('names what a source echoes, the questions it answers and the page it belongs on, from stored vectors', async () => {
+    embedText.mockClear();
+    const models = modelsFor([
+      highlight(1, 0.8),
+      highlight(1, 0.7),
+      highlight(2, 0.7, book),
+      { objectType: 'question', objectId: id(5), score: score(0.66), metadata: {} },
+      { objectType: 'wiki_claim', objectId: `${id(6)}:c1`, score: score(0.75), metadata: { pageId: id(6), claimId: 'c1' } },
+      { objectType: 'wiki_claim', objectId: `${id(6)}:c2`, score: score(0.95), metadata: { pageId: id(6), claimId: 'c2' } },
+      { objectType: 'wiki_claim', objectId: `${id(6)}:c3`, score: score(0.9), metadata: { pageId: id(6), claimId: 'c3' } },
+      highlight(4, 0.6),
+      highlight(1, 0.99)
+    ]);
+    const added = await addedBy({ userId, articleId: here, models });
+    expect(added.map(({ kind, key }) => [kind, key])).toEqual([
+      ['echo', `highlight:${id(1)}`],
+      ['belongs', `wiki_page:${id(6)}`],
+      ['answers', `highlight:${id(2)}`],
+      ['answers', `question:${id(5)}`]
+    ]);
+    expect(added[0].to).toMatchObject({ type: 'highlight', articleId: there, title: 'The Checklist Manifesto', quote });
+    expect(added[1].to).toMatchObject({ type: 'wiki_page', title: 'Checklists', quote: 'Checklists catch what memory drops on a long and busy day.' });
+    expect(added[2].to.quote).toBe('Why do experts skip the obvious step?');
+    expect(embedText).not.toHaveBeenCalled();
+    expect(models.VectorItem.aggregate).toHaveBeenCalledTimes(1);
+    expect(models.VectorItem.aggregate.mock.calls[0][0][0].$vectorSearch.limit).toBe(7);
+  });
+
+  it('asks with the source\'s own text when nothing in it is marked, and never offers the same work back', async () => {
+    const models = modelsFor([highlight(3, 0.8), highlight(1, 0.8, here)], { marked: [], title: 'Checklists' });
+    expect(await addedBy({ userId, articleId: here, models })).toEqual([]);
+    expect(models.VectorItem.find.mock.calls.map(([filter]) => filter.objectType)).toEqual(['highlight', 'article']);
+  });
+
+  it('never offers the same words twice', async () => {
+    const added = await addedBy({ userId, articleId: here, models: modelsFor([
+      highlight(1, 0.8),
+      highlight(3, 0.7)
+    ]) });
+    expect(added.map(({ key }) => key)).toEqual([`highlight:${id(1)}`]);
+  });
+
+  it('offers the model the strongest six of each kind, down to a low floor', async () => {
+    const works = [7, 8, 9, 10, 11, 12, 13, 14];
+    Object.assign(held, ...works.map(n => ({ [id(n)]: { _id: id(n), text: `${quote} ${n}`, articleId: there, articleTitle: `Work ${n}` } })));
+    const added = await addedBy({ userId, articleId: here, models: modelsFor([...works.slice(0, 7).map((n, at) => highlight(n, 0.5 - at / 100)), highlight(14, 0.29)]) });
+    expect(added.map(connection => connection.to.title)).toEqual(['Work 7', 'Work 8', 'Work 9', 'Work 10', 'Work 11', 'Work 12']);
   });
 });

@@ -333,7 +333,7 @@ const LibraryShelfNav = ({
       {/* The same shelves seen from above, and bound: quiet doors, not scopes. */}
       <p className="library-shelf__map">
         <Link to="/library/map">See your reading as a map</Link>
-        <Link to="/library/book">Read your year as a book</Link>
+        <Link to="/library/book">{new Date().getMonth() === 11 ? `Your ${new Date().getFullYear()} is bound. Read it` : 'Read your year as a book'}</Link>
       </p>
 
       {narrow && !showCabinet && folders.length ? (

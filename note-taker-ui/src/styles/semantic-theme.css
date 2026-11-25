@@ -148,7 +148,8 @@ html[data-ui-theme='light'] {
   --wiki-quiet-danger: var(--noeis-danger);
 }
 
-html[data-ui-theme='dark'] {
+/* The Museum's rooms are always lit for evening, whatever the theme. */
+.museum-room, html[data-ui-theme='dark'] {
   color-scheme: dark;
   --noeis-canvas: #16140f;
   --noeis-chrome: #1a1712;
@@ -376,6 +377,17 @@ html[data-ui-theme='solarized-light'] {
   --noeis-active: color-mix(in srgb, #586e75 7%, #fdf6e3);
   --noeis-shadow-soft: 0 10px 26px rgba(88, 110, 117, 0.1);
   --noeis-shadow-float: 0 20px 48px rgba(88, 110, 117, 0.16);
+}
+
+/* Book cloth: the spines on the nightstand and the shelf. Each is a theme's
+   own colour pressed into its sunken paper, so every theme dresses its books. */
+html {
+  --noeis-cloth-1: color-mix(in srgb, var(--noeis-thread) 64%, var(--noeis-paper-sunken));
+  --noeis-cloth-2: color-mix(in srgb, var(--noeis-living) 62%, var(--noeis-paper-sunken));
+  --noeis-cloth-3: color-mix(in srgb, var(--noeis-danger) 56%, var(--noeis-paper-sunken));
+  --noeis-cloth-4: color-mix(in srgb, color-mix(in srgb, var(--noeis-living), var(--noeis-ink) 45%) 58%, var(--noeis-paper-sunken));
+  --noeis-cloth-5: color-mix(in srgb, var(--noeis-ink-muted) 40%, var(--noeis-paper-sunken));
+  --noeis-cloth-6: color-mix(in srgb, var(--noeis-ink) 22%, var(--noeis-paper-sunken));
 }
 
 /* Omarchy wears the desktop's colours, set on <html> by

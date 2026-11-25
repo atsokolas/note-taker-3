@@ -222,8 +222,8 @@ Both lists below are the complete tool surface, checked against `toolDefinitions
 by `test/server.test.js` — a tool added without a line here fails the suite.
 
 An agent is shown the **core** tools unless its runtime asks for more, because
-every listed tool costs context on each turn. Core is seventeen tools:
-`connection_info`, `brief`, `recall`, `read`, `take_handoff`,
+every listed tool costs context on each turn. Core is eighteen tools:
+`connection_info`, `brief`, `recall`, `read`, `added`, `take_handoff`,
 `finish_handoff`, `hand_off`, `cite`, `list_pages`, `get_page_markdown`,
 `create_page`, `create_article`, `create_highlight`, `create_notebook_entry`,
 `update_notebook_entry`, `list_edition_profiles` and `file_edition_items`.
@@ -244,7 +244,9 @@ the reader keeps (saved articles and their highlights with margin notes, Think
 notes, open questions, concepts, held views, wiki pages and Editions) with the
 same retrieval the in-app partner uses, so a plain question like "what have I
 written about hiring" finds the reader's own notes, and the reading that bears
-on them.
+on them. `added` takes one source and says how it fits what the reader
+already holds: the passages it echoes or argues with, the questions it answers and the wiki
+pages it belongs on, as Noeis connected them, inked or still in pencil.
 When the reader steps away they can hand work to an agent from any page in
 Noeis. It appears first in `brief`, under `handedToYou`, with the line they
 wrote and where they were. `take_handoff` claims it (only one agent can) and
@@ -260,6 +262,7 @@ Each hit carries a passage, an id, a link and the tool that opens it, usually
 - `brief`
 - `recall`
 - `read`
+- `added`
 - `get_profile`
 - `list_edition_profiles`
 - `list_editions`

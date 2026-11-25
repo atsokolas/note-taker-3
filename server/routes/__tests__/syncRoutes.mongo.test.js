@@ -10,7 +10,7 @@ test('real Mongo: the folder lists everything, and carries Markdown for what cha
   let server;
   try {
     await mongoose.connect(memory.getUri());
-    const { Article, NotebookEntry, WikiPage } = require('../../models');
+    const { Article, NotebookEntry, WikiPage, Connection } = require('../../models');
     const userId = new mongoose.Types.ObjectId();
     const note = await NotebookEntry.create({ userId, title: 'My hiring mistakes', blocks: [{ id: 'b1', type: 'paragraph', text: 'I keep hiring the best story.' }] });
     const read = await Article.create({ userId, title: 'Docs Claude read', url: 'https://example.com/docs', content: '<p>How hooks run.</p>', pencil: { agent: 'Claude Code' },
@@ -19,7 +19,7 @@ test('real Mongo: the folder lists everything, and carries Markdown for what cha
     await NotebookEntry.create({ userId: new mongoose.Types.ObjectId(), title: 'Someone else' });
 
     const app = express();
-    app.use(buildSyncRouter({ authenticateToken: (req, _res, next) => { req.user = { id: String(userId) }; next(); }, models: { Article, NotebookEntry, WikiPage } }));
+    app.use(buildSyncRouter({ authenticateToken: (req, _res, next) => { req.user = { id: String(userId) }; next(); }, models: { Article, NotebookEntry, WikiPage, Connection } }));
     server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
     const get = async query => (await fetch(`http://127.0.0.1:${server.address().port}/api/sync?${query}`)).json();
 
@@ -40,6 +40,15 @@ test('real Mongo: the folder lists everything, and carries Markdown for what cha
     const asked = await get(`since=${encodeURIComponent(first.now)}&ids=${note._id}`);
     assert.deepEqual(asked.files.filter(file => file.markdown).map(file => file.id), [String(note._id)]);
     assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/sync?since=nonsense`)).status, 400);
+
+    // Inking a connection resends the source, which links the file it reaches.
+    const checklists = await Article.create({ userId, title: 'The Checklist Manifesto', url: 'book://checklist', highlights: [{ text: 'Checklists catch what memory drops.' }] });
+    const listed = await get('');
+    await Connection.create({ userId, fromType: 'article', fromId: String(read._id), toType: 'highlight', toId: String(checklists.highlights[0]._id), relationType: 'related' });
+    await Connection.create({ userId, fromType: 'article', fromId: String(read._id), toType: 'question', toId: String(note._id), relationType: 'supports' });
+    const inked = await get(`since=${encodeURIComponent(listed.now)}`);
+    assert.deepEqual(inked.files.filter(file => file.markdown).map(file => file.id), [String(read._id)]);
+    assert.match(inked.files.find(file => file.markdown).markdown, new RegExp(`## Connected\\n\\n- Echoes \\[\\[the-checklist-manifesto-${String(checklists._id).slice(-6)}\\|The Checklist Manifesto\\]\\]\\n$`));
   } finally {
     server?.close();
     await mongoose.disconnect();

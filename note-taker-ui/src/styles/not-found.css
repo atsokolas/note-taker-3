@@ -1,8 +1,18 @@
-/* Plain, and in the reading language: this is a sentence, not an error dialog. */
+/* Plain, and in the reading language: a page torn out of the book, its
+   ragged edge drawn by the clip, not an error dialog. */
 .not-found {
   width: min(100%, 560px);
   margin: 0 auto;
   padding: 96px 24px;
+}
+
+.not-found__page {
+  margin: 0 0 28px;
+  padding: 40px 32px 52px;
+  border-left: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border-subtle);
+  clip-path: polygon(0 0, 100% 0, 100% 86%, 94% 92%, 88% 86%, 81% 95%, 74% 88%, 66% 97%, 58% 89%, 51% 94%, 43% 87%, 36% 96%, 28% 88%, 21% 93%, 13% 86%, 6% 95%, 0 89%);
 }
 
 .not-found__title {

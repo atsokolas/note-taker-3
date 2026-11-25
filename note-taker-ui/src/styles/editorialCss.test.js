@@ -22,8 +22,10 @@ describe('editorial house CSS', () => {
     // both did. Scrolling is the default now and a surface opts out of it.
     const base = css.match(/body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body \{[\s\S]*?\n\}/)?.[0] || '';
     expect(base).toContain('min-height: 100vh');
-    expect(base).toContain('overflow-y: auto');
     expect(base).not.toContain('overflow: hidden');
+    // Clipped sideways without becoming a scroll container, so sticky lines inside it dock.
+    expect(base).toContain('overflow-x: clip');
+    expect(base).not.toMatch(/overflow(-y)?: (auto|hidden|scroll)/);
     // Not min-height — a bare height would clamp it shut again.
     expect(base).not.toMatch(/(^|[^-])\bheight: 100vh/m);
   });
@@ -82,13 +84,13 @@ describe('editorial house CSS', () => {
 
   it('keeps settings and connections scrolling on their own document height', () => {
     const css = shell();
-    const documentScrollBlock = css.match(/body\.noeis-editorial \.settings-page,[\s\S]*?overflow-y: auto;\n\}/)?.[0] || '';
+    const documentScrollBlock = css.match(/body\.noeis-editorial \.settings-page,[\s\S]*?\n\}/)?.[0] || '';
 
     expect(documentScrollBlock).toContain('.app-shell-new__body:has(.settings-page)');
     expect(documentScrollBlock).toContain('.app-shell-new__body:has(.integrations-page)');
     expect(documentScrollBlock).toContain('.app-shell-new__body:has(.data-integrations-page)');
     expect(documentScrollBlock).toContain('height: auto;');
-    expect(documentScrollBlock).toContain('overflow-y: auto;');
+    expect(documentScrollBlock).toContain('overflow-y: visible;');
   });
 
   it('rings the row under the pointer rather than washing it', () => {

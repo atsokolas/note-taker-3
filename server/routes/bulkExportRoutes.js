@@ -1,14 +1,27 @@
 const express = require('express');
 
+// pdfkit and archiver cost about a tenth of a second of CPU to load, on every
+// boot, for a download almost nobody asks for. They load on the first export.
+const newPdf = options => new (require('pdfkit'))(options);
+const newZip = () => require('archiver')('zip', { zlib: { level: 9 } });
+
+const highlightsOf = articles => articles.flatMap(article => (article.highlights || []).map(h => ({
+  _id: h._id,
+  text: h.text,
+  note: h.note,
+  tags: h.tags,
+  createdAt: h.createdAt,
+  articleId: article._id,
+  articleTitle: article.title
+})));
+
 const buildBulkExportRouter = ({
   authenticateToken,
   Article,
   NotebookEntry,
   Collection,
   TagMeta,
-  SavedView,
-  PDFDocument,
-  archiver
+  SavedView
 }) => {
   const router = express.Router();
 
@@ -23,20 +36,7 @@ const buildBulkExportRouter = ({
         SavedView.find({ userId }).lean()
       ]);
 
-      const highlights = [];
-      articles.forEach(a => {
-        (a.highlights || []).forEach(h => {
-          highlights.push({
-            _id: h._id,
-            text: h.text,
-            note: h.note,
-            tags: h.tags,
-            createdAt: h.createdAt,
-            articleId: a._id,
-            articleTitle: a.title
-          });
-        });
-      });
+      const highlights = highlightsOf(articles);
 
       const payload = {
         exportedAt: new Date().toISOString(),
@@ -65,20 +65,7 @@ const buildBulkExportRouter = ({
         TagMeta.find({ userId }).lean()
       ]);
 
-      const highlights = [];
-      articles.forEach(a => {
-        (a.highlights || []).forEach(h => {
-          highlights.push({
-            _id: h._id,
-            text: h.text,
-            note: h.note,
-            tags: h.tags,
-            createdAt: h.createdAt,
-            articleId: a._id,
-            articleTitle: a.title
-          });
-        });
-      });
+      const highlights = highlightsOf(articles);
 
       const slugify = (str) => {
         const base = (str || 'untitled').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -87,7 +74,7 @@ const buildBulkExportRouter = ({
 
       const makePdfBuffer = async (title, lines = []) => {
         return new Promise((resolve, reject) => {
-          const doc = new PDFDocument({ autoFirstPage: false, bufferPages: true, margins: { top: 50, bottom: 50, left: 50, right: 50 } });
+          const doc = newPdf({ autoFirstPage: false, bufferPages: true, margins: { top: 50, bottom: 50, left: 50, right: 50 } });
           const chunks = [];
           doc.on('data', (c) => chunks.push(c));
           doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -107,7 +94,7 @@ const buildBulkExportRouter = ({
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', 'attachment; filename="note-taker-export-pdfs.zip"');
 
-      const archive = archiver('zip', { zlib: { level: 9 } });
+      const archive = newZip();
       archive.on('error', (err) => {
         console.error('❌ Error building PDF zip:', err);
         if (!res.headersSent) {

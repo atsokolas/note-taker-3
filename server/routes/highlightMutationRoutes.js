@@ -98,11 +98,12 @@ const buildHighlightMutationRouter = ({
       const typed = typeof text === 'string' ? text.trim() : '';
       const thought = typeof note === 'string' ? note.trim() : '';
       const page = Number.isInteger(req.body.page) && req.body.page > 0 ? req.body.page : undefined;
-      // A passage, or a thought written beside a book with no passage under it.
-      if (typed ? typed.length < 3 : !thought) {
+      /* A passage, a thought written beside a book with no passage under it,
+         or a page of one folded with only a #word (a dog-ear). */
+      if (typed ? typed.length < 3 : !thought && !(page && normalizeTags(tags).length)) {
         return res.status(400).json({ error: "Highlight text is required." });
       }
-      if (captureId !== undefined && (typeof captureId !== 'string' || !/^[a-f0-9]{24}$/.test(captureId) || !typed || !anchor)) {
+      if (captureId !== undefined && (typeof captureId !== 'string' || !/^[a-f0-9]{24}$/.test(captureId))) {
         return res.status(400).json({ error: 'That saved passage is missing its capture details.' });
       }
 
@@ -112,13 +113,16 @@ const buildHighlightMutationRouter = ({
       }
       /* A passage typed at the desk may be one already marked on the Kindle,
          or only its ends: the note joins the mark that is there. A selection
-         in an article has its own anchor, and stays its own mark. */
-      const held = typed && !anchor ? absorbPassage(marksOfReading(article), { text: typed, note: thought }) : null;
+         in an article has its own anchor, and stays its own mark. An agent's
+         passage joins only a mark already in pencil: a mark of yours stays
+         ink, so striking the agent's words can never take yours with them. */
+      const pencil = pencilOf(req);
+      const joinable = marksOfReading(article).filter(mark => !pencil || mark.pencil);
+      const held = typed && !anchor ? absorbPassage(joinable, { text: typed, note: thought }) : null;
       if (held) {
         held.page = held.page || page;
         held.tags = normalizeTags([...(held.tags || []), ...normalizeTags(tags)]);
-        // An agent's note joining a mark puts the mark in pencil.
-        if (thought) held.pencil = pencilOf(req) || held.pencil;
+        if (thought) held.pencil = pencil || held.pencil;
         await article.save();
         return res.status(200).json({
           article,
@@ -127,7 +131,7 @@ const buildHighlightMutationRouter = ({
       }
       const highlight = {
         ...buildHighlightDocument({ text: typed, note: thought, tags, color, anchor, page, normalizeTags }),
-        pencil: pencilOf(req)
+        pencil
       };
       let updatedArticle;
       if (captureId) {

@@ -1,13 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { createHighlight, deleteHighlight, updateHighlight } from '../../api/highlights';
-import { readBookPage } from '../../api/imports';
+import { argueLine, heardBefore, readBookPage } from '../../api/imports';
 import { useFinePointer } from '../../hooks/useMotionPreferences';
 import { scopedKey } from '../../utils/browserScope';
 import { buildConceptPath } from '../../utils/sourceRoutes';
 import { pagePhoto } from '../../utils/pagePhoto';
 import {
-  completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastTime, markedBefore, midThought, monthOf, pageNow, pagesOf,
+  CAPTURE_KINDS, DOG_EAR, completionFor, dayOf, isEarlier, isUnfinished, kindOf, lastLine, lastTime, markedBefore, midThought, monthOf, pageNow, pagesOf,
   readingSince, readLine, setDownOn, sittingLabel, sittingOf, tallyLine
 } from './bookDesk';
 import '../../styles/book-desk.css';
@@ -24,7 +24,17 @@ const keepUnsent = (articleId, lines) => {
   } catch (_) { /* Blocked storage: the line stays on screen for this visit. */ }
 };
 
+// A line keeps one id from the moment it is typed, so sending it again after
+// an answer that never arrived saves it once.
+const lineId = () => Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+const sentOff = (articleId, tempId) => keepUnsent(articleId, unsentLines(articleId).filter(line => line.tempId !== tempId));
+
 const joinNotes = (held = '', more = '') => (held ? `${held}\n\n${more}` : more);
+
+/* Three words the line keeps to itself until you type a "/": fold the
+   page's corner, hear the best case against your line, or find who else in
+   your library said it. Each one about the line after it, or the last one kept. */
+const COMMAND = /^\/(dog-ear|argue|who)\b\s*/;
 
 const yearOf = mark => new Date(mark.createdAt).getFullYear();
 
@@ -46,21 +56,28 @@ const receiptFor = (sent, saved, known, earlier) => {
     : 'Filled in from the book.';
 };
 
-/* The book's pages as you marked them, each mark under its page, earlier
-   readings in fainter ink. The desk writes into it; a lent copy only reads it. */
-export function BookPages({ marks = [], since = 0, inked = '', doorFor }) {
+/* The book's pages as you marked them: its words in the column, yours in
+   the margin beside them, earlier readings in fainter ink, and the page you
+   are on marked. The desk writes into it; a lent copy only reads it. */
+export function BookPages({ marks = [], since = 0, inked = '', here = null, doorFor }) {
   const pages = useMemo(() => pagesOf(marks), [marks]);
   return pages.length ? (
     <ol className="book-desk__pages">
       {pages.map(({ label, marks: onPage }) => (
-        <li key={`${label}-${onPage[0]._id}`} className="book-desk__page">
+        <li
+          key={`${label}-${onPage[0]._id}`}
+          className="book-desk__page"
+          data-folded={onPage.some(mark => kindOf(mark) === 'fold') || undefined}
+          aria-current={(here && onPage[0].page === here) ? 'page' : undefined}
+        >
           {label ? <span className="book-desk__folio">{label}</span> : null}
           <ul className="book-desk__marks">
-            {onPage.map(mark => (
+            {onPage.filter(mark => kindOf(mark) !== 'fold').map(mark => (
               <li
                 key={mark._id}
                 className="book-desk__mark"
                 data-highlight-id={`highlight-${mark._id}`}
+                tabIndex={-1}
                 data-kind={kindOf(mark)}
                 data-unfinished={(mark.text && isUnfinished(mark.text)) || undefined}
                 data-unsent={mark.unsent || undefined}
@@ -68,14 +85,16 @@ export function BookPages({ marks = [], since = 0, inked = '', doorFor }) {
                 data-earlier={isEarlier(mark, since) || undefined}
               >
                 {mark.text ? <blockquote>{mark.text}</blockquote> : null}
-                {mark.note ? <p className="book-desk__own">{mark.note}</p> : null}
-                {mark.tags?.length ? (
-                  <p className="book-desk__tags">
-                    {mark.tags.map(tag => <Link key={tag} to={buildConceptPath({ name: tag })}>#{tag}</Link>)}
-                  </p>
-                ) : null}
-                {isEarlier(mark, since) ? <span className="book-desk__when">{yearOf(mark)}</span> : null}
-                {doorFor?.(mark)}
+                <div className="book-desk__margin">
+                  {mark.note ? <p className="book-desk__own">{mark.note}</p> : null}
+                  {mark.tags?.length ? (
+                    <p className="book-desk__tags">
+                      {mark.tags.map(tag => <Link key={tag} to={buildConceptPath({ name: tag })}>#{tag}</Link>)}
+                    </p>
+                  ) : null}
+                  {isEarlier(mark, since) ? <span className="book-desk__when">{yearOf(mark)}</span> : null}
+                  {doorFor?.(mark)}
+                </div>
               </li>
             ))}
           </ul>
@@ -89,10 +108,10 @@ export function BookPages({ marks = [], since = 0, inked = '', doorFor }) {
  * The reading desk: the book is in your lap, and this is the one line you
  * type into beside it. "212" turns to page 212, a line opening with a quote
  * mark is the book's words, anything else is yours, and a #word files it
- * under that concept. ⌥↩ puts the line under the quote above it as its
+ * under that concept. ⌥↩ puts the line under the last quote kept here as its
  * note. The page stays where you left it.
  */
-export default function BookDesk({ article, marks = [], arriving = true, onAdd, onReplace, onRemove, doorFor }) {
+export default function BookDesk({ article, marks = [], arriving = true, onAdd, onReplace, onRemove, onOpenMark, doorFor }) {
   const articleId = article?._id;
   const finePointer = useFinePointer();
   /* What the desk reads back is this reading's; the passages you are offered
@@ -101,10 +120,18 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   const now = marks.filter(mark => !isEarlier(mark, since));
   const lastReading = since ? article.readBefore[article.readBefore.length - 1] : null;
   const [line, setLine] = useState('');
+  const [kind, setKind] = useState('scribble');
+  const kindGroup = useId();
+  const placeKey = scopedKey(`noeis.book-place.${articleId}.${since}`);
+  const [keptPage, setKeptPage] = useState(() => {
+    try { return Number(window.localStorage.getItem(placeKey)) || null; } catch (_) { return null; }
+  });
   const [turnedPage, setPage] = useState();
-  const page = turnedPage === undefined ? pageNow(now) : turnedPage;
+  const page = turnedPage === undefined ? keptPage || pageNow(now) : turnedPage;
   const [receipt, setReceipt] = useState('');
   const [inked, setInked] = useState('');
+  // An old mark of yours that said nearly the same, a year or more ago.
+  const [echo, setEcho] = useState(null);
   const sent = useRef([]);
   const lineRef = useRef(null);
 
@@ -112,17 +139,22 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   const [touched, setTouched] = useState(false);
   const setDown = touched ? null : setDownOn(article, now);
   // The first line you type tonight finishes it, unless Escape starts a new one.
-  const unfinished = sitting.length || setDown || touched ? null : midThought(now);
-  const last = sitting.length || unfinished ? null : lastTime(now);
-  const typed = readLine(line, page);
+  const saved = now.filter(mark => !mark.unsent);
+  const unfinished = sitting.length || setDown || touched ? null : midThought(saved);
+  const last = sitting.length || setDown || unfinished ? null : lastTime(saved);
+  const returning = unfinished
+    ? { id: unfinished.mark._id, page: unfinished.mark.page, words: unfinished.words, own: true, label: 'You stopped mid-thought' }
+    : last && { ...last, label: 'Last time' };
+  const typed = readLine(line, page, kind);
+  const actionKind = typed.text ? 'quote' : kind;
   const waiting = marks.filter(mark => mark.text && isUnfinished(mark.text));
   const ghost = typed.text && !isUnfinished(typed.text) ? completionFor(typed.text, marks) : '';
   // Reading it again, the page you turn to says what you marked on it then.
   const then = since && page && !line ? marks.find(mark => isEarlier(mark, since) && mark.page === page) : null;
 
-  const send = async (draft, tempId) => {
+  const send = async (draft, tempId, { queued = false } = {}) => {
     try {
-      const saved = await createHighlight({ articleId, ...draft });
+      const saved = await createHighlight({ articleId, ...draft, captureId: tempId });
       const before = marks.find(mark => mark._id === saved._id);
       const known = Boolean(before);
       onRemove?.(tempId);
@@ -131,13 +163,20 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       sent.current.push({ id: saved._id, before });
       setReceipt(receiptFor(draft, saved, known, !known && markedBefore(saved.text, marks, since)) || filedUnder(draft.tags));
       setTouched(true);
+      if (!known) heardBefore(articleId, saved.text || saved.note, { echo: true }).then(setEcho, () => {});
       if (draft.text && saved.text !== draft.text) setInked(saved._id);
       return true;
     } catch (error) {
+      // A line that waited on this device stays there: the line you are typing now is yours.
+      if (error?.response && queued) {
+        setReceipt('A line kept on this device did not save yet. It will try again.');
+        return false;
+      }
       if (error?.response) {
         onRemove?.(tempId);
         setReceipt('That line did not save. It is back in the line to try again.');
-        setLine([draft.page ? String(draft.page) : '', draft.text ? `"${draft.text}` : draft.note, ...(draft.tags || []).map(tag => `#${tag}`)].filter(Boolean).join(' '));
+        setLine(line);
+        setKind(kind);
         return true;
       }
       return false;
@@ -148,13 +187,10 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
   useEffect(() => {
     if (!articleId) return undefined;
     const flush = async () => {
-      const waiting = unsentLines(articleId);
-      if (!waiting.length) return;
-      const left = [];
-      for (const { tempId, ...draft } of waiting) {
-        if (!(await send(draft, tempId))) left.push({ tempId, ...draft });
+      // Each line leaves the device once it is saved, and lines typed meanwhile stay.
+      for (const { tempId, ...draft } of unsentLines(articleId)) {
+        if (await send(draft, tempId, { queued: true })) sentOff(articleId, tempId);
       }
-      keepUnsent(articleId, left);
     };
     unsentLines(articleId).forEach(({ tempId, ...draft }) => onAdd?.({ _id: tempId, ...draft, unsent: true }));
     flush();
@@ -162,24 +198,60 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
     return () => window.removeEventListener('online', flush);
   }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* The book opens where you are in it: the newest pages and the line, unless
-     a link asked for one passage. */
   useEffect(() => {
-    if (!arriving) return;
-    lineRef.current?.scrollIntoView?.({ block: 'nearest' });
-    if (finePointer) lineRef.current?.focus({ preventScroll: true });
-  }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (arriving && finePointer) lineRef.current?.focus({ preventScroll: true });
+  }, [articleId, arriving, finePointer]);
+
+  const fold = async () => {
+    if (!page) return setReceipt('Turn to a page first: type its number.');
+    const saved = await createHighlight({ articleId, page, tags: [DOG_EAR] }).catch(() => null);
+    if (!saved) return setReceipt('The corner did not fold. Try it again.');
+    onAdd?.(saved);
+    sent.current.push({ id: saved._id });
+    return setReceipt(`Folded the corner of p. ${page}.`);
+  };
+
+  const keepPlace = () => {
+    try {
+      window.localStorage.setItem(placeKey, String(page));
+      setKeptPage(page);
+      setReceipt(`Reading place kept at p. ${page}.`);
+    } catch (_) {
+      setReceipt('This browser couldn’t keep your place.');
+    }
+  };
+
+  const command = async (word, about) => {
+    if (word === 'dog-ear') return fold();
+    if (!about) return setReceipt(`Type a line after /${word}, or keep one first.`);
+    if (word === 'who') {
+      const passage = await heardBefore(articleId, about).catch(() => null);
+      return setReceipt(passage
+        ? <><cite>{passage.articleTitle || 'Something you saved'}</cite> said it too: <q>{passage.text}</q></>
+        : 'Nobody else in your library has said that. Yet.');
+    }
+    setReceipt('Finding the best case against it…');
+    const objection = await argueLine(articleId, about).catch(() => '');
+    return setReceipt(objection ? <><b>Against that:</b> {objection}</> : 'Nobody would argue with that just now. Try it again.');
+  };
 
   const keep = async ({ attach = false } = {}) => {
-    const { page: turned, text, note, tags = [] } = readLine(line, page);
-    setPage(turned);
+    setEcho(null);
+    const asked = kind === 'scribble' && COMMAND.exec(line.trim());
+    if (asked) {
+      setLine('');
+      await command(asked[1], line.trim().slice(asked[0].length) || lastLine(now));
+      return;
+    }
+    const { page: turned, text, note, tags = [] } = typed;
+    if (kind !== 'thought') setPage(turned);
     setLine('');
     setReceipt('');
-    /* A note sent with ⌥↩ goes under the quote above it, one that finishes
+    /* A note sent with ⌥↩ goes under the last quote kept here, one that finishes
        last night's thought runs on from it; a line of only #tags files the
        mark you just made. */
-    const finishing = !attach && note && unfinished?.mark;
-    const onto = finishing || (attach && note
+    const finishing = kind === 'scribble' && !attach && note && unfinished?.mark;
+    const onto = finishing || (kind === 'scribble' && attach && note
       ? [...sent.current].reverse().map(({ id }) => marks.find(mark => mark._id === id)).find(mark => mark?.text)
       : !text && !note && tags.length && marks.find(mark => mark._id === sent.current[sent.current.length - 1]?.id));
     if (onto) {
@@ -211,7 +283,7 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       return;
     }
     const draft = { text: text || '', note: note || '', ...(tags.length ? { tags } : {}), ...(turned ? { page: turned } : {}) };
-    const tempId = `desk-${Date.now()}`;
+    const tempId = lineId();
     onAdd?.({ _id: tempId, ...draft, createdAt: new Date().toISOString() });
     if (await send(draft, tempId)) return;
     keepUnsent(articleId, [...unsentLines(articleId), { tempId, ...draft, createdAt: new Date().toISOString() }]);
@@ -250,10 +322,11 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
       await deleteHighlight({ articleId, highlightId: id }).catch(() => null);
       onRemove?.(id);
     }
-    setReceipt(`Took back “${(mark.text || mark.note).slice(0, 60)}”.`);
+    setReceipt(kindOf(mark) === 'fold' ? `Unfolded p. ${mark.page}.` : `Took back “${(mark.text || mark.note).slice(0, 60)}”.`);
   };
 
   const press = (event) => {
+    if (event.nativeEvent.isComposing) return;
     const atEnd = event.target.selectionStart === line.length;
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -275,28 +348,41 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
 
   return (
     <section className="book-desk" aria-label="Reading desk">
-      <p className="book-desk__lede">
-        {sitting.length ? <><span className="book-desk__label">{sittingLabel(new Date(sitting[sitting.length - 1].createdAt))}</span>{tallyLine(sitting)}</>
-          : setDown ? <><span className="book-desk__label">Set down in {monthOf(setDown)}</span>Why’d you stop?</>
-          : unfinished ? <><span className="book-desk__label">You stopped mid-thought{unfinished.mark.page ? `, p. ${unfinished.mark.page}` : ''}</span><q className="book-desk__own">{unfinished.words}</q></>
-          : last ? <><span className="book-desk__label">Last time{last.page ? `, p. ${last.page}` : ''}</span><q className={last.own ? 'book-desk__own' : ''}>{last.words}</q></>
-            : lastReading?.finishedOn ? <><span className="book-desk__label">Read before, finished {monthOf(dayOf(lastReading.finishedOn))}</span>{lastReading.closingLine ? <q>{lastReading.closingLine}</q> : 'What you marked then is here in faded ink.'}</>
-              : 'Type as you read. A page number sets the page, a quote mark starts a quote, and a #word tags the line.'}
-      </p>
-
-      <BookPages marks={marks} since={since} inked={inked} doorFor={doorFor} />
-
-      <form className="book-desk__line" onSubmit={(event) => { event.preventDefault(); keep(); }}>
-        <label className="book-desk__turn">
-          <span>p.</span>
-          <input
-            aria-label="Page you are on"
-            inputMode="numeric"
-            value={page || ''}
-            placeholder="–"
-            onChange={(event) => setPage(Number(event.target.value.replace(/\D/g, '')) || null)}
-          />
+      {Boolean(sitting.length || setDown || returning || lastReading?.finishedOn) && (
+        <p className="book-desk__lede">
+          {sitting.length ? <><span className="book-desk__label">{sittingLabel(new Date(sitting[sitting.length - 1].createdAt))}</span>{tallyLine(sitting)}</>
+            : setDown ? <><span className="book-desk__label">Set down in {monthOf(setDown)}</span>Why’d you stop?</>
+              : returning ? <>
+                <span className="book-desk__label">{returning.label}{returning.page ? `, p. ${returning.page}` : ''}</span>
+                {returning.id && onOpenMark
+                  ? <button type="button" className="book-desk__action" onClick={() => onOpenMark(returning.id)}><q className={returning.own ? 'book-desk__own' : ''}>{returning.words}</q></button>
+                  : <q className={returning.own ? 'book-desk__own' : ''}>{returning.words}</q>}
+              </>
+              : <><span className="book-desk__label">Read before, finished {monthOf(dayOf(lastReading.finishedOn))}</span>{lastReading.closingLine ? <q>{lastReading.closingLine}</q> : 'What you marked then is here in faded ink.'}</>}
+        </p>
+      )}
+      <BookPages marks={marks} since={since} inked={inked} here={page} doorFor={doorFor} />
+      {echo ? (
+        <p className="book-desk__echo">
+          <q>{echo.text}</q> You marked this in {monthOf(new Date(echo.createdAt))}{echo.articleTitle ? <>, in <cite>{echo.articleTitle}</cite></> : null}.
+        </p>
+      ) : null}
+      {waiting.length ? (
+        <label className="book-desk__photo">
+          {waiting.length === 1 ? 'Photograph the page to fill in your quote' : `Photograph the page to fill in your ${waiting.length} quotes`}
+          <input type="file" accept="image/*" capture="environment" onChange={photograph} />
         </label>
+      ) : null}
+      {/* The line is docked under the page, so it is where your hand is however far down you read. */}
+      <form className="book-desk__line" onSubmit={(event) => { event.preventDefault(); keep(); }}>
+        <div className="book-desk__kinds" role="radiogroup" aria-label="What are you keeping?">
+          {Object.entries(CAPTURE_KINDS).map(([value, label]) => (
+            <label key={value}>
+              <input type="radio" name={kindGroup} checked={kind === value} onChange={() => setKind(value)} />
+              {label}
+            </label>
+          ))}
+        </div>
         <div className="book-desk__type">
           {/* The ghost sits in a mirror behind the field, so the book's words
               run on from the caret in the same type. */}
@@ -309,24 +395,39 @@ export default function BookDesk({ article, marks = [], arriving = true, onAdd, 
             aria-label="Type a quote, a note or a question"
             enterKeyHint="send"
             value={line}
-            placeholder={setDown ? 'Why you stopped, or the next line' : unfinished ? 'The rest of that thought' : 'A quote, or what you think'}
+            placeholder={kind === 'quote' ? 'Write the book’s exact words…' : kind === 'thought' ? 'What are you taking from this book?' : setDown ? 'Why you stopped, or the next line' : unfinished ? 'The rest of that thought' : 'Jot a note…'}
             onChange={(event) => setLine(event.target.value)}
             onKeyDown={press}
           />
         </div>
+        <div className="book-desk__actions">
+          {kind === 'thought' ? <span>Whole book</span> : (
+            <div className="book-desk__place">
+              <label className="book-desk__turn">
+                <span>p.</span>
+                <input
+                  aria-label="Page you are on"
+                  inputMode="numeric"
+                  value={page || ''}
+                  size={String(page || '').length || 1}
+                  placeholder="–"
+                  onChange={(event) => setPage(Number(event.target.value.replace(/\D/g, '')) || null)}
+                />
+              </label>
+              {page && (page === keptPage ? <span>Place kept</span> : (
+                <button type="button" className="book-desk__action" onClick={keepPlace}>Keep my place</button>
+              ))}
+            </div>
+          )}
+          <button type="submit" className="book-desk__action">Save {CAPTURE_KINDS[actionKind].toLowerCase()}</button>
+        </div>
+        <p className="book-desk__hint" aria-live="polite" data-said={receipt || ghost || then || (kind === 'scribble' && line === '/') ? true : undefined}>
+          {receipt || (kind === 'scribble' && line === '/' ? 'Try /dog-ear, /argue or /who.' : ghost ? 'Tab takes the rest of the passage you marked'
+            : then ? <>In {yearOf(then)}, on this page: <q>{then.text || then.note}</q></>
+              : kind === 'scribble' && unfinished ? 'Return finishes it. Escape starts a new line.'
+                : kind === 'scribble' ? 'Return keeps the line. Option-Return adds it to your last quote.' : 'Return saves. Shift-Return adds a line.')}
+        </p>
       </form>
-      <p className="book-desk__hint" aria-live="polite" data-said={receipt || ghost || then ? true : undefined}>
-        {receipt || (ghost ? 'Tab takes the rest of the passage you marked'
-          : then ? <>In {yearOf(then)}, on this page: <q>{then.text || then.note}</q></>
-            : unfinished ? 'Return finishes it. Escape starts a new line.'
-              : 'Return keeps the line. Option-Return adds it to the quote above.')}
-      </p>
-      {waiting.length ? (
-        <label className="book-desk__photo">
-          {waiting.length === 1 ? 'Photograph the page to fill in your quote' : `Photograph the page to fill in your ${waiting.length} quotes`}
-          <input type="file" accept="image/*" capture="environment" onChange={photograph} />
-        </label>
-      ) : null}
     </section>
   );
 }

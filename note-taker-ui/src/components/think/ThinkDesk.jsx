@@ -1,28 +1,75 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getNotebookCuttings } from '../../api/notebook';
+import { getLibraryCollection } from '../../api/libraryCollection';
+import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
+import { sourceTitle } from '../../utils/sourceDisplayText';
+import { inkAge } from '../../utils/inkAge';
+import { sourceLabel } from '../library/libraryColumnModel';
 import { dayLabel } from './notebook/notebookStages';
+import { whereYouStopped } from '../../pages/thinkNotesModel';
 
-const IDEAS_ON_DESK = 4;
+const DESK_LIMIT = 4;
 const WHERE = { dimmed: 'Dimmed in', aside: 'Set aside in' };
 const DAY = 24 * 60 * 60 * 1000;
 const thisMonth = (value, now = new Date()) => {
   const at = new Date(value || 0);
   return at.getFullYear() === now.getFullYear() && at.getMonth() === now.getMonth();
 };
+const aYearAgo = (value, now = Date.now()) => {
+  const at = new Date(value || NaN);
+  at.setFullYear(at.getFullYear() + 1);
+  return Math.abs(now - at) <= 3 * DAY;
+};
 
-/* The desk: what Think shows when no piece is open. It stores nothing; it is
-   the pieces you are writing, a line for a new thought, your ideas, what you
-   closed this month, and one cutting worth another look. */
-const ThinkDesk = ({ working, ideas, closed, onOpen, onView, onStart, creating, children }) => {
+const DeskList = ({ title, items, view, onOpen, onView, detail = item => dayLabel(item.updatedAt) }) => items.length ? (
+  <section aria-label={title}>
+    <h2>{title}</h2>
+    <ul>
+      {items.slice(0, DESK_LIMIT).map(item => {
+        const metadata = detail(item);
+        return (
+          <li key={item.id} data-ink={inkAge(item.updatedAt)}>
+            <button type="button" className="think-desk__row" onClick={() => onOpen(item)}>{item.title}</button>
+            {metadata ? <small>{metadata}</small> : null}
+          </li>
+        );
+      })}
+    </ul>
+    {items.length > DESK_LIMIT ? <button type="button" className="think-desk__more" onClick={() => onView(view)}>See all</button> : null}
+  </section>
+) : null;
+
+/* The desk opens on your own unfinished paragraph, ending where you stopped,
+   and the line below it is where the next sentence goes. */
+const WhereYouStopped = ({ lead, onOpen }) => {
+  const { before, last } = whereYouStopped(lead.lastLine);
+  const resumes = Boolean(last || lead.nextTimeLine);
+  return <>
+    <p className="think-desk__label">Where you stopped{lead.updatedAt ? `, ${dayLabel(lead.updatedAt)}` : ''}</p>
+    <h2>{lead.title}</h2>
+    {last ? <p className="think-desk__written">{before ? <>{before} </> : null}<span>{last}</span></p> : null}
+    {lead.nextTimeLine ? <div className="think-desk__next"><span className="think-desk__label">You left yourself a note</span><p>{lead.nextTimeLine}</p></div> : null}
+    <button type="button" className="think-desk__resume" data-line={resumes || undefined} onClick={() => onOpen(lead, { write: resumes })}>{resumes ? 'Write the next sentence' : 'Open draft'}</button>
+  </>;
+};
+
+const ThinkDesk = ({ working, ideas, closed, questions = [], onOpen, onView, onStart, creating, children }) => {
   const [thought, setThought] = useState('');
   const [cutting, setCutting] = useState(null);
+  const [evergreen, setEvergreen] = useState([]);
+  const lead = working.find(item => item.nextTimeLine) || working[0];
+  const otherWork = working.filter(item => item !== lead);
+  const yearAgo = [...working, ...ideas, ...closed].find(item => aYearAgo(item.createdAt));
   const closedLately = closed.filter(item => thisMonth(item.board?.movedAt || item.board?.archivedAt));
 
-  /* One cutting a day, the same one all day, so it reads as a find rather than a feed. */
   useEffect(() => {
     let live = true;
     getNotebookCuttings()
       .then(rows => { if (live && rows.length) setCutting(rows[Math.floor(Date.now() / DAY) % rows.length]); })
+      .catch(() => {});
+    getLibraryCollection({ scope: 'kept', limit: DESK_LIMIT })
+      .then(({ items }) => { if (live) setEvergreen(items.filter(item => item._id)); })
       .catch(() => {});
     return () => { live = false; };
   }, []);
@@ -30,79 +77,56 @@ const ThinkDesk = ({ working, ideas, closed, onOpen, onView, onStart, creating, 
   const start = async (event) => {
     event.preventDefault();
     const title = thought.trim();
-    if (!title) return;
-    if (await onStart(title)) setThought('');
+    if (title && await onStart(title)) setThought('');
   };
 
   return (
     <section className="think-desk" aria-labelledby="think-desk-title">
       <header className="think-desk__head">
-        <p>{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-        <h1 id="think-desk-title">{working.length ? 'Pick up where you stopped.' : 'Nothing is underway.'}</h1>
-        {working.length ? null : <p>Open an idea and choose Working above its title, and it waits here.</p>}
+        <div><p className="think-desk__label">Your notebook</p><h1 id="think-desk-title">Think</h1></div>
+        <form className="think-desk__start" onSubmit={start}>
+          <label className="sr-only" htmlFor="think-desk-thought">New idea</label>
+          <input id="think-desk-thought" value={thought} maxLength={200} placeholder="New idea" disabled={creating} onChange={event => setThought(event.target.value)} />
+          <button type="submit" disabled={!thought.trim() || creating}>Keep</button>
+        </form>
       </header>
-
-      {working.length ? (
-        <ol className="think-desk__working" aria-label="Working">
-          {working.map(item => (
-            <li key={item.id}>
-              <h2>{item.title}</h2>
-              {item.nextTimeLine ? <p className="think-desk__next"><span>Next</span> {item.nextTimeLine}</p> : null}
-              <p className="think-desk__meta">
-                <button type="button" onClick={() => onOpen(item, { write: Boolean(item.nextTimeLine) })}>{item.nextTimeLine ? 'Write the next sentence' : 'Open it'}</button>
-                <span>Last written {dayLabel(item.updatedAt)}</span>
-              </p>
-            </li>
-          ))}
-        </ol>
-      ) : null}
-
-      <form className="think-desk__start" onSubmit={start}>
-        <label htmlFor="think-desk-thought">New idea</label>
-        <input
-          id="think-desk-thought"
-          value={thought}
-          maxLength={200}
-          placeholder="Start typing. Enter keeps it."
-          disabled={creating}
-          onChange={event => setThought(event.target.value)}
-        />
-      </form>
-      {children}
-
-      {ideas.length ? (
-        <section className="think-desk__ideas" aria-labelledby="think-desk-ideas">
-          <h2 id="think-desk-ideas">Ideas, by when you last thought about them</h2>
-          <ul>
-            {ideas.slice(0, IDEAS_ON_DESK).map(item => (
-              <li key={item.id}>
-                <button type="button" onClick={() => onOpen(item)}><span>{item.title}</span><small>{dayLabel(item.updatedAt)}</small></button>
-              </li>
-            ))}
-          </ul>
-          {ideas.length > IDEAS_ON_DESK ? <button type="button" className="think-desk__more" onClick={() => onView('ideas')}>All {ideas.length} ideas</button> : null}
+      <div className="think-desk__spread">
+        <section className="think-desk__lead" aria-label={lead ? 'Continue writing' : undefined}>
+          {lead ? <WhereYouStopped lead={lead} onOpen={onOpen} /> : <>
+            <h2>Nothing is underway.</h2>
+            <p>Open an idea and choose Working to keep it on your desk.</p>
+          </>}
         </section>
-      ) : null}
-
-      {closedLately.length || cutting ? (
+        {evergreen.length ? (
+          <section className="think-desk__evergreen" aria-labelledby="think-desk-evergreen">
+            <h2 id="think-desk-evergreen">Evergreen</h2>
+            <ul>
+              {evergreen.map(item => (
+                <li key={item._id}>
+                  <Link className="think-desk__row" to={buildCanonicalArticlePath(item._id)}>{sourceTitle(item)}</Link>
+                  {sourceLabel(item) ? <small>{sourceLabel(item)}</small> : null}
+                </li>
+              ))}
+            </ul>
+            <Link className="think-desk__more" to="/library?scope=kept">Browse keepers <span aria-hidden="true">↗</span></Link>
+          </section>
+        ) : null}
+      </div>
+      {children}
+      <div className="think-desk__overview">
+        <DeskList title="Working" items={otherWork} view="working" onOpen={onOpen} onView={onView} />
+        <DeskList title="Open questions" items={questions} view="questions" onOpen={onOpen} onView={onView} />
+        <DeskList title="Closed this month" items={closedLately} view="closed" onOpen={onOpen} onView={onView} detail={item => item.board?.became} />
+        <DeskList title="Ideas" items={ideas} view="ideas" onOpen={onOpen} onView={onView} />
+      </div>
+      {yearAgo || cutting ? (
         <div className="think-desk__lately">
-          {closedLately.length ? (
-            <section aria-labelledby="think-desk-closed">
-              <h2 id="think-desk-closed">Closed this month</h2>
-              <ul>
-                {closedLately.map(item => (
-                  <li key={item.id}><button type="button" onClick={() => onOpen(item)}>{item.title}</button>{item.board?.became ? <span>{item.board.became}</span> : null}</li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-          {cutting ? (
-            <section aria-labelledby="think-desk-cutting">
-              <h2 id="think-desk-cutting">A cutting you could use</h2>
-              <blockquote>{cutting.text}</blockquote>
-              <p>{WHERE[cutting.kind]} <button type="button" onClick={() => onOpen({ kind: 'note', id: cutting.noteId })}>{cutting.noteTitle}</button></p>
-            </section>
-          ) : null}
+          {yearAgo ? <p>A year ago this week you started <button type="button" onClick={() => onOpen(yearAgo)}>{yearAgo.title}</button>.</p> : null}
+          {cutting ? <section aria-labelledby="think-desk-cutting">
+            <h2 id="think-desk-cutting">A cutting you could use</h2>
+            <blockquote>{cutting.text}</blockquote>
+            <p>{WHERE[cutting.kind]} <button type="button" onClick={() => onOpen({ kind: 'note', id: cutting.noteId })}>{cutting.noteTitle}</button></p>
+          </section> : null}
         </div>
       ) : null}
     </section>

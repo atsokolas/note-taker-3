@@ -1,17 +1,21 @@
 const crypto = require('crypto');
 
-const DEFAULT_SECRET = 'note-taker-integration-secret';
-
-const getSecretMaterial = () => (
-  String(
-    process.env.INTEGRATION_SECRET
-    || process.env.JWT_SECRET
-    || DEFAULT_SECRET
-  ).trim()
-);
+// Never a secret written in the code: without one configured, nothing is stored.
+const getSecretMaterial = () => {
+  const material = String(process.env.INTEGRATION_SECRET || process.env.JWT_SECRET || '').trim();
+  if (!material) throw new Error('INTEGRATION_SECRET or JWT_SECRET must be set to keep connection tokens.');
+  return material;
+};
 
 const getKey = () => (
   crypto.createHash('sha256').update(getSecretMaterial()).digest()
+);
+
+/* A keyed fingerprint of a value for one purpose: proof that we minted it,
+   with nothing stored. */
+/** @param {string} purpose @param {unknown} value */
+const seal = (purpose, value) => (
+  crypto.createHmac('sha256', getKey()).update(`${purpose}:${value}`).digest('hex')
 );
 
 const encryptSecret = (value = '') => {
@@ -49,6 +53,7 @@ const decryptSecret = (payload = '') => {
 };
 
 module.exports = {
+  seal,
   encryptSecret,
   decryptSecret
 };

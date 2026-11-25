@@ -1,4 +1,5 @@
 const express = require('express');
+const { shaped, record, z } = require('../utils/requestShape');
 const {
   trackHarnessEvent,
   trackRunLifecycleEvents
@@ -9,6 +10,16 @@ const {
   planLibraryStructureProposal: defaultPlanLibraryStructureProposal,
   persistLibraryStructureProposal: defaultPersistLibraryStructureProposal
 } = require('../services/agentStructurePlanningService');
+
+const chatShape = z.object({
+  message: z.string().optional(),
+  threadId: z.string().nullish(),
+  context: record().nullish(),
+  history: z.array(record()).max(200).nullish(),
+  limit: z.number().nullish(),
+  approveBundleId: z.string().nullish(),
+  skillInvocation: record().nullish()
+});
 
 const buildAgentChatRouter = ({
   authenticateToken,
@@ -71,7 +82,7 @@ const buildAgentChatRouter = ({
     }
     return {
       thread,
-      chatContext: surface || thread?.scope || null,
+      chatContext: surface || thread?.scope || {},
       allowExecution: true
     };
   };
@@ -422,19 +433,23 @@ const buildAgentChatRouter = ({
     source,
     requestId,
     signal,
+    onStep,
     proposalActor,
     canPropose,
+    persona,
     beforeRecord = async result => result
   }) => {
     const generated = await generateCollaborativeReply({
       userId,
+      persona,
       message: body.message,
       history: thread ? threadMessagesToHistory(thread.messages) : body.history,
       context,
       limit: body.limit,
       premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
       skillInvocation: body.skillInvocation || {},
-      signal
+      signal,
+      onStep
     });
     const prepared = await prepareLibraryStructurePlan({
       result: generated,
@@ -470,7 +485,7 @@ const buildAgentChatRouter = ({
     };
   };
 
-  router.post('/api/agent/chat', authenticateToken, async (req, res) => {
+  router.post('/api/agent/chat', authenticateToken, shaped({ body: chatShape }), async (req, res) => {
     try {
       const loadedThread = await loadThread(String(req.user.id), req.body?.threadId);
       const { thread, chatContext, allowExecution } = bindChatTurn(loadedThread, req.body?.context);
@@ -580,7 +595,7 @@ const buildAgentChatRouter = ({
     }
   });
 
-  router.post('/api/agent/chat/stream', authenticateToken, async (req, res) => {
+  router.post('/api/agent/chat/stream', authenticateToken, shaped({ body: chatShape }), async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
@@ -620,8 +635,11 @@ const buildAgentChatRouter = ({
         source: 'native_chat_stream',
         requestId: req.requestId,
         signal: streamController.signal,
+        onStep: step => emitActivity(res, activityReceipts, step),
         beforeRecord: async (result) => {
-          if (result?.retrieval?.searchedWorkspace) {
+          // A reader who watched the search happen is not told about it again.
+          const watched = activityReceipts.some(receipt => ['search', 'read_source'].includes(receipt.stage));
+          if (!watched && result?.retrieval?.searchedWorkspace) {
             const relatedCount = Array.isArray(result?.relatedItems) ? result.relatedItems.length : 0;
             emitActivity(res, activityReceipts, { stage: 'search', summary: 'Searched the workspace context.' });
             emitActivity(res, activityReceipts, {
@@ -630,7 +648,7 @@ const buildAgentChatRouter = ({
                 ? `Retrieved ${relatedCount} related workspace item${relatedCount === 1 ? '' : 's'}.`
                 : 'No additional related workspace items were needed.'
             });
-          } else if (context?.pageId) {
+          } else if (!watched && context?.pageId) {
             emitActivity(res, activityReceipts, { stage: 'retrieve', summary: 'Answered from the selected wiki page.' });
           }
           emitActivity(res, activityReceipts, {
@@ -693,7 +711,8 @@ const buildAgentChatRouter = ({
         source: 'byo_chat',
         requestId: req.requestId,
         proposalActor: actor,
-        canPropose: capabilities.proposeChanges
+        canPropose: capabilities.proposeChanges,
+        persona: req.personalAgent.persona
       });
       return res.status(200).json({
         ...turn,

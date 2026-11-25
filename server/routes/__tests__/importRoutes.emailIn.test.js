@@ -1,3 +1,4 @@
+process.env.INTEGRATION_SECRET ||= 'synthetic-integration-test-secret';
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const express = require('express');
@@ -6,6 +7,7 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const { Article, User, WikiSourceEvent } = require('../../models');
 const { buildImportRouter } = require('../importRoutes');
+const { inboxAddressFor } = require('../../services/import/newsletterMail');
 
 const listen = (app) => new Promise((resolve) => {
   const server = http.createServer(app);
@@ -27,12 +29,13 @@ const signedPost = (url, payload, { secret = key } = {}) => {
   }).then(async response => ({ status: response.status, body: await response.json() }));
 };
 
+let inbox = '';
 const forward = (overrides = {}) => ({
   type: 'email.received',
   data: {
     email_id: 'e1',
     from: 'Reader <reader@example.com>',
-    to: ['read@noeis.io'],
+    to: [inbox],
     subject: 'Fwd: The Fund Ate Itself',
     message_id: '<fwd-1@mail.example>',
     created_at: '2025-10-08T10:00:00.000Z',
@@ -57,7 +60,7 @@ const run = async () => {
     password: 'x',
     morningPaper: { email: 'reader@example.com', emailConfirmedAt: new Date() }
   });
-  await User.create({ username: 'unconfirmed', password: 'x', morningPaper: { email: 'stranger@example.com' } });
+  inbox = inboxAddressFor('read@noeis.io', String(reader._id));
 
   const app = express();
   app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
@@ -83,7 +86,7 @@ const run = async () => {
     // A forged or missing signature is the one refusal.
     assert.equal((await signedPost(`${url}/on`, forward(), { secret: crypto.randomBytes(24) })).status, 401);
 
-    // The confirmed sender's forward lands in their Library with its byline,
+    // Mail to the reader's own address lands in their Library with its byline,
     // marked as having come in by email, and goes down the save path.
     const saved = await signedPost(`${url}/on`, forward());
     assert.deepEqual(saved.body.status, 'saved');
@@ -105,10 +108,12 @@ const run = async () => {
     assert.equal((await signedPost(`${url}/on`, forward())).body.status, 'duplicate');
     assert.equal(await Article.countDocuments({ userId: reader._id }), 1);
 
-    // A mail filter keeps the newsletter as sender and the reader as recipient.
+    // A mail filter keeps the newsletter as sender and the reader as To:,
+    // and names the reader's address in its Received header.
     const filtered = await signedPost(`${url}/on`, forward({
       from: '"Jane Doe from Quiet Habits" <quiethabits@substack.example>',
       to: ['reader@example.com'],
+      received_for: [inbox],
       subject: 'Quiet compounding',
       message_id: '<substack-1@mail.example>',
       text: 'Most change is invisible from the inside.'
@@ -128,11 +133,19 @@ const run = async () => {
     assert.deepEqual([waiting.title, waiting.url, waiting.placement, waiting.placementReason],
       ['On Slow Reading', 'http://93.184.216.34/essay', 'later', 'Sam sent this']);
 
-    // Unknown and unconfirmed senders are dropped quietly, with a 200 so the
-    // provider does not retry.
-    for (const from of ['nobody@example.com', 'stranger@example.com']) {
-      const dropped = await signedPost(`${url}/on`, forward({ from, to: ['read@noeis.io'], message_id: `<${from}>` }));
-      assert.deepEqual([dropped.status, dropped.body.status], [200, 'dropped']);
+    // Who it claims to be from decides nothing: mail to the shared address,
+    // to a made-up seal, or to another id is dropped quietly, with a 200 so
+    // the provider does not retry.
+    const [local, domain] = inbox.split('@');
+    const forged = [
+      'read@noeis.io',
+      `${local.slice(0, -1)}${local.endsWith('0') ? '1' : '0'}@${domain}`,
+      inboxAddressFor('read@noeis.io', String(new mongoose.Types.ObjectId())),
+      inbox.replace('@noeis.io', '@elsewhere.example')
+    ];
+    for (const to of forged) {
+      const dropped = await signedPost(`${url}/on`, forward({ to: [to], message_id: `<${to}>` }));
+      assert.deepEqual([dropped.status, dropped.body.status], [200, 'dropped'], to);
     }
     assert.equal(await Article.countDocuments({}), 3);
 

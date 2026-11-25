@@ -262,7 +262,7 @@ const searchVectorItems = async ({
   objectTypes = [],
   numCandidatesMultiplier = 15,
   indexName = VECTOR_INDEX_NAME
-} = {}) => {
+}) => {
   // Name the missing dependency. Passing an unwired model produced "Cannot read
   // properties of undefined (reading 'aggregate')" from inside a catch block
   // that turned it into an empty result — the Reading Loop router shipped

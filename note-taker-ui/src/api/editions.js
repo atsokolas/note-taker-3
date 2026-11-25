@@ -9,10 +9,11 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
  * is the reader's side of that door.
  */
 
-export const listEditions = async ({ profile = '', limit } = {}) => {
+export const listEditions = async ({ profile = '', limit, open = '' } = {}) => {
   const params = new URLSearchParams();
   if (profile) params.set('profile', profile);
   if (limit) params.set('limit', String(limit));
+  if (open) params.set('open', open);
   const query = params.toString();
   const res = await api.get(`/api/editions${query ? `?${query}` : ''}`, getAuthHeaders());
   return Array.isArray(res.data?.editions) ? res.data.editions : [];

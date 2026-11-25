@@ -2,27 +2,30 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { updateHighlight } from '../api/highlights';
 import {
-  askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook, takeBookBack
+  askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, renameBook, reopenBook, startBook, takeBookBack
 } from '../api/imports';
 import { ArticleMargins } from '../components/margins/LibraryMargins';
+import WhatItAdded from '../components/added/WhatItAdded';
 import { useSettleIntoWiki } from '../components/think/settleIntoWiki';
 import BookDesk from '../components/reader/BookDesk.jsx';
 import PassageDoor from '../components/reader/PassageDoorView';
 import useSourceWhereabouts from '../components/reader/useSourceWhereabouts';
 import {
-  BOOK_SAYS, bookendsOf, dayOf, isEarlier, kindOf, lastTime, longDate, monthOf, pageNow, readingSince, readingsOf, setDownOn, sittingsOf, spineOf, tallyLine
+  BOOK_SAYS, bookendsOf, counted, dayOf, isEarlier, kindOf, lastTime, longDate, monthOf, mostlyWhen, openQuestionsOf, pageNow, readingSince, readingsOf, setDownOn, sittingsOf, spineOf, tallyLine
 } from '../components/reader/bookDesk';
 import { bookFrom } from '../components/library/LibraryPasteLink';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import useArticleDetail from '../hooks/useArticleDetail';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import { buildPassagePath } from '../utils/sourceRoutes';
+import { clothOf } from '../utils/cloth';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import AddToProject from '../work/AddToProject';
+import HangInMuseum from '../components/museum/HangInMuseum';
 import '../styles/books.css';
 
 // A book's paragraphs are what you marked in it and wrote beside it.
-const MARK_BLOCKS = '.book-desk__mark > blockquote, .book-desk__mark > .book-desk__own';
+const MARK_BLOCKS = '.book-desk__mark > blockquote, .book-desk__margin > .book-desk__own';
 const shelfRowId = id => `shelf-book-${id}`;
 const followsInThisTab = event => !event.defaultPrevented && event.button === 0
   && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
@@ -122,6 +125,63 @@ const Twice = () => {
   );
 };
 
+const BOOK_STATUSES = ['All books', 'Reading', 'Set down', 'Finished'];
+
+const catalogueEntry = (book, now) => {
+  const marks = book.marks || [];
+  const setDown = setDownOn(book, marks, now);
+  const since = readingSince(book);
+  const reading = marks.filter(mark => !isEarlier(mark, since));
+  const last = book.finishedOn && book.closingLine
+    ? { words: book.closingLine, own: true }
+    : lastTime(reading);
+  const status = book.finishedOn ? 'Finished' : setDown ? 'Set down' : 'Reading';
+  const date = book.finishedOn ? dayOf(book.finishedOn) : setDown;
+  const page = book.finishedOn ? null : pageNow(reading);
+  return {
+    id: book._id,
+    title: book.title || 'Untitled book',
+    author: book.author,
+    status,
+    where: date ? `${status}${setDown ? ' in' : ''} ${monthOf(date)}` : status,
+    page,
+    tally: tallyLine(marks, page),
+    last,
+    marks: marks.length,
+    furthest: Math.max(0, ...marks.map(mark => mark.page || 0)),
+    ticks: shelfTicks(spineOf(marks, since)?.ticks),
+    closed: book.finishedOn ? dayOf(book.finishedOn).toLocaleDateString(undefined, { month: 'short' }) : ''
+  };
+};
+
+/* A standing spine has room for this many ticks, top to bottom. Marks that
+   would sit closer share one, current ink over an earlier reading's, so a
+   heavily marked book still reads as marks and never as one gold bar. */
+const SHELF_TICK_ROWS = 40;
+const shelfTicks = (ticks = []) => [...new Map([...ticks]
+  .sort((a, b) => Boolean(b.earlier) - Boolean(a.earlier))
+  .map(tick => {
+    const row = Math.round(tick.at * SHELF_TICK_ROWS);
+    return [row, { ...tick, at: row / SHELF_TICK_ROWS }];
+  })).values()];
+
+/* A book standing on the shelf. Its width is how much you marked in it, its
+   height how far into it your marks go, its cloth the same every visit; the
+   gold ticks are where you marked. A book set down leans; a finished one
+   wears the month you closed it. */
+const Volume = ({ book, bookend, pulled, onPull }) => (
+  <li className="books__volume" data-status={book.status} data-bookend={bookend || undefined}
+    style={{ '--marks': book.marks, '--furthest': book.furthest, '--cloth': clothOf(book.title) }}>
+    <button type="button" id={shelfRowId(book.id)} aria-pressed={pulled} aria-controls="books-preview" onClick={onPull}>
+      <span className="books__volume-title">{book.title}</span>
+      {book.ticks.length ? <span className="books__volume-ticks" aria-hidden="true">
+        {book.ticks.map(tick => <i key={tick.id} data-earlier={tick.earlier || undefined} style={{ top: `${tick.at * 100}%` }} />)}
+      </span> : null}
+      {book.closed ? <span className="books__volume-colophon" aria-hidden="true">{book.closed}</span> : null}
+    </button>
+  </li>
+);
+
 const Shelf = () => {
   const navigate = useNavigate();
   const [books, setBooks] = useState(null);
@@ -129,6 +189,9 @@ const Shelf = () => {
   const [name, setName] = useState('');
   const [starting, setStarting] = useState(false);
   const [place] = useState(() => window.history.state?.bookshelfPlace);
+  const [status, setStatus] = useState(place?.status || BOOK_STATUSES[0]);
+  const [selectedId, setSelectedId] = useState(place?.id);
+  const previewTitle = useRef(null);
   useDocumentTitle('Books');
 
   useEffect(() => {
@@ -144,15 +207,24 @@ const Shelf = () => {
     const frame = requestAnimationFrame(() => {
       const row = document.getElementById(shelfRowId(place.id));
       (row || document.getElementById('books-title'))?.focus({ preventScroll: true });
-      if (row) window.scrollBy({ top: row.getBoundingClientRect().top - place.top, behavior: 'instant' });
+      if (!row) return;
+      row.closest('ol').scrollLeft = place.left;
+      window.scrollBy({ top: row.getBoundingClientRect().top - place.top, behavior: 'instant' });
     });
     return () => cancelAnimationFrame(frame);
   }, [books, error, place]);
 
   const remember = (event, id) => {
     if (!followsInThisTab(event)) return;
-    const top = event.currentTarget.getBoundingClientRect().top;
-    window.history.replaceState({ ...window.history.state, bookshelfPlace: { id, top } }, '');
+    const row = document.getElementById(shelfRowId(id));
+    if (row) window.history.replaceState({
+      ...window.history.state, bookshelfPlace: { id, status, top: row.getBoundingClientRect().top, left: row.closest('ol').scrollLeft }
+    }, '');
+  };
+
+  const preview = id => {
+    setSelectedId(id);
+    requestAnimationFrame(() => previewTitle.current?.focus());
   };
 
   const start = async (event) => {
@@ -170,19 +242,29 @@ const Shelf = () => {
   };
 
   const returning = books?.find(book => book.returning);
+  const now = Date.now();
+  const entries = (books || []).map(book => catalogueEntry(book, now))
+    .filter(book => status === BOOK_STATUSES[0] || book.status === status)
+    .sort((a, b) => BOOK_STATUSES.indexOf(a.status) - BOOK_STATUSES.indexOf(b.status));
+  const selected = entries.find(book => book.id === selectedId) || entries[0];
+  const mark = selected?.last;
+  const markQuery = mark?.id ? `?highlight=${encodeURIComponent(mark.id)}` : '';
+
   return (
-    <main className="books" aria-labelledby="books-title" aria-busy={!books && !error}>
-      <h1 id="books-title" tabIndex={-1}>Books</h1>
-      <form className="books__start" onSubmit={start}>
-        <input
-          aria-label="The book you are reading"
-          value={name}
-          placeholder="The book you’re reading, and who wrote it"
-          autoCapitalize="words"
-          onChange={(event) => setName(event.target.value)}
-        />
-        <button type="submit" disabled={starting || !bookFrom(name)}>{starting ? 'Opening…' : 'Open'}</button>
-      </form>
+    <main className="books books--catalogue" aria-labelledby="books-title" aria-busy={!books && !error}>
+      <header className="books__catalogue-head">
+        <div><p className="books__author">Books</p><h1 id="books-title" tabIndex={-1}>Your library</h1></div>
+        <form className="books__start" onSubmit={start}>
+          <input
+            aria-label="The book you are reading"
+            value={name}
+            placeholder="Title, or title by author"
+            autoCapitalize="words"
+            onChange={(event) => setName(event.target.value)}
+          />
+          <button type="submit" disabled={starting || !bookFrom(name)}>{starting ? 'Opening…' : 'Open'}</button>
+        </form>
+      </header>
 
       {error ? <p className="books__quiet" role="alert">{error}</p> : null}
       {books && !books.length ? (
@@ -191,31 +273,41 @@ const Shelf = () => {
 
       {returning ? <Returning book={returning} /> : null}
 
-      {books?.length ? (
-        <ol className="books__shelf">
-          {books.map(book => {
-            const last = book.closingLine ? { words: book.closingLine, own: true } : lastTime(book.marks);
-            const setDown = setDownOn(book, book.marks);
-            const since = readingSince(book);
-            const page = book.finishedOn ? null : pageNow((book.marks || []).filter(mark => !isEarlier(mark, since)));
-            return (
-              <li key={book._id}>
-                <Link to={`/books/${book._id}`} id={shelfRowId(book._id)} className="books__book"
-                  state={{ fromShelf: true }} onClick={event => remember(event, book._id)}
-                  data-shelf-bookmark={place?.id === book._id ? '' : undefined}>
-                  <span className="books__title">{book.title || 'Untitled book'}</span>
-                  {book.author ? <span className="books__author">{book.author}</span> : null}
-                  <span className="books__tally">
-                    <span>{[book.finishedOn ? `Finished ${monthOf(dayOf(book.finishedOn))}` : '', setDown ? `Set down in ${monthOf(setDown)}` : '', tallyLine(book.marks) || (book.finishedOn ? '' : 'Nothing written yet')].filter(Boolean).join(' · ')}</span>
-                    <span className="books__position">{page ? <><span className="sr-only">Last marked </span>p. {page}</> : null}</span>
-                  </span>
-                  {last ? <q className={last.own ? 'books__last is-own' : 'books__last'}>{last.words}</q> : null}
-                </Link>
-              </li>
-            );
-          })}
-        </ol>
-      ) : null}
+      {books?.length ? <>
+        <div className="books__catalogue-filters" role="group" aria-label="Filter books">
+          {BOOK_STATUSES.map(label => (
+            <button key={label} type="button" aria-pressed={status === label} onClick={() => setStatus(label)}>{label}</button>
+          ))}
+        </div>
+        {selected ? (
+          <div className="books__catalogue">
+            <ol className="books__shelf" aria-label="Books on this shelf">
+              {entries.map((book, index) => (
+                <Volume key={book.id} book={book} pulled={selected.id === book.id} onPull={() => preview(book.id)}
+                  bookend={index && entries[index - 1].status !== book.status ? book.status : ''} />
+              ))}
+            </ol>
+            <p className="books__key">Wider spines are books you marked more; the gold is where you marked.</p>
+            <aside className="books__preview" id="books-preview" aria-labelledby="books-preview-title">
+              <div>
+                {selected.author ? <p className="books__author">{selected.author}</p> : null}
+                <h2 id="books-preview-title" ref={previewTitle} tabIndex={-1}>{selected.title}</h2>
+                <p className="books__quiet">{selected.where}{selected.page ? <>, last marked at <b>p. {selected.page}</b></> : null}</p>
+                {selected.tally ? <p className="books__tally">{selected.tally}</p> : null}
+              </div>
+              <div>
+                {mark ? <>
+                  <p className="books__author">{selected.status === 'Finished' && !mark.id ? 'Your finishing line' : mark.own ? 'Your last note' : 'Your last highlight'}</p>
+                  <blockquote>{mark.words}</blockquote>
+                </> : !selected.tally ? <p className="books__quiet">Nothing written yet.</p> : null}
+              </div>
+              <Link to={`/books/${selected.id}${markQuery}`} state={{ fromShelf: true }} onClick={event => remember(event, selected.id)}>
+                {markQuery ? (mark.page ? `Open at p. ${mark.page}` : 'Open at the mark') : 'Open book'}
+              </Link>
+            </aside>
+          </div>
+        ) : <p className="books__quiet" role="status">No books on this shelf.</p>}
+      </> : null}
       <Twice />
       <Questions />
     </main>
@@ -246,23 +338,38 @@ const Remember = ({ label, onKeep }) => {
   );
 };
 
-/* A finished book's colophon, where a printed book keeps one: when it was
-   read, how many sittings, what was written, the sentence kept, and each time
-   it was read before. Yours under your desk, or a friend's copy lent to you. */
+/* A finished book's colophon, printed the day it was finished the way a
+   printed book keeps one: the face it was set in, how it was read and when,
+   what was written beside it, what is still open, the sentence kept, and
+   each time it was read before. Yours under your desk, or a friend's copy
+   lent to you. The face is read off the page itself, so it is always true. */
+export const faceOf = node => (node ? getComputedStyle(node).getPropertyValue('--font-serif').split(',')[0].replace(/["']|\s+Variable$/g, '').trim() : '');
+
 export const Colophon = ({ book, marks, line, whose = 'your', children }) => {
+  const page = useRef(null);
+  const [face, setFace] = useState('');
+  useLayoutEffect(() => setFace(faceOf(page.current)), []);
   const sittings = sittingsOf(marks);
   const { first, last, words } = bookendsOf(marks);
+  const began = sittings.length ? longDate(new Date(sittings[0][0].createdAt)) : '';
+  const finished = longDate(dayOf(book.finishedOn));
   const before = (book.readBefore || []).filter(reading => reading.finishedOn);
+  const mostly = mostlyWhen(sittings);
+  const open = counted(openQuestionsOf(marks).length, 'question');
+  const imprint = [
+    face ? `Set in ${face}.` : '',
+    sittings.length ? `Read in ${sittings.length > 1 ? `${sittings.length} sittings` : 'one sitting'}${began !== finished ? ` from ${began}` : ''}${mostly ? `, mostly ${mostly}` : ''}.` : ''
+  ].filter(Boolean).join(' ');
   const facts = [
-    sittings.length && longDate(new Date(sittings[0][0].createdAt)) !== longDate(dayOf(book.finishedOn)) ? `Read from ${longDate(new Date(sittings[0][0].createdAt))}` : '',
-    sittings.length > 1 ? `${sittings.length} sittings` : '',
     tallyLine(marks),
-    words ? `${words.toLocaleString()} ${words === 1 ? 'word' : 'words'} of ${whose} own` : ''
+    words ? `${words.toLocaleString()} ${words === 1 ? 'word' : 'words'} of ${whose} own` : '',
+    open ? `${open} still open` : ''
   ].filter(Boolean).join(' · ');
   return (
-    <section className="books__colophon" aria-label="Colophon">
-      <p className="books__author">Finished {longDate(dayOf(book.finishedOn))}</p>
+    <section className="books__colophon" aria-label="Colophon" ref={page}>
+      <p className="books__author books__stamp">Finished {finished}</p>
       {line}
+      {imprint ? <p className="books__tally books__imprint">{imprint}</p> : null}
       {facts ? <p className="books__tally">{facts}</p> : null}
       {first ? <p className="books__tally books__bookends">It began with <q>{first}</q> and ended with <q>{last}</q></p> : null}
       {before.map(reading => (
@@ -275,7 +382,9 @@ export const Colophon = ({ book, marks, line, whose = 'your', children }) => {
   );
 };
 
-/* Closing the book. While you read, it is one quiet line under the desk.
+const yourQuestions = n => (n === 1 ? 'your open question' : `your ${n} open questions`);
+
+/* Closing the book. While you read, it says under the desk what finishing asks of you.
    Closed, the book gets its colophon there, where a printed book keeps one:
    when you read it, how many sittings, what you wrote, and the sentence you
    said you would remember; and under it, each time you read it before. A
@@ -308,8 +417,13 @@ const Closing = ({ book, marks, saved, writeUp, onChange, children }) => {
     }
   };
   if (!book.finishedOn) {
+    const asked = openQuestionsOf(marks).length;
     return (
-      <section className="books__closing" aria-label="Closing the book">
+      <section className="books__closing" aria-labelledby="books-closing">
+        <h2 id="books-closing">When you finish</h2>
+        <p className="books__asked">
+          You’ll write one sentence to remember it by{asked ? `, and ${yourQuestions(asked)} can be put to the book, answered only from what you marked` : ''}.
+        </p>
         {asking ? <Remember label="Close the book" onKeep={keep} />
           : <button type="button" className="books__quiet-button" onClick={() => setAsking(true)}>I’ve finished it</button>}
         {said ? <p className="books__quiet" role="status">{said}</p> : null}
@@ -375,7 +489,7 @@ const AskTheAuthor = ({ book, marks, onReplace }) => {
       {/* Asked again whenever questions are open and no answer waits on you. */}
       {!open.length || asked.length ? null : (
         <button type="button" className="books__quiet-button" disabled={asking} onClick={ask}>
-          {asking ? 'Asking the book…' : `Ask the book ${open.length === 1 ? 'your open question' : `your ${open.length} open questions`}`}
+          {asking ? 'Asking the book…' : `Ask the book ${yourQuestions(open.length)}`}
         </button>
       )}
       {asked.length ? (
@@ -483,15 +597,7 @@ const Lend = ({ book, onChange }) => {
    flat as its strip of marks, so where each one got you shows across the
    year at a glance. A book read twice that year stands twice. Nothing when
    no book was finished in it. */
-export const YearShelf = ({ year }) => {
-  const [books, setBooks] = useState([]);
-  useEffect(() => {
-    let cancelled = false;
-    listBooks()
-      .then(found => { if (!cancelled) setBooks(found); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+export const YearShelf = ({ year, books }) => {
   const read = books.flatMap(book => readingsOf(book, book.marks)
     .filter(reading => reading.finishedOn.startsWith(String(year)))
     .map(reading => ({ ...reading, book, spine: spineOf(reading.marks) })))
@@ -526,6 +632,7 @@ const showMark = (id, smooth = false) => {
   const mark = document.querySelector(`[data-highlight-id="highlight-${id}"]`);
   if (!mark) return;
   mark.scrollIntoView?.({ block: 'center', behavior: smooth ? 'smooth' : 'auto' });
+  if (mark.hasAttribute('tabindex')) mark.focus({ preventScroll: true });
   mark.setAttribute('data-found', '');
   mark.addEventListener('animationend', () => mark.removeAttribute('data-found'), { once: true });
 };
@@ -582,6 +689,36 @@ const QuoteCards = ({ book, marks }) => (
   </ol>
 );
 
+/* A book's name is written over where it stands: Enter or leaving it keeps
+   the new one, Esc puts the old one back. Saved, it is the page's own again. */
+const BookTitle = ({ book, onChange }) => {
+  const title = book.title || 'Untitled book';
+  const keep = async ({ currentTarget: name }) => {
+    const typed = name.textContent.trim();
+    if (!typed || typed === title) {
+      name.textContent = title;
+      return;
+    }
+    try {
+      onChange(await renameBook(book._id, typed));
+    } catch (_) {
+      name.textContent = title;
+    }
+  };
+  const onKeyDown = (event) => {
+    // Enter and Esc inside a Japanese or Chinese composition belong to the composition.
+    if (event.nativeEvent.isComposing || !['Enter', 'Escape'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Escape') event.currentTarget.textContent = title;
+    event.currentTarget.blur();
+  };
+  return (
+    <h1 key={title} id="book-title" className="books__name" contentEditable="plaintext-only" suppressContentEditableWarning spellCheck={false} onBlur={keep} onKeyDown={onKeyDown}>
+      {title}
+    </h1>
+  );
+};
+
 // A mark typed at the desk is saved once the server has given it an id.
 const isSaved = mark => !mark.unsent && !String(mark._id).startsWith('desk-');
 
@@ -607,13 +744,13 @@ const Book = ({ id }) => {
   const doorFor = (mark) => (!isSaved(mark) || held.has(String(mark._id)) ? null : (
     <PassageDoor articleId={id} highlightId={mark._id} pages={pages} text={mark.text || ''} />
   ));
-  useDocumentTitle(article?.title || 'A book', 'Books');
+  useDocumentTitle(book?.title || 'A book', 'Books');
   // The Partner holds this book, its marks standing for the body it has none of.
   useNoeisAgentSurface('agent-surface.library', {
     room: 'library',
     objectType: 'article',
     objectId: id,
-    title: article?.title || 'A book',
+    title: book?.title || 'A book',
     orientation: 'Ask the book, using what you marked and wrote.'
   });
 
@@ -631,6 +768,7 @@ const Book = ({ id }) => {
         } : undefined}>← Books</Link>
         {book ? <Lend book={book} onChange={change} /> : null}
         {book ? <AddToProject kind="book" id={id} title={book.title} className="books__quiet-button" /> : null}
+        {book ? <HangInMuseum kind="article" id={id} className="books__quiet-button" /> : null}
         {highlights.some(mark => mark.text) ? <button type="button" className="books__quiet-button" onClick={() => window.print()}>Print as cards</button> : null}
       </nav>
       {error ? <p className="books__quiet" role="alert">{error}</p> : null}
@@ -638,7 +776,7 @@ const Book = ({ id }) => {
         <>
           <header className="books__head">
             {book.author ? <p className="books__author">{book.author}</p> : null}
-            <h1 id="book-title">{book.title || 'Untitled book'}</h1>
+            <BookTitle book={book} onChange={change} />
           </header>
           <Spine marks={highlights} since={since} />
           {highlights.length ? null : <BeforeYouStart id={id} />}
@@ -651,12 +789,14 @@ const Book = ({ id }) => {
               onAdd={addHighlightOptimistic}
               onReplace={replaceHighlight}
               onRemove={removeHighlight}
+              onOpenMark={showMark}
               doorFor={doorFor}
             />
           </div>
           {/* Beside a mark, the closest thing you marked in another book or piece, as the reader has. */}
           <ArticleMargins articleId={id} contentRef={deskRef} frameRef={frameRef} blocks={MARK_BLOCKS} contentKey={savedMarks} />
           <Whereabouts lines={whereabouts} />
+          <WhatItAdded articleId={id} contentKey={savedMarks} />
           <Closing
             book={book}
             marks={highlights.filter(mark => !isEarlier(mark, since))}

@@ -2,12 +2,15 @@ import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import useEvidenceReturnFocus from '../../hooks/useEvidenceReturnFocus';
 import { setEditionItemState } from '../../api/editions';
+import { createNotebookEntry } from '../../api/notebook';
 import {
   aheadLine,
   byHand,
   costLine,
+  earLine,
   handsOf,
   issueLine,
+  lateFiling,
   passageHref,
   WATCH_STATUS,
   standLayout,
@@ -20,9 +23,9 @@ import EditionFinding from './EditionFinding';
 import CopyClip from '../CopyClip';
 import SectionSilence from './SectionSilence';
 import SourcePeek from './SourcePeek';
-import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
+import ThoughtComposer, { useEditionThoughts, useLetter } from './ThoughtComposer';
 import useEditionIssue from './useEditionIssue';
-import { editionClip, editionIssuePath, findingAnchor, findingHash, readingPosition, writeEditionLocal } from './editionReadingState';
+import { editionClip, editionFindingPath, editionIssuePath, findingAnchor, findingHash, readingPosition, writeEditionLocal } from './editionReadingState';
 
 const READ_AFTER_MS = 4000;
 
@@ -57,6 +60,8 @@ export default function EditionReading({
   const location = useLocation();
   const [peek, setPeek] = useState(null);
   const [selection, setSelection] = useState(null);
+  const [keptSelection, setKeptSelection] = useState(null);
+  const keeping = useRef(false);
   const thoughts = useEditionThoughts(issue._id);
   useEffect(() => {
     setSelection(null);
@@ -228,14 +233,29 @@ export default function EditionReading({
   const paperTitle = paper?.title || row.profileLabel || row.title || '';
   const coverage = windowLine(row);
   const clippingCredit = [paperTitle, issueName || coverage].filter(Boolean).join(' · ');
+  const selectionKey = selection && JSON.stringify([selection.itemId, selection.quote]);
+  const keepReceipt = keptSelection?.key === selectionKey ? keptSelection : null;
+  const keepSelection = async item => {
+    if (keeping.current || keepReceipt?.entryId) return;
+    keeping.current = true;
+    setKeptSelection({ key: selectionKey, phase: 'saving' });
+    const note = await createNotebookEntry({
+      source: 'edition-selection',
+      title: item.plain || item.title,
+      blocks: [{ type: 'quote', text: selection.quote, articleTitle: clippingCredit,
+        sourcePath: editionFindingPath(issue._id, item.itemId) }]
+    }).catch(() => null);
+    keeping.current = false;
+    setKeptSelection(note?._id ? { key: selectionKey, entryId: note._id } : { key: selectionKey, phase: 'failed' });
+  };
   const run = paper?.issues || [];
   const place = run.findIndex(other => other._id === issue._id);
   const before = place > 0 ? run[place - 1] : null;
   const after = place >= 0 ? run[place + 1] : null;
+  const letter = useLetter(before?._id);
   const closed = stateOf(row) === 'closed';
   /* The receipt speaks for the whole issue, whoever's hand you are reading. */
   const kept = all.filter(({ item }) => item.savedArticleId).length;
-  const newCount = pending?.items?.filter(item => !edition?.items?.some(held => held.itemId === item.itemId)).length || 0;
   const sourceDoor = id => document.getElementById(findingAnchor(id))?.querySelector('.reading-open');
   const side = peek || (source && focusItem ? { itemId: focusItem, view: 'source', origin: sourceDoor(focusItem) } : null);
   const sideItem = side && edition?.items.find(item => item.itemId === side.itemId);
@@ -254,6 +274,7 @@ export default function EditionReading({
       item={item}
       number={index + 1}
       section={section}
+      late={lateFiling(item, row)}
       zoomed={item.itemId === focusItem}
       editionId={issue._id}
       clippingCredit={clippingCredit}
@@ -265,11 +286,18 @@ export default function EditionReading({
         <div ref={selectionTools} className="reading-selection" role="group" aria-label="Selected text"
           onMouseDown={event => { if (event.target.closest('button')) event.preventDefault(); }}>
           <CopyClip clip={editionClip(item, issue._id, clippingCredit, selection.quote)} idleLabel="Copy selection" />
+          <button type="button" aria-disabled={keptSelection?.phase === 'saving' || Boolean(keepReceipt?.entryId)} onClick={() => keepSelection(item)}>
+            {keepReceipt?.entryId ? 'Kept in Notebook' : keepReceipt?.phase === 'saving' ? 'Keeping…' : 'Keep in Notebook'}
+          </button>
           {selection.lead ? <button type="button" onClick={() => {
             const origin = document.getElementById(findingAnchor(item.itemId))?.querySelector('.reading-actions button:last-child');
             openPeek(item, 'thought', origin, selection.quote);
             window.getSelection()?.removeAllRanges();
           }}>Leave a thought</button> : null}
+          <span role="status" className={keepReceipt?.phase === 'failed' ? 'reading-selection__receipt' : 'sr-only'}>
+            {keepReceipt?.entryId ? 'Kept in Notebook.' : keepReceipt?.phase === 'failed' ? 'That didn’t save. Try again.' : ''}
+          </span>
+          {keepReceipt?.entryId ? <Link className="reading-selection__receipt" to={`/think?tab=notebook&entryId=${encodeURIComponent(keepReceipt.entryId)}`}>Open note →</Link> : null}
         </div>
       ) : null}
     />
@@ -303,6 +331,7 @@ export default function EditionReading({
       {edition && focused < 0 ? (
         <>
           <header className="edition-issue__head">
+            <p className="edition-issue__ear">{earLine(run, row)}</p>
             <p className="edition-issue__dateline">
               {[issueName, coverage && `covers ${coverage}`, updatedLine(row)].filter(Boolean).join(' · ')}
             </p>
@@ -376,6 +405,13 @@ export default function EditionReading({
               ) : null}
             </section>
           ) : null}
+          {letter ? (
+            <aside className="edition-letter" aria-labelledby="edition-letter-title">
+              <h2 id="edition-letter-title">Letters</h2>
+              <blockquote>{letter}</blockquote>
+              <p>You, after {issueLine({ ...before, issueLabel }) || windowLine(before)}</p>
+            </aside>
+          ) : null}
           {hand && all.length > items.length ? (
             <p className="reading-hidden" role="status">
               {all.length - items.length} finding{all.length - items.length === 1 ? '' : 's'} by other hands hidden while you read {hand.agent.name}’s.{' '}
@@ -419,7 +455,7 @@ export default function EditionReading({
       {pending ? (
         <div className="reading-arrivals" role="status">
           <button onClick={absorb}>
-            {newCount ? `${newCount} finding${newCount === 1 ? '' : 's'} added` : 'This issue has an update'} · Show
+            Something new came in · Show
           </button>
         </div>
       ) : null}

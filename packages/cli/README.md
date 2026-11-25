@@ -19,7 +19,12 @@ noeis read <id>                                    # the whole of any hit
 noeis save https://example.com/essay               # into your Library (--later: the nightstand)
 some-command | noeis save - --title "Transcript"   # text from standard input
 noeis note "Hiring is a bet on slope."              # a note in Think
+noeis tonight                                      # what fits tonight from your nightstand
+noeis fortune                                      # one passage of your own, at random
 ```
+
+Put `noeis fortune` at the end of your shell's rc file and every new terminal
+opens on something you once thought worth keeping.
 
 `save` and `note` need a read-write connection.
 

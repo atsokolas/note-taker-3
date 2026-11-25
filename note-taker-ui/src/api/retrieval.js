@@ -56,6 +56,29 @@ export const fetchMarginNotes = async ({ paragraphs = [], articleId = '', exclud
   return Array.isArray(response.data?.notes) ? response.data.notes : [];
 };
 
+/* What a source added to what you already hold, as Noeis connected it, and
+   a connection struck so it is never offered again. */
+export const fetchAdded = async (articleId) => {
+  const response = await api.get(`/api/added/${encodeURIComponent(articleId)}`, getAuthHeaders());
+  return Array.isArray(response.data?.added) ? response.data.added : [];
+};
+
+// What arrived this week and connected: each source with the strongest thing it added.
+export const fetchLately = async () => {
+  const response = await api.get('/api/added', getAuthHeaders());
+  return Array.isArray(response.data?.lately) ? response.data.lately : [];
+};
+
+export const inkAdded = async ({ articleId, key, kind }) => {
+  const response = await api.post(`/api/added/${encodeURIComponent(articleId)}/ink`, { key, kind }, getAuthHeaders());
+  return response.data;
+};
+
+export const strikeAdded = async ({ articleId, key, title = '', quote = '' }) => {
+  const response = await api.post(`/api/added/${encodeURIComponent(articleId)}/strike`, { key, title, quote }, getAuthHeaders());
+  return response.data;
+};
+
 const retrievalApi = {
   searchKeyword,
   recordItemView,

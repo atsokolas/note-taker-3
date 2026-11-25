@@ -89,7 +89,9 @@ const toChatCompletion = (message) => {
 // Sampling and reasoning hints are left behind: current Claude models refuse
 // temperature, and thinking stays off so the token caps each route sets go to
 // the answer, as they did when the same model came through OpenRouter.
-// Streamed and collected so long drafts never hit a response timeout.
+// Streamed and collected so long drafts never hit a response timeout. The
+// cache breakpoint follows the last block, so each step of a tool loop reads
+// the turns before it from cache instead of paying for them again.
 const requestAnthropic = async ({ token, model, timeoutMs, payload = {}, signal }) => {
   const tools = Array.isArray(payload.tools) && payload.tools.length ? toolsFor(payload.tools) : null;
   const { system, messages } = toMessagesRequest(payload.messages);
@@ -97,6 +99,7 @@ const requestAnthropic = async ({ token, model, timeoutMs, payload = {}, signal 
     const message = await clientFor(token).messages.stream({
       model,
       max_tokens: payload.max_tokens || 1024,
+      cache_control: { type: 'ephemeral' },
       ...(system ? { system } : {}),
       messages,
       thinking: { type: 'disabled' },

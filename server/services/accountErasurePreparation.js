@@ -65,7 +65,7 @@ const prepareAccountForErasure = async ({ models, userId, maintenance, now = new
   await models.User.updateOne({ _id: id, accountDisabledAt: null }, { $set: { accountDisabledAt: now, 'morningPaper.enabled': false } });
   const updates = [
     ['AgentToken', { userId: id }, { $set: { status: 'revoked', revokedAt: now } }],
-    ['AgentConnectSession', { approvedUserId: id }, { $set: { status: 'cancelled', tokenSecret: '' } }],
+    ['AgentConnectSession', { approvedUserId: id }, { $set: { status: 'cancelled' } }],
     ['ChatgptOAuthGrant', { userId: id }, { $set: { revokedAt: now } }],
     ['ChatgptOAuthRequest', { userId: id, status: { $in: ['pending', 'approved'] } }, { $set: { status: 'denied', codeHash: null } }],
     ['PersonalAgent', { userId: id }, { $set: { status: 'disabled' } }],

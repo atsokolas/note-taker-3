@@ -11,8 +11,25 @@ const NEAREST = 3;
 const SAYS_CHARS = 1200;
 const YOU = '';
 
-const SYSTEM = `You compare what one agent wrote for a reader with things it may contradict: views the reader holds and what other agents wrote. A pair contradicts only when both cannot be true, or both cannot be acted on, as stated. Different emphasis, a narrower claim, or a different topic is not a contradiction.
-Answer with JSON only: {"pairs":[{"pair":<number>,"contradicts":true|false,"a":"<what the agent says, one sentence>","b":"<what the other says, one sentence>"}]}`;
+const SYSTEM = `You compare pairs of passages from one reader's workspace: what an agent wrote or a source says (A), against something the reader holds (B): a view, a passage they marked, a question they asked, a line on one of their wiki pages, or what another agent wrote. Say how A bears on B:
+- "argues" when both cannot be true, or both cannot be acted on, as stated.
+- "bears" when A makes the same point as B, gives evidence for it, carries it to a new case, or when one is a question the other answers.
+- "none" when they only share words or a topic. A different emphasis, or a claim about something else, is none.
+Answer with JSON only: {"pairs":[{"pair":<number>,"relation":"argues"|"bears"|"none","a":"<what A says, one sentence>","b":"<what B says, one sentence>"}]}`;
+
+/* One model reading over numbered pairs of { a, b }, each side { who, says }
+   and read to SAYS_CHARS: how each pair bears, by index (argues, bears or
+   none), each side in one sentence. */
+const RELATIONS = new Set(['argues', 'bears', 'none']);
+const relations = async ({ pairs, chat = chatComplete }) => {
+  if (!pairs.length) return [];
+  const listed = pairs.map(({ a, b }, index) => `Pair ${index + 1}\nA (${a.who}): ${String(a.says).slice(0, SAYS_CHARS)}\nB (${b.who}): ${String(b.says).slice(0, SAYS_CHARS)}`).join('\n\n');
+  const completion = await chat({ route: 'critique', messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: listed }] });
+  return (parseStructuredText(completion?.text)?.pairs || [])
+    .filter(row => pairs[row?.pair - 1])
+    .filter(row => RELATIONS.has(row.relation))
+    .map(row => ({ index: row.pair - 1, relation: row.relation, a: String(row.a || ''), b: String(row.b || '') }));
+};
 
 const notesOf = async ({ NotebookEntry, userId, wrote }) => {
   const ids = wrote.filter(item => item.kind === 'note').map(item => item.id);
@@ -38,16 +55,15 @@ const checkDisagreements = async ({ userId, agent, wrote, models, semanticSearch
       .slice(0, NEAREST)
       .forEach(({ hit, rival }) => pairs.push({ item, hit, rival }));
   }
-  if (!pairs.length) return [];
-
-  const listed = pairs.map(({ item, rival }, index) => `Pair ${index + 1}\nA (${agent}): ${item.says}\nB (${rival.agent || 'the reader\'s held view'}): ${String(rival.says).slice(0, SAYS_CHARS)}`).join('\n\n');
-  const completion = await chat({ route: 'critique', messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: listed }] });
-  const judged = parseStructuredText(completion?.text)?.pairs || [];
+  const judged = await relations({
+    pairs: pairs.map(({ item, rival }) => ({ a: { who: agent, says: item.says }, b: { who: rival.agent || 'the reader\'s held view', says: rival.says } })),
+    chat
+  });
 
   const found = judged
-    .filter(row => row?.contradicts && pairs[row.pair - 1])
+    .filter(row => row.relation === 'argues')
     .map((row) => {
-      const { item, hit, rival } = pairs[row.pair - 1];
+      const { item, hit, rival } = pairs[row.index];
       return {
         userId,
         a: { agent, kind: item.kind, id: item.id, title: item.title || '', says: String(row.a || item.says).slice(0, 500) },
@@ -57,4 +73,4 @@ const checkDisagreements = async ({ userId, agent, wrote, models, semanticSearch
   return found.length ? Disagreement.insertMany(found) : [];
 };
 
-module.exports = { checkDisagreements, YOU };
+module.exports = { checkDisagreements, relations, YOU };

@@ -577,7 +577,7 @@ const ThinkNotes = () => {
 
       <main
         ref={noteSurface}
-        className={`think-notes__note${loadingEntry ? ' is-loading' : ''}`}
+        className={`think-notes__note${view === 'home' ? ' is-desk' : ''}${loadingEntry ? ' is-loading' : ''}`}
         aria-labelledby={openTarget ? 'think-note-title' : undefined}
         aria-busy={loadingEntry ? 'true' : undefined}
         inert={contextTakesFocus ? '' : undefined}
@@ -650,6 +650,7 @@ const ThinkNotes = () => {
               working={working}
               ideas={piecesIn('ideas')}
               closed={piecesIn('closed')}
+              questions={piecesIn('questions').filter(item => !item.settled)}
               onOpen={openEntry}
               onView={openView}
               onStart={title => startNote({ title })}
@@ -680,10 +681,11 @@ const ThinkNotes = () => {
           <div role="tablist" aria-label="Note context">
             <button type="button" role="tab" aria-selected={activeContext === 'scratchpad'} onClick={() => openContext('scratchpad')}>Scratchpad</button>
             <button type="button" role="tab" aria-selected={activeContext === 'material'} onClick={() => openContext('material')}>Material</button>
+            <button type="button" role="tab" aria-selected={activeContext === 'outline'} onClick={() => openContext('outline')}>Outline</button>
           </div>
           <button type="button" className="think-notes__context-close" onClick={closeContext} aria-label="Close note context">Close</button>
         </div>
-        <div ref={setContextPortal} hidden={!['material', 'scratchpad'].includes(activeContext)} />
+        <div ref={setContextPortal} hidden={!['material', 'scratchpad', 'outline'].includes(activeContext)} />
       </aside>
     </div>
   );

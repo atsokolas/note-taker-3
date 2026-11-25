@@ -56,7 +56,8 @@ export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
       blocks.push({
         id: node.attrs?.blockId || createId(),
         type: 'paragraph',
-        text: extractText(node)
+        text: extractText(node),
+        ...(node.attrs?.pencil ? { pencil: true } : {})
       });
       return;
     }
@@ -196,9 +197,42 @@ export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
   return blocks;
 };
 
+const listItemFromBlock = block => ({
+  type: 'listItem',
+  attrs: { blockId: block.id },
+  content: [{ type: 'paragraph', content: block.text ? [{ type: 'text', text: block.text }] : [] }]
+});
+
+/* A run of saved bullets comes back as the nested list it was: each indent
+   hangs under the last point one level up. */
+const bulletListFromBlocks = (bullets) => {
+  const root = { type: 'bulletList', content: [] };
+  const lists = [root];
+  bullets.forEach(block => {
+    const depth = Math.max(0, Number(block.indent) || 0);
+    while (lists.length - 1 > depth) lists.pop();
+    while (lists.length - 1 < depth && lists[lists.length - 1].content.length) {
+      const list = { type: 'bulletList', content: [] };
+      lists[lists.length - 1].content.at(-1).content.push(list);
+      lists.push(list);
+    }
+    lists[lists.length - 1].content.push(listItemFromBlock(block));
+  });
+  return root;
+};
+
+const withListsNested = (blocks) => blocks.reduce((runs, block) => {
+  const last = runs[runs.length - 1];
+  if (block.type !== 'bullet') runs.push(block);
+  else if (Array.isArray(last)) last.push(block);
+  else runs.push([block]);
+  return runs;
+}, []);
+
 export const buildDocFromBlocks = (blocks = []) => ({
   type: 'doc',
-  content: blocks.map(block => {
+  content: withListsNested(blocks).map(block => {
+    if (Array.isArray(block)) return bulletListFromBlocks(block);
     if (block.type === 'heading') {
       return {
         type: 'heading',
@@ -291,7 +325,7 @@ export const buildDocFromBlocks = (blocks = []) => ({
     }
     return {
       type: 'paragraph',
-      attrs: { blockId: block.id },
+      attrs: { blockId: block.id, ...(block.pencil ? { pencil: true } : {}) },
       content: block.text ? [{ type: 'text', text: block.text }] : []
     };
   })

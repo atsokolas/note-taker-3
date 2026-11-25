@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { wordBoundaryTrim } from '../../utils/editorialText';
 
 /**
@@ -24,6 +24,14 @@ const formatRelative = (iso) => {
   return new Date(iso).toLocaleDateString();
 };
 
+/* What changed, by kind, in words: how much is the page's to show, not a
+   number for you to work down (see /manifesto). */
+const GROUPS = [
+  { key: 'added', title: 'Added', sigil: '+', said: 'added' },
+  { key: 'removed', title: 'Removed', sigil: '−', said: 'taken out' },
+  { key: 'changed', title: 'New sources', sigil: '↻', said: 'given new sources' }
+];
+
 const SUPPORT_LABEL = {
   supported: 'supported',
   partial: 'partially supported',
@@ -40,26 +48,9 @@ const WikiChangesSinceLastVisit = ({
   onShowInPage
 }) => {
   const [expanded, setExpanded] = useState(false);
-
-  const counts = useMemo(() => ({
-    added: Array.isArray(added) ? added.length : 0,
-    removed: Array.isArray(removed) ? removed.length : 0,
-    changed: Array.isArray(changed) ? changed.length : 0
-  }), [added, removed, changed]);
-
-  if (!lastViewedAt) return null;
-  if (counts.added === 0 && counts.removed === 0 && counts.changed === 0) return null;
-
-  const summary = [
-    counts.added > 0 ? `${counts.added} new` : null,
-    counts.removed > 0 ? `${counts.removed} removed` : null,
-    counts.changed > 0 ? `${counts.changed} evidence update${counts.changed === 1 ? '' : 's'}` : null
-  ].filter(Boolean).join(' · ');
-
-  const previewAdded = added.slice(0, PREVIEW_COUNT);
-  const previewRemoved = removed.slice(0, PREVIEW_COUNT);
-  const previewChanged = changed.slice(0, PREVIEW_COUNT);
-  const totalCount = counts.added + counts.removed + counts.changed;
+  const lists = { added, removed, changed };
+  const groups = GROUPS.filter(group => Array.isArray(lists[group.key]) && lists[group.key].length);
+  if (!lastViewedAt || !groups.length) return null;
 
   return (
     <section
@@ -71,9 +62,7 @@ const WikiChangesSinceLastVisit = ({
       <div className="wiki-changes-banner__head">
         <div className="wiki-changes-banner__copy">
           <span className="wiki-changes-banner__eyebrow">Since you last visited</span>
-          <span className="wiki-changes-banner__title">
-            {summary} claim{totalCount === 1 ? '' : 's'}
-          </span>
+          <span className="wiki-changes-banner__title">Claims {new Intl.ListFormat('en').format(groups.map(group => group.said))}</span>
           <span className="wiki-changes-banner__sub">
             You were last here {formatRelative(lastViewedAt)}.
           </span>
@@ -111,71 +100,28 @@ const WikiChangesSinceLastVisit = ({
 
       {expanded ? (
         <div className="wiki-changes-banner__body">
-          {counts.added > 0 ? (
-            <div className="wiki-changes-banner__group wiki-changes-banner__group--added">
-              <h4 className="wiki-changes-banner__group-title">Added</h4>
+          {groups.map(group => (
+            <div key={group.key} className={`wiki-changes-banner__group wiki-changes-banner__group--${group.key}`}>
+              <h4 className="wiki-changes-banner__group-title">{group.title}</h4>
               <ul className="wiki-changes-banner__list">
-                {previewAdded.map((text, index) => (
-                  <li key={`added-${index}`} className="wiki-changes-banner__item">
-                    <span className="wiki-changes-banner__sigil" aria-hidden="true">+</span>
-                    <span className="wiki-changes-banner__item-text">{truncate(text)}</span>
-                  </li>
-                ))}
-              </ul>
-              {counts.added > PREVIEW_COUNT ? (
-                <p className="wiki-changes-banner__more">
-                  + {counts.added - PREVIEW_COUNT} more new claim
-                  {counts.added - PREVIEW_COUNT === 1 ? '' : 's'}.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          {counts.removed > 0 ? (
-            <div className="wiki-changes-banner__group wiki-changes-banner__group--removed">
-              <h4 className="wiki-changes-banner__group-title">Removed</h4>
-              <ul className="wiki-changes-banner__list">
-                {previewRemoved.map((text, index) => (
-                  <li key={`removed-${index}`} className="wiki-changes-banner__item">
-                    <span className="wiki-changes-banner__sigil" aria-hidden="true">−</span>
-                    <span className="wiki-changes-banner__item-text">{truncate(text)}</span>
-                  </li>
-                ))}
-              </ul>
-              {counts.removed > PREVIEW_COUNT ? (
-                <p className="wiki-changes-banner__more">
-                  + {counts.removed - PREVIEW_COUNT} more removed claim
-                  {counts.removed - PREVIEW_COUNT === 1 ? '' : 's'}.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          {counts.changed > 0 ? (
-            <div className="wiki-changes-banner__group wiki-changes-banner__group--changed">
-              <h4 className="wiki-changes-banner__group-title">New sources</h4>
-              <ul className="wiki-changes-banner__list">
-                {previewChanged.map((entry, index) => (
-                  <li key={`changed-${index}`} className="wiki-changes-banner__item">
-                    <span className="wiki-changes-banner__sigil" aria-hidden="true">↻</span>
+                {lists[group.key].slice(0, PREVIEW_COUNT).map((entry, index) => (
+                  <li key={`${group.key}-${index}`} className="wiki-changes-banner__item">
+                    <span className="wiki-changes-banner__sigil" aria-hidden="true">{group.sigil}</span>
                     <span className="wiki-changes-banner__item-text">
-                      {truncate(entry.text)}
-                      <span className="wiki-changes-banner__item-meta">
-                        {SUPPORT_LABEL[entry.support] || entry.support}
-                        {Number.isFinite(Number(entry.confidence)) ? ` · ${Math.round(Number(entry.confidence) * 100)}%` : ''}
-                      </span>
+                      {truncate(typeof entry === 'string' ? entry : entry.text)}
+                      {typeof entry === 'string' ? null : (
+                        <span className="wiki-changes-banner__item-meta">
+                          {SUPPORT_LABEL[entry.support] || entry.support}
+                          {Number.isFinite(Number(entry.confidence)) ? ` · ${Math.round(Number(entry.confidence) * 100)}%` : ''}
+                        </span>
+                      )}
                     </span>
                   </li>
                 ))}
               </ul>
-              {counts.changed > PREVIEW_COUNT ? (
-                <p className="wiki-changes-banner__more">
-                  + {counts.changed - PREVIEW_COUNT} more evidence update
-                  {counts.changed - PREVIEW_COUNT === 1 ? '' : 's'}.
-                </p>
-              ) : null}
+              {lists[group.key].length > PREVIEW_COUNT ? <p className="wiki-changes-banner__more">And more on the page.</p> : null}
             </div>
-          ) : null}
+          ))}
         </div>
       ) : null}
     </section>

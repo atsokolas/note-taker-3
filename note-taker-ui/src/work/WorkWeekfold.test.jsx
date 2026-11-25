@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 const open = async (scope = '') => {
   render(<MemoryRouter initialEntries={['/think?context=work&date=2026-10-26&note=note' + scope]}><WorkNotes /></MemoryRouter>);
-  const shelf = await screen.findByRole('complementary');
+  const shelf = await screen.findByRole('complementary', { name: 'Work notes' });
   fireEvent.click(await within(shelf).findByRole('button', { name: /Fieldwell · pilot follow-up/ }));
   const writing = await screen.findByRole('textbox', { name: 'Work note writing' });
   fireEvent.click(screen.getByLabelText('Note information'));
@@ -48,7 +48,7 @@ test('an open note keeps the week line with its written day marked, and its meet
 });
 test('a note written in another week brings its own week onto the line', async () => {
   render(<MemoryRouter initialEntries={['/work?date=2026-11-09']}><WorkNotes /></MemoryRouter>);
-  const shelf = within(await screen.findByRole('complementary')); fireEvent.click(await shelf.findByRole('button', { name: 'Customer discovery' }));
+  const shelf = within(await screen.findByRole('complementary', { name: 'Work notes' })); fireEvent.click(await shelf.findByRole('button', { name: 'Customer discovery' }));
   fireEvent.click(await shelf.findByRole('button', { name: /Fieldwell · pilot follow-up/ }));
   fireEvent.click(await screen.findByLabelText('Note information'));
   expect(await screen.findByRole('button', { name: 'Mon 26 Oct', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -69,10 +69,10 @@ test('the note information calendar still opens a full week without replacing th
   expect(api.put).not.toHaveBeenCalled();
 });
 test('dragging a note onto a place in the rail shows it arriving there, and the drop files it like the place line', async () => {
-  today(); const written = within(await screen.findByRole('region', { name: 'Written Monday' })).getByRole('button', { name: /Fieldwell/ });
+  today(); const written = within(await screen.findByRole('complementary', { name: 'Notes' })).getByRole('button', { name: /Fieldwell/ });
   const dataTransfer = { setData: jest.fn(), getData: () => '', setDragImage: jest.fn() };
   fireEvent.dragStart(written, { dataTransfer });
-  const place = within(screen.getByRole('complementary')).getByRole('button', { name: 'Launch planning' }).parentElement;
+  const place = within(screen.getByRole('complementary', { name: 'Work notes' })).getByRole('button', { name: 'Launch planning' }).parentElement;
   fireEvent.dragOver(place, { dataTransfer });
   expect(place.parentElement).toHaveTextContent('Launch planningFieldwell · pilot follow-up');
   fireEvent.drop(place, { dataTransfer });
@@ -150,12 +150,12 @@ test.each(['task', 'appointment'])('standalone %s conflicts open both versions r
 });
 test('concurrent day margins remain discoverable, and a conflicting margin offers both versions', async () => {
   records.push(...['First margin', 'Second margin'].map((content, index) => ({ _id: 'margin-' + index, revision: 0, title: '', content, workItem: { kind: 'jot', plannedOn: '2026-10-26', history: [] } })));
-  today(); fireEvent.click(await screen.findByText('Day margin', { selector: 'summary' }));
-  const margin = document.querySelector('.work-day-margin');
-  expect(within(margin).getByLabelText('Notes for this day')).toHaveValue('First margin');
-  fireEvent.click(within(margin).getByRole('button', { name: 'Margin 2', exact: true })); expect(within(margin).getByLabelText('Notes for this day')).toHaveValue('Second margin');
+  today();
+  const margin = await screen.findByRole('complementary', { name: 'Notes' });
+  await waitFor(() => expect(within(margin).getByLabelText('Day notes')).toHaveValue('First margin'));
+  fireEvent.click(within(margin).getByRole('button', { name: 'Margin 2', exact: true })); expect(within(margin).getByLabelText('Day notes')).toHaveValue('Second margin');
   api.put.mockRejectedValueOnce({ response: { status: 409, data: { current: { ...records.find(x => x._id === 'margin-1'), revision: 1, content: 'Remote margin version' } } } });
-  fireEvent.change(within(margin).getByLabelText('Notes for this day'), { target: { value: 'Local margin version' } }); fireEvent.click(within(margin).getByRole('button', { name: 'Sync margin', exact: true }));
+  fireEvent.change(within(margin).getByLabelText('Day notes'), { target: { value: 'Local margin version' } }); fireEvent.click(within(margin).getByRole('button', { name: 'Sync margin', exact: true }));
   fireEvent.click(await within(margin).findByRole('button', { name: 'Review both versions' }));
   const review = await screen.findByRole('dialog', { name: 'Two versions' }); expect(review).toHaveTextContent('Remote margin version'); expect(review).toHaveTextContent('Local margin version');
 });
@@ -215,12 +215,12 @@ test('a day reads as one page: its follow-ups, what it was written, and earlier 
   expect(await screen.findByRole('heading', { name: 'Mon 26 Oct' })).toBeInTheDocument();
   const page = () => document.querySelector('.work-day-page');
   expect(await within(page()).findByRole('checkbox', { name: 'Confirm service-training dates' })).toBeInTheDocument();
-  expect(within(screen.getByRole('region', { name: 'Written Monday' })).getByRole('button', { name: /Fieldwell · pilot follow-up.*Customer discovery/ })).toBeInTheDocument();
-  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'depot' } }); expect(screen.queryByRole('region', { name: 'Written Monday' })).toBeNull();
+  expect(within(screen.getByRole('complementary', { name: 'Notes' })).getByRole('button', { name: /Fieldwell · pilot follow-up.*Customer discovery/ })).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'depot' } }); expect(within(screen.getByRole('complementary', { name: 'Notes' })).queryByRole('button', { name: /Fieldwell/ })).toBeNull();
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
   expect(screen.queryByRole('region', { name: 'Carried from earlier' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Tue 27 Oct', exact: true }));
-  fireEvent.click(await screen.findByText('Earlier'));
+  fireEvent.click(await screen.findByText('Earlier to-dos'));
   const carried = await screen.findByRole('region', { name: 'Carried from earlier' });
   expect(within(carried).getByRole('button', { name: 'Fieldwell · pilot follow-up' })).toBeInTheDocument();
   fireEvent.click(within(carried).getByLabelText('Actions for Confirm service-training dates'));
@@ -235,7 +235,7 @@ test('day planning reads time, while note words become Open only after explicit 
   fireEvent.change(await screen.findByLabelText('Add a line'), { target: { value: 'IC meeting 2pm' } });
   fireEvent.submit(screen.getByLabelText('Add a line').form);
   await waitFor(() => expect(records.find(x => x.title === 'IC meeting')?.workItem).toMatchObject({ kind: 'appointment', plannedOn: '2026-10-26', startTime: '14:00', endTime: '14:30' }));
-  const rail = screen.getByRole('complementary'); fireEvent.click(within(rail).getByRole('button', { name: 'Customer discovery' })); fireEvent.click(within(rail).getByRole('button', { name: /Fieldwell · pilot follow-up/ }));
+  const rail = screen.getByRole('complementary', { name: 'Work notes' }); fireEvent.click(within(rail).getByRole('button', { name: 'Customer discovery' })); fireEvent.click(within(rail).getByRole('button', { name: /Fieldwell · pilot follow-up/ }));
   const writing = await screen.findByRole('textbox', { name: 'Work note writing' });
   act(() => { writing.editor.commands.focus('end'); writing.editor.commands.splitBlock(); writing.editor.commands.insertContent('[] Call Mira about training'); });
   fireEvent.keyDown(writing.editor.view.dom, { key: 'Enter' });

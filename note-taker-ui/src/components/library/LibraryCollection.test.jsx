@@ -16,8 +16,7 @@ const row = {
   placement: 'later',
   evergreen: true
 };
-const renderCollection = (extra) =>
-  render(
+const collection = (extra) => (
     <MemoryRouter>
       <LibraryCollection
         scope="all"
@@ -29,6 +28,7 @@ const renderCollection = (extra) =>
       />
     </MemoryRouter>
   );
+const renderCollection = extra => render(collection(extra));
 beforeEach(() => {
   jest.clearAllMocks();
   getLibraryCollection.mockResolvedValue({
@@ -43,15 +43,16 @@ beforeEach(() => {
     highlights: []
   });
 });
-test('a title opens directly while Peek never saves a reading position and Escape restores focus', async () => {
+test('the first source is previewed beside the list, title opens directly, and Escape restores focus', async () => {
   const onSelectArticle = jest.fn();
   renderCollection({ onSelectArticle });
   fireEvent.click(
     await screen.findByRole('button', { name: 'A quiet reading' })
   );
   expect(onSelectArticle).toHaveBeenCalledWith('a', {});
-  const trigger = screen.getByRole('button', { name: 'Peek: A quiet reading' });
-  fireEvent.click(trigger);
+  const trigger = screen.getByRole('button', { name: 'Close Peek: A quiet reading' });
+  const preview = screen.getByRole('complementary', { name: 'A quiet reading' });
+  expect(preview.closest('li')).toBeNull();
   fireEvent.click(
     await screen.findByRole('button', { name: 'Read from here →' })
   );
@@ -71,7 +72,7 @@ test('a title opens directly while Peek never saves a reading position and Escap
   ).not.toBeInTheDocument();
 });
 
-test('paints the collection before personal traces finish enriching it', async () => {
+test('paints before personal traces finish and enriches the preview without refetching the source', async () => {
   let resolveTraces;
   getLibraryCollectionTraces.mockReturnValue(new Promise(resolve => { resolveTraces = resolve; }));
   renderCollection();
@@ -83,6 +84,7 @@ test('paints the collection before personal traces finish enriching it', async (
     resolveTraces([{ articleId: 'a', trace: { kind: 'thought', text: 'A thought already held' } }]);
   });
   expect(screen.getByText('A thought already held')).toBeInTheDocument();
+  expect(getLibraryPeek).toHaveBeenCalledTimes(1);
 });
 test('one Peek at a time, including keyboard search access', async () => {
   getLibraryCollection.mockResolvedValue({
@@ -91,34 +93,31 @@ test('one Peek at a time, including keyboard search access', async () => {
     nextOffset: null
   });
   renderCollection({});
-  await screen.findByText('A quiet reading');
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Peek: A quiet reading' })
-  );
+  await screen.findByRole('button', { name: 'A quiet reading' });
   fireEvent.click(
     screen.getByRole('button', { name: 'Peek: Another reading' })
   );
   await waitFor(() =>
-    expect(document.querySelectorAll('.library-inline-peek')).toHaveLength(1)
+    expect(document.querySelectorAll('.library-catalogue-preview')).toHaveLength(1)
   );
   expect(document.getElementById('peek-b')).toBeInTheDocument();
   fireEvent.keyDown(document, { key: '/' });
   expect(screen.getByRole('searchbox')).toHaveFocus();
 });
-test('a row opens its peek when tapped, without a label to aim at', async () => {
+test('tapping row metadata closes and reopens its preview', async () => {
   renderCollection({});
-  await screen.findByText('A quiet reading');
-  expect(screen.queryByText(/Peek \+/)).not.toBeInTheDocument();
-  fireEvent.click(document.querySelector('.library-source-meta'));
-  expect(document.getElementById('peek-a')).toBeInTheDocument();
-  fireEvent.click(document.querySelector('.library-source-meta'));
+  await screen.findByRole('button', { name: 'A quiet reading' });
+  const metadata = document.querySelector('.library-source-face .library-source-meta');
+  fireEvent.click(metadata);
   expect(document.getElementById('peek-a')).not.toBeInTheDocument();
+  fireEvent.click(metadata);
+  expect(document.getElementById('peek-a')).toBeInTheDocument();
 });
 test('sort uses the same disclosure menu as the rest of Library tools', async () => {
   const onSortChange = jest.fn();
   renderCollection({ onSortChange });
 
-  await screen.findByText('A quiet reading');
+  await screen.findByRole('button', { name: 'A quiet reading' });
   const summary = document.querySelector('.library-sort summary');
   fireEvent.click(summary);
   fireEvent.click(screen.getByRole('button', { name: 'Oldest first' }));
@@ -145,7 +144,7 @@ test('Keepers retains pages and beliefs alongside sources, including retired bel
       }
     ]
   });
-  await screen.findByText('A quiet reading');
+  await screen.findByRole('button', { name: 'A quiet reading' });
   expect(screen.getByRole('link', { name: 'A useful page' })).toHaveAttribute(
     'href',
     '/wiki/p1'
@@ -165,6 +164,19 @@ test('missing kept pages are not claimed to be an empty canon', async () => {
   renderCollection({ scope: 'kept', keptPages: null });
   await waitFor(() => expect(getLibraryCollection).toHaveBeenCalled());
   expect(screen.queryByText('Nothing here yet.')).not.toBeInTheDocument();
+});
+
+test('a changed query clears the old results and preview while the new collection loads', async () => {
+  const { rerender } = renderCollection();
+  await screen.findByRole('complementary', { name: 'A quiet reading' });
+  const next = { ...row, _id: 'b', title: 'Notes on attention' };
+  getLibraryCollection.mockResolvedValue({ items: [next], total: 1, nextOffset: null });
+
+  rerender(collection({ query: 'attention' }));
+  expect(screen.queryByRole('button', { name: 'A quiet reading' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('complementary', { name: 'A quiet reading' })).not.toBeInTheDocument();
+  expect(screen.getByText(/^Searching saved sources…/)).toBeInTheDocument();
+  expect(await screen.findByRole('complementary', { name: 'Notes on attention' })).toBeInTheDocument();
 });
 
 test('a search offers a trail on the same words', async () => {
@@ -198,7 +210,7 @@ test('the nightstand reads by the evening: minutes, why, tonight, and a month as
   // The month-old piece waits at the bottom, asked about, never removed.
   const titles = [...document.querySelectorAll('.library-collection-row .library-source-title')].map(node => node.textContent);
   expect(titles).toEqual(['The Shape of Attention', 'The Long Read on Chips', 'Waited A Month']);
-  expect(screen.getByText('Been waiting a while')).toBeInTheDocument();
+  expect(screen.getByText(/^On your nightstand since /)).toBeInTheDocument();
   expect(screen.getAllByText(/Still want this\?/)).toHaveLength(1);
   fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
   expect(onPlace).toHaveBeenCalledWith('old', 'later');

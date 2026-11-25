@@ -56,10 +56,13 @@ bring() {
   local token reply
   token=$(jq -r '.token // empty' "$SESSION" 2>/dev/null) || true
   [[ -n $token ]] || { say normal "Connect Noeis from its panel first, then open it again." omarchy-shell shell toggle io.noeis; exit 1; }
+  # Quoted, the path is one file's name to curl, whatever characters are in it.
+  local file=${1//\\/\\\\}
+  file=${file//\"/\\\"}
   # The token goes to curl on stdin, never in its arguments. https only, with
   # a deadline, and the answer (a receipt) held to a megabyte.
   if reply=$(printf 'Authorization: Bearer %s\n' "$token" | curl -fsS --proto =https --proto-redir =https \
-    --connect-timeout 15 --max-time 600 --max-filesize 1048576 -H @- -F "files=@$1" "$API/api/import/files" 2>&1); then
+    --connect-timeout 15 --max-time 600 --max-filesize 1048576 -H @- -F "files=@\"$file\"" "$API/api/import/files" 2>&1); then
     say low "In your Library: $(basename "$1")" omarchy-shell noeis read
   else
     say normal "Noeis could not bring $(basename "$1") in. ${reply:0:300}"

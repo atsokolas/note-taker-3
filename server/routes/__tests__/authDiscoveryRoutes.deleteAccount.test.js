@@ -16,6 +16,7 @@ const run = async () => {
     findById: async (id) => (id === account._id ? account : null),
     updateOne: async (query, update) => { updates.push({ query, update }); }
   };
+  const takenDown = [];
   const app = express();
   app.use(express.json());
   app.use(buildAuthDiscoveryRouter({
@@ -24,7 +25,8 @@ const run = async () => {
     User,
     authenticateToken: (req, _res, next) => { req.user = { id: 'user-1' }; next(); },
     Recommendation: {},
-    Article: {}
+    Article: {},
+    takeSharesDown: async userId => { takenDown.push(String(userId)); }
   }));
   const { server, url } = await listen(app);
   const del = (body) => fetch(`${url}/api/account`, {
@@ -37,6 +39,7 @@ const run = async () => {
     const wrong = await del({ password: 'nope' });
     assert.strictEqual(wrong.status, 401, 'a wrong password closes nothing');
     assert.strictEqual(updates.length, 0);
+    assert.deepStrictEqual(takenDown, [], 'and takes nothing down');
 
     const right = await del({ password: 'right1pass' });
     assert.strictEqual(right.status, 200);
@@ -48,6 +51,7 @@ const run = async () => {
     assert.ok(set.accountDisabledAt instanceof Date, 'access ends at once');
     assert.strictEqual(set.accountDeletionRequestedAt, set.accountDisabledAt, 'the runbook can find the request');
     assert.deepStrictEqual(updates[0].query, { _id: 'user-1', accountDisabledAt: null });
+    assert.deepStrictEqual(takenDown, ['user-1'], 'everything it shared stops being public');
     console.log('authDiscoveryRoutes.deleteAccount tests passed');
   } finally {
     server.close();

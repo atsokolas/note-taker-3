@@ -4,6 +4,7 @@ import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
 import JudgmentMirror from './pages/JudgmentMirror';
 import NotFound from './pages/NotFound';
+import deskContent from './pages/deskContent.json';
 import { forgetReturnPath, isAppRoute, readReturnPath, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
 import { GUIDE_SLUGS } from './seo/guideSlugs';
@@ -23,6 +24,7 @@ import {
   persistUiSettingsToStorage
 } from './settings/uiPreferences';
 import { formatAppearanceValue } from './settings/appearanceFieldModel';
+import { useRoomHours } from './settings/roomHours';
 import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
@@ -61,6 +63,8 @@ import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/editions.css';
+// The Museum hangs from every reading surface, so its wall, case and label sheet load with the app.
+import './styles/museum.css';
 import './styles/think-notes.css';
 import './surface/surface-frame.css';
 import './styles/semantic-theme.css';
@@ -89,6 +93,7 @@ const Contradictions = lazy(() => import('./pages/Contradictions'));
 const ReadingMap = lazy(() => import('./pages/ReadingMap'));
 const CommonplaceBook = lazy(() => import('./pages/CommonplaceBook'));
 const Books = lazy(() => import('./pages/Books'));
+const MuseumEditor = lazy(() => import('./pages/MuseumEditor'));
 /* Not code-split. /judgment is one of the four rooms and the one a citation
    trail ends in, so its chunk is asked for on a cold open — and splitting it
    means the browser only requests it after main.js has downloaded and parsed,
@@ -99,7 +104,7 @@ const ReviewerFixtures = lazy(() => import('./pages/ReviewerFixtures'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const AgentConnectAuthorize = lazy(() => import('./pages/AgentConnectAuthorize'));
-const ChatGPTConnectAuthorize = lazy(() => import('./pages/ChatGPTConnectAuthorize'));
+const ConnectAppAuthorize = lazy(() => import('./pages/ConnectAppAuthorize'));
 const AgentTaskRun = lazy(() => import('./pages/AgentTaskRun'));
 const GuideArticlePage = lazy(() => import('./components/seo/GuideArticlePage'));
 const GuidesHub = lazy(() => import('./pages/GuidesHub'));
@@ -110,10 +115,12 @@ const SearchConsoleOpportunities = lazy(() => import('./pages/SearchConsoleOppor
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
 const Support = lazy(() => import('./pages/Support'));
+const FromTheDesk = lazy(() => import('./pages/FromTheDesk'));
 const OpenSentenceStoryboard = lazy(() => import('./pages/OpenSentenceStoryboard'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
 const SharedEdition = lazy(() => import('./pages/SharedEdition'));
 const LentBook = lazy(() => import('./pages/LentBook'));
+const Museum = lazy(() => import('./pages/Museum'));
 const RetiredShare = lazy(() => import('./pages/RetiredShare'));
 const QuestionSharePreview = lazy(() => import('./pages/QuestionSharePreview'));
 const SharedWikiPage = lazy(() => import('./pages/SharedWikiPage'));
@@ -253,7 +260,8 @@ const DataIntegrationsRedirect = () => {
   return <Navigate to={`/connections${location.search}${hash}`} replace />;
 };
 
-export const isPublicSharePath = (pathname = '') => pathname.startsWith('/share/');
+// What someone shared: a page behind /share/, or a museum they opened.
+export const isPublicSharePath = (pathname = '') => pathname.startsWith('/share/') || pathname.startsWith('/museum/');
 
 export const isDesignPreviewPath = (pathname = '') => (
   pathname === '/design-preview' || pathname.startsWith('/design-preview/')
@@ -261,7 +269,8 @@ export const isDesignPreviewPath = (pathname = '') => (
 
 /* Pages that read the same signed in or out. They are drawn by the public
    tree either way, so they are declared once. */
-const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', '/support', ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
+const DESK_PAGES = Object.keys(deskContent);
+const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', '/support', ...DESK_PAGES.map((page) => `/${page}`), ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
 export const isPublicPage = (pathname = '') => (
   isPublicSharePath(pathname) || isDesignPreviewPath(pathname) || PUBLIC_PAGES.has(pathname)
 );
@@ -274,6 +283,7 @@ const PublicRoutes = ({ handleLoginSuccess }) => {
     || location.pathname === '/guides'
     || location.pathname === '/examples'
     || location.pathname === '/proof'
+    || DESK_PAGES.includes(location.pathname.slice(1))
     || isDesignPreviewPath(location.pathname)
   );
   const isEditorialPublicRoute = (
@@ -304,12 +314,15 @@ const PublicRoutes = ({ handleLoginSuccess }) => {
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/support" element={<Support />} />
+          {DESK_PAGES.map((page) => <Route key={page} path={`/${page}`} element={<FromTheDesk page={page} />} />)}
           <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
           <Route path="/design-preview/question-share" element={<QuestionSharePreview />} />
           <Route path="/share/concepts/:slug" element={<RetiredShare kind="concepts" />} />
           <Route path="/share/questions/:slug" element={<SharedQuestion />} />
           <Route path="/share/editions/:slug" element={<SharedEdition />} />
           <Route path="/share/books/:slug" element={<LentBook />} />
+          {/* One route, so walking from the wall into a piece keeps the same wall. */}
+          <Route path="/museum/:handle/:accession?" element={<Museum />} />
           <Route path="/share/notebooks/:slug" element={<RetiredShare kind="notebooks" />} />
           <Route path="/share/volumes/:slug" element={<RetiredShare kind="volumes" />} />
           <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
@@ -317,7 +330,8 @@ const PublicRoutes = ({ handleLoginSuccess }) => {
           <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
           <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
           <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
-          <Route path="/settings/connected-agents/chatgpt" element={<ChatGPTConnectAuthorize />} />
+          <Route path="/settings/connected-agents/connect" element={<ConnectAppAuthorize />} />
+          <Route path="/settings/connected-agents/chatgpt" element={<ConnectAppAuthorize />} />
           <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
           <Route
             path="/register"
@@ -498,6 +512,7 @@ function App() {
     bootstrapDevTokenFromLocation() || hasUsableStoredToken()
   ));
   const [isLoading, setIsLoading] = useState(true);
+  useRoomHours();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const paletteReturnFocusRef = useRef(null);
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
@@ -816,6 +831,7 @@ function App() {
             <Route path="/library/books/:id" element={<LegacyBookRedirect />} />
             <Route path="/books" element={<Books />} />
             <Route path="/books/:id" element={<Books />} />
+            <Route path="/museum" element={<MuseumEditor />} />
             {/* Papers an agent maintains. Not a fifth room in the nav — the
                 four rooms are what you did, and an edition is something that
                 arrived. The Paper carries the door to it. */}
@@ -867,7 +883,8 @@ function App() {
             <Route path="/connections" element={<Integrations />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
-            <Route path="/settings/connected-agents/chatgpt" element={<ChatGPTConnectAuthorize />} />
+            <Route path="/settings/connected-agents/connect" element={<ConnectAppAuthorize />} />
+            <Route path="/settings/connected-agents/chatgpt" element={<ConnectAppAuthorize />} />
             <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
             <Route path="/data-integrations" element={<DataIntegrationsRedirect />} />
             <Route path="/marketing-analytics" element={<MarketingAnalytics />} />

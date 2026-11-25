@@ -22,6 +22,7 @@ import { sourceKind } from './reader/readerDress';
 import ExplainItBack, { useModelReads } from './reader/ExplainItBack';
 import PassageDoor from './reader/PassageDoorView';
 import { ArticleMargins, paragraphAt } from './margins/LibraryMargins';
+import WhatItAdded from './added/WhatItAdded';
 import { useMarginAsk } from './margins/MarginAnswer';
 import useSourceWhereabouts from './reader/useSourceWhereabouts';
 import OpenedLibraryPassage, { LibraryOriginReturn } from './wiki/open-sentence/OpenedLibraryPassage';
@@ -47,6 +48,7 @@ import { sourceLabel } from './library/libraryColumnModel';
 import { formatCalendarDate } from '../utils/dateDisplay';
 import { sourceTitle } from '../utils/sourceDisplayText';
 import AddToProject from '../work/AddToProject';
+import HangInMuseum from './museum/HangInMuseum';
 
 const hasReadableContent = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
@@ -603,6 +605,7 @@ const ArticleReader = ({
             {published ? <span>{published}</span> : null}
             <OpenSource key={article._id} article={article} />
             <AddToProject kind="article" id={article._id} title={article.title} />
+            <HangInMuseum kind="article" id={article._id} />
           </div>
           {placement !== 'stream' && article.placementReason ? <p className="article-reader-why">{article.placementReason}</p> : null}
           {folioLine ? <ArticleFolioLine line={folioLine} articleId={article._id} /> : null}
@@ -690,6 +693,7 @@ const ArticleReader = ({
           <button type="button" aria-pressed={placement === 'setAside'} onClick={() => park(placement === 'setAside' ? 'stream' : 'setAside')}>Set aside</button>
         </p>
       ) : null}
+      <WhatItAdded articleId={articleId} contentKey={highlights.length} hidden={Boolean(reading.readFresh)} />
       <ExplainItBack articleId={articleId} available={modelReads} />
       {sourceTrace}
       {closingLine || whereabouts.length || against ? (

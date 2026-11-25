@@ -67,6 +67,10 @@ export const closeBook = async (id, line = '') => (
 export const reopenBook = async (id) => (
   (await api.delete(`/api/books/${encodeURIComponent(id)}/closed`, getAuthHeaders())).data
 );
+/* Renaming a book; the marks its imports bring still find it. */
+export const renameBook = async (id, title) => (
+  (await api.put(`/api/books/${encodeURIComponent(id)}/title`, { title }, getAuthHeaders())).data
+);
 /* Starting a finished book again: the reading you closed is kept, with its marks. */
 export const readAgain = async (id) => (
   (await api.post(`/api/books/${encodeURIComponent(id)}/again`, {}, getAuthHeaders())).data
@@ -112,6 +116,16 @@ export const getLentBook = async (slug) => (
 /* The questions still open beside a book, answered only from the passages marked in it. */
 export const askBook = async (id) => (
   (await api.post(`/api/books/${encodeURIComponent(id)}/ask`, {}, getAuthHeaders())).data?.answers || []
+);
+
+/* A line put to the rest of your library: who else said it, or (echo) what you marked nearly the same a year or more ago. */
+export const heardBefore = async (id, line, { echo = false } = {}) => (
+  (await api.post(`/api/books/${encodeURIComponent(id)}/heard`, { line, echo }, getAuthHeaders())).data?.passage || null
+);
+
+/* The strongest objection to a line typed beside a book. */
+export const argueLine = async (id, line) => (
+  (await api.post(`/api/books/${encodeURIComponent(id)}/argue`, { line }, getAuthHeaders())).data?.objection || ''
 );
 
 export const listImportConnections = async ({ provider = '' } = {}) => {
@@ -163,6 +177,11 @@ export const previewReadwiseConnection = async ({ connectionId, importSessionId 
     importSessionId
   }, getAuthHeaders());
   return response.data || {};
+};
+
+// The provider's approval, finished by the account signed in here.
+export const finishImportOAuth = async ({ provider, code, state }) => {
+  await api.post(`/api/import/${provider}/oauth/finish`, { code, state }, getAuthHeaders());
 };
 
 export const startNotionOAuth = async () => {

@@ -9,6 +9,7 @@ import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
 import { EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
 import HandOff from '../../handoff/HandOff';
+import HangInMuseum from '../../museum/HangInMuseum';
 import EntryHistory from '../editor/EntryHistory';
 import { passageSlashItems } from '../editor/slashCommands';
 import { begunLine, countWords } from '../../../pages/thinkNotesModel';
@@ -49,6 +50,7 @@ import { resolveNotebookSource } from './notebookSourceModel';
 import useNotebookSourceEvergreen from './useNotebookSourceEvergreen';
 import NotebookArrangementRail from './NotebookArrangementRail';
 import NotebookWorkbenchPanel from './NotebookWorkbenchPanel';
+import NotebookOutline, { OUTLINE_DRAG } from './NotebookOutline';
 import NotebookAlternativesRail, { comparesPartnerWording } from './NotebookAlternativesRail';
 import useNotebookWorkbench from './useNotebookWorkbench';
 import useGhostQuote, { GhostQuote } from './useGhostQuote';
@@ -81,6 +83,7 @@ import {
 } from '../../../utils/notebookWorkbench';
 import { readTighterSupport, rescueReadTighterPhrase } from '../../../utils/notebookReadTighter';
 import { notebookWritingExtensions } from '../editor/notebookWriting';
+import { pencilWordCount, writeIntoDraft } from '../editor/pencilLines';
 import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../../utils/sourceRoutes';
 import '../../../styles/think-writing.css';
 
@@ -499,11 +502,25 @@ const NotebookEditor = ({
     if (editor) editor.setEditable(editingBody);
   }, [editor, editingBody]);
 
+  /* Editable before the caret moves: a closed editor takes no selection, so
+     focusing it would neither place the caret nor scroll to it. Quietly, since
+     opening the page is not an edit to save. Tiptap lands focus a frame later,
+     and its own scroll misses Think's scrolling shell, so the page is brought to
+     the caret in the frame after it lands. */
+  const resumeWriting = useCallback((target) => {
+    editor?.setEditable(true, false);
+    setEditingBody(true);
+    const found = focusEditorTarget(editor, target);
+    setReturnTarget(found ? target : null);
+    if (!found) editor?.commands.focus('end');
+    window.requestAnimationFrame(() => editor?.commands.scrollIntoView());
+  }, [editor]);
+
   /* Opening a different note starts it closed again. Carrying the open state
      across would mean the second note you looked at was live before you had
      read a word of it. */
   useEffect(() => {
-    setEditingBody(startWriting === true);
+    setEditingBody(Boolean(startWriting));
     setBodyHasFocus(false);
     setHeldTarget(null);
     setActiveTrialId('');
@@ -513,15 +530,16 @@ const NotebookEditor = ({
     setWorkbenchReceipt(null);
     setReturnTarget(null);
     setStageSelection(false);
-    const focusFrame = startWriting === true
-      ? window.requestAnimationFrame?.(() => editor?.commands.focus('start'))
-      : null;
+    const focusFrame = startWriting && editor ? window.requestAnimationFrame(() => {
+      if (startWriting === 'next') resumeWriting(workbenchLatestRef.current.state.nextTimeLine.target);
+      else editor.commands.focus('start');
+    }) : null;
     setSaveState('idle');
     saveSequenceRef.current += 1;
     dirtyRef.current = false;
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     return () => { if (focusFrame != null) window.cancelAnimationFrame?.(focusFrame); };
-  }, [entry?._id, startWriting, editor]);
+  }, [entry?._id, startWriting, editor, resumeWriting]);
 
   const startEditingBody = (event) => {
     if (editingBody) return;
@@ -561,9 +579,21 @@ const NotebookEditor = ({
   const handleInsertHighlightRef = useRef(null);
   useEffect(() => { handleInsertHighlightRef.current = handleInsertHighlight; });
   const wordCount = useMemo(
-    () => countWords(editor?.getText?.() || '') - dimmedWordCount(editor?.state?.doc, workbench.state.dimmed),
+    () => countWords(editor?.getText?.() || '') - dimmedWordCount(editor?.state?.doc, workbench.state.dimmed) - pencilWordCount(editor?.state?.doc),
     [editor, docTick, workbench.state.dimmed] // eslint-disable-line react-hooks/exhaustive-deps
   );
+
+  const blockIdsInDraft = useMemo(() => {
+    const ids = new Set();
+    editor?.state?.doc?.descendants?.(node => { if (node.attrs?.blockId) ids.add(node.attrs.blockId); });
+    return ids;
+  }, [editor, docTick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const writeOutlineOut = (nodes) => {
+    const written = writeIntoDraft(editor, nodes);
+    if (written) setEditingBody(true);
+    return written;
+  };
 
   /* Pull a passage in from anywhere (⌘K): the passage picker opens on the note. */
   useEffect(() => {
@@ -1701,11 +1731,13 @@ const NotebookEditor = ({
           >Try wording</Button>
           <Button variant="quiet" data-context-trigger="scratchpad" onClick={() => { holdCurrentPlace(); onOpenContext?.('scratchpad'); }}>Scratchpad</Button>
           <Button variant="quiet" data-context-trigger="material" onClick={() => openMaterial()}>Highlights</Button>
+          <Button variant="quiet" data-context-trigger="outline" onClick={() => { holdCurrentPlace(); onOpenContext?.('outline'); }}>Outline</Button>
           <Button variant="quiet" onClick={handleExport}>Export draft</Button>
           <Button variant="quiet" onClick={handleRecoveryExport}>Download a copy</Button>
           <Button variant="quiet" onClick={handleSettle} disabled={settlement.settling}>{settlement.action}</Button>
           <Button variant="quiet" onClick={() => setOrganizeOpen(previous => !previous)}>Structure</Button>
           <Button variant="quiet" onClick={openHistory}>History</Button>
+          {isMongoObjectId(entry._id) ? <HangInMuseum kind="note" id={entry._id} className={buttonClass('quiet')} /> : null}
           <HandOff key={entry._id} context={{ kind: 'note', id: entry._id, title: entry.title || 'Untitled' }}
             readExcerpt={() => {
               const target = domNotebookTarget(editor) || selectionNotebookTarget(editor) || highlightedRef.current;
@@ -1750,13 +1782,7 @@ const NotebookEditor = ({
           {settlement.lines}
         </div>
         {returnContext ? <ArgumentReturn line={nextLine} context={returnContext} sourceAction={sameReturnSource && keepSource}
-          onResume={() => {
-            setEditingBody(true);
-            const found = focusEditorTarget(editor, nextLine.target);
-            setReturnTarget(found ? nextLine.target : null);
-            if (!found) editor?.commands.focus('end');
-            editor?.commands.scrollIntoView?.();
-          }} /> : null}
+          onResume={() => resumeWriting(nextLine.target)} /> : null}
         {historyOpen ? (
           <EntryHistory kind="note" entryId={String(entry._id)} onRestore={restoreRevision} onClose={() => setHistoryOpen(false)} />
         ) : null}
@@ -1772,7 +1798,7 @@ const NotebookEditor = ({
                     ? `Return to ${notebookSourceMeta.label}`
                     : notebookSourceMeta.label}
                 </a>
-                <p>
+                {notebookSourceMeta.kind !== 'edition' ? <p>
                   {notebookSourceMeta.kind === 'library' ? (
                     'This started from a highlight. Open it any time; you won’t lose your place.'
                   ) : (
@@ -1783,7 +1809,7 @@ const NotebookEditor = ({
                       {notebookSourceMeta.importedAt ? ` Started here on ${notebookSourceMeta.importedAt}.` : ''}
                     </>
                   )}
-                </p>
+                </p> : null}
               </div>
               {notebookSourceMeta.kind === 'concept' ? (
                 <a className={buttonClass('quiet', 'think-notebook-editor-provenance__link')} href={notebookSourceMeta.href}>
@@ -1938,6 +1964,8 @@ const NotebookEditor = ({
         tabIndex={editingBody ? -1 : 0}
         aria-label={editingBody ? undefined : 'Writing'}
         onClick={startEditingBody}
+        // A point carried over from the outline opens the page for writing, so it can land.
+        onDragEnter={(event) => { if (!editingBody && event.dataTransfer?.types?.includes(OUTLINE_DRAG)) setEditingBody(true); }}
         onFocus={(event) => {
           setBodyHasFocus(true);
           if (!editingBody && event.target === event.currentTarget) startEditingBody();
@@ -2020,7 +2048,18 @@ const NotebookEditor = ({
           }}
         />, alternativesPortal
       ) : null}
-      {contextPortal ? createPortal(
+      {contextPortal && activeContext === 'outline' ? createPortal(
+        <NotebookOutline
+          key={entry._id}
+          points={workbench.state.outline}
+          written={blockIdsInDraft}
+          createId={createId}
+          onChange={(outline) => workbench.update(current => ({ ...current, outline }))}
+          onWriteOut={writeOutlineOut}
+          onGoTo={(blockId) => focusEditorTarget(editor, { blockId })}
+        />,
+        contextPortal
+      ) : contextPortal ? createPortal(
         <NotebookWorkbenchPanel
           key={entry._id}
           onOpenTrial={(trial) => { onFocusAlternatives?.(); setHeldTarget(trial.target); setActiveTrialId(trial.id); setEphemeralTrial(null); setTrialPreview('original'); setWorkbenchView('trial'); }}

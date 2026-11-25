@@ -12,7 +12,7 @@ const props = { day: today, today, items: [task], notes: [], folders: [], onActi
 
 test('today starts expanded, folds with its draft intact, and uses existing task actions', () => {
   render(<WorkDayTasks {...props} />);
-  const summary = screen.getByText('Today’s to-dos');
+  const summary = screen.getByText('To-dos');
   expect(summary.closest('details')).toHaveAttribute('open');
   fireEvent.click(screen.getByRole('button', { name: 'Add to-do' }));
   const input = screen.getByRole('textbox', { name: 'Add a line' });
@@ -86,11 +86,29 @@ test('the follow-up panel plans a day from the week strip and shows which priori
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ plannedOn: '2026-11-18', priority: 1, dueOn: '' }));
 });
 
-test('Earlier leaves out a to-do already listed under a weekly priority', () => {
+test('Earlier keeps linked to-dos and shows their weekly priority', () => {
   const linked = { ...task, id: 'linked', _id: 'linked', clientId: 'local-linked', title: 'Send the deck', plannedOn: '2026-11-12' };
   const loose = { ...task, id: 'loose', _id: 'loose', clientId: 'local-loose', title: 'Book the room', plannedOn: '2026-11-13' };
-  render(<WorkTaskAssignment.Provider value={{ priorities: [{ id: 'p', title: 'Raise', taskIds: ['linked'] }], disabled: false, link: jest.fn() }}><WorkDayTasks {...props} items={[task, linked, loose]} /></WorkTaskAssignment.Provider>);
+  render(<WorkTaskAssignment.Provider value={{ priorities: [{ id: 'p', title: 'Raise', taskIds: ['linked'] }], disabled: false, link: jest.fn(), onWeek: jest.fn() }}><WorkDayTasks {...props} items={[task, linked, loose]} /></WorkTaskAssignment.Provider>);
   const earlier = screen.getByRole('region', { name: 'Carried from earlier' });
   expect(earlier).toHaveTextContent('Book the room');
-  expect(earlier).not.toHaveTextContent('Send the deck');
+  expect(earlier).toHaveTextContent('Send the deck');
+  expect(earlier).toHaveTextContent('Raise');
+});
+
+test('after six it says pencils down and names what tomorrow starts with', () => {
+  const evening = jest.spyOn(Date.prototype, 'getHours').mockReturnValue(19);
+  const tomorrow = { ...task, id: 'next', _id: 'next', clientId: 'local-next', title: 'Send the memo', plannedOn: '2026-11-17' };
+  const { rerender } = render(<WorkDayTasks {...props} items={[task, tomorrow]} />);
+  expect(screen.getByText(/^Pencils down\./)).toHaveTextContent('Pencils down. Tomorrow starts with Send the memo.');
+  rerender(<WorkDayTasks {...props} />);
+  expect(screen.getByText(/^Pencils down\./)).toHaveTextContent('Pencils down. Tomorrow is clear.');
+  evening.mockRestore();
+});
+
+test('an old carried to-do fades like old ink', () => {
+  const old = { ...task, id: 'old', _id: 'old', clientId: 'local-old', title: 'Reply to the auditor', plannedOn: '2026-10-01' };
+  const { container } = render(<WorkDayTasks {...props} items={[task, old]} />);
+  expect(container.querySelector('[data-ink="faded"]')).toHaveTextContent('Reply to the auditor');
+  expect(screen.queryByText(/^Pencils down/)).toBeNull();
 });

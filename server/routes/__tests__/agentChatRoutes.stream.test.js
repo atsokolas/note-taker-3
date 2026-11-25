@@ -20,10 +20,17 @@ const buildRouter = (overrides = {}) => buildAgentChatRouter({
     req.user = { id: 'user-1' };
     next();
   },
-  authenticatePersonalAgentKey: (_req, _res, next) => next(),
+  authenticatePersonalAgentKey: (req, _res, next) => {
+    req.personalAgent = { id: 'agent-1', userId: 'user-1', name: 'Charlie', capabilities: { read: true, search: true }, persona: 'munger' };
+    next();
+  },
   getUserAgentEntitlements: async () => ({ premiumWebResearchAvailable: false }),
   generateCollaborativeReply: async (args) => {
     overrides.calls.push(args);
+    if (args.message.startsWith('Search')) {
+      args.onStep({ stage: 'search', summary: 'Searching your library for “loss aversion”.' });
+      args.onStep({ stage: 'retrieve', summary: 'Found 2 passages.' });
+    }
     return {
       reply: 'Loss aversion "can make alternatives feel more painful than they are."',
       relatedItems: [],
@@ -125,6 +132,37 @@ const run = async () => {
     const privateBody = await ask({ message: 'Think through my distinction.', context: { pageId: exploration.pageId, claimId: exploration.claimId, metadata: { exploration } } });
     assert.deepStrictEqual(observed.calls[1].context.metadata.exploration, exploration, 'The agent receives the exact working state.');
     assert.ok(!privateBody.includes('Read the selected wiki page.'), 'Do not announce unverified reading before the private context resolves.');
+
+    // What the Partner reads arrives while it reads, before any of the answer,
+    // and is not told again afterwards.
+    const searching = await ask({ message: 'Search for loss aversion.', context });
+    const events = searching.split('\n').filter(line => line.startsWith('event: ')).map(line => line.slice(7));
+    assert.ok(events.indexOf('agent-activity') < events.indexOf('agent-delta'));
+    const watched = JSON.parse(searching.split('event: agent-final\ndata: ')[1].split('\n')[0]);
+    assert.deepStrictEqual(watched.activityReceipts.map(receipt => receipt.summary).slice(0, 3), [
+      'Read the selected wiki page.',
+      'Searching your library for “loss aversion”.',
+      'Found 2 passages.'
+    ]);
+    assert.ok(!searching.includes('Answered from the selected wiki page.'));
+
+    // A personal agent reads with the mind it was given.
+    const byo = await fetch(`${url}/api/agent/byo/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: 'Strike at my thesis.' })
+    });
+    assert.strictEqual(byo.status, 200);
+    assert.strictEqual(observed.calls.at(-1).persona, 'munger', 'The agent’s persona reaches the reply.');
+
+    // A question asked from nowhere in particular still reaches the agent.
+    const plain = await fetch(`${url}/api/agent/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: 'What have I written about hiring?' })
+    });
+    assert.strictEqual(plain.status, 200);
+    assert.deepStrictEqual(observed.calls.at(-1).context, {}, 'No page means an empty page, never null.');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

@@ -1,0 +1,22 @@
+/* A page written by a person: one column of type on the page, ruled like a paper. */
+.from-the-desk {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 88px 24px 120px;
+  color: var(--text-primary);
+  font: 1.12rem/1.65 var(--font-serif);
+}
+.from-the-desk header { padding-bottom: 22px; margin-bottom: 30px; border-bottom: 3px double var(--text-primary); }
+.from-the-desk__kicker,
+.from-the-desk__dateline { margin: 0 0 10px; font: 700 0.7rem/1.4 var(--font-sans); letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); }
+.from-the-desk h1 { margin: 0 0 14px; font: 700 clamp(2.2rem, 5vw, 3.4rem)/1.02 var(--font-serif); letter-spacing: -0.02em; text-wrap: balance; }
+.from-the-desk__standfirst { margin: 0; font-style: italic; font-size: 1.24rem; line-height: 1.45; color: var(--text-secondary); }
+.from-the-desk__issue { padding: 26px 0 8px; border-top: 1px solid var(--border-subtle); }
+.from-the-desk__issue:first-of-type { padding-top: 0; border-top: 0; }
+.from-the-desk h2 { margin: 0 0 12px; font: 700 1.6rem/1.15 var(--font-serif); letter-spacing: -0.01em; }
+.from-the-desk p { margin: 0 0 16px; }
+.from-the-desk a { color: inherit; text-underline-offset: 3px; }
+.from-the-desk__signed { margin-top: 28px !important; font-style: italic; text-align: right; }
+.from-the-desk__links { display: flex; gap: 22px; margin-top: 48px; padding-top: 14px; border-top: 1px solid var(--border-subtle); font: 0.9rem/1.5 var(--font-sans); }
+.from-the-desk__links a { color: var(--text-secondary); text-decoration: none; }
+.from-the-desk__links a:hover { color: var(--text-primary); text-decoration: underline; }

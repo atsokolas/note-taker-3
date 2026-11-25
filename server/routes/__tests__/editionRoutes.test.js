@@ -559,6 +559,16 @@ describe('the newsstand', () => {
       expect((await send(`/api/public/editions/${slug}`)).status).toBe(404);
     });
 
+    /* A paper thrown away takes its public link with it. */
+    it('deleting the edition ends its link', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      const { body: { slug } } = await share(made.body._id);
+      expect((await send(`/api/editions/${made.body._id}`, 'DELETE')).status).toBe(200);
+      expect((await send(`/api/public/editions/${slug}`)).status).toBe(404);
+    });
+
     /* A public edition is the reading. What the reader did with it afterwards
        is theirs. */
     it('publishes the paper and nothing about the reader', async () => {
@@ -762,6 +772,20 @@ describe('the newsstand', () => {
     expect(res.body.editions).toHaveLength(1);
     expect(res.body.editions[0].items).toBeUndefined();
     expect(res.body.editions[0].itemCount).toBe(2);
+  });
+
+  it('opens each paper’s newest issue on the stand when asked', async () => {
+    asAgent = true;
+    await send('/api/editions', 'POST', week());
+    await send('/api/editions', 'POST', week({ windowStart: '2026-09-08', windowEnd: '2026-09-14' }));
+    asAgent = false;
+    // Newest is the issue whose week starts last, the one the stand prints.
+    const rows = (await send('/api/editions?open=newest')).body.editions;
+    const newest = rows.find(row => String(row.windowStart).startsWith('2026-09-08'));
+    const older = rows.find(row => row !== newest);
+    expect(newest.items.map(row => row.title)).toEqual(['A paper about scaling', 'A second']);
+    expect(newest.filings).toHaveLength(2);
+    expect(older.items).toBeUndefined();
   });
 
   /* OpenClaw lists the stand before filing so it continues a run. A hundred

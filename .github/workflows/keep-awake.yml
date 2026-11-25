@@ -1,0 +1,16 @@
+# Render's free plan sleeps after 15 idle minutes, and a sleeping server
+# can't answer Claude.ai or ChatGPT in time. One always-on free service
+# fits Render's 750 free hours a month; ai_service stays asleep and uses none.
+name: Keep the API awake
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - run: curl --fail --silent --show-error --retry 3 --retry-delay 20 --max-time 90 -o /dev/null https://note-taker-3-unrg.onrender.com/api/version

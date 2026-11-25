@@ -195,3 +195,38 @@ test('a note keeps its references, code and rules through its Markdown', () => {
   const back = parseMarkdownNote({ name: 'refs.md', text: buildNotebookMarkdown({ title: 'Refs', blocks }) });
   assert.deepEqual(back.blocks, blocks);
 });
+
+test('a zip bomb dressed as an EPUB is skipped, not inflated', async () => {
+  const zlib = require('zlib');
+  const entry = (name, data, local) => {
+    const header = Buffer.alloc(46);
+    header.writeUInt32LE(0x02014b50, 0);
+    header.writeUInt16LE(8, 10);
+    header.writeUInt32LE(data.length, 20);
+    header.writeUInt16LE(name.length, 28);
+    header.writeUInt32LE(local, 42);
+    return Buffer.concat([header, Buffer.from(name)]);
+  };
+  const files = [
+    ['META-INF/container.xml', zlib.deflateRawSync('<rootfile full-path="book.opf"/>')],
+    ['book.opf', zlib.deflateRawSync('<item id="c" href="c.xhtml"/><itemref idref="c"/>')],
+    ['c.xhtml', zlib.deflateRawSync(Buffer.alloc(200 * 1024 * 1024))]
+  ];
+  const locals = [];
+  const blobs = files.map(([name, data]) => {
+    locals.push(locals.length ? locals.at(-1) + 30 + files[locals.length - 1][0].length + files[locals.length - 1][1].length : 0);
+    const local = Buffer.alloc(30);
+    local.writeUInt16LE(name.length, 26);
+    return Buffer.concat([local, Buffer.from(name), data]);
+  });
+  const body = Buffer.concat(blobs);
+  const directory = Buffer.concat(files.map(([name, data], index) => entry(name, data, locals[index])));
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(body.length, 16);
+  const buffer = Buffer.concat([body, directory, end]);
+  const result = await parseExportFile({ name: 'bomb.epub', buffer });
+  assert.deepEqual(result.sources, []);
+  assert.equal(result.skipped, 1);
+});

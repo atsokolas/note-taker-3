@@ -49,6 +49,13 @@ export const begunLine = (createdAt, words = 0, now = Date.now()) => {
   return words ? `Begun ${day} · ${words} ${words === 1 ? 'word' : 'words'}` : `Begun ${day}`;
 };
 
+/* The last two sentences you wrote, the very last one apart: the desk ends
+   where you stopped. A paragraph cut short at its start loses only its front. */
+export const whereYouStopped = (text = '') => {
+  const sentences = normalizeSpaces(text).match(/[^.!?…]+(?:[.!?…]+["'’”)\]]*|$)/g)?.map(part => part.trim()).filter(Boolean) || [];
+  return { before: sentences.length > 1 ? sentences.at(-2) : '', last: sentences.at(-1) || '' };
+};
+
 export const countWords = (text = '') => (String(text).match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) || []).length;
 
 /* One list, one editor. Notes, concepts and questions live in different
@@ -96,6 +103,11 @@ export const isTarget = (item, target) => Boolean(item && target && item.kind ==
   item.id.toLowerCase() === target.id.toLowerCase() || (item.recordId && item.recordId === target.id)
 ));
 
+/* A saved note carries its blocks; the summary only its last line. */
+const lastWritten = (entry) => normalizeSpaces(Array.isArray(entry?.blocks)
+  ? entry.blocks.map(block => block?.text).filter(text => text?.trim()).at(-1)
+  : entry?.lastLine);
+
 const suppressed = (row) => Boolean(row?.archived || row?.hiddenFromHome || row?.debugOnly);
 
 /**
@@ -110,8 +122,10 @@ export const buildThinkEntries = ({ notes = [], concepts = [], questions = [], f
     id: idOf(entry),
     title: noteTitle(entry),
     nextTimeLine: normalizeSpaces(entry?.workingState?.nextTimeLine?.text),
+    lastLine: lastWritten(entry),
     stage: stageOf(entry?.board),
     board: entry?.board || null,
+    createdAt: entry?.createdAt || null,
     updatedAt: entry?.updatedAt || entry?.createdAt || null
   })) : []),
   ...(filter === 'all' || filter === 'concept' ? list(concepts)

@@ -25,6 +25,9 @@ const ingestNextStep = (run = {}) => {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// A connection's far end, as the hit recall would have given for it.
+const hitOf = ({ type, id, articleId }) => (type === 'highlight' ? { kind: type, id: articleId, highlightId: id } : { kind: type, id });
+
 const pickId = (value) => {
   if (!value) return '';
   if (typeof value === 'string') return value;
@@ -1143,11 +1146,12 @@ export class NoeisClient {
 
   /* Where the reader stands, on a topic or in general, each item linked:
      the views they hold, their notes and marks, the questions they are
-     asking, and what agents left in pencil, kept apart. */
+     asking, what their reading added this week, and what agents left in
+     pencil, kept apart. Their taste is a summary, not a list, and has no link. */
   brief({ topic = '' } = {}) {
     return this.request('/api/brief', { query: { topic: cleanText(topic) } }).then(({ topic: asked, ...groups }) => ({
       topic: asked,
-      ...Object.fromEntries(Object.entries(groups).map(([kind, hits]) => [kind, hits.map(hit => ({ ...hit, link: this.linkFor(hit) }))]))
+      ...Object.fromEntries(Object.entries(groups).map(([kind, hits]) => [kind, Array.isArray(hits) ? hits.map(hit => ({ ...hit, link: this.linkFor(hit) })) : hits]))
     }));
   }
 
@@ -1180,6 +1184,12 @@ export class NoeisClient {
   read({ id }) {
     return this.request(`/api/recall/read/${encodeURIComponent(id)}`)
       .then(source => ({ ...source, link: this.linkFor(source) }));
+  }
+
+  /* What a source added, each connection with where it opens. */
+  added({ id }) {
+    return this.request(`/api/added/${encodeURIComponent(id)}`)
+      .then(({ added }) => ({ added: added.map(connection => ({ ...connection, link: this.linkFor(hitOf(connection.to)) })) }));
   }
 
   getEdition({ editionId } = {}) {

@@ -1,12 +1,17 @@
 const { personalContext } = require('../models/knowledgeContext');
+/** A notebook entry is a Mongoose document or its plain copy, read through Mongoose's own internals. */
+/** @typedef {import('../types/request').Fields} Fields */
+
 const OBJECT_ID_RE = /^[a-fA-F0-9]{24}$/;
 const BLOCK_OBJECT_ID_KEYS = ['highlightId', 'articleId', 'conceptId', 'questionId'];
 
+/** @param {any} value */
 const asPlain = (value) => {
   if (value == null || typeof value !== 'object' || Array.isArray(value)) return value;
   return typeof value.toObject === 'function' ? value.toObject() : { ...value };
 };
 
+/** @param {any} value @returns {string | null} */
 const asObjectIdOrNull = (value) => {
   if (value == null || value === '') return null;
   if (typeof value === 'object' && !Array.isArray(value)) {
@@ -17,6 +22,7 @@ const asObjectIdOrNull = (value) => {
   return OBJECT_ID_RE.test(raw) ? raw : null;
 };
 
+/** @param {any} block */
 const sanitizeNotebookBlock = (block, index = 0) => {
   if (!block || typeof block !== 'object' || Array.isArray(block)) return block;
   const next = asPlain(block);
@@ -27,10 +33,12 @@ const sanitizeNotebookBlock = (block, index = 0) => {
   return next;
 };
 
+/** @param {unknown} blocks */
 const sanitizeNotebookBlocks = (blocks) => (
   Array.isArray(blocks) ? blocks.map((block, index) => sanitizeNotebookBlock(block, index)) : []
 );
 
+/** @param {unknown} pieces */
 const sanitizeAsidePieces = (pieces) => (
   Array.isArray(pieces)
     ? pieces.map((piece, index) => {
@@ -56,17 +64,21 @@ const PERSISTED_IDENTITY_PROJECTION = {
   'importMeta.importSessionId': 1
 };
 
+/** @param {any} value @param {string} path */
 const dotted = (value, path) => (
-  path.split('.').reduce((cursor, part) => (cursor == null ? cursor : cursor[part]), value)
+  path.split('.').reduce((/** @type {any} */ cursor, part) => (cursor == null ? cursor : cursor[part]), value)
 );
 
+/** @param {Fields} entry */
 const identityCastErrors = (entry) => entry.$__?.validationError?.errors || null;
 
+/** @param {Fields} entry @param {string} path */
 const liveRead = (entry, path) => {
   if (typeof entry.$__getValue === 'function') return entry.$__getValue(path);
   return dotted(entry, path);
 };
 
+/** @param {Fields} entry @param {string} path */
 const readPath = (entry, path) => {
   const live = liveRead(entry, path);
   // CastError hides leftover values as undefined. Live null is an intentional clear.
@@ -76,6 +88,7 @@ const readPath = (entry, path) => {
   return live;
 };
 
+/** @param {any} entry */
 const attachPersistedIdentity = async (entry) => {
   if (!entry || entry.isNew) return entry;
   const errors = identityCastErrors(entry);
@@ -99,6 +112,7 @@ const attachPersistedIdentity = async (entry) => {
   return entry;
 };
 
+/** @param {Fields} entry @param {string} path @param {unknown} value */
 const writePath = (entry, path, value) => {
   if (typeof entry.set === 'function') {
     entry.set(path, value);
@@ -116,6 +130,7 @@ const writePath = (entry, path, value) => {
   cursor[parts[parts.length - 1]] = value;
 };
 
+/** @param {Fields} entry */
 const clearSanitizedCastErrors = (entry) => {
   if (typeof entry.$markValid !== 'function') return;
   const errors = entry.$__.validationError?.errors;
@@ -125,6 +140,7 @@ const clearSanitizedCastErrors = (entry) => {
   });
 };
 
+/** @param {any} entry */
 const sanitizeNotebookEntry = (entry) => {
   if (!entry || typeof entry !== 'object') return entry;
   writePath(entry, 'blocks', sanitizeNotebookBlocks(readPath(entry, 'blocks')));

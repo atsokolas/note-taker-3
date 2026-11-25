@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { getLibraryPeek } from '../../api/libraryCollection';
+import { sourceTitle } from '../../utils/sourceDisplayText';
+import { sourceLabel } from './libraryColumnModel';
 import { renderArticleContentWithHighlights } from '../../utils/highlightMarkup';
 import { previewPassage } from '../reader/articleReadingPlace';
 
@@ -30,30 +32,26 @@ export const sourcePassage = (article, row) => {
   };
 };
 
-export default function LibrarySourcePeek({ row, onRead, onPlace, onMove }) {
-  const [state, setState] = useState({ loading: true });
+export default function LibrarySourcePeek({ row, onRead, onPlace, onMove, onClose }) {
+  const { _id } = row;
+  const [article, setArticle] = useState(null);
+  const [error, setError] = useState(false);
   const [receipt, setReceipt] = useState(null);
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
-    setState({ loading: true });
-    getLibraryPeek(row._id)
-      .then((article) => {
-        if (active)
-          setState({ ...sourcePassage(article, row), loading: false });
+    setError(false);
+    getLibraryPeek(_id)
+      .then((source) => {
+        if (!source) throw new Error('Missing source');
+        if (active) setArticle(source);
       })
-      .catch(() => {
-        if (active)
-          setState({
-            error: 'This source could not open. Please retry.',
-            loading: false
-          });
-      });
-    return () => {
-      active = false;
-    };
-  }, [row, attempt]);
+      .catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, [_id, attempt]);
+  const passage = useMemo(() => article ? sourcePassage(article, row) : null, [article, row]);
+  const label = sourceLabel(row);
   const place = async (next) => {
     setBusy(true);
     try {
@@ -68,34 +66,34 @@ export default function LibrarySourcePeek({ row, onRead, onPlace, onMove }) {
     }
   };
   return (
-    <div className="library-inline-peek" id={`peek-${row._id}`}>
-      {state.loading ? (
-        <p role="status">Opening this source…</p>
-      ) : state.error ? (
+    <aside className="library-catalogue-preview" id={`peek-${_id}`} tabIndex={-1} aria-labelledby={`peek-title-${_id}`}>
+      <header>
+        <span className="library-row-label">Source preview</span>
+        <button type="button" className="library-peek-trigger" onClick={onClose}>Close preview</button>
+      </header>
+      <h2 id={`peek-title-${_id}`}>{sourceTitle(row)}</h2>
+      {label ? <p className="library-source-meta">{label}</p> : null}
+      {error ? (
         <p role="alert">
-          {state.error}{' '}
+          This source could not open. Please retry.{' '}
           <button onClick={() => setAttempt((value) => value + 1)}>
             Retry
           </button>
         </p>
-      ) : (
+      ) : !passage ? <p role="status">Opening this source…</p> : (
         <>
-          <p className="library-row-label">
-            {state.readable
-              ? 'From this article'
-              : 'Link saved, but the page’s text couldn’t be read'}
-          </p>
-          {state.anchor ? (
-            <blockquote>{state.anchor.text}</blockquote>
+          {!passage.readable ? <p className="library-row-label">Link saved, but the page’s text couldn’t be read</p> : null}
+          {passage.anchor ? (
+            <blockquote>{passage.anchor.text}</blockquote>
           ) : (
             <p>
               Open the original to read it.
             </p>
           )}
-          {state.highlight?.note ? (
+          {passage.highlight?.note ? (
             <p className="library-peek-thought">
               <span>Your thought</span>
-              {state.highlight.note}
+              {passage.highlight.note}
             </p>
           ) : null}
           <div className="library-peek-actions">
@@ -103,17 +101,17 @@ export default function LibrarySourcePeek({ row, onRead, onPlace, onMove }) {
               onClick={() =>
                 onRead(
                   row,
-                  state.anchor
+                  passage.anchor || passage.highlight
                     ? {
-                        anchor: state.anchor,
-                        highlightId: state.highlight?._id,
-                        thought: Boolean(state.highlight?.note)
+                        anchor: passage.anchor,
+                        highlightId: passage.highlight?._id,
+                        thought: Boolean(passage.highlight?.note)
                       }
                     : {}
                 )
               }
             >
-              {state.anchor ? 'Read from here →' : 'Details →'}
+              {passage.anchor ? 'Read from here →' : passage.highlight ? 'Open mark →' : 'Details →'}
             </button>
             <button disabled={busy} onClick={() => place('later')}>
               Nightstand
@@ -138,6 +136,6 @@ export default function LibrarySourcePeek({ row, onRead, onPlace, onMove }) {
           ) : null}
         </>
       )}
-    </div>
+    </aside>
   );
 }

@@ -2,7 +2,7 @@ const assert = require('assert');
 const express = require('express');
 const http = require('http');
 
-const { buildAuthDiscoveryRouter } = require('../authDiscoveryRoutes');
+const { buildAuthDiscoveryRouter, createLoginThrottle } = require('../authDiscoveryRoutes');
 
 const listen = (app) => new Promise((resolve) => {
   const server = http.createServer(app);
@@ -56,6 +56,12 @@ const run = async () => {
     for (let i = 0; i < 9; i += 1) await login('athan', 'wrong1pass');
     const throttled = await login('athan', 'right1pass');
     assert.strictEqual(throttled.status, 429, 'ten failures stop even the right password for a while');
+
+    // Wrong passwords sent from elsewhere never lock you out where you are.
+    const throttle = createLoginThrottle();
+    for (let i = 0; i < 10; i += 1) throttle.fail('athan', '203.0.113.9');
+    assert.strictEqual(throttle.blocked('athan', '203.0.113.9'), true);
+    assert.strictEqual(throttle.blocked('Athan', '198.51.100.4'), false);
     console.log('authDiscoveryRoutes.login tests passed');
   } finally {
     server.close();

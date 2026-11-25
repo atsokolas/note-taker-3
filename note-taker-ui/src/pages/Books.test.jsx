@@ -2,17 +2,17 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as Router from 'react-router-dom';
 import Books from './Books';
-import { askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, reopenBook, startBook, takeBookBack } from '../api/imports';
+import { askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, renameBook, reopenBook, startBook, takeBookBack } from '../api/imports';
 import { updateHighlight } from '../api/highlights';
 import useArticleDetail from '../hooks/useArticleDetail';
 import { listWikiPages, settleIntoWiki } from '../api/wiki';
-import { fetchMarginNotes } from '../api/retrieval';
+import { fetchAdded, fetchMarginNotes } from '../api/retrieval';
 
-jest.mock('../api/imports', () => ({ askBook: jest.fn(), beforeBook: jest.fn(), bookEcho: jest.fn(), lendBook: jest.fn(), takeBookBack: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
+jest.mock('../api/imports', () => ({ askBook: jest.fn(), beforeBook: jest.fn(), bookEcho: jest.fn(), lendBook: jest.fn(), takeBookBack: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), renameBook: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
 jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn(), settleIntoWiki: jest.fn() }));
-jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn() }));
+jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn(), fetchAdded: jest.fn() }));
 
 const at = (id) => {
   jest.spyOn(Router, 'useParams').mockReturnValue(id ? { id } : {});
@@ -24,6 +24,7 @@ beforeEach(() => {
   useArticleDetail.mockReturnValue({ article: null, highlights: [], error: '' });
   listWikiPages.mockResolvedValue([]);
   fetchMarginNotes.mockResolvedValue([]);
+  fetchAdded.mockResolvedValue([]);
   listBookQuestions.mockResolvedValue([]);
   bookEcho.mockResolvedValue(null);
   beforeBook.mockResolvedValue([]);
@@ -40,11 +41,70 @@ test('the shelf shows each book with what was written in it and the last line', 
     ]
   }]);
   at();
-  const book = await screen.findByRole('link', { name: /The Better Angels of Our Nature/ });
-  expect(book).toHaveAttribute('href', '/books/b1');
-  expect(book).toHaveTextContent('pp. 188–190 · 1 quote, 1 question');
-  expect(book).toHaveTextContent('Last marked p. 190');
-  expect(book).toHaveTextContent('Is he cherry-picking the base year?');
+  const book = await screen.findByRole('button', { name: 'The Better Angels of Our Nature' });
+  expect(book).toHaveAttribute('aria-pressed', 'true');
+  expect(book.closest('li')).toHaveStyle({ '--marks': '2', '--furthest': '190' });
+  const preview = screen.getByRole('complementary', { name: 'The Better Angels of Our Nature' });
+  expect(preview).toHaveTextContent('pp. 188–190 · 1 quote, 1 question');
+  expect(preview).toHaveTextContent('last marked at p. 190');
+  expect(preview).toHaveTextContent('Is he cherry-picking the base year?');
+  expect(screen.getByRole('link', { name: 'Open at p. 190' })).toHaveAttribute('href', '/books/b1?highlight=m2');
+});
+
+test('the shelf stands what you are reading before what you set down and finished, with a bookend between', async () => {
+  listBooks.mockResolvedValue([
+    { _id: 'done', title: 'Persuasion', finishedOn: '2026-11-12' },
+    { _id: 'now', title: 'Middlemarch' }
+  ]);
+  at();
+  await screen.findByRole('button', { name: 'Middlemarch' });
+  const spines = screen.getAllByRole('listitem').filter(item => item.classList.contains('books__volume'));
+  expect(spines.map(item => item.textContent)).toEqual(['Middlemarch', 'PersuasionNov']);
+  expect(spines[1]).toHaveAttribute('data-bookend', 'Finished');
+  fireEvent.click(screen.getByRole('button', { name: 'Persuasion' }));
+  expect(screen.getByRole('button', { name: 'Persuasion' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('link', { name: 'Open book' })).toHaveAttribute('href', '/books/done');
+});
+
+test('a heavily marked book keeps distinct ticks on its spine, not a bar', async () => {
+  listBooks.mockResolvedValue([{
+    _id: 'pb', title: 'The Power Broker',
+    marks: Array.from({ length: 400 }, (_, index) => ({ _id: `m${index}`, text: 'A line.', page: index * 4 + 1, createdAt: '2026-11-20T20:00:00Z' }))
+  }]);
+  at();
+  const spine = await screen.findByRole('button', { name: 'The Power Broker' });
+  const ticks = spine.querySelectorAll('.books__volume-ticks i');
+  expect(ticks.length).toBe(41);
+  expect(new Set([...ticks].map(tick => tick.style.top)).size).toBe(41);
+});
+
+test('back from a book, the shelf is scrolled to where its spine stood', async () => {
+  window.history.replaceState({ bookshelfPlace: { id: 'b1', status: 'Reading', top: 0, left: 240 } }, '');
+  listBooks.mockResolvedValue([{ _id: 'b1', title: 'Middlemarch' }]);
+  try {
+    at();
+    const spine = await screen.findByRole('button', { name: 'Middlemarch' });
+    await waitFor(() => expect(spine).toHaveFocus());
+    expect(spine.closest('ol').scrollLeft).toBe(240);
+  } finally {
+    window.history.replaceState(null, '');
+  }
+});
+
+test('filters and previews title-only records without needing artwork or a reading position', async () => {
+  listBooks.mockResolvedValue([
+    { _id: 'finished', title: 'Persuasion', finishedOn: '2026-11-12', closingLine: 'I would read it again.' },
+    { _id: 'reading', title: 'An Island Notebook' }
+  ]);
+  at();
+  await screen.findByRole('button', { name: 'An Island Notebook' });
+  fireEvent.click(screen.getByRole('button', { name: 'Reading' }));
+  expect(screen.queryByRole('button', { name: /Persuasion/ })).not.toBeInTheDocument();
+  expect(screen.getByRole('complementary', { name: 'An Island Notebook' })).toHaveTextContent('Nothing written yet.');
+  expect(screen.getByRole('link', { name: 'Open book' })).toHaveAttribute('href', '/books/reading');
+  expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Finished' }));
+  expect(screen.getByRole('complementary', { name: 'Persuasion' })).toHaveTextContent('I would read it again.');
 });
 
 test('naming a book opens its page', async () => {
@@ -68,6 +128,35 @@ test('a book has a page of its own: its name, and the desk', () => {
   expect(screen.getByRole('link', { name: '← Books' })).toHaveAttribute('href', '/books');
 });
 
+test('a book’s name is typed over in place: Enter keeps it, Esc puts the old one back', async () => {
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch', author: 'George Eliot' }, highlights: [], error: '' });
+  renameBook.mockResolvedValue({ title: 'Middlemarch: A Study of Provincial Life' });
+  at('b2');
+  const name = screen.getByRole('heading', { level: 1, name: 'Middlemarch' });
+  name.textContent = 'Middle';
+  fireEvent.keyDown(name, { key: 'Escape' });
+  expect(name).toHaveTextContent('Middlemarch');
+  expect(renameBook).not.toHaveBeenCalled();
+
+  name.focus();
+  name.textContent = '  Middlemarch: A Study of Provincial Life ';
+  fireEvent.keyDown(name, { key: 'Enter' });
+  expect(renameBook).toHaveBeenCalledTimes(1);
+  expect(renameBook).toHaveBeenCalledWith('b2', 'Middlemarch: A Study of Provincial Life');
+  await waitFor(() => expect(document.title).toMatch(/Provincial/));
+  expect(await screen.findByRole('heading', { level: 1, name: 'Middlemarch: A Study of Provincial Life' })).toBeInTheDocument();
+});
+
+test('a book’s name typed away to nothing stays its name', () => {
+  useArticleDetail.mockReturnValue({ article: { _id: 'b2', title: 'Middlemarch' }, highlights: [], error: '' });
+  at('b2');
+  const name = screen.getByRole('heading', { level: 1, name: 'Middlemarch' });
+  name.textContent = '   ';
+  fireEvent.blur(name);
+  expect(name).toHaveTextContent('Middlemarch');
+  expect(renameBook).not.toHaveBeenCalled();
+});
+
 test('a book opened from the shelf goes back to that history entry', () => {
   const location = jest.spyOn(Router, 'useLocation').mockReturnValue({ state: { fromShelf: true } });
   try {
@@ -88,13 +177,14 @@ test('a book closed a year ago this week comes back at the top of the shelf with
   const back = await screen.findByRole('link', { name: /A year ago today/ });
   expect(back).toHaveAttribute('href', '/books/b2');
   expect(back).toHaveTextContent('You finished Middlemarch and said you’d remember:Nobody is only what they do.Do you?');
-  expect(screen.getByRole('link', { name: /^Middlemarch/ })).toHaveTextContent(/Finished October 2025/);
+  fireEvent.click(screen.getByRole('button', { name: 'Middlemarch' }));
+  expect(screen.getByRole('complementary', { name: 'Middlemarch' })).toHaveTextContent(/Finished October 2025/);
 });
 
 test('nothing comes back when no book is having its anniversary', async () => {
   listBooks.mockResolvedValue([{ _id: 'b2', title: 'Middlemarch', finishedOn: '2026-10-01', closingLine: 'x', returning: null, marks: [] }]);
   at();
-  await screen.findByRole('link', { name: /Middlemarch/ });
+  await screen.findByRole('button', { name: 'Middlemarch' });
   expect(screen.queryByText(/ago/)).not.toBeInTheDocument();
 });
 
@@ -110,6 +200,9 @@ test('closing a book asks one sentence, says when it comes back, and can be undo
   closeBook.mockResolvedValue({ finishedOn: '2026-10-19', closingLine: 'Nobody is only what they do.' });
   reopenBook.mockResolvedValue({ finishedOn: '', closingLine: '' });
   at('b2');
+  expect(screen.getByRole('region', { name: 'When you finish' })).toHaveTextContent(
+    'You’ll write one sentence to remember it by, and your open question can be put to the book, answered only from what you marked.'
+  );
   fireEvent.click(screen.getByRole('button', { name: 'I’ve finished it' }));
   fireEvent.change(screen.getByLabelText('In one sentence, what will you remember?'), { target: { value: 'Nobody is only what they do.' } });
   fireEvent.click(screen.getByRole('button', { name: 'Close the book' }));
@@ -118,7 +211,8 @@ test('closing a book asks one sentence, says when it comes back, and can be undo
   expect(closeBook).toHaveBeenCalledWith('b2', 'Nobody is only what they do.');
   expect(colophon).toHaveTextContent(/Finished (19 October|October 19,) 2026/);
   expect(colophon).toHaveTextContent('Nobody is only what they do.');
-  expect(colophon).toHaveTextContent(/Read from (1 September|September 1,) 2026 · 2 sittings · pp\. 3–40 · 1 quote, 1 question/);
+  expect(colophon).toHaveTextContent(/Read in 2 sittings from (1 September|September 1,) 2026\./);
+  expect(colophon).toHaveTextContent('pp. 3–40 · 1 quote, 1 question · 3 words of your own · 1 question still open');
   expect(colophon).toHaveTextContent(/It comes back to you on (19 October|October 19,) 2027\./);
 
   fireEvent.click(screen.getByRole('button', { name: 'Still reading it' }));
@@ -165,7 +259,7 @@ test('reading a book again keeps the first reading: its sentence, and its marks 
   });
   readAgain.mockResolvedValue({
     finishedOn: '', closingLine: '',
-    readBefore: [{ finishedOn: '2025-10-19', closingLine: 'Nobody is only what they do.', until: '2026-10-24T09:00:00Z' }]
+    readBefore: [{ finishedOn: '2025-10-19', closingLine: 'Nobody is only what they do.', until: new Date().toISOString() }]
   });
   const { container } = at('b2');
   fireEvent.click(screen.getByRole('button', { name: 'Read it again' }));
@@ -191,13 +285,26 @@ test('the book says where it went in your wiki, one line per page', async () => 
 test('a book set down a month ago says so on the shelf, and stays there', async () => {
   listBooks.mockResolvedValue([{ _id: 'b1', title: 'Leviathan', createdAt: '2026-01-01T00:00:00Z', marks: [{ _id: 'm1', note: 'Hobbes on fear', page: 40, createdAt: '2026-02-03T20:00:00Z' }] }]);
   at();
-  expect(await screen.findByRole('link', { name: /Leviathan/ })).toHaveTextContent(/Set down in February 2026 · p\. 40 · 1 note/);
+  await screen.findByRole('button', { name: 'Leviathan' });
+  const book = screen.getByRole('complementary', { name: 'Leviathan' });
+  expect(book).toHaveTextContent('Set down in February 2026, last marked at p. 40');
+  expect(book).toHaveTextContent('1 note');
+  expect(screen.getByRole('button', { name: 'Leviathan' }).closest('li')).toHaveAttribute('data-status', 'Set down');
 });
 
 test('a book changed lately is not set down, whatever its marks’ dates', async () => {
   listBooks.mockResolvedValue([{ _id: 'b1', title: 'Leviathan', createdAt: '2026-01-01T00:00:00Z', updatedAt: new Date().toISOString(), marks: [{ _id: 'm1', note: 'Hobbes on fear', page: 40, createdAt: '2026-02-03T20:00:00Z' }] }]);
   at();
-  expect(await screen.findByRole('link', { name: /Leviathan/ })).not.toHaveTextContent(/Set down/);
+  await screen.findByRole('button', { name: 'Leviathan' });
+  expect(screen.getByRole('complementary', { name: 'Leviathan' })).not.toHaveTextContent(/Set down/);
+});
+
+test('an imported book was set down when you last marked it, not the day it arrived', async () => {
+  const arrived = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+  listBooks.mockResolvedValue([{ _id: 'b1', title: 'Thinking in Systems', createdAt: arrived, updatedAt: arrived, marks: [{ _id: 'm1', text: 'A system is more than the sum of its parts.', createdAt: '2024-03-02T20:00:00Z' }] }]);
+  at();
+  await screen.findByRole('button', { name: 'Thinking in Systems' });
+  expect(screen.getByRole('complementary', { name: 'Thinking in Systems' })).toHaveTextContent('Set down in March 2024');
 });
 
 test('beside a mark, the closest thing you marked in another book', async () => {

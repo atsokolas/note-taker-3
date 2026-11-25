@@ -1,4 +1,5 @@
 const express = require('express');
+const { sameName } = require('../utils/sameName');
 
 const buildTagInsightRouter = ({
   mongoose,
@@ -127,7 +128,7 @@ const buildTagInsightRouter = ({
       const userId = new mongoose.Types.ObjectId(req.user.id);
       const name = req.params.name;
 
-      const meta = await TagMeta.findOne({ name: new RegExp(`^${name}$`, 'i'), userId });
+      const meta = await TagMeta.findOne({ name: sameName(name), userId });
       const pinnedIds = meta?.pinnedHighlightIds || [];
 
       let pinnedHighlights = [];

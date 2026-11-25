@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { costLine, coverFigure, dekOf, frontPage, headlineOf, issueLine, latestOf, newCountOf, updatedLine, windowLine } from '../../pages/editionModel';
+import { costLine, coverFigure, dekOf, frontPage, headlineOf, hasNew, issueLine, latestOf, updatedLine, windowLine } from '../../pages/editionModel';
 import { Figures, Passage, SourceLink, Why } from './EditionLayer';
 
 /* Each paper wears its own cover, in the house's own inks. */
@@ -13,16 +13,16 @@ const issueName = (paper, issue) => issueLine({ ...issue, issueLabel: paper.issu
 const inkOf = (papers, paper) => COVERS[papers.indexOf(paper) % COVERS.length];
 const findingPath = (issue, item) => `/editions/${encodeURIComponent(issue._id)}?item=${encodeURIComponent(item.itemId)}`;
 
-/* A paper's newest issue, facing out: its strongest figure, its headline, and
-   a ribbon for what you have not read. */
+/* A paper's newest issue, facing out: its strongest figure, its headline,
+   and "New" ahead of its date when you have not read it. */
 function Cover({ papers, paper, opened, open = false }) {
   const latest = latestOf(paper);
   const figure = coverFigure(opened[latest._id]);
-  const fresh = newCountOf(paper.issues);
   const face = (
     <>
-      {fresh ? <span className="stand__ribbon">{fresh} new</span> : null}
-      <span className="stand__issue">{[issueName(paper, latest), updatedLine(latest)].filter(Boolean).join(' · ')}</span>
+      <span className="stand__issue">
+        {hasNew(paper.issues) ? <b>New · </b> : null}{[issueName(paper, latest), updatedLine(latest)].filter(Boolean).join(' · ')}
+      </span>
       <span className="stand__title">{paper.title}</span>
       {figure ? (
         <span className="stand__figure">

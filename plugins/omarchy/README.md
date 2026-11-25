@@ -117,9 +117,9 @@ Each answers with a notification; clicking it reads what was saved.
   is two keys from a page to your nightstand.
 - `omarchy-shell noeis saveSelection` (Super+Alt+T) saves the text you have
   highlighted in any app into your Library.
-- `omarchy-shell noeis saveScreenText` (Super+Ctrl+Alt+Print) reads text off
-  a part of the screen you pick, with Omarchy's own text capture, and saves it
-  the same way.
+- `omarchy-shell noeis saveScreenText` (Super+Ctrl+Alt+Print) reads text off a
+  part of the screen you pick and saves it the same way. It never goes through
+  your clipboard.
 - `noeis-open <link>` saves a link; `noeis-open <file>` brings an EPUB, PDF
   or Markdown file into your Library.
 
@@ -131,6 +131,10 @@ says so: "Two short pieces fit tonight. Notes on craft has waited longest,
 12 min." Short is what noeis.io calls short, fifteen minutes or less. When
 nothing short waits it says nothing. Clicking it opens that piece in the
 reading window.
+
+From a terminal, `noeis tonight` prints the same piece set as a card, and
+`noeis fortune` draws one passage of your own at random. Add `noeis fortune`
+to `~/.bashrc` and every new terminal opens on it.
 
 ## Moving around the app
 
@@ -179,7 +183,7 @@ Omarchy 4, which brings all of these:
 - `curl`, for `noeis-open`'s file uploads;
 - `jq`, to read the session in `noeis-open`;
 - `wl-paste` (from `wl-clipboard`), for the clipboard and highlighted text;
-- `omarchy-capture-text`, for saving text off the screen;
+- `slurp`, `grim`, `hyprpicker` and `tesseract`, for saving text off the screen;
 - Chromium or Google Chrome, for the Noeis app window.
 
 Like every Omarchy plugin it runs unsandboxed inside the shell, with your
@@ -207,7 +211,7 @@ rm -f ~/.config/noeis/omarchy.json
 | `Reader.qml` | The reading window |
 | `BarWidget.qml` | The mark in the bar; hosts the panel and hands the Service its settings |
 | `Panel.qml` | The panel: connecting, the field, search results, the nightstand, receipts |
-| `NoeisMark.qml` | The three-ring mark, drawn natively at bar size |
+| `NoeisMark.qml` | The woven N, drawn natively at bar size |
 | `Model.js` | The decisions, tested in node by `scripts/omarchy_plugin.test.js` |
 | `bin/noeis-open` | The reading window, links onto the nightstand, files into your Library, and noeis.io itself with `--web` |
 | `bin/noeis-setup` | Keys, launcher entries and the Share menu; optional, with `--dry-run` and `--remove` |

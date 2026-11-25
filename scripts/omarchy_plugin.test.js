@@ -196,6 +196,11 @@ for (const file of qml) {
   assert.doesNotMatch(source, /\b(Image|AnimatedImage|BorderImage)\s*\{|RichText|StyledText|MarkdownText/, `${file} loads no image and renders no markup`);
 }
 
+// The bar wears the logo noeis.io does.
+const strands = text => [...text.matchAll(/(?: d=|path: )"([^"]+)"/g)].map(m => m[1]);
+assert.deepStrictEqual(strands(read('NoeisMark.qml')),
+  strands(fs.readFileSync(path.join(__dirname, '..', 'note-taker-ui', 'src', 'assets', 'noeis-mark.svg'), 'utf8')), 'the mark is the woven N');
+
 // Every network call from the scripts is https only, with a deadline; the
 // session is written by one private writer, never by FileView.
 for (const file of ['bin/noeis-open', 'bin/noeis-setup']) {
@@ -224,42 +229,83 @@ const named = ['bin/noeis-open', 'bin/noeis-setup', 'README.md', 'Service.qml'].
 assert.ok(named.length >= 4);
 for (const call of named) assert.ok(answers.has(call), `noeis ${call} is answered`);
 
-// noeis-setup, run against a throwaway home: --dry-run changes nothing, a
-// second run changes nothing, it never loads anything into the browser (and
-// takes out the old bundled extension), and --remove leaves every file as it
-// found it.
-{
-  const { execFileSync } = require('node:child_process');
-  const os = require('node:os');
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-setup-'));
-  const stub = path.join(home, 'stub');
+// The scripts run against a throwaway home, with stand-ins for what they call.
+const { execFileSync, spawnSync } = require('node:child_process');
+const os = require('node:os');
+const script = name => path.join(plugin, 'bin', name);
+function inThrowawayHome(stubs, run) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-'));
   const at = file => path.join(home, file);
   const write = (file, text, mode) => { fs.mkdirSync(path.dirname(at(file)), { recursive: true }); fs.writeFileSync(at(file), text, { mode }); };
-  write('stub/omarchy-webapp-install', '#!/bin/sh\nmkdir -p "$HOME/.local/share/applications" && : >"$HOME/.local/share/applications/$1.desktop"\n', 0o755);
-  write('stub/omarchy-webapp-remove', '#!/bin/sh\nrm -f "$HOME/.local/share/applications/$1.desktop"\n', 0o755);
+  for (const [name, body] of Object.entries(stubs)) write(`stub/${name}`, `#!/bin/bash\n${body}\n`, 0o755);
+  const env = { ...process.env, HOME: home, XDG_CONFIG_HOME: at('.config'), PATH: `${at('stub')}:${process.env.PATH}` };
+  try { run({ at, write, env, home }); } finally { fs.rmSync(home, { recursive: true, force: true }); }
+}
+
+// A file's name is its own, never curl's syntax: curl is asked (--libcurl)
+// which files it would send, and a name with commas, semicolons, quotes and
+// backslashes is the one file it names.
+const curl = execFileSync('bash', ['-c', 'command -v curl'], { encoding: 'utf8' }).trim();
+inThrowawayHome({
+  curl: `exec ${curl} "$@" --libcurl "$HOME/sent.c"`,
+  'omarchy-notification-send': ':'
+}, ({ at, write, env, home }) => {
+  write('.config/noeis/omarchy.json', '{"token":"t"}');
+  write('private.txt', 'private');
+  for (const name of ['book.epub', 'book.epub,private.txt', 'book.epub;type=text/html', 'say "hi".md', 'back\\slash.md', 'q\\",private.txt']) {
+    write(name, name);
+    fs.rmSync(at('sent.c'), { force: true });
+    spawnSync('bash', [script('noeis-open'), name], { cwd: home, env: { ...env, NOEIS_API_URL: 'https://127.0.0.1:1' } });
+    const sent = [...fs.readFileSync(at('sent.c'), 'utf8').matchAll(/curl_mime_filedata\(\w+, ("(?:[^"\\]|\\.)*")\)/g)].map(m => JSON.parse(m[1]));
+    assert.deepStrictEqual(sent, [name], `${name} is the one file sent`);
+  }
+});
+
+// Text read off the screen is what OCR printed and nothing else: letting the
+// region go prints nothing, and the clipboard is never read or written.
+assert.doesNotMatch(read('Service.qml'), /omarchy-capture-text/, 'screen text does not pass through the clipboard');
+for (const [what, slurp, tesseract, status, text] of [
+  ['a region', 'echo "1,2 3x4"', 'echo "Read me"', 0, 'Read me'],
+  ['a region let go', 'exit 1', 'echo "Read me"', 0, ''],
+  ['a blank region', 'echo "1,2 3x4"', 'echo " "', 1, ''],
+  ['OCR that fails partway', 'echo "1,2 3x4"', 'echo "Half"; exit 1', 1, '']
+]) {
+  inThrowawayHome({
+    slurp, tesseract: `cat >/dev/null; ${tesseract}`, grim: 'echo png', hyprpicker: 'exec sleep 5',
+    'wl-copy': 'touch "$HOME/clipboard"', 'wl-paste': 'touch "$HOME/clipboard"; echo private'
+  }, ({ at, env }) => {
+    const ran = spawnSync('bash', [script('noeis-screen-text')], { env, encoding: 'utf8' });
+    assert.deepStrictEqual([ran.status, ran.stdout], [status, text], what);
+    assert.ok(!fs.existsSync(at('clipboard')), `${what} leaves the clipboard alone`);
+  });
+}
+
+// noeis-setup: --dry-run changes nothing, a second run changes nothing, it
+// never loads anything into the browser (and takes out the old bundled
+// extension), and --remove leaves every file as it found it.
+inThrowawayHome({
+  'omarchy-webapp-install': 'mkdir -p "$HOME/.local/share/applications" && : >"$HOME/.local/share/applications/$1.desktop"',
+  'omarchy-webapp-remove': 'rm -f "$HOME/.local/share/applications/$1.desktop"'
+}, ({ at, write, env, home }) => {
   const bindings = 'o.bind("SUPER + RETURN", "Terminal", "xdg-terminal-exec")\n';
   const menu = '{\n  // mine\n  "personal": {"label":"Personal"},\n}\n';
   write('.config/hypr/bindings.lua', bindings);
   write('.config/omarchy/extensions/omarchy-menu.jsonc', menu);
   write('.config/chromium-flags.conf', `--ozone-platform=wayland\n--load-extension=/mine,${home}/.config/omarchy/plugins/io.noeis/browser/chromium\n`);
   const files = () => ['.config/hypr/bindings.lua', '.config/omarchy/extensions/omarchy-menu.jsonc', '.config/chromium-flags.conf'].map(f => fs.readFileSync(at(f), 'utf8'));
-  const setup = (...args) => execFileSync('bash', [path.join(plugin, 'bin/noeis-setup'), ...args], { env: { ...process.env, HOME: home, PATH: `${stub}:${process.env.PATH}` }, encoding: 'utf8' });
-  try {
-    const before = files();
-    assert.match(setup('--dry-run'), /would: /);
-    assert.deepStrictEqual(files(), before, '--dry-run changes nothing');
-    setup();
-    const [keys, share, flags] = files();
-    assert.strictEqual((keys.match(/^o\.bind\(.*Noeis/gm) || []).length, 6, 'six keys under -- Noeis');
-    assert.match(share, /"trigger\.share\.noeis"[^\n]*\n}\n$/, 'Share → Noeis goes in before the closing brace');
-    assert.strictEqual(flags, '--ozone-platform=wayland\n--load-extension=/mine\n', 'nothing of Noeis is loaded into Chromium; the rest is kept');
-    assert.match(setup(), /nothing to change/, 'a second run changes nothing');
-    setup('--remove');
-    assert.deepStrictEqual(files(), [bindings, menu, flags], '--remove undoes every change');
-    assert.ok(!fs.existsSync(at('.local/bin/noeis-open')) && fs.readdirSync(at('.local/share/applications')).length === 0, '--remove takes out the link and launcher entries');
-  } finally {
-    fs.rmSync(home, { recursive: true, force: true });
-  }
-}
+  const setup = (...args) => execFileSync('bash', [script('noeis-setup'), ...args], { env, encoding: 'utf8' });
+  const before = files();
+  assert.match(setup('--dry-run'), /would: /);
+  assert.deepStrictEqual(files(), before, '--dry-run changes nothing');
+  setup();
+  const [keys, share, flags] = files();
+  assert.strictEqual((keys.match(/^o\.bind\(.*Noeis/gm) || []).length, 6, 'six keys under -- Noeis');
+  assert.match(share, /"trigger\.share\.noeis"[^\n]*\n}\n$/, 'Share → Noeis goes in before the closing brace');
+  assert.strictEqual(flags, '--ozone-platform=wayland\n--load-extension=/mine\n', 'nothing of Noeis is loaded into Chromium; the rest is kept');
+  assert.match(setup(), /nothing to change/, 'a second run changes nothing');
+  setup('--remove');
+  assert.deepStrictEqual(files(), [bindings, menu, flags], '--remove undoes every change');
+  assert.ok(!fs.existsSync(at('.local/bin/noeis-open')) && fs.readdirSync(at('.local/share/applications')).length === 0, '--remove takes out the link and launcher entries');
+});
 
 console.log('omarchy plugin: ok');

@@ -1,13 +1,16 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import LibraryReadingRoom from './LibraryReadingRoom';
 import { getReadingRoom, getWorthSayingPhrasing } from '../../api/readingRoom';
+import { fetchLately } from '../../api/retrieval';
 import { weekKey } from './libraryReadingRoomModel';
 
 jest.mock('../../api/readingRoom', () => ({
   getReadingRoom: jest.fn(),
   getWorthSayingPhrasing: jest.fn()
 }));
+jest.mock('../../api/retrieval', () => ({ fetchLately: jest.fn() }));
 
 const EMPTY = { pick: null, stillReading: [], newFromSources: [], weather: null, worthSaying: [], modelAvailable: false };
 const SAYING = [1, 2, 3].map((n) => ({ articleId: `s${n}`, title: `Source ${n}`, highlightId: `h${n}`, quote: `Quoted line ${n}.` }));
@@ -15,7 +18,7 @@ const SAYING = [1, 2, 3].map((n) => ({ articleId: `s${n}`, title: `Source ${n}`,
 const renderRoom = (room) => {
   getReadingRoom.mockResolvedValue(room);
   const onOpen = jest.fn();
-  const view = render(<LibraryReadingRoom onOpen={onOpen} />);
+  const view = render(<MemoryRouter><LibraryReadingRoom onOpen={onOpen} /></MemoryRouter>);
   return { ...view, onOpen };
 };
 
@@ -28,6 +31,7 @@ const MONDAY = new Date(2026, 9, 12, 9);
 
 beforeEach(() => {
   jest.clearAllMocks();
+  fetchLately.mockResolvedValue([]);
   window.localStorage.clear();
 });
 afterEach(() => jest.useRealTimers());
@@ -41,9 +45,21 @@ describe('LibraryReadingRoom', () => {
 
   it('renders nothing when the room cannot load', async () => {
     getReadingRoom.mockRejectedValue(new Error('down'));
-    const { container } = render(<LibraryReadingRoom onOpen={jest.fn()} />);
+    const { container } = render(<MemoryRouter><LibraryReadingRoom onOpen={jest.fn()} /></MemoryRouter>);
     await waitFor(() => expect(getReadingRoom).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('says what arrived this week connected to, before you open it', async () => {
+    fetchLately.mockResolvedValue([{
+      articleId: 'a7', title: 'Atomic Habits', kind: 'echo', key: 'highlight:h1',
+      to: { type: 'highlight', id: 'h1', articleId: 'b1', title: 'Thinking in Bets', quote: 'Keep the cue and change the routine.' }
+    }]);
+    const { onOpen } = renderRoom(EMPTY);
+    expect(await screen.findByText('Connected this week')).toBeInTheDocument();
+    expect(screen.getByTestId('reading-room-connected')).toHaveTextContent('Atomic Habits echoes “Keep the cue and change the routine.”, which you marked in Thinking in Bets.');
+    fireEvent.click(screen.getByRole('button', { name: 'Atomic Habits' }));
+    expect(onOpen).toHaveBeenCalledWith('a7', undefined);
   });
 
   it('shows the pick with its stated rule and opens it', async () => {
@@ -68,6 +84,22 @@ describe('LibraryReadingRoom', () => {
     expect(screen.getByText('New from your sources')).toBeInTheDocument();
     expect(screen.getByText('Stratechery')).toBeInTheDocument();
     expect(screen.queryByText('For today')).not.toBeInTheDocument();
+  });
+
+  it('stacks the pieces as spines, with today’s pick pulled out of the stack and titled beside it', async () => {
+    renderRoom({
+      ...EMPTY,
+      stillReading: [{ articleId: 'r1', title: 'Halfway piece', ratio: 0.5, marks: 3, minutes: 12, shelf: 'Energy' }],
+      pick: { articleId: 'p1', title: 'The oldest unread', minutes: 40, shelf: '' }
+    });
+    const reading = (await screen.findByRole('button', { name: 'Halfway piece' })).closest('li');
+    expect(reading).toHaveTextContent('Energy12 minabout halfway');
+    expect(reading).toHaveAttribute('data-ribbon');
+    expect(reading).toHaveStyle({ '--marks': '3' });
+    expect(screen.getByRole('button', { name: 'The oldest unread' }).closest('li')).toHaveStyle({ '--marks': '0' });
+    expect(screen.getByRole('button', { name: 'The oldest unread' }).closest('li')).toHaveAttribute('data-pulled');
+    expect(screen.getByTestId('reading-room-still')).not.toHaveTextContent('The oldest unread');
+    expect(screen.getByTestId('reading-room-pick')).toHaveTextContent('For todayThe oldest unread');
   });
 
   it('shows the weather on the first visit of the week, then keeps quiet until Monday', async () => {

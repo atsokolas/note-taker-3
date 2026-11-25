@@ -13,6 +13,7 @@
     "agent:eval:check": "node scripts/run_agent_eval.js --check",
     "agent:eval:reading": "node scripts/run_reading_eval.js",
     "agent:eval:mcp": "node scripts/run_mcp_eval.js",
+    "connections:eval": "node scripts/run_connections_eval.js",
     "judgment:evidence-harness": "node scripts/run_judgment_evidence_quality_harness.js",
     "judgment:semantic-evidence-harness": "node scripts/run_judgment_semantic_evidence_harness.js",
     "judgment:ledger-acceptance": "node scripts/run_judgment_ledger_acceptance_harness.js",
@@ -31,6 +32,7 @@
     "proof:alphabet:run": "node scripts/run_alphabet_filing_acceptance.js",
     "wiki:storage": "node scripts/run_wiki_storage_governor.js",
     "smoke:server": "node scripts/run_server_smoke.js",
+    "typecheck": "node scripts/typecheck.js",
     "smoke:imports": "node scripts/test_import_integrations_smoke.js",
     "test:server": "node scripts/test_receipt.js server",
     "harness:offline": "npm run judgment:evidence-harness && npm run judgment:semantic-evidence-harness && npm run judgment:ledger-acceptance && npm run wiki:proposal-harness && npm run wiki:intelligence-harness && npm run wiki:maintenance-harness",
@@ -74,9 +76,13 @@
     "pdfjs-dist": "^6.4.299",
     "pdfkit": "^0.15.0",
     "react-router-dom": "^7.18.4",
+    "undici": "6.29.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "mongodb-memory-server": "^11.3.0"
+    "@types/express": "4.17.25",
+    "@types/node": "^22.20.5",
+    "mongodb-memory-server": "^11.3.0",
+    "typescript": "5.9.3"
   }
 }

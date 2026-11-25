@@ -15,9 +15,44 @@ const BOOK_MARKS = 'title finishedOn highlights._id highlights.text highlights.n
 const SHELF_BOOK = `${BOOK_MARKS} highlights.importMeta.sourcePath author createdAt updatedAt closingLine readBefore`;
 const shelfMark = ({ importMeta, ...mark }) => ({ ...mark, location: importMeta?.sourcePath || '' });
 
-/* A book already on the shelf, under any address an import gives it or by its title. */
-const bookOnShelf = (shelf, book) => shelf.find(item => [book.url, ...book.aliases].includes(item.url))
-  || shelf.find(item => sameWords(item.title) === sameWords(book.title));
+// Whoever brought a book, Kindle, Readwise or the desk, addresses it by the same title and author.
+const addressOf = url => String(url).replace(/^import:\/\/[^/]+\//, '');
+
+/* A book already on the shelf, under any address an import gives it, from any
+   provider, or by its title. The address outlives a rename; the title is a
+   last resort. */
+// "Poor Charlie's Almanack by Charles T. Munger" is the work "Poor Charlie's Almanack".
+const workOf = title => sameWords(String(title || '').replace(/\s+by\s+(?:[A-Z][\w.'-]*\s*){1,4}$/, ''));
+
+// One title may carry its author and the other not; two different authors are two books.
+const sameBook = (a, b) => [workOf(a), sameWords(a)].includes(sameWords(b)) || workOf(b) === sameWords(a);
+
+const bookOnShelf = (shelf, book) => {
+  const addresses = [book.url, ...book.aliases].map(addressOf);
+  return shelf.find(item => addresses.includes(addressOf(item.url)))
+    || shelf.find(item => sameBook(item.title, book.title));
+};
+
+const editsBetween = (a, b) => {
+  let row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++) next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    row = next;
+  }
+  return row[b.length];
+};
+
+/* A title typed at the desk, misspelled ("Poor Charlie's Alamanc"), is still
+   the book already on the shelf. Only a slip: the same numbers, and no more
+   than one letter in seven wrong, so Volume 1 never opens Volume 2. */
+const bookTyped = (shelf, title) => {
+  const typed = sameWords(title);
+  const numbers = value => value.replace(/\D/g, '');
+  return shelf.find(item => [workOf(item.title), sameWords(item.title)].some(work => (
+    numbers(work) === numbers(typed) && editsBetween(work, typed) <= Math.floor(Math.max(work.length, typed.length) / 7)
+  )));
+};
 
 // A question is a line of your own, with no words of the book's, ending in "?".
 const isQuestion = mark => !mark.text && /\?\s*$/.test(mark.note || '');
@@ -80,7 +115,10 @@ const sameMark = mark => (mark.text ? sameWords(mark.text) : `note:${sameWords(m
 /* Every book Readwise left in the Library goes onto the shelf: into the book
    already there by that title, its marks moving with their ids and the stray
    kept (hidden) pointing at the book, so links to it open the book; or else
-   under a book's own address. */
+   under a book's own address.
+   Two shelvings at once, or one cut short, must not copy a mark twice: the
+   marks go into the book only if none of them is there yet, and a stray left
+   behind half moved finds its marks already shelved next time and is put away. */
 const shelveBooks = async ({ Article, userId }) => {
   const strays = await Article.find({ userId, url: READWISE_BOOK_PAGE, archived: { $ne: true } });
   if (!strays.length) return 0;
@@ -89,21 +127,23 @@ const shelveBooks = async ({ Article, userId }) => {
     const book = bookSource({ provider: 'readwise', title: stray.title, author: stray.author });
     const known = bookOnShelf(shelf, book);
     if (!known) {
-      stray.url = book.url;
-      await stray.save();
-      shelf.push(stray);
+      await Article.updateOne({ _id: stray._id }, { $set: { url: book.url } });
+      shelf.push(Object.assign(stray, { url: book.url }));
       continue;
     }
     const marked = new Set(known.highlights.map(sameMark));
-    const moving = stray.highlights.filter(mark => !marked.has(sameMark(mark)));
-    known.highlights.push(...moving.map(mark => mark.toObject()));
-    stray.highlights = stray.highlights.filter(mark => !moving.includes(mark));
-    known.author ||= stray.author;
-    stray.mergedInto = known._id;
-    stray.archived = true;
-    stray.hiddenFromHome = true;
-    await known.save();
-    await stray.save();
+    const moving = stray.highlights.filter(mark => !marked.has(sameMark(mark))).map(mark => mark.toObject());
+    const ids = moving.map(mark => mark._id);
+    if (moving.length) {
+      await Article.updateOne(
+        { _id: known._id, 'highlights._id': { $nin: ids } },
+        { $push: { highlights: { $each: moving } }, ...(known.author ? {} : { $set: { author: stray.author } }) }
+      );
+    }
+    await Article.updateOne(
+      { _id: stray._id },
+      { $pull: { highlights: { _id: { $in: ids } } }, $set: { mergedInto: known._id, archived: true, hiddenFromHome: true } }
+    );
   }
   return strays.length;
 };
@@ -119,4 +159,4 @@ const lentCopy = book => ({
   marks: (book.highlights || []).map(shelfMark)
 });
 
-module.exports = { BOOK_MARKS, READWISE_BOOK_PAGE, SHELF_BOOK, bookOnShelf, booksThisMorning, echoToday, isQuestion, lentCopy, openQuestions, shelfMark, shelveBooks };
+module.exports = { BOOK_MARKS, READWISE_BOOK_PAGE, SHELF_BOOK, bookOnShelf, bookTyped, booksThisMorning, echoToday, isQuestion, lentCopy, openQuestions, shelfMark, shelveBooks };

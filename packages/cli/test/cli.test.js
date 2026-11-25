@@ -69,6 +69,12 @@ const run = async () => {
     if (requestUrl.pathname === '/api/recall/read/n1') {
       return jsonResponse({ kind: 'note', id: 'n1', title: 'Hiring notes', text: 'Hire for slope, not intercept.' });
     }
+    if (requestUrl.pathname === '/api/tonight') {
+      return jsonResponse({ tonight: { articleId: 'a9', title: 'The Bitter Lesson', minutes: 12, reason: 'Sam sent it' } });
+    }
+    if (requestUrl.pathname === '/api/fortune') {
+      return jsonResponse({ fortune: { text: 'The decline of violence may be the most significant development in our history.', title: 'The Better Angels', author: 'Steven Pinker', page: 212 } });
+    }
     if (requestUrl.pathname === '/api/import/url') {
       const { placement } = JSON.parse(init.body);
       return jsonResponse({ article: { _id: 'a1', title: 'An essay', placement: placement || 'stream' }, existing: false });
@@ -84,6 +90,14 @@ const run = async () => {
     }
     return jsonResponse({});
   };
+
+  const tonightIo = makeIo();
+  await runCli(['tonight'], { env, fetchImpl, io: tonightIo.io });
+  assert.match(tonightIo.stdout, /T O N I G H T\n\n  The Bitter Lesson\n\n  12 min · Sam sent it\n/);
+  const fortuneIo = makeIo();
+  await runCli(['fortune'], { env, fetchImpl, io: fortuneIo.io });
+  assert.match(fortuneIo.stdout, /“The decline of violence may be the most significant/);
+  assert.match(fortuneIo.stdout, /— The Better Angels, Steven Pinker, p\. 212\n$/);
 
   const pagesIo = makeIo();
   await runCli(['pages', 'list', '--query', 'compound'], { env, fetchImpl, io: pagesIo.io });

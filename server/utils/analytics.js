@@ -1,7 +1,7 @@
 const fs = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
-const axios = require('axios');
+const axios = require('axios').default;
 
 const EVENT_NAMES = Object.freeze({
   USER_SIGNUP: 'user_signup',
@@ -77,8 +77,10 @@ const POSTHOG_TIMEOUT_MS = Math.max(1000, Number(process.env.POSTHOG_TIMEOUT_MS 
 const hasPosthogConfig = Boolean(POSTHOG_CAPTURE_URL && POSTHOG_PROJECT_API_KEY);
 let writeChain = Promise.resolve();
 
+/** @param {unknown} value */
 const toSafeString = (value) => String(value || '').trim();
 
+/** @param {unknown} value */
 const hashValue = (value) => {
   const raw = toSafeString(value);
   if (!raw) return '';
@@ -89,6 +91,7 @@ const hashValue = (value) => {
     .slice(0, 20);
 };
 
+/** @param {unknown} value @returns {unknown} */
 const sanitizeValue = (value, depth = 0) => {
   if (value === null || value === undefined) return undefined;
   if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
@@ -108,6 +111,7 @@ const sanitizeValue = (value, depth = 0) => {
   if (typeof value === 'object') {
     if (depth >= MAX_PROPERTY_DEPTH) return undefined;
     const entries = Object.entries(value).slice(0, MAX_PROPERTY_KEYS);
+    /** @type {Record<string, unknown>} */
     const next = {};
     entries.forEach(([key, entryValue]) => {
       const safeKey = toSafeString(key).slice(0, 80);
@@ -120,24 +124,20 @@ const sanitizeValue = (value, depth = 0) => {
   return undefined;
 };
 
-const sanitizeProperties = (properties) => {
-  if (!properties || typeof properties !== 'object') return {};
-  const result = {};
-  Object.entries(properties).slice(0, MAX_PROPERTY_KEYS).forEach(([key, value]) => {
-    const safeKey = toSafeString(key).slice(0, 80);
-    if (!safeKey) return;
-    const safeValue = sanitizeValue(value, 0);
-    if (safeValue !== undefined) result[safeKey] = safeValue;
-  });
-  return result;
-};
+// The properties object itself is one level above its values.
+/** @param {unknown} properties */
+const sanitizeProperties = (properties) => (
+  properties && typeof properties === 'object' ? sanitizeValue(properties, -1) : {}
+);
 
+/** @param {object} payload */
 const appendJsonLine = async (payload) => {
   const line = `${JSON.stringify(payload)}\n`;
   await fs.mkdir(path.dirname(ANALYTICS_LOG_PATH), { recursive: true });
   await fs.appendFile(ANALYTICS_LOG_PATH, line, 'utf8');
 };
 
+/** @param {{ event: string, distinctId: string, properties: unknown, timestamp: string }} capture */
 const postToPosthog = async ({ event, distinctId, properties, timestamp }) => {
   if (!hasPosthogConfig) return;
   await axios.post(
@@ -149,13 +149,14 @@ const postToPosthog = async ({ event, distinctId, properties, timestamp }) => {
       timestamp,
       properties: {
         source: 'backend',
-        ...properties
+        .../** @type {object} */ (properties)
       }
     },
     { timeout: POSTHOG_TIMEOUT_MS }
   );
 };
 
+/** @param {object} payload */
 const queueWrite = (payload) => {
   writeChain = writeChain
     .then(() => appendJsonLine(payload))
@@ -164,11 +165,12 @@ const queueWrite = (payload) => {
     });
 };
 
+/** @param {{ event?: string, userId?: unknown, requestId?: string, properties?: object }} [tracked] */
 const trackEvent = ({ event, userId, requestId = '', properties = {} } = {}) => {
   try {
     if (!ANALYTICS_ENABLED) return;
     const eventName = toSafeString(event);
-    if (!VALID_EVENT_NAMES.has(eventName)) return;
+    if (!(/** @type {Set<string>} */ (VALID_EVENT_NAMES)).has(eventName)) return;
 
     const timestamp = new Date().toISOString();
     const userIdHash = hashValue(userId);
@@ -193,7 +195,7 @@ const trackEvent = ({ event, userId, requestId = '', properties = {} } = {}) => 
     }).catch((error) => {
       console.error('[ANALYTICS] Failed to send event to PostHog:', error?.message || error);
     });
-  } catch (error) {
+  } catch (/** @type {any} */ error) {
     console.error('[ANALYTICS] Unexpected analytics tracking error:', error?.message || error);
   }
 };
@@ -202,6 +204,7 @@ const trackEvent = ({ event, userId, requestId = '', properties = {} } = {}) => 
    reader twice in one day, which a per-day distinct count absorbs. */
 let visitDay = '';
 const visitedToday = new Set();
+/** @param {unknown} userId */
 const trackReturnVisit = (userId) => {
   const day = new Date().toISOString().slice(0, 10);
   if (day !== visitDay) {

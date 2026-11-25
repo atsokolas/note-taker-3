@@ -485,7 +485,12 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__main {
 
    Inverted: scrolling is the default and a surface opts out of it. Only the
    wiki workspace does, because its panes scroll independently and a second
-   scrollbar on the shell would fight them. */
+   scrollbar on the shell would fight them.
+
+   The shell grows with its page and the window scrolls it. It clips sideways
+   without becoming a scroll container of its own, because one that never
+   scrolls holds every sticky line inside it in place: the book desk's line
+   could not dock. */
 
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
   min-height: 100vh;
@@ -494,8 +499,7 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
   /* The bar's own height, and then air. A first line that clears the bar by a
      hair is still a first line crowded by it. */
   padding: calc(var(--noeis-topbar-height) + var(--noeis-topbar-air)) 40px 40px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow-x: clip;
 }
 
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.wiki-workspace) {

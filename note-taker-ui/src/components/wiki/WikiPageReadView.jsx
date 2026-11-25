@@ -116,6 +116,7 @@ import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
 import { docText, wordBoundaryTrim } from '../../utils/editorialText';
 import { humanizeLabel } from '../../utils/humanizeLabel';
 import AddToProject from '../../work/AddToProject';
+import HangInMuseum from '../museum/HangInMuseum';
 
 const WikiChangesSinceLastVisit = lazy(() => import('./WikiChangesSinceLastVisit'));
 
@@ -3098,6 +3099,7 @@ const WikiPageReadView = ({
                 <button type="button" onClick={handleOpenHistoryPanel}>History</button>
                 <button type="button" aria-expanded={shareOpen} onClick={() => setShareOpen(open => !open)}>Share</button>
                 <AddToProject kind="wiki" id={pageId} title={page?.title} />
+                <HangInMuseum kind="wiki" id={pageId} />
               </nav>
             )}
             {shareOpen ? shareCard : null}

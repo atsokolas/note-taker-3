@@ -19,18 +19,20 @@ test('disabled account cannot sign in even when its credential would otherwise m
   const { server, base } = await listen(app);
   try {
     const result = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'synthetic-disabled', password: 'unusable-synthetic-value' }) });
-    assert.equal(result.status, 401); assert.equal(compared, false); assert.equal(signed, false);
+    // The password is still checked, so a closed account takes as long to refuse as a wrong password.
+    assert.equal(result.status, 401); assert.equal(compared, true); assert.equal(signed, false);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
 
 test('actual personal-agent and bridge middleware distinguish healthy, inactive and unavailable accounts', async () => {
   const source = fs.readFileSync(path.resolve(__dirname, '../../server.js'), 'utf8');
   const personalSource = source.slice(source.indexOf('async function authenticatePersonalAgentKey'), source.indexOf('async function authenticateAgentBridgeToken'));
-  const bridgeSource = source.slice(source.indexOf('async function authenticateAgentBridgeToken'), source.indexOf('const slugify ='));
+  const bridgeStart = source.indexOf('async function authenticateAgentBridgeToken');
+  const bridgeSource = source.slice(bridgeStart, source.indexOf('\n}\n', bridgeStart) + 2);
   let saved = false; let availability = 'inactive'; let logged = false;
   const context = { isAccountActive: async () => { if (availability === 'unavailable') throw new Error('PRIVATE synthetic database diagnostic'); return availability === 'healthy'; }, mongoose: { Types: { ObjectId: { isValid: () => true } } }, hashPersonalAgentApiKey: () => 'unusable-synthetic-hash', PersonalAgent: { findOne: () => ({ select: async () => ({ _id: id, userId: id, save: async () => { saved = true; } }) }) }, console: { error: () => { logged = true; } },
     normalizePersonalAgentCapabilities: value => value, normalizePersonalAgentWorkerRoles: value => value, normalizeAgentActorType: value => value,
-    jwt: { verify: () => ({ kind: 'agent_bridge', userId: id, actorType: 'user', actorId: id }) }, getAgentBridgeJwtSecret: () => 'unusable-synthetic-value', AGENT_BRIDGE_TOKEN_KIND: 'agent_bridge' };
+    jwt: { verify: () => ({ kind: 'agent_bridge', userId: id, actorType: 'user', actorId: id }) }, getAgentBridgeJwtSecret: () => 'unusable-synthetic-value', AGENT_BRIDGE_TOKEN_KIND: 'agent_bridge', onBehalfOf: (_userId, next) => next() };
   for (const [body, name, headers] of [[personalSource, 'authenticatePersonalAgentKey', { 'x-agent-id': id, 'x-agent-key': 'unusable-synthetic-value' }], [bridgeSource, 'authenticateAgentBridgeToken', { authorization: 'Bearer unusable-synthetic-value' }]]) {
     const authenticate = vm.runInNewContext(`${body}\n${name}`, context);
     for (availability of ['inactive', 'unavailable', 'healthy']) {
@@ -46,7 +48,7 @@ test('actual personal-agent and bridge middleware distinguish healthy, inactive 
   }
 });
 
-test('valid old import states cannot reconnect an inactive account or reach a provider', async () => {
+test('a provider approval reaches no provider until the account that started it finishes it', async () => {
   const previousSecret = process.env.JWT_SECRET;
   const nativeFetch = global.fetch;
   let externalRequests = 0; let connectionReads = 0;
@@ -56,17 +58,23 @@ test('valid old import states cannot reconnect an inactive account or reach a pr
     if (String(url).startsWith('http://127.0.0.1:')) return nativeFetch(url, options);
     externalRequests++; throw new Error('External provider call is forbidden in this test.');
   };
+  const someoneElse = (req, _res, next) => { req.user = { id: 'another-account' }; next(); };
   const app = express();
-  app.use(buildImportRouter({ authenticateToken: () => {}, isAccountActive: async () => false, upload: { single: () => (_req, _res, next) => next() }, IntegrationConnection: { findOne: () => { connectionReads++; throw new Error('No connection query is permitted.'); } }, env: {} }));
+  app.use(express.json());
+  app.use(buildImportRouter({ authenticateToken: someoneElse, isAccountActive: async () => true, upload: { single: () => (_req, _res, next) => next() }, IntegrationConnection: { findOne: () => { connectionReads++; throw new Error('No connection query is permitted.'); } }, env: {} }));
   const { server, base } = await listen(app);
   try {
     for (const provider of ['notion', 'readwise']) {
-      const payload = { provider, userId: id };
+      const payload = { userId: id };
       if (provider === 'readwise') payload.oauthPayload = encryptSecret(JSON.stringify({ codeVerifier: 'unusable-synthetic-verifier', clientId: 'synthetic-client' }));
-      const state = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '10m' });
-      const result = await global.fetch(`${base}/api/import/${provider}/oauth/callback?${new URLSearchParams({ state, code: 'unusable-synthetic-code' })}`, { redirect: 'manual' });
+      const state = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '10m', audience: `${provider}-state` });
+      const code = 'unusable-synthetic-code';
+      const result = await global.fetch(`${base}/api/import/${provider}/oauth/callback?${new URLSearchParams({ state, code })}`, { redirect: 'manual' });
       assert.equal(result.status, 302);
-      assert.equal(new URL(result.headers.get('location')).searchParams.get(provider), 'error');
+      const back = new URL(result.headers.get('location')).searchParams;
+      assert.deepEqual([back.get(provider), back.get('code'), back.get('state')], ['finish', code, state]);
+      const finished = await global.fetch(`${base}/api/import/${provider}/oauth/finish`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, state }) });
+      assert.equal(finished.status, 400, 'another signed-in account cannot finish it');
     }
     assert.equal(externalRequests, 0); assert.equal(connectionReads, 0);
   } finally {

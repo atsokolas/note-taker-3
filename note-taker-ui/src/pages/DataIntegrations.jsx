@@ -27,6 +27,7 @@ import {
   disconnectImportConnection,
   exportToNotionPage,
   getActiveImportSession,
+  finishImportOAuth,
   listImportConnections,
   listImportSessions,
   previewNotionConnection,
@@ -628,6 +629,7 @@ const DataIntegrations = () => {
   const explicitSourceSelectionRef = useRef(Boolean(getRequestedSourceFromLocation()));
   const [chosenSource, setChosenSource] = useState(getRequestedSourceFromLocation);
   const [chosenReadwiseId, setChosenReadwiseId] = useState('');
+  const [oauthFinished, setOauthFinished] = useState(0);
   const selectSource = useCallback((source) => {
     if (SOURCE_OPTIONS.some(option => option.key === source)) {
       explicitSourceSelectionRef.current = true;
@@ -909,6 +911,19 @@ const DataIntegrations = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const source = params.get('source');
+    // Back from a provider with its code: this account finishes the approval, then it reads as connected or not.
+    if (['notion', 'readwise'].includes(source) && params.get(source) === 'finish') {
+      const code = params.get('code');
+      const state = params.get('state');
+      window.history.replaceState({}, '', buildCleanConnectionReturnUrl(new URLSearchParams({ source }), source));
+      finishImportOAuth({ provider: source, code, state })
+        .then(() => 'connected', () => 'error')
+        .then((outcome) => {
+          window.history.replaceState({}, '', `${window.location.pathname}?${new URLSearchParams({ source, [source]: outcome })}`);
+          setOauthFinished(count => count + 1);
+        });
+      return;
+    }
     const hashSource = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
     const notionState = params.get('notion');
     const readwiseState = params.get('readwise');
@@ -1012,7 +1027,7 @@ const DataIntegrations = () => {
     } else if (['readwise', 'notion', 'evernote'].includes(hashSource)) {
       selectSource(hashSource);
     }
-  }, [importWholeArchiveOnConnect, publishSystemReceipt, refreshCapabilities, selectSource, setStatus]);
+  }, [importWholeArchiveOnConnect, oauthFinished, publishSystemReceipt, refreshCapabilities, selectSource, setStatus]);
 
   useEffect(() => {
     const hashSource = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();

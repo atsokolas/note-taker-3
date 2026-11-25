@@ -4,10 +4,10 @@ import { MemoryRouter } from 'react-router-dom';
 import BookDesk from './BookDesk.jsx';
 import { sittingLabel } from './bookDesk';
 import { createHighlight, deleteHighlight, updateHighlight } from '../../api/highlights';
-import { readBookPage } from '../../api/imports';
+import { argueLine, heardBefore, readBookPage } from '../../api/imports';
 import { pagePhoto } from '../../utils/pagePhoto';
 
-jest.mock('../../api/imports', () => ({ readBookPage: jest.fn() }));
+jest.mock('../../api/imports', () => ({ argueLine: jest.fn(), heardBefore: jest.fn(() => Promise.resolve(null)), readBookPage: jest.fn() }));
 jest.mock('../../utils/pagePhoto', () => ({ pagePhoto: jest.fn() }));
 jest.mock('../../api/highlights', () => ({
   createHighlight: jest.fn(),
@@ -25,13 +25,14 @@ const KINDLE = {
 };
 
 /* The desk as the reader holds it: the marks live with the parent. */
-const Desk = ({ marks: initial, readBefore, createdAt }) => {
+const Desk = ({ marks: initial, readBefore, createdAt, onOpenMark }) => {
   const [marks, setMarks] = useState(initial);
   return (
     <MemoryRouter>
       <BookDesk
         article={{ _id: 'book-1', title: 'The Better Angels', url: 'import://kindle/the-better-angels-pinker', readBefore, createdAt }}
         marks={marks}
+        onOpenMark={onOpenMark}
         onAdd={mark => setMarks(current => [...current, mark])}
         onReplace={(id, mark) => setMarks(current => current.map(item => (item._id === id ? { ...item, ...mark } : item)))}
         onRemove={id => setMarks(current => current.filter(item => item._id !== id))}
@@ -40,12 +41,16 @@ const Desk = ({ marks: initial, readBefore, createdAt }) => {
   );
 };
 
+// Each line carries the id it was typed with, so a resend saves it once.
+const LINE_ID = expect.stringMatching(/^[a-f0-9]{24}$/);
+
 const line = () => screen.getByLabelText('Type a quote, a note or a question');
 const type = (text) => fireEvent.change(line(), { target: { value: text } });
 const keep = (options = {}) => fireEvent.keyDown(line(), { key: 'Enter', ...options });
 
 beforeEach(() => {
   jest.clearAllMocks();
+  heardBefore.mockResolvedValue(null);
   window.localStorage.clear();
 });
 
@@ -54,19 +59,66 @@ test('a number turns the page, and the page stays for the lines after it', async
     .mockResolvedValueOnce({ _id: 'n1', text: '', note: 'he is conflating risk and uncertainty', page: 212, createdAt: new Date().toISOString() })
     .mockResolvedValueOnce({ _id: 'n2', text: '', note: 'or is he?', page: 212, createdAt: new Date().toISOString() });
   render(<Desk marks={[]} />);
-  expect(screen.getByText(/A page number sets the page/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Save scribble' })).toBeInTheDocument();
 
   type('212 he is conflating risk and uncertainty');
   await act(async () => keep());
-  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: 'he is conflating risk and uncertainty', page: 212 });
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: 'he is conflating risk and uncertainty', page: 212, captureId: LINE_ID });
   expect(screen.getByLabelText('Page you are on')).toHaveValue('212');
 
   type('or is he?');
   await act(async () => keep());
-  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: 'or is he?', page: 212 });
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: 'or is he?', page: 212, captureId: LINE_ID });
   expect(await screen.findByText(sittingLabel(new Date()))).toBeInTheDocument();
   expect(screen.getByText('p. 212 · 1 note, 1 question')).toBeInTheDocument();
   expect(screen.getByText('p. 212')).toBeInTheDocument();
+});
+
+test('the words from last time open the mark they came from', () => {
+  const onOpenMark = jest.fn();
+  render(<Desk marks={[KINDLE]} onOpenMark={onOpenMark} />);
+  fireEvent.click(screen.getByRole('button', { name: KINDLE.text }));
+  expect(onOpenMark).toHaveBeenCalledWith(KINDLE._id);
+});
+
+test('explicit capture keeps quotations literal and big thoughts independent of the page', async () => {
+  const text = '1984 was the year. #1 still counted.';
+  const note = 'One thought.\n\nAnd another paragraph.';
+  const createdAt = new Date().toISOString();
+  createHighlight
+    .mockResolvedValueOnce({ _id: 'q1', text, note: '', page: 98, createdAt })
+    .mockResolvedValueOnce({ _id: 'n1', text: '', note, createdAt });
+  render(<Desk marks={[]} />);
+  fireEvent.change(screen.getByLabelText('Page you are on'), { target: { value: '98' } });
+  fireEvent.click(screen.getByRole('radio', { name: 'Quote' }));
+  type(text);
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Save quote' })));
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text, note: '', page: 98, captureId: LINE_ID });
+
+  fireEvent.click(screen.getByRole('radio', { name: 'Big thought' }));
+  expect(screen.queryByLabelText('Page you are on')).not.toBeInTheDocument();
+  type(note);
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Save big thought' })));
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note, captureId: LINE_ID });
+  fireEvent.click(screen.getByRole('radio', { name: 'Scribble' }));
+  expect(screen.getByLabelText('Page you are on')).toHaveValue('98');
+});
+
+test('a reading place survives reopening after a note on an earlier page', async () => {
+  const note = { _id: 'n1', text: '', note: 'A thought about an earlier page.', page: 9, createdAt: new Date().toISOString() };
+  createHighlight.mockResolvedValue(note);
+  const { unmount } = render(<Desk marks={[]} />);
+  const goTo = value => fireEvent.change(screen.getByLabelText('Page you are on'), { target: { value } });
+  goTo('98');
+  fireEvent.click(screen.getByRole('button', { name: 'Keep my place' }));
+  goTo('9');
+  type(note.note);
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Save scribble' })));
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: '', note: note.note, page: 9, captureId: LINE_ID });
+  unmount();
+  render(<Desk marks={[note]} />);
+  expect(screen.getByLabelText('Page you are on')).toHaveValue('98');
+  expect(screen.getByText('Place kept')).toBeInTheDocument();
 });
 
 test('the book finishes a quote you marked on the Kindle, and it stays one mark', async () => {
@@ -82,7 +134,7 @@ test('the book finishes a quote you marked on the Kindle, and it stays one mark'
   expect(line()).toHaveValue(`214 "${KINDLE.text}`);
 
   await act(async () => keep());
-  expect(createHighlight).toHaveBeenCalledWith({ articleId: 'book-1', text: KINDLE.text, note: '', page: 214 });
+  expect(createHighlight).toHaveBeenCalledWith({ articleId: 'book-1', text: KINDLE.text, note: '', page: 214, captureId: LINE_ID });
   expect(await screen.findByText('You marked this on your Kindle too. Now it’s one highlight, with your note.')).toBeInTheDocument();
   expect(screen.getAllByText(KINDLE.text, { selector: 'blockquote' })).toHaveLength(1);
 });
@@ -142,9 +194,21 @@ test('a thought left past midnight opens the desk, and the first line finishes i
   expect(screen.queryByText(/You stopped mid-thought/)).not.toBeInTheDocument();
 });
 
-test('the rest of a thought typed offline waits on this device as a line of its own, and a second line is new', async () => {
-  const lastNight = new Date(Date.now() - 24 * 60 * 60 * 1000);
+afterEach(() => jest.useRealTimers());
+
+/* Last night's thought, seen the next afternoon: past midnight the fresh line asks something else. */
+const afternoonAfter = () => {
+  jest.useFakeTimers('modern');
+  const afternoon = new Date();
+  afternoon.setHours(14, 0, 0, 0);
+  jest.setSystemTime(afternoon);
+  const lastNight = new Date(afternoon.getTime() - 24 * 60 * 60 * 1000);
   lastNight.setHours(1, 15, 0, 0);
+  return lastNight;
+};
+
+test('the rest of a thought typed offline waits on this device as a line of its own, and a second line is new', async () => {
+  const lastNight = afternoonAfter();
   updateHighlight.mockRejectedValue(new Error('offline'));
   createHighlight.mockRejectedValue(new Error('offline'));
   render(<Desk marks={[{ _id: 'n1', text: '', note: 'what he means by order is', createdAt: lastNight.toISOString() }]} />);
@@ -152,17 +216,16 @@ test('the rest of a thought typed offline waits on this device as a line of its 
   await act(async () => keep());
   expect(await screen.findByText('Kept on this device. It goes to Noeis when you are back online.')).toBeInTheDocument();
   expect(JSON.stringify(window.localStorage)).toContain('fear of the crowd.');
-  expect(line()).toHaveAttribute('placeholder', 'A quote, or what you think');
+  expect(line()).not.toHaveAttribute('placeholder', 'The rest of that thought');
   expect(updateHighlight).toHaveBeenCalledTimes(1);
 });
 
 test('Escape leaves last night’s thought as it is and starts a new line', async () => {
-  const lastNight = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  lastNight.setHours(1, 15, 0, 0);
+  const lastNight = afternoonAfter();
   render(<Desk marks={[{ _id: 'n1', text: '', note: 'what he means by order is', createdAt: lastNight.toISOString() }]} />);
   fireEvent.keyDown(line(), { key: 'Escape' });
   expect(screen.queryByText(/You stopped mid-thought/)).not.toBeInTheDocument();
-  expect(line()).toHaveAttribute('placeholder', 'A quote, or what you think');
+  expect(line()).not.toHaveAttribute('placeholder', 'The rest of that thought');
 });
 
 test('typing an old mark again picks a set-down book up, though the mark keeps its date', async () => {
@@ -224,6 +287,27 @@ test('a line typed with no connection waits on this device and goes when it is b
   expect(createHighlight).toHaveBeenLastCalledWith(expect.objectContaining({ note: 'a thought on a plane', page: 12 }));
 });
 
+test('a line typed while the waiting lines are going stays on this device, and a resent line keeps its id', async () => {
+  let answer;
+  createHighlight
+    .mockRejectedValueOnce(new Error('Network Error'))
+    .mockImplementationOnce(() => new Promise(resolve => { answer = resolve; }))
+    .mockRejectedValueOnce(new Error('Network Error'));
+  render(<Desk marks={[]} />);
+  type('a thought on a plane');
+  await act(async () => keep());
+  await act(async () => { window.dispatchEvent(new Event('online')); });
+  type('a thought while it sends');
+  await act(async () => keep());
+  await act(async () => answer({ _id: 's1', text: '', note: 'a thought on a plane', createdAt: new Date().toISOString() }));
+
+  const waiting = JSON.stringify(window.localStorage);
+  expect(waiting).toContain('a thought while it sends');
+  expect(waiting).not.toContain('a thought on a plane');
+  const [first, resent] = createHighlight.mock.calls.map(([draft]) => draft.captureId);
+  expect(resent).toBe(first);
+});
+
 test('a #word files the line under that concept, and a line of only #words files the mark just made', async () => {
   createHighlight.mockResolvedValueOnce({ _id: 'q1', text: 'Scale is a moat until it is not.', note: '', tags: ['moats'], page: 40, createdAt: new Date().toISOString() });
   updateHighlight.mockResolvedValueOnce({ _id: 'q1', tags: ['moats', 'scale'] });
@@ -231,7 +315,7 @@ test('a #word files the line under that concept, and a line of only #words files
 
   type('40 "Scale is a moat until it is not." #moats');
   await act(async () => keep());
-  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: 'Scale is a moat until it is not.', note: '', tags: ['moats'], page: 40 });
+  expect(createHighlight).toHaveBeenLastCalledWith({ articleId: 'book-1', text: 'Scale is a moat until it is not.', note: '', tags: ['moats'], page: 40, captureId: LINE_ID });
   expect(await screen.findByText('Filed under #moats.')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: '#moats' })).toHaveAttribute('href', '/think?tab=concepts&concept=moats');
 
@@ -256,4 +340,55 @@ test('a photograph of the page finishes the quotes typed by their ends, and the 
   expect(await screen.findByText('Finished a quote from the page.')).toBeInTheDocument();
   expect(screen.getByText(KINDLE.text, { selector: 'blockquote' })).toBeInTheDocument();
   expect(screen.queryByLabelText(/Photograph the page/)).not.toBeInTheDocument();
+});
+
+test('a "/" opens three commands: fold the page, hear the case against your line, find who said it', async () => {
+  const mine = { _id: 'n1', text: '', note: 'Violence fell because states got stronger.', page: 212, createdAt: new Date().toISOString() };
+  createHighlight.mockResolvedValueOnce({ _id: 'f1', text: '', note: '', tags: ['dog-ear'], page: 212, createdAt: new Date().toISOString() });
+  argueLine.mockResolvedValueOnce('Strong states also ran the century’s worst killings.');
+  heardBefore.mockResolvedValueOnce({ _id: 'h9', text: 'The Leviathan keeps the peace by holding the monopoly on force.', articleTitle: 'Leviathan', createdAt: '2025-03-01T00:00:00Z' });
+  const { container } = render(<Desk marks={[mine]} />);
+
+  type('/');
+  expect(screen.getByText('Try /dog-ear, /argue or /who.')).toBeInTheDocument();
+
+  type('/dog-ear');
+  await act(async () => keep());
+  expect(createHighlight).toHaveBeenCalledWith({ articleId: 'book-1', page: 212, tags: ['dog-ear'] });
+  expect(screen.getByText('Folded the corner of p. 212.')).toBeInTheDocument();
+  expect(container.querySelector('.book-desk__page[data-folded]')).toHaveTextContent('p. 212');
+
+  type('/argue');
+  await act(async () => keep());
+  expect(argueLine).toHaveBeenCalledWith('book-1', 'Violence fell because states got stronger.');
+  expect(screen.getByText(/Strong states also ran/)).toHaveTextContent('Against that: Strong states also ran the century’s worst killings.');
+
+  type('/who the state keeps the peace');
+  await act(async () => keep());
+  expect(heardBefore).toHaveBeenLastCalledWith('book-1', 'the state keeps the peace');
+  expect(screen.getByText('Leviathan').closest('p')).toHaveTextContent('Leviathan said it too: The Leviathan keeps the peace by holding the monopoly on force.');
+  expect(line()).toHaveValue('');
+});
+
+test('a line nearly the same as one you marked a year ago brings the old one back in faded ink', async () => {
+  createHighlight.mockResolvedValueOnce({ _id: 'n1', text: '', note: 'Most of what we call luck is preparation meeting a door left open.', createdAt: new Date().toISOString() });
+  heardBefore.mockResolvedValueOnce({ _id: 'old', text: 'Luck is what happens when preparation meets opportunity.', articleTitle: 'Seneca, Letters', createdAt: '2024-03-12T00:00:00Z' });
+  render(<Desk marks={[]} />);
+  type('Most of what we call luck is preparation meeting a door left open.');
+  await act(async () => keep());
+  expect(heardBefore).toHaveBeenCalledWith('book-1', 'Most of what we call luck is preparation meeting a door left open.', { echo: true });
+  expect(await screen.findByText(/You marked this in March 2024/)).toHaveTextContent('Luck is what happens when preparation meets opportunity. You marked this in March 2024, in Seneca, Letters.');
+});
+
+test('your words sit in the margin beside the passage, the page you are on is marked, and the line comes after the marks', () => {
+  const quote = { ...KINDLE, page: 88, note: 'Dig is the verb that matters.', location: '' };
+  const asked = { _id: 'q1', text: '', note: 'Does he ever say what to do when it turns up nothing?', page: 131, createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString() };
+  const { container } = render(<Desk marks={[quote, asked]} />);
+
+  const margin = screen.getByText('Dig is the verb that matters.', { selector: 'p' }).parentElement;
+  expect(margin).toHaveClass('book-desk__margin');
+  expect(margin.previousElementSibling).toHaveTextContent(KINDLE.text);
+  expect(screen.getByText(asked.note, { selector: 'p' }).closest('.book-desk__mark')).toHaveAttribute('data-kind', 'question');
+  expect(container.querySelector('.book-desk__page[aria-current="page"]')).toHaveTextContent('p. 131');
+  expect(container.querySelector('.book-desk__pages').compareDocumentPosition(line()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });

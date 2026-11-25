@@ -1518,7 +1518,7 @@ describe('WikiPageReadView', () => {
     expect(mentionedRegion.textContent).not.toContain(']]');
   });
 
-  it('keeps four page actions and mentioned-in backlinks in the workspace reader', async () => {
+  it('keeps five page actions and mentioned-in backlinks in the workspace reader', async () => {
 
     render(
       <MemoryRouter>
@@ -1528,7 +1528,7 @@ describe('WikiPageReadView', () => {
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     const actions = screen.getByRole('navigation', { name: 'Page actions' });
-    expect(within(actions).getAllByRole('button').map(button => button.textContent)).toEqual(['Edit', 'History', 'Share', 'Add to project']);
+    expect(within(actions).getAllByRole('button').map(button => button.textContent)).toEqual(['Edit', 'History', 'Share', 'Add to project', 'Hang in museum']);
     expect(screen.queryByRole('tab', { name: 'Talk' })).not.toBeInTheDocument();
     expect(screen.queryByText('Claim health')).not.toBeInTheDocument();
     expect(await screen.findByText('Mentioned in')).toBeInTheDocument();
@@ -1809,7 +1809,7 @@ describe('WikiPageReadView', () => {
 
     await flushDeferredWikiReadWork();
 
-    expect(screen.getByRole('status', { name: 'Changes since your last visit' })).toHaveTextContent('1 new claim');
+    expect(screen.getByRole('status', { name: 'Changes since your last visit' })).toHaveTextContent('Claims added');
   });
 
   it('keeps pending signal state out of the page-level ambient presence', async () => {

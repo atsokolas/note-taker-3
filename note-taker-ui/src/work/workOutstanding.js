@@ -1,4 +1,4 @@
-import { dayInZone, readPlan, shiftDay, weekDays, writtenDay } from './workPlannerModel';
+import { dayInZone, readPlan, weekDays, writtenDay } from './workPlannerModel';
 
 // Outstanding is a reading of the same lines notes and days hold. Each line carries
 // at most a list, who it waits on and the days it was sorted or comes back; the rest is derived.
@@ -22,15 +22,12 @@ export function outstanding(items, notes, today) {
   open.forEach(item => lists[listOf(item, notes, today)].push(item));
   const week = weekDays(today).filter(day => day <= today);
   const done = items.filter(item => item.completed && week.includes(doneDay(item)));
-  const lastWeek = items.filter(item => item.completed && weekDays(shiftDay(today, -7)).includes(doneDay(item))).length;
   return {
     ...lists,
-    total: lists.new.length + lists.next.length + lists.waiting.length,
     quiet: lists.next.filter(item => !(item.plannedOn > today) && daysBetween(sortedSince(item), today) >= QUIET_DAYS),
     oneThing: open.find(item => item.oneThingOn === today) || null,
     ledger: week.map(day => ({ day, items: done.filter(item => doneDay(item) === day) })).filter(entry => entry.items.length),
-    done: done.length, lastWeek,
-    gotBack: done.filter(item => item.list === 'waiting').map(item => ({ item, days: daysBetween(sortedSince(item), doneDay(item)) }))
+    done: done.length
   };
 }
 

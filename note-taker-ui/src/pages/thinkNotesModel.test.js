@@ -11,7 +11,8 @@ import {
   readThinkTarget,
   readThinkView,
   targetParams,
-  thinkView
+  thinkView,
+  whereYouStopped
 } from './thinkNotesModel';
 
 const notes = [
@@ -171,5 +172,22 @@ describe('writing recognition', () => {
     expect(results[0].title).toBe('A phrase I remember');
     expect(buildWritingResults([{kind:'notebook',id:'note-1',title:'My note'}], 'room + time')[0].href)
       .toBe('/think?tab=notebook&entryId=note-1&find=room+%2B+time');
+  });
+});
+
+describe('whereYouStopped', () => {
+  it('keeps the last two sentences, the very last apart', () => {
+    expect(whereYouStopped('nt to wait. It was the float. Stripe sees the payment “first.” And then')).toEqual({ before: 'Stripe sees the payment “first.”', last: 'And then' });
+    expect(whereYouStopped('One thought.')).toEqual({ before: '', last: 'One thought.' });
+    expect(whereYouStopped('')).toEqual({ before: '', last: '' });
+  });
+
+  it('reads a saved note from its blocks, and a summary from its last line', () => {
+    const [saved, summary] = buildThinkEntries({ notes: [
+      { _id: 'n1', lastLine: 'The old ending.', blocks: [{ text: 'First.' }, { text: 'The new ending.' }, { text: ' ' }], updatedAt: '2026-11-02' },
+      { _id: 'n2', lastLine: 'From the summary.', updatedAt: '2026-11-01' }
+    ], filter: 'note' });
+    expect(saved.lastLine).toBe('The new ending.');
+    expect(summary.lastLine).toBe('From the summary.');
   });
 });

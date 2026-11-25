@@ -72,6 +72,19 @@ assert.match(reading.html, /href="https:\/\/www\.noeis\.io\/books\/b1\?highlight
 assert.match(reading.text, /A week ago you stopped at p\. 212 of The Power Broker\. The last thing you wrote: “Why roads first\?” — https:\/\/www\.noeis\.io\/books\/b2/);
 assert.doesNotMatch(rendered.text, /you stopped|you asked/, 'books with nothing true this morning are silence');
 
+// What arrived yesterday, said by what it connected to.
+const arrivedMail = renderMorningPaperEmail({
+  briefing,
+  arrived: [
+    { articleId: 'a7', title: 'Atomic Habits', kind: 'echo', to: { type: 'highlight', title: 'Thinking in Bets', quote: 'The best way to deal with a habit is to keep the cue and change the routine.' } },
+    { articleId: 'a8', title: 'Moats', kind: 'answers', to: { type: 'question', title: 'What makes an advantage last?' } }
+  ],
+  unsubscribeUrl: 'u'
+});
+assert.match(arrivedMail.text, /Atomic Habits, which you saved yesterday, echoes “The best way to deal with a habit is to keep the cue and change the routine\.”, which you marked in Thinking in Bets\. — https:\/\/www\.noeis\.io\/library\?articleId=a7/);
+assert.match(arrivedMail.text, /Moats, which you saved yesterday, answers your question “What makes an advantage last\?”\./);
+assert.doesNotMatch(rendered.text, /which you saved yesterday/, 'a morning with no arrivals that connected says nothing about them');
+
 const askedBackMail = renderMorningPaperEmail({
   briefing: {
     askedBack: [{

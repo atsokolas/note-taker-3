@@ -95,13 +95,10 @@ export const quiet = item => item.state === 'active' && item.idle >= QUIET_DAYS;
 // Ink fades a step for each quiet week after the first, and comes back the moment the project is touched.
 export const fade = item => item.state === 'active' ? Math.min(3, Math.max(0, Math.floor(item.idle / 7) - 1)) : 0;
 
-// Needs you reads the same lines and projects: what your notes left unsorted, what came back from Someday,
-// who owes you, and what has gone quiet. Every section is derived; nothing is stored for the page.
 export function needsYou(records, notes, items, today) {
   const lists = outstanding(items, notes, today);
-  const fresh = lists.new.filter(item => item.list !== 'someday'), back = lists.new.filter(item => item.list === 'someday');
   const { active } = projects(records, notes, items, today), silent = active.filter(quiet);
   // A quiet project is asked about once, not once more for each of its quiet lines.
   const stale = lists.quiet.filter(item => !silent.some(project => project.id === projectOfLine(item, notes)));
-  return { ...lists, fresh, back, silent, quiet: stale, hills: Object.fromEntries(active.map(item => [item.id, item.hill])), total: fresh.length + back.length + lists.waiting.length + silent.length + stale.length };
+  return { ...lists, silent, quiet: stale };
 }

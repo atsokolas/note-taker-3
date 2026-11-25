@@ -7,6 +7,8 @@ const { notebookCuttings, sanitizeNotebookWorkbench, sanitizeNotebookTarget } = 
 const { passageFromTarget } = require('../utils/notebookWordingOptions');
 const { generateNotebookWordingOptions } = require('../services/notebookWordingOptionsService');
 const express = require('express');
+const { shaped, z } = require('../utils/requestShape');
+const { createHash } = require('node:crypto');
 const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { opposeFromNote, setOppositeAside } = require('../services/readingTalksBack');
@@ -164,10 +166,16 @@ const buildNotebookRouter = ({
           : 0;
         const compactParam = String(req.query.compact || '').trim().toLowerCase();
         const compact = compactParam === '1' || compactParam === 'true';
-        const firstText = { $arrayElemAt: [{ $filter: {
+        const written = { $filter: {
           input: { $ifNull: ['$blocks.text', []] }, as: 'text',
           cond: { $regexMatch: { input: { $ifNull: ['$$text', ''] }, regex: /\S/ } }
-        } }, 0] };
+        } };
+        const firstText = { $arrayElemAt: [written, 0] };
+        /* Where you stopped: the end of the last thing you wrote, enough for its last two sentences. */
+        const lastLine = { $let: {
+          vars: { text: { $ifNull: [{ $arrayElemAt: [written, -1] }, ''] } },
+          in: { $substrCP: ['$$text', { $max: [0, { $subtract: [{ $strLenCP: '$$text' }, 600] }] }, 600] }
+        } };
         const pipeline = [
           { $match: { userId: new mongoose.Types.ObjectId(userId) } },
           {
@@ -178,6 +186,7 @@ const buildNotebookRouter = ({
               board: 1,
               pencil: 1,
               'workingState.nextTimeLine.text': 1,
+              lastLine,
               ...(compact ? {} : {
                 claimId: 1, tags: 1, linkedArticleId: 1, linkedHighlightIds: 1, importMeta: 1,
                 blockCount: { $size: { $ifNull: ['$blocks', []] } }
@@ -231,6 +240,16 @@ const buildNotebookRouter = ({
       const nextBlocks = sanitizeNotebookBlocks(Array.isArray(blocks)
         ? blocks
         : (stripHtml(content || '') ? [{ id: createBlockId(), type: 'paragraph', text: stripHtml(content || '') }] : []));
+      let clippingId;
+      if (source === 'edition-selection') {
+        const [quote] = nextBlocks;
+        if (nextBlocks.length !== 1 || quote?.type !== 'quote' || typeof quote.text !== 'string' || !quote.text.trim()
+          || !/^\/editions\/[^/?#\s]+#edition-item-[^/?#\s]+$/.test(quote.sourcePath || '')) {
+          return res.status(400).json({ error: 'A clipping needs selected words and their finding link.' });
+        }
+        // The same passage and citation in this account are one kept clipping, even if the first response was lost.
+        clippingId = createHash('sha256').update(JSON.stringify([String(userId), quote.sourcePath, quote.text])).digest('hex').slice(0, 24);
+      }
       const nextType = normalizeItemType(type, 'note');
       const nextClaimId = nextType === 'evidence' ? parseClaimId(claimId) : null;
       if (nextType === 'evidence' && claimId !== undefined && claimId !== null && claimId !== '' && !nextClaimId) {
@@ -243,6 +262,7 @@ const buildNotebookRouter = ({
         }
       }
       const newEntry = new NotebookEntry({
+        ...(clippingId ? { _id: clippingId } : {}),
         title: String(title || '').trim(),
         pencil: pencilOf(req),
         content: content || '',
@@ -257,7 +277,14 @@ const buildNotebookRouter = ({
         userId
       });
       sanitizeNotebookEntry(newEntry);
-      await newEntry.save();
+      try {
+        await newEntry.save();
+      } catch (error) {
+        if (!clippingId || error.code !== 11000) throw error;
+        const saved = await NotebookEntry.findOne({ _id: clippingId, userId, workItem: { $exists: false } });
+        if (saved) return res.status(200).json(saved);
+        throw error;
+      }
       if (Array.isArray(nextBlocks)) {
         await syncNotebookReferences(userId, newEntry._id, nextBlocks);
       }
@@ -356,7 +383,7 @@ const buildNotebookRouter = ({
     }
   });
 
-  router.post('/api/notebook/folders', authenticateToken, async (req, res) => {
+  router.post('/api/notebook/folders', authenticateToken, shaped({ body: z.object({ name: z.string().optional() }) }), async (req, res) => {
     try {
       const userId = req.user.id;
       const { name, parentFolderId, sortOrder, importMeta } = req.body;

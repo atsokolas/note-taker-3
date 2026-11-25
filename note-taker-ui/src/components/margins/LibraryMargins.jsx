@@ -21,7 +21,7 @@ const STACK_GAP = 12;
 export const plainText = value => String(value || '').replace(/\s+/g, ' ').trim();
 export const wordCount = value => (plainText(value).match(/\S+/g) || []).length;
 
-const clip = (value) => {
+export const clip = (value) => {
   const text = plainText(value);
   if (text.length <= QUOTE_CHARS) return text;
   const cut = text.slice(0, QUOTE_CHARS);

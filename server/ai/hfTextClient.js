@@ -1,4 +1,6 @@
 const { DEFAULT_ANTHROPIC_TEXT_MODEL, requestAnthropic } = require('./anthropicClient');
+const { spend } = require('./modelBudget');
+const { timed } = require('../utils/requestTiming');
 
 const DEFAULT_TEXT_MODEL = 'openai/gpt-oss-120b';
 const DEFAULT_PROVIDER = 'groq';
@@ -1100,6 +1102,7 @@ const chatCompleteWithConfig = async ({
 // onlyClaude keeps a request off every other upstream, for writing that must not leave Claude.
 const isClaudeConfigured = () => Boolean(getAnthropicConfig());
 const chatComplete = async (input = {}) => {
+  spend();
   const allowUpstreamFallback = !Array.isArray(input.modelRoutes) || input.modelRoutes.length === 0;
   const configs = input.onlyClaude ? [getAnthropicConfig()].filter(Boolean) : getConfigChain({ allowFallback: allowUpstreamFallback });
   if (!configs.length) throw buildError({ status: 503, message: 'Claude is not configured.', detail: 'ANTHROPIC_API_KEY not configured', upstream: 'anthropic' });
@@ -1205,6 +1208,7 @@ const readStreamingCompletion = async ({ response, onDelta, signal }) => {
 // Router streams are buffered until they pass their contract anyway, so Claude
 // answers a stream request whole, and a failure falls through to the router.
 const chatCompleteStream = async (input = {}) => {
+  spend();
   const claude = getAnthropicConfig();
   if (claude) {
     try {
@@ -1397,8 +1401,8 @@ const chatCompleteRouterStream = async ({
 };
 
 module.exports = {
-  chatComplete,
-  chatCompleteStream,
+  chatComplete: input => timed('ai', () => chatComplete(input)),
+  chatCompleteStream: input => timed('ai', () => chatCompleteStream(input)),
   getConfig,
   isClaudeConfigured,
   isTextGenerationConfigured,
