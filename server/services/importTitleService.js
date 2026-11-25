@@ -86,8 +86,6 @@ const isFragmentTitle = (value = '') => {
   if (isGenericWord(title)) return true;
   if (/^[a-z]/.test(title)) return true;
   if (/^(?:and|but|for|in|of|or|so|the|to|with)\b/.test(title)) return true;
-  // A bare address says where a piece came from, not what it is called.
-  if (/^[\w-]+(?:\.[\w-]+)+$/.test(title)) return true;
   return false;
 };
 
@@ -123,6 +121,16 @@ const isSocialSource = ({ sourceType = '', url = '' } = {}) => (
   })())
 );
 
+// The host a piece came from says where it lives, not what it is called.
+const isAddressOf = (title = '', url = '') => {
+  try {
+    const host = new URL(String(url || '')).hostname.replace(/^www\./i, '');
+    return Boolean(host) && clean(title, 240).toLowerCase().replace(/^www\./, '') === host.toLowerCase();
+  } catch (_error) {
+    return false;
+  }
+};
+
 /* A file saved by its raw address still names itself in its path:
    ".../peter-thiels-cs183-startup-class-19-notes-essay.md". */
 const pathTitle = (value = '') => {
@@ -150,7 +158,7 @@ const deriveImportedTitle = ({
   url = '',
   publishedAt = null
 } = {}) => {
-  const explicit = clean(metadataTitle, 180);
+  const explicit = isAddressOf(metadataTitle, url) ? '' : clean(metadataTitle, 180);
   if (explicit && !isFragmentTitle(explicit)) return explicit;
   const repairedExplicit = repairLeadingTitleCase(explicit);
   if (repairedExplicit) return repairedExplicit;
@@ -176,7 +184,7 @@ const highlightText = (article = {}) => (
 
 const planArticleTitleRepair = (article = {}) => {
   const before = clean(article.title, 240);
-  if (!isFragmentTitle(before)) return null;
+  if (!isFragmentTitle(before) && !isAddressOf(before, article.url)) return null;
   const after = deriveImportedTitle({
     metadataTitle: article.title,
     content: article.content || highlightText(article),

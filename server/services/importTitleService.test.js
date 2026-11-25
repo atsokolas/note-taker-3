@@ -132,7 +132,10 @@ describe('importTitleService', () => {
   });
   test('a raw file saved under its host is named by its path', () => {
     const url = 'https://gist.githubusercontent.com/harperreed/3201887/raw/63bd96e/peter-thiels-cs183-startup-class-19-notes-essay.md';
-    expect(isFragmentTitle('Gist.githubusercontent.com')).toBe(true);
+    expect(planArticleTitleRepair({ title: 'Gist.githubusercontent.com', url })?.after)
+      .toBe('Peter thiels cs183 startup class 19 notes essay');
+    expect(deriveImportedTitle({ metadataTitle: 'Node.js', content: '# Node.js', url: 'https://example.com/notes/1' }))
+      .toBe('Node.js');
     expect(deriveImportedTitle({ metadataTitle: 'Gist.githubusercontent.com', url }))
       .toBe('Peter thiels cs183 startup class 19 notes essay');
     expect(deriveImportedTitle({ metadataTitle: 'Gist.githubusercontent.com', url, content: '# CS183: Class 19 Notes Essay\n\nBody.' }))
