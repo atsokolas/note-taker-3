@@ -1,6 +1,7 @@
 // The Museum: hanging pieces, arranging the wall, and opening it to visitors.
 const express = require('express');
 const mongoose = require('mongoose');
+const { readKept } = require('../services/home');
 const { PASSAGE_MAX, PIECE_DETAIL, SOURCES, nextAccession, ownerMuseum, publicMuseum, sourceOffer } = require('../services/museumShape');
 
 const HANDLE = /^[a-z0-9](?:[a-z0-9-]{0,28}[a-z0-9])?$/;
@@ -51,20 +52,27 @@ const buildMuseumRouter = ({ auth, humanOnly, Museum, Article, WikiPage, Noteboo
 
   const shown = async museum => (museum ? ownerMuseum(museum, await pagesOn(museum)) : EMPTY);
 
-  /* What you kept for good and have not hung, the longest held first. Keeping
-     is the one decision no agent may make, so this offers only your own. */
+  /* What you kept for good and have not hung, the longest held first: the
+     same Kept as Home, so the wall is Kept, shown. A work hangs once, and a
+     passage you kept in it is the one it offers. A thread runs through
+     several works, so it is not one piece. Keeping is the one decision no
+     agent may make, so this offers only your own. */
   const keptNotHung = async (userId, museum) => {
     const hung = new Set((museum?.pieces || []).map(piece => String(piece.targetId)));
-    const kept = Model => Model.find({ userId, evergreen: true }).select('title evergreenAt').sort({ evergreenAt: 1 }).limit(KEPT_OFFERED + hung.size).lean();
-    const [articles, pages] = await Promise.all([kept(Article), kept(WikiPage)]);
-    return [
-      ...articles.map(row => ({ kind: 'article', row })),
-      ...pages.map(row => ({ kind: 'wiki', row }))
-    ]
-      .filter(({ row }) => row.title && !hung.has(String(row._id)))
-      .sort((left, right) => new Date(left.row.evergreenAt || 0).getTime() - new Date(right.row.evergreenAt || 0).getTime())
-      .slice(0, KEPT_OFFERED)
-      .map(({ kind, row }) => ({ kind, id: String(row._id), title: row.title }));
+    const [held, pages] = await Promise.all([
+      readKept({ Article, userId }),
+      WikiPage.find({ userId, evergreen: true }).select('title evergreenAt').lean()
+    ]);
+    const offers = new Map();
+    for (const { kind, id, title, passage, at } of [
+      ...held.filter(item => item.kind !== 'thread').map(item => ({ kind: 'article', id: item.articleId, title: item.title, passage: item.text || '', at: item.at })),
+      ...pages.map(page => ({ kind: 'wiki', id: String(page._id), title: page.title, passage: '', at: page.evergreenAt }))
+    ].sort((a, b) => new Date(a.at || 0).getTime() - new Date(b.at || 0).getTime())) {
+      if (!title || hung.has(id)) continue;
+      const offer = offers.get(id) || { kind, id, title, passage: '' };
+      offers.set(id, { ...offer, passage: offer.passage || passage });
+    }
+    return [...offers.values()].slice(0, KEPT_OFFERED);
   };
 
   const withPiece = handler => safely(async (req, res) => {

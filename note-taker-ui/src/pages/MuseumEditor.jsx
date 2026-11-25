@@ -94,8 +94,8 @@ export default function MuseumEditor() {
             <ul>
               {kept.map(item => (
                 <li key={`${item.kind}:${item.id}`}>
-                  <span className="museum-kept__title">{item.title}</span>
-                  <HangInMuseum kind={item.kind} id={item.id} />
+                  <span className="museum-kept__title">{item.title}{item.passage ? <q>{item.passage}</q> : null}</span>
+                  <HangInMuseum kind={item.kind} id={item.id} passage={item.passage} />
                 </li>
               ))}
             </ul>

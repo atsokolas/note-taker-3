@@ -9,7 +9,7 @@ import { tagOf } from './museumModel';
  * a reading, a book, a wiki page, a note. Once it hangs, the same place says
  * so and opens its label for more detail.
  */
-export default function HangInMuseum({ kind, id, className = '' }) {
+export default function HangInMuseum({ kind, id, passage = '', className = '' }) {
   const own = useOwnMuseum();
   const [open, setOpen] = useState(false);
   const [hung, setHung] = useState('');
@@ -26,7 +26,7 @@ export default function HangInMuseum({ kind, id, className = '' }) {
           Hung as <Link to={`/museum?piece=${encodeURIComponent(piece.accession)}`}>{tagOf(piece, museum.name)}</Link>
         </span>
       ) : null}
-      {open ? <PieceSheet kind={kind} id={String(id)} onClose={() => setOpen(false)} onHung={setHung} /> : null}
+      {open ? <PieceSheet kind={kind} id={String(id)} passage={passage} onClose={() => setOpen(false)} onHung={setHung} /> : null}
     </span>
   );
 }

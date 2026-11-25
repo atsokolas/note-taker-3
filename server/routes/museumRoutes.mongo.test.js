@@ -37,6 +37,11 @@ test('real Mongo: a wall shows the one passage its owner hung, and nothing else 
       ]
     });
     const rams = await Article.create({ userId: owner, title: 'Ten principles for good design', url: 'https://example.com/rams', evergreen: true, evergreenAt: new Date('2018-01-01') });
+    // A passage kept for good, in a work that is not itself kept, is offered with that passage.
+    const feynman = await Article.create({ userId: owner, title: 'Cargo Cult Science', url: 'https://example.com/feynman', highlights: [
+      { text: 'Some other passage.' },
+      { text: 'The first principle is that you must not fool yourself.', keptAt: new Date('2019-01-01') }
+    ] });
     const theirs = await Article.create({ userId: stranger, title: 'Not yours', url: 'https://example.com/theirs' });
     const page = await WikiPage.create({ userId: owner, title: 'Alphabet is Berkshire Hathaway 2.0', slug: 'alphabet-berkshire', status: 'published', visibility: 'shared', plainText: 'A collection of compounding businesses. Run by people who think in decades. More.' });
 
@@ -57,7 +62,8 @@ test('real Mongo: a wall shows the one passage its owner hung, and nothing else 
     const first = await call('GET', '/api/museum');
     assert.equal(first.status, 200);
     assert.deepEqual(first.body.museum.pieces, []);
-    assert.deepEqual(first.body.kept.map(kept => kept.title), ['You and Your Research', 'Ten principles for good design']);
+    assert.deepEqual(first.body.kept.map(kept => kept.title), ['You and Your Research', 'Ten principles for good design', 'Cargo Cult Science']);
+    assert.deepEqual(first.body.kept[2], { kind: 'article', id: String(feynman._id), title: 'Cargo Cult Science', passage: 'The first principle is that you must not fool yourself.' });
 
     const offer = await call('GET', `/api/museum/sources/article/${hamming._id}`);
     assert.equal(offer.body.source.passages.length, 3);

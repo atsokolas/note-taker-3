@@ -7,8 +7,9 @@ import { roomsOf } from './museumModel';
 
 const said = error => error?.response?.data?.error || 'That did not save.';
 
-const blank = (source, piece) => {
-  const first = source.passages[0] || { text: '', note: '' };
+// A new piece starts from the passage you kept, when it fits on the wall, or else the first you marked.
+const blank = (source, piece, kept) => {
+  const first = source.passages.find(passage => passage.text === kept) || source.passages[0] || { text: '', note: '' };
   const from = piece || { ...source, passage: first.text, why: first.note, room: '', ledTo: [] };
   return {
     passage: from.passage, why: from.why, room: from.room, own: from.own, ledTo: from.ledTo,
@@ -24,7 +25,7 @@ const blank = (source, piece) => {
  * thing it cannot hang without. When you marked the passage with a note, the
  * reason starts from that note, since you already said it once.
  */
-export default function PieceSheet({ kind, id, onClose, onHung = () => {} }) {
+export default function PieceSheet({ kind, id, passage = '', onClose, onHung = () => {} }) {
   const own = useOwnMuseum();
   const [source, setSource] = useState(null);
   const [piece, setPiece] = useState(null);
@@ -40,11 +41,11 @@ export default function PieceSheet({ kind, id, onClose, onHung = () => {} }) {
         if (!live) return;
         setSource(found.source);
         setPiece(found.piece);
-        setForm(blank(found.source, found.piece));
+        setForm(blank(found.source, found.piece, passage));
       })
       .catch(failure => live && setError(said(failure)));
     return () => { live = false; };
-  }, [kind, id]);
+  }, [kind, id, passage]);
   useEffect(() => { if (form) first.current?.focus(); }, [Boolean(form)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const wall = own?.museum?.pieces || [];
