@@ -28,6 +28,8 @@ import { buildPaletteDestinations } from '../system/paletteDestinations';
 import { buildSettingsPaletteRows } from '../settings/settingsRegistry';
 import { getFolders } from '../api/folders';
 import { currentAccountId } from '../utils/browserScope';
+import { readKept } from '../api/home';
+import { keptLabel, pathOf } from './home/homeModel';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -273,6 +275,8 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
   const [concepts, setConcepts] = useState([]);
   const [wikiPages, setWikiPages] = useState([]);
   const [recentWiki, setRecentWiki] = useState([]);
+  // What you keep is asked first.
+  const [kept, setKept] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const isWikiSurface = currentPathname().startsWith('/wiki');
@@ -316,6 +320,7 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
     setSearchGroups(saved?.groups || EMPTY_GROUPS);
     setWikiPages(saved?.wikiPages || []);
     setRecentWiki([]);
+    setKept([]);
     setNotebook([]);
     setConcepts([]);
     setFolders([]);
@@ -327,12 +332,13 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
       try {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
-        const [notebookRows, tagRes, wikiRows, folderRows, shelfRes] = await Promise.allSettled([
+        const [notebookRows, tagRes, wikiRows, folderRows, shelfRes, keptRows] = await Promise.allSettled([
           getNotebookSummaries(),
           api.get('/api/tags', { headers }),
           listWikiPages({ limit: 12, summary: 1 }),
           getFolders(),
-          api.get('/api/articles', { headers })
+          api.get('/api/articles', { headers }),
+          readKept()
         ]);
         if (!live || account !== currentAccountId()) return;
         setNotebook(notebookRows.status === 'fulfilled' ? notebookRows.value || [] : []);
@@ -340,6 +346,7 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
         setRecentWiki(wikiRows.status === 'fulfilled' ? withoutHeldViews(wikiRows.value) : []);
         setFolders(folderRows.status === 'fulfilled' && Array.isArray(folderRows.value) ? folderRows.value : []);
         setShelfArticles(shelfRes.status === 'fulfilled' && Array.isArray(shelfRes.value?.data) ? shelfRes.value.data : []);
+        setKept(keptRows.status === 'fulfilled' ? keptRows.value : []);
       } catch (err) {
         console.error('Palette preload failed', err);
       }
@@ -872,6 +879,10 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
       ]
     };
 
+    const keptSection = {
+      title: 'Kept',
+      items: kept.map(held => ({ id: held.highlightId || held.threadId || held.articleId, type: 'Kept', label: keptLabel(held), path: pathOf(held) }))
+    };
     const pagesSection = {
       title: 'Pages',
       items: pages.map(page => ({ type: 'Page', label: page.label, path: page.path }))
@@ -907,6 +918,8 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
     };
 
     if (!q) {
+      // The latest of what you keep, before anything else.
+      if (kept.length) list.push({ ...keptSection, items: keptSection.items.slice(-4).reverse() });
       if (isWikiSurface) {
         list.push(wikiPagesSection);
         list.push(wikiDestinationsSection);
@@ -919,6 +932,8 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
     if (q) {
       const rankedWikiPages = rankLocalItems(wikiPagesSection.items, q);
       const wikiPageMatches = rankedWikiPages.length ? rankedWikiPages : wikiPagesSection.items;
+      const keptMatches = rankLocalItems(keptSection.items, q);
+      if (keptMatches.length) list.push({ ...keptSection, items: keptMatches.slice(0, 4) });
       const rankedPages = rankLocalItems(pagesSection.items, q);
       const exactPages = rankedPages.filter((item) => normalizeSearchText(item.label) === normalizeSearchText(q));
       if (exactPages.length) {
@@ -1023,7 +1038,7 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
     return list
       .map(section => ({ ...section, items: section.items.filter(Boolean) }))
       .filter(section => section.items.length > 0);
-  }, [articles, capabilityModel.commands, concepts, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, notebook, pages, pullReferencePath, query, recentWiki, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
+  }, [articles, capabilityModel.commands, concepts, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, kept, notebook, pages, pullReferencePath, query, recentWiki, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
 
   const selectableItems = useMemo(
     () => sections.flatMap(section => section.items),

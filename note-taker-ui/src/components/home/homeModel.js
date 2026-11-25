@@ -7,8 +7,9 @@ const NUMBERS = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eig
 const counted = (n, one) => `${NUMBERS[n] || n} ${one}${n === 1 ? '' : 's'}`;
 const timeOf = value => new Date(value).getTime() || 0;
 
-// A book opens on its own page, anything else in the Library reader; either at the passage.
-export const pathOf = ({ book, articleId, highlightId }) => {
+// A thread opens on its own page; a book on its own, anything else in the Library reader, either at the passage.
+export const pathOf = ({ threadId, book, articleId, highlightId }) => {
+  if (threadId) return `/threads/${threadId}`;
   if (book) return `/books/${articleId}${highlightId ? `?highlight=${encodeURIComponent(highlightId)}` : ''}`;
   return highlightId ? buildCanonicalHighlightPath({ articleId, highlightId }) : buildCanonicalArticlePath(articleId);
 };
@@ -51,3 +52,6 @@ export const formedAcross = (marks = []) => {
   const times = marks.map(mark => timeOf(mark.createdAt)).filter(Boolean);
   return `${capital(NUMBERS[works] || String(works))} things you read, ${apart(Math.min(...times), Math.max(...times))}`;
 };
+
+// What a kept thing is called, in a list: a passage by its words, anything else by its title.
+export const keptLabel = held => (held.kind === 'mark' ? `“${held.text || held.note}” · ${held.title}` : held.title);

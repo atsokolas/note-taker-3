@@ -66,7 +66,7 @@ export default function Home() {
               {home.kept.map(held => (
                 <li key={held.highlightId || held.articleId}>
                   <time dateTime={held.at || undefined}>{held.at ? monthOf(held.at) : 'kept'}</time>
-                  <Link to={held.kind === 'thread' ? `/threads/${held.threadId}` : pathOf(held)}>
+                  <Link to={pathOf(held)}>
                     {held.kind === 'mark' ? <q>{held.text || held.note}</q> : held.title}
                     <small>{keptAs(held)}</small>
                   </Link>

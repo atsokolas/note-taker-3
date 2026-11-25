@@ -103,7 +103,7 @@ test('home: a thread forms, waits for an answer, and is kept', async () => {
   const lean = value => ({ select: () => ({ lean: async () => value }) });
   const doc = thread => Object.assign(thread, { save: async () => thread });
   const Thread = {
-    find: () => ({ sort: () => ({ lean: async () => threads }) }),
+    find: () => ({ sort: () => ({ lean: async () => threads }), lean: async () => threads }),
     findOne: async ({ _id, userId }) => threads.find(thread => thread._id === _id && thread.userId === userId) || null,
     create: async ({ userId, marks }) => {
       const thread = doc({ _id: id(90 + threads.length), userId, marks, answer: null, answeredAt: null, createdAt: new Date(NOW) });
@@ -151,6 +151,7 @@ test('home: a thread forms, waits for an answer, and is kept', async () => {
     assert.equal(after.forming, null, 'a new one is not looked for within the fortnight');
     assert.deepEqual(after.kept.map(item => [item.kind, item.marks]), [['thread', 3]], 'a kept thread is in Kept');
     assert.equal((await call(`/api/threads/${body.forming.threadId}`)).body.marks.length, 3, 'it has a page of its own');
+    assert.deepEqual((await call('/api/kept')).body.kept.map(item => item.threadId), [body.forming.threadId], 'Kept alone, for ⌘K and the brief');
     assert.equal((await call(`/api/threads/${id(99)}`)).status, 404);
   } finally {
     server.close();

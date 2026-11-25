@@ -493,6 +493,26 @@ describe('CommandPalette', () => {
     expect(screen.queryByText('Notebook')).not.toBeInTheDocument();
   });
 
+  it('asks what you keep first, before anything else in the library', async () => {
+    api.get.mockImplementation((path) => (path === '/api/kept'
+      ? Promise.resolve({ data: { kept: [
+        { kind: 'mark', articleId: 'm1', highlightId: 'h1', title: 'Meditations', text: 'The best revenge is not to be like your enemy.' },
+        { kind: 'thread', threadId: 't1', title: 'A thread through Vegetius and Meditations', marks: 3 }
+      ] } })
+      : Promise.resolve({ data: [] })));
+
+    await renderPalette();
+    const headings = () => [...document.querySelectorAll('.palette-group-title')].map(title => title.textContent);
+    expect(await screen.findByText('A thread through Vegetius and Meditations')).toBeInTheDocument();
+    expect(headings()[0]).toBe('Kept');
+
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), { target: { value: 'revenge' } });
+    await flushSearch();
+    expect(headings()[0]).toBe('Kept');
+    fireEvent.click(screen.getByText('“The best revenge is not to be like your enemy.” · Meditations'));
+    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('h1'));
+  });
+
   it('opens the first search result before wiki creation when pressing Enter', async () => {
     await renderPalette();
 
