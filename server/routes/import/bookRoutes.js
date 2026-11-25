@@ -1,4 +1,5 @@
 // Books: the shelf, the reading desk's lines, asking and arguing with a book, lending one.
+const { isValidObjectId } = require('mongoose');
 const { calendarDay, bookReturning } = require('../../services/closedBooks');
 const {
   shelveBooks,
@@ -64,6 +65,7 @@ module.exports = (router, {
     const { mark, echo } = pair;
     const kept = books.some(book => (book.highlights || []).some(held => String(held._id) === String(mark._id) && held.text === mark.text));
     if (!kept) return false;
+    if (!isValidObjectId(echo.articleId) || !isValidObjectId(echo._id)) return false;
     const other = await Article.findOne({ _id: echo.articleId, userId, 'highlights._id': echo._id }).select({ 'highlights.$': 1 }).lean();
     return sameText(other?.highlights?.[0]?.text, echo.text);
   };
