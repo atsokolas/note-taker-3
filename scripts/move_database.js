@@ -6,8 +6,9 @@
  * the Render server.
  *
  * Reads FROM_URI and TO_URI from the environment and never prints either.
- * Without --apply it only counts what would be copied. It refuses a target
- * that already holds documents, so it can never merge into live data.
+ * Without --apply it only counts what would be copied. With it, the source
+ * must refuse writes (its user made read-only) until the app is switched, and
+ * a target that already holds documents is refused, so nothing is lost or merged.
  *
  * Usage: node --env-file=<file with FROM_URI and TO_URI> scripts/move_database.js [--apply]
  */
@@ -54,7 +55,10 @@ const copyCollection = async (from, to, { name, options }) => {
 /* Search indexes live outside the collection's own indexes, so each is asked
    for again by its definition. A deployment without Atlas Search has none. */
 const copyVectorIndex = async (from, to, log) => {
-  const found = await from.collection(VECTORS).listSearchIndexes().toArray().catch(() => []);
+  const found = await from.collection(VECTORS).listSearchIndexes().toArray().catch((error) => {
+    if (/atlas|not supported|SearchNotEnabled|CommandNotSupported|CommandNotFound/i.test(`${error.codeName} ${error.message}`)) return [];
+    throw error;
+  });
   for (const index of found) {
     const dimensions = index.latestDefinition?.fields?.find(field => field.type === 'vector')?.numDimensions;
     await to.collection(VECTORS).createSearchIndex(vectorIndexDefinition(dimensions));
@@ -62,8 +66,20 @@ const copyVectorIndex = async (from, to, log) => {
   }
 };
 
+/* Counts compare only while nothing changes, so the source must refuse writes
+   for the whole move, workers included: give the app's database user read-only
+   rights until Render points at the target. A probe write proves it. */
+const refuseUnlessFrozen = async (source) => {
+  const probe = source.db().collection('move_database_probe');
+  const wrote = await probe.insertOne({ at: new Date() }).then(() => true, () => false);
+  if (!wrote) return;
+  await probe.drop();
+  throw new Error('The source still accepts writes. Make its database user read-only, then run again.');
+};
+
 /* Copies source into target; without apply it only counts. Returns what landed. */
-const moveDatabase = async ({ source, target, apply = false, log = console.log }) => {
+const moveDatabase = async ({ source, target, apply = false, requireFreeze = apply, log = console.log }) => {
+  if (requireFreeze) await refuseUnlessFrozen(source);
   for (const name of await databasesOf(target)) {
     for (const { name: collection } of await collectionsOf(target.db(name))) {
       if (await target.db(name).collection(collection).estimatedDocumentCount()) {

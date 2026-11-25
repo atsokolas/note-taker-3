@@ -5,7 +5,8 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const { moveDatabase } = require('./move_database');
 
 /* Two real deployments: everything on the first arrives on the second with
-   its indexes, a dry run writes nothing, and a target holding data is refused. */
+   its indexes, a dry run writes nothing, a source still taking writes is
+   refused, and so is a target holding data. */
 test('real Mongo: the move copies every document and index, and never into live data', async () => {
   const [one, two] = await Promise.all([MongoMemoryServer.create(), MongoMemoryServer.create()]);
   const source = await MongoClient.connect(one.getUri());
@@ -20,7 +21,10 @@ test('real Mongo: the move copies every document and index, and never into live 
     await moveDatabase({ source, target, log });
     assert.equal(await target.db('test').collection('articles').estimatedDocumentCount(), 0, 'a dry run writes nothing');
 
-    const landed = await moveDatabase({ source, target, apply: true, log });
+    await assert.rejects(moveDatabase({ source, target, apply: true, log }), /still accepts writes/);
+    assert.equal(await source.db().listCollections({ name: 'move_database_probe' }).toArray().then(rows => rows.length), 0, 'the probe leaves nothing behind');
+
+    const landed = await moveDatabase({ source, target, apply: true, requireFreeze: false, log });
     assert.deepEqual(landed['test.articles'], { count: 2500, arrived: 2500 });
     assert.deepEqual(landed['test.vectoritems'], { count: 1, arrived: 1 });
     const copy = await target.db('test').collection('articles').findOne({ title: 'Piece 7' });
@@ -28,7 +32,7 @@ test('real Mongo: the move copies every document and index, and never into live 
     const names = (await target.db('test').collection('articles').listIndexes().toArray()).map(index => index.name);
     assert.ok(names.includes('by_reader'));
 
-    await assert.rejects(moveDatabase({ source, target, apply: true, log }), /refusing to copy into it/);
+    await assert.rejects(moveDatabase({ source, target, apply: true, requireFreeze: false, log }), /refusing to copy into it/);
   } finally {
     await Promise.all([source.close(), target.close()]);
     await Promise.all([one.stop(), two.stop()]);
