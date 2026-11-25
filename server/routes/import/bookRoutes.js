@@ -57,14 +57,26 @@ module.exports = (router, {
   /* Today's echo: a passage from one of your books and nearly the same
      thought, marked in another work long before or after. Null on a day
      with none. The day is the reader's own, sent as a calendar day. */
+  // A day with no pair stands as it is; a pair stands while both passages read as they did.
+  const sameText = (a, b) => String(a || '').replace(/\s+/g, ' ').trim() === String(b || '').replace(/\s+/g, ' ').trim();
+  const stillStands = async (pair, books, userId) => {
+    if (!pair) return true;
+    const { mark, echo } = pair;
+    const kept = books.some(book => (book.highlights || []).some(held => String(held._id) === String(mark._id) && held.text === mark.text));
+    if (!kept) return false;
+    const other = await Article.findOne({ _id: echo.articleId, userId, 'highlights._id': echo._id }).select({ 'highlights.$': 1 }).lean();
+    return sameText(other?.highlights?.[0]?.text, echo.text);
+  };
+
   router.get('/api/books/echo', authenticateToken, async (req, res) => {
     try {
       const today = calendarDay(req.query.today);
       const books = await Article.find({ userId: req.user.id, url: BOOK_URL }).select(BOOK_MARKS).lean();
       /* The pair holds all day, so it is looked for once a day, and again
-         only when a mark is added or taken away. */
+         when a mark is added or taken away, or either passage of the pair
+         was rewritten or deleted since. */
       const key = `${req.user.id}:${today}:${books.reduce((sum, book) => sum + (book.highlights || []).length, 0)}`;
-      if (!echoes.has(key)) {
+      if (!echoes.has(key) || !(await stillStands(echoes.get(key), books, req.user.id))) {
         echoes.set(key, await echoToday({ books, today, echoOf: mark => echoOf({ userId: req.user.id, mark }) }));
         if (echoes.size > ECHOES_KEPT) echoes.delete(echoes.keys().next().value);
       }
