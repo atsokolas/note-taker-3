@@ -4,7 +4,7 @@
   "server/ai/anthropicClient.js": 9,
   "server/ai/embeddingJobs.js": 48,
   "server/ai/hfTextClient.js": 53,
-  "server/ai/semanticSearch.js": 33,
+  "server/ai/semanticSearch.js": 22,
   "server/ai/vectorStore.js": 36,
   "server/pageEval/runEval.js": 8,
   "server/pageEval/score.js": 10,

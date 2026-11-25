@@ -110,3 +110,34 @@ test('what a source added: pencil until inked, gone once struck', async () => {
     server.close();
   }
 });
+
+/* The rates are counted from what is stored: sources the model read for what
+   they added (not margins or echoes), the share that connected, and of what
+   was offered, how much the reader inked. */
+test('connect rate and ink rate, from judgments, inks and strikes', async () => {
+  const { rates } = require('../../services/whatItAdded');
+  const a = '64b0000000000000000000a1';
+  const b = '64b0000000000000000000a2';
+  const since = new Date('2026-11-01T00:00:00Z');
+  const asked = {};
+  const judgments = [
+    { about: `${a}>highlight:1`, relation: 'bears' },
+    { about: `${a}>question:2`, relation: 'argues' },
+    { about: `${a}>question:3`, relation: 'none' },
+    { about: `${b}>highlight:4`, relation: 'none' }
+  ];
+  const found = (name, rows) => ({ find: (query) => { asked[name] = query; return { select: () => ({ lean: async () => rows }) }; } });
+  const rated = await rates({
+    userId: 'u1',
+    since,
+    models: {
+      ConnectionJudgment: found('judgments', judgments),
+      // One ink of an offer, and one the reader drew by hand, which is not an offer.
+      Connection: found('inked', [{ fromId: a, toType: 'highlight', toId: '1' }, { fromId: a, toType: 'note', toId: '9' }]),
+      Verdict: found('struck', [{ about: `${a}>question:2` }])
+    }
+  });
+  assert.deepEqual(rated, { since, sources: { read: 2, connected: 1, connectRate: 0.5 }, connections: { offered: 2, inked: 1, struck: 1, inkRate: 0.5 } });
+  assert.equal(asked.judgments.about.$regex.test(`${a}#0123>highlight:1`), false, 'a margin pair is not a source read for what it added');
+  assert.deepEqual(asked.struck.about, { $in: [`${a}>highlight:1`, `${a}>question:2`] });
+});

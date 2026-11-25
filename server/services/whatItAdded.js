@@ -1,5 +1,6 @@
 const { addedBy } = require('../ai/semanticSearch');
 const { cleanWikiSummary } = require('./wikiSourceRefs');
+const { judged, holds } = require('./judged');
 const { relations } = require('./disagreements');
 const { SUPPRESSED } = require('./readingRoomService');
 
@@ -14,44 +15,28 @@ const ARGUABLE = new Set(['echo', 'belongs']);
 const aboutOf = (articleId, key) => `${articleId}>${key}`;
 
 /* What a source added to what you already hold. The vectors find what is
-   close; the model reads each new pair once and says whether the source
-   bears on it, argues with it, or only shares its words, and that judgment
-   is kept, so a pair is never read twice. Only what bears or argues is
-   offered, the strongest ADDED_EACH of each kind, and never one the reader
-   struck. A pair the model could not read this time is left out and read
-   next time. */
+   close; the model reads each pair once (services/judged.js) and only what
+   bears or argues is offered, the strongest ADDED_EACH of each kind, never
+   one the reader struck. */
 const whatItAdded = async ({ userId, articleId, models, find = addedBy, judge = relations }) => {
-  const { Article, ConnectionJudgment, Verdict } = models;
+  const { Article, Verdict } = models;
   const close = await find({ userId, articleId, models });
   const struck = close.length ? await Verdict.find({ userId, kind: 'connection', about: { $in: close.map(({ key }) => aboutOf(articleId, key)) } }).select('about').lean() : [];
   const gone = new Set(struck.map(row => row.about));
   const found = close.filter(({ key }) => !gone.has(aboutOf(articleId, key)));
   if (!found.length) return [];
-  const kept = await ConnectionJudgment.find({ userId, about: { $in: found.map(({ key }) => aboutOf(articleId, key)) }, relation: { $exists: true } })
-    .select('about relation says').lean();
-  // An argument kept without the source's side is read again, so it can say what it argues.
-  const judged = new Map(kept.filter(row => row.relation !== 'argues' || row.says).map(row => [row.about, row]));
-  const unjudged = found.filter(({ key }) => !judged.has(aboutOf(articleId, key)));
-  if (unjudged.length) {
-    const source = await Article.findOne({ _id: articleId, userId }).select('title content highlights.text').lean();
-    const says = ((source?.highlights || []).map(mark => mark.text).filter(Boolean).join('\n') || cleanWikiSummary(source?.content, SOURCE_SAYS)).slice(0, SOURCE_SAYS);
-    const read = says ? await judge({
-      pairs: unjudged.map(({ to }) => ({ a: { who: source.title || 'the new source', says }, b: { who: to.title || 'what you hold', says: to.quote || to.title } }))
-    }).catch((error) => {
-      console.warn('[added] judging failed', String(error?.message || error).slice(0, 160));
-      return [];
-    }) : [];
-    const rows = read.map(row => ({
-      userId, about: aboutOf(articleId, unjudged[row.index].key), relation: row.relation, says: row.relation === 'argues' ? (row.a || says.split('\n')[0]).slice(0, 500) : ''
-    }));
-    if (rows.length) {
-      await ConnectionJudgment.bulkWrite(rows.map(row => ({ updateOne: { filter: { userId, about: row.about }, update: { $set: row }, upsert: true } })));
-    }
-    rows.forEach(row => judged.set(row.about, row));
-  }
+  const source = await Article.findOne({ _id: articleId, userId }).select('title content highlights.text').lean();
+  const says = ((source?.highlights || []).map(mark => mark.text).filter(Boolean).join('\n') || cleanWikiSummary(source?.content, SOURCE_SAYS)).slice(0, SOURCE_SAYS);
+  if (!says) return [];
+  const read = await judged({
+    userId,
+    models,
+    judge,
+    pairs: found.map(({ key, to }) => ({ about: aboutOf(articleId, key), a: { who: source.title || 'the new source', says }, b: { who: to.title || 'what you hold', says: to.quote || to.title } }))
+  });
   const offered = found.flatMap((connection) => {
-    const judgment = judged.get(aboutOf(articleId, connection.key));
-    if (!judgment || judgment.relation === 'none') return [];
+    const judgment = read.get(aboutOf(articleId, connection.key));
+    if (!holds(judgment)) return [];
     return judgment.relation === 'argues' && ARGUABLE.has(connection.kind) ? [{ ...connection, kind: 'argues', says: judgment.says }] : [connection];
   });
   return offered.filter((connection, at) => offered.slice(0, at).filter(other => other.kind === connection.kind).length < ADDED_EACH);
@@ -73,4 +58,32 @@ const lately = async ({ userId, since, models, added = whatItAdded }) => {
   return told;
 };
 
-module.exports = { whatItAdded, lately, aboutOf };
+/* How well the connections land, since a day: of the sources the model read
+   for what they added, the share that connected (the connect rate), and of
+   the connections it offered, how many the reader inked and struck (the ink
+   rate is what a reader actually sees of precision). Only inks and strikes
+   of those same offers count. Derived from what is stored, never kept
+   beside it. */
+const SOURCE_PAIR = /^([a-f\d]{24})>/;
+const rates = async ({ userId, since, models: { ConnectionJudgment, Connection, Verdict } }) => {
+  const judgments = await ConnectionJudgment.find({ userId, about: { $regex: SOURCE_PAIR }, createdAt: { $gte: since } }).select('about relation').lean();
+  const sourceOf = row => SOURCE_PAIR.exec(row.about)[1];
+  const kept = judgments.filter(row => row.relation !== 'none');
+  const offered = new Set(kept.map(row => row.about));
+  const sources = [...new Set(kept.map(sourceOf))];
+  const [inks, strikes] = await Promise.all([
+    Connection.find({ userId, fromType: 'article', fromId: { $in: sources } }).select('fromId toType toId').lean(),
+    Verdict.find({ userId, kind: 'connection', verdict: 'strike', about: { $in: [...offered] } }).select('about').lean()
+  ]);
+  const inked = new Set(inks.map(row => aboutOf(row.fromId, `${row.toType}:${row.toId}`)).filter(about => offered.has(about))).size;
+  const struck = new Set(strikes.map(row => row.about)).size;
+  const read = new Set(judgments.map(sourceOf)).size;
+  const share = (part, whole) => (whole ? Math.round((part / whole) * 100) / 100 : null);
+  return {
+    since,
+    sources: { read, connected: sources.length, connectRate: share(sources.length, read) },
+    connections: { offered: offered.size, inked, struck, inkRate: share(inked, offered.size) }
+  };
+};
+
+module.exports = { whatItAdded, lately, rates, aboutOf };

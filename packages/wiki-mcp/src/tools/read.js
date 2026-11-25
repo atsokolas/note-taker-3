@@ -18,7 +18,7 @@ export const readTools = [
   },
   {
     name: 'brief',
-    description: 'Call this first in a session. Where the reader stands, in one call. Name a topic and get everything of theirs that bears on it, by kind: the views they hold (with their reasons for and against), their notes, the passages they marked, what they saved, the questions they are still asking, and, kept apart under `pencil`, what agents wrote that they have not taken up. With no topic: the views they hold, their open questions, what agents left in pencil, and what they saved last. Each item has a link.',
+    description: 'Call this first in a session. Where the reader stands, in one call. Name a topic and get everything of theirs that bears on it, by kind: the views they hold (with their reasons for and against), their notes, the passages they marked, what they saved, the questions they are still asking, and, kept apart under `pencil`, what agents wrote that they have not taken up. Under `added`, what their reading added this week: each source saved lately with the strongest thing it connects to (echoes, answers, argues with, belongs on). With no topic: the views they hold, their open questions, what agents left in pencil, and what they saved last. Each item has a link.',
     inputSchema: {
       topic: z.string().trim().max(500).optional().describe('What the session is about, in plain words. Omit for where the reader stands in general.')
     },
@@ -26,7 +26,7 @@ export const readTools = [
   },
   {
     name: 'recall',
-    description: 'Ask everything the reader keeps: saved articles and their highlights with margin notes, Think notes, the questions they are asking, concepts, the views they hold, wiki pages and filed Editions. Ask in plain words, the way you would ask the reader; results are the passages that answer it, best first, each with its source id and a link. Start here for any question about what the reader has read, written or believes. Open a hit with the tool in its `open` field. A hit with `bearsOn` is reading that bears on the reader\'s own note or view of that id. A hit with `pencil` was written by the agent it names and not yet taken up by the reader: never present it as their view. Nothing returned means nothing they keep bears on it.',
+    description: 'Ask everything the reader keeps: saved articles and their highlights with margin notes, Think notes, the questions they are asking, concepts, the views they hold, wiki pages and filed Editions. Ask in plain words, the way you would ask the reader; results are the passages that answer it, best first, each with its source id and a link. Start here for any question about what the reader has read, written or believes. Open a hit with the tool in its `open` field. A hit with `bearsOn` is reading that bears on the reader\'s own note or view of that id. A hit with `pencil` was written by the agent it names and not yet taken up by the reader: never present it as their view. A hit with `connected` lists the connections the reader inked from it or to it (relation, kind, id); open those for what it echoes, answers, argues with or belongs on. Nothing returned means nothing they keep bears on it.',
     inputSchema: {
       query: z.string().trim().min(1).max(500).describe('The question, in plain words.'),
       limit: z.number().int().min(1).max(25).optional().default(8).describe('Most passages to return.')

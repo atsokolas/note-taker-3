@@ -1250,6 +1250,8 @@ app.use(buildRecallRouter({
   RecallCheck,
   Verdict,
   Disagreement,
+  Connection,
+  ConnectionJudgment,
   humanOnly: requireHumanReader,
   semanticSearch
 }));

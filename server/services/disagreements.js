@@ -13,17 +13,17 @@ const YOU = '';
 
 const SYSTEM = `You compare pairs of passages from one reader's workspace: what an agent wrote or a source says (A), against something the reader holds (B): a view, a passage they marked, a question they asked, a line on one of their wiki pages, or what another agent wrote. Say how A bears on B:
 - "argues" when both cannot be true, or both cannot be acted on, as stated.
-- "bears" when A makes the same point as B, gives evidence for it, carries it to a new case, or answers B when B is a question.
+- "bears" when A makes the same point as B, gives evidence for it, carries it to a new case, or when one is a question the other answers.
 - "none" when they only share words or a topic. A different emphasis, or a claim about something else, is none.
 Answer with JSON only: {"pairs":[{"pair":<number>,"relation":"argues"|"bears"|"none","a":"<what A says, one sentence>","b":"<what B says, one sentence>"}]}`;
 
-/* One model reading over numbered pairs of { a, b }, each side { who, says }:
-   how each pair bears, by index (argues, bears or none), each side in one
-   sentence. */
+/* One model reading over numbered pairs of { a, b }, each side { who, says }
+   and read to SAYS_CHARS: how each pair bears, by index (argues, bears or
+   none), each side in one sentence. */
 const RELATIONS = new Set(['argues', 'bears', 'none']);
 const relations = async ({ pairs, chat = chatComplete }) => {
   if (!pairs.length) return [];
-  const listed = pairs.map(({ a, b }, index) => `Pair ${index + 1}\nA (${a.who}): ${a.says}\nB (${b.who}): ${String(b.says).slice(0, SAYS_CHARS)}`).join('\n\n');
+  const listed = pairs.map(({ a, b }, index) => `Pair ${index + 1}\nA (${a.who}): ${String(a.says).slice(0, SAYS_CHARS)}\nB (${b.who}): ${String(b.says).slice(0, SAYS_CHARS)}`).join('\n\n');
   const completion = await chat({ route: 'critique', messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: listed }] });
   return (parseStructuredText(completion?.text)?.pairs || [])
     .filter(row => pairs[row?.pair - 1])
