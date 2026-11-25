@@ -30,7 +30,7 @@ const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../se
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
 const { marksOfReading } = require('../services/closedBooks');
-const { bookOnShelf } = require('../services/bookShelf');
+const { bookOnShelf, bookTyped } = require('../services/bookShelf');
 
 const toTrimmedString = (value = '') => String(value || '').trim();
 const normalizeSourcePath = (value = '') => {
@@ -392,7 +392,8 @@ const buildImportRouter = ({
       const title = toTrimmedString(req.body?.title);
       if (!title) return res.status(400).json({ error: 'A book needs its title.' });
       const book = bookSource({ provider: BOOK, title, author: toTrimmedString(req.body?.author) });
-      const known = bookOnShelf(await Article.find({ userId, url: BOOK_URL }).select('url title author'), book);
+      const shelf = await Article.find({ userId, url: BOOK_URL }).select('url title author');
+      const known = bookOnShelf(shelf, book) || bookTyped(shelf, title);
       if (known) return res.status(200).json({ article: known, existing: true });
       const article = await Article.create({
         userId,

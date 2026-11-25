@@ -21,10 +21,37 @@ const addressOf = url => String(url).replace(/^import:\/\/[^/]+\//, '');
 /* A book already on the shelf, under any address an import gives it, from any
    provider, or by its title. The address outlives a rename; the title is a
    last resort. */
+// "Poor Charlie's Almanack by Charles T. Munger" is the work "Poor Charlie's Almanack".
+const workOf = title => sameWords(String(title || '').replace(/\s+by\s+(?:[A-Z][\w.'-]*\s*){1,4}$/, ''));
+
+// One title may carry its author and the other not; two different authors are two books.
+const sameBook = (a, b) => [workOf(a), sameWords(a)].includes(sameWords(b)) || workOf(b) === sameWords(a);
+
 const bookOnShelf = (shelf, book) => {
   const addresses = [book.url, ...book.aliases].map(addressOf);
   return shelf.find(item => addresses.includes(addressOf(item.url)))
-    || shelf.find(item => sameWords(item.title) === sameWords(book.title));
+    || shelf.find(item => sameBook(item.title, book.title));
+};
+
+const editsBetween = (a, b) => {
+  let row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++) next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    row = next;
+  }
+  return row[b.length];
+};
+
+/* A title typed at the desk, misspelled ("Poor Charlie's Alamanc"), is still
+   the book already on the shelf. Only a slip: the same numbers, and no more
+   than one letter in seven wrong, so Volume 1 never opens Volume 2. */
+const bookTyped = (shelf, title) => {
+  const typed = sameWords(title);
+  const numbers = value => value.replace(/\D/g, '');
+  return shelf.find(item => [workOf(item.title), sameWords(item.title)].some(work => (
+    numbers(work) === numbers(typed) && editsBetween(work, typed) <= Math.floor(Math.max(work.length, typed.length) / 7)
+  )));
 };
 
 // A question is a line of your own, with no words of the book's, ending in "?".
@@ -132,4 +159,4 @@ const lentCopy = book => ({
   marks: (book.highlights || []).map(shelfMark)
 });
 
-module.exports = { BOOK_MARKS, READWISE_BOOK_PAGE, SHELF_BOOK, bookOnShelf, booksThisMorning, echoToday, isQuestion, lentCopy, openQuestions, shelfMark, shelveBooks };
+module.exports = { BOOK_MARKS, READWISE_BOOK_PAGE, SHELF_BOOK, bookOnShelf, bookTyped, booksThisMorning, echoToday, isQuestion, lentCopy, openQuestions, shelfMark, shelveBooks };
