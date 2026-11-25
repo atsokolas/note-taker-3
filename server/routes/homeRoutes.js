@@ -3,10 +3,21 @@ const mongoose = require('mongoose');
 const { SINKS_AFTER_DAYS, home } = require('../services/home');
 const { echoToday } = require('../services/bookShelf');
 const { calendarDay } = require('../services/closedBooks');
+const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
 
 const HOME_FIELDS = 'title url author createdAt evergreen evergreenAt highlights._id highlights.text highlights.note highlights.page highlights.createdAt highlights.opens highlights.keptAt';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CAME_BACK_KEPT = 500;
+
+/* What came back, read again from the library as it is now: a pair whose
+   either passage was since deleted, archived or let go of does not come back. */
+const asItIs = (pair, articles) => {
+  if (!pair) return null;
+  const marks = new Map(articles.flatMap(article => (article.highlights || []).map(mark => [String(mark._id), mark])));
+  const [mark, echo] = [marks.get(String(pair.mark._id)), marks.get(String(pair.echo._id))];
+  if (!mark?.text || !echo?.text) return null;
+  return { mark: { ...pair.mark, text: mark.text }, echo: { ...pair.echo, text: echo.text } };
+};
 
 /* Home: what you keep, what you are reading for now, and what lies
    underneath, with the one old mark that came back up today beside a new
@@ -22,7 +33,7 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, echo
       const at = now();
       const today = calendarDay(req.query.today);
       const [articles, readings] = await Promise.all([
-        Article.find({ userId }).select(HOME_FIELDS).lean(),
+        Article.find(applyDefaultArticleVisibility({ userId })).select(HOME_FIELDS).lean(),
         ArticleReadingState.find({ userId, visitedAt: { $gte: new Date(at - SINKS_AFTER_DAYS * DAY_MS) } }).select('articleId visitedAt').lean()
       ]);
       const { recent, ...shelf } = home({ articles, readings, now: at });
@@ -31,7 +42,7 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, echo
         cameBack.set(key, await echoToday({ books: recent, today, echoOf: mark => echoOf({ userId, mark }) }).catch(() => null));
         if (cameBack.size > CAME_BACK_KEPT) cameBack.delete(cameBack.keys().next().value);
       }
-      return res.json({ ...shelf, cameBack: cameBack.get(key) });
+      return res.json({ ...shelf, cameBack: asItIs(cameBack.get(key), articles) });
     } catch (error) {
       console.error('Error reading home:', error);
       return res.status(500).json({ error: 'Home could not be read.' });

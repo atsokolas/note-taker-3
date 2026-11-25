@@ -25,13 +25,14 @@ test('home: kept, for now, underneath, and what came back', async () => {
   };
   const founder = { _id: id(3), title: 'Going Founder Mode On Cancer', url: 'https://example.com/cancer', createdAt: ago(60), evergreen: true, evergreenAt: ago(40), highlights: [] };
   const escher = { _id: id(4), title: 'Escher, Relativity', url: 'https://example.com/escher', createdAt: ago(20), highlights: [] };
-  const articles = [charlie, meditations, founder, escher];
+  const archived = { _id: id(5), title: 'Set aside', url: 'https://example.com/old', createdAt: ago(3), archived: true, highlights: [] };
+  const articles = [charlie, meditations, founder, escher, archived];
   const readings = [{ articleId: id(4), visitedAt: ago(9) }];
   const asked = [];
 
   const lean = value => ({ select: () => ({ lean: async () => value }) });
   const Article = {
-    find: () => lean(articles),
+    find: query => lean(articles.filter(article => !(query.archived && article.archived))),
     findOne: async ({ _id, 'highlights._id': mark }) => {
       const found = articles.find(article => article._id === _id && article.highlights.some(held => held._id === mark));
       if (!found) return null;
@@ -78,6 +79,10 @@ test('home: kept, for now, underneath, and what came back', async () => {
 
     await call(`/articles/${id(1)}/highlights/${id(12)}/kept`, { method: 'PATCH', body: JSON.stringify({ kept: false }) });
     assert.equal((await call('/api/home?today=2026-11-25')).body.kept.length, 2, 'letting go of a passage takes it out of Kept');
+    meditations.highlights[0].text = 'The best revenge is to be unlike him who performed the injury.';
+    assert.equal((await call('/api/home?today=2026-11-25')).body.cameBack.echo.text, meditations.highlights[0].text, 'what came back reads as the passage is now');
+    meditations.highlights.splice(0, 1);
+    assert.equal((await call('/api/home?today=2026-11-25')).body.cameBack, null, 'a passage let go of does not come back');
     assert.equal((await call(`/articles/${id(1)}/highlights/${id(99)}/kept`, { method: 'PATCH', body: JSON.stringify({ kept: true }) })).status, 404);
   } finally {
     server.close();
