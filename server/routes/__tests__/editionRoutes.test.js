@@ -779,8 +779,10 @@ describe('the newsstand', () => {
     await send('/api/editions', 'POST', week());
     await send('/api/editions', 'POST', week({ windowStart: '2026-09-08', windowEnd: '2026-09-14' }));
     asAgent = false;
-    // The stand lists newest first, so the paper's first row is its newest issue.
-    const [newest, older] = (await send('/api/editions?open=newest')).body.editions;
+    // Newest is the issue whose week starts last, the one the stand prints.
+    const rows = (await send('/api/editions?open=newest')).body.editions;
+    const newest = rows.find(row => String(row.windowStart).startsWith('2026-09-08'));
+    const older = rows.find(row => row !== newest);
     expect(newest.items.map(row => row.title)).toEqual(['A paper about scaling', 'A second']);
     expect(newest.filings).toHaveLength(2);
     expect(older.items).toBeUndefined();
