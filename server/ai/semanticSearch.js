@@ -251,10 +251,10 @@ const candidatesFor = async ({ userId, mark, text, models }) => {
   });
 };
 
-const closestPassage = async ({ userId, mark = null, text = '', who, floor = CLOSE_FLOOR, fits = passage => Boolean(passage), models = {}, judge = relations }) => {
+const closePassages = async ({ userId, mark = null, text = '', who, floor = CLOSE_FLOOR, fits = passage => Boolean(passage), models = {}, judge = relations }) => {
   const rows = await candidatesFor({ userId, mark, text, models }).catch(() => []);
   const close = rows.filter(row => Number(row.score) >= floor);
-  if (!close.length) return null;
+  if (!close.length) return [];
   const held = await highlightsById({ Article: models.Article || Article, userId, ids: close.map(row => String(row.objectId)) });
   const fitting = close.map(row => held.get(String(row.objectId))).filter(passage => (
     passage && plain(passage.text).length >= MARGIN_MIN_QUOTE_CHARS && fits(passage)
@@ -267,9 +267,10 @@ const closestPassage = async ({ userId, mark = null, text = '', who, floor = CLO
     judge,
     pairs: fitting.map(passage => ({ about: aboutOf(passage), a: { who, says: plain(text || mark?.text || mark?.note) }, b: { who: passage.articleTitle || 'a passage the reader marked', says: plain(passage.text) } }))
   });
-  const found = fitting.find(passage => holds(read.get(aboutOf(passage))));
-  return found ? passageOf(found) : null;
+  return fitting.filter(passage => holds(read.get(aboutOf(passage)))).map(passageOf);
 };
+
+const closestPassage = async options => (await closePassages(options))[0] || null;
 
 const passageOf = found => ({
   _id: String(found._id),
@@ -333,6 +334,11 @@ const answerTo = ({ userId, question, models = {}, judge = relations }) => close
 const ECHO_FLOOR = rawCosineToAtlasScore(0.72);
 const ECHO_GAP_DAYS = 90;
 
+// A passage from another work, marked long before or after this one.
+const elsewhereLongApart = mark => passage => String(passage.articleId) !== String(mark.bookId)
+  && timeOf(passage.createdAt) > 0
+  && Math.abs(timeOf(passage.createdAt) - timeOf(mark.createdAt)) >= ECHO_GAP_DAYS * 24 * 60 * 60 * 1000;
+
 const echoOf = async ({ userId, mark, models = {}, judge = relations }) => (
   plain(mark?.text).length < MARGIN_MIN_QUOTE_CHARS || !timeOf(mark.createdAt) ? null : closestPassage({
     userId,
@@ -341,9 +347,26 @@ const echoOf = async ({ userId, mark, models = {}, judge = relations }) => (
     models,
     judge,
     floor: ECHO_FLOOR,
-    fits: passage => String(passage.articleId) !== String(mark.bookId)
-      && timeOf(passage.createdAt) > 0
-      && Math.abs(timeOf(passage.createdAt) - timeOf(mark.createdAt)) >= ECHO_GAP_DAYS * 24 * 60 * 60 * 1000
+    fits: elsewhereLongApart(mark)
+  })
+);
+
+/* What a thread could form around: every passage of yours from another
+   work, marked at least ECHO_GAP_DAYS apart from this one, near it in
+   meaning (FORMING_FLOOR, untuned, between the margin's and the echo's) and
+   that the model says bears on it. services/threads.js decides whether they
+   are enough to be a thread. */
+const FORMING_FLOOR = rawCosineToAtlasScore(0.55);
+
+const formingAround = async ({ userId, mark, models = {}, judge = relations }) => (
+  plain(mark?.text).length < MARGIN_MIN_QUOTE_CHARS || !timeOf(mark.createdAt) ? [] : closePassages({
+    userId,
+    mark,
+    who: 'a passage the reader marked',
+    models,
+    judge,
+    floor: FORMING_FLOOR,
+    fits: elsewhereLongApart(mark)
   })
 );
 
@@ -451,6 +474,7 @@ module.exports = {
   answerTo,
   beforeYouStart,
   echoOf,
+  formingAround,
   MARGIN_MIN_WORDS,
   relatedHighlights,
   similarToSource,

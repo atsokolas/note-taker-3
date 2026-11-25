@@ -1,5 +1,6 @@
 // What the reader saves: sources, folders, highlights and the threads between them.
 const mongoose = require('mongoose');
+const { THREAD_ANSWERS } = require('../services/threads');
 const { importMetaSchema, pencilSchema } = require('./pieces');
 
 // --- PDF attachments / annotations (defined early so Article can reference it) ---
@@ -329,8 +330,27 @@ collectionSchema.index({ userId: 1, highlightIds: 1 });
 
 const Collection = mongoose.model('Collection', collectionSchema);
 
+/* A thread: passages of yours from different works and years that came
+   together around one you marked lately. Noeis notices one now and then and
+   asks; only the reader answers. Kept, it stays, with a page of its own;
+   "not yet" lets it sink back underneath; "not a thing" means those
+   passages are never offered as a thread again. */
+const threadSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  // Oldest first: the order it formed in.
+  marks: [{
+    _id: false,
+    articleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', required: true },
+    highlightId: { type: mongoose.Schema.Types.ObjectId, required: true }
+  }],
+  answer: { type: String, enum: THREAD_ANSWERS, default: null },
+  answeredAt: { type: Date, default: null }
+}, { timestamps: true });
+const Thread = mongoose.model('Thread', threadSchema);
+
 module.exports = {
   Folder,
+  Thread,
   Article,
   ArticleReadingState,
   ReturnQueueEntry,

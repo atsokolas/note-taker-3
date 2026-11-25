@@ -10,7 +10,7 @@ const ASKS_SHOWN = 2;
 
 /* Home is three depths of the same reading, all derived on every read and
    none of it stored. Kept is what you hold for good: sources marked
-   evergreen and passages kept, in the order you kept them. For now is what
+   evergreen, passages and threads kept, in the order you kept them. For now is what
    you touched lately, which sinks on its own. Underneath is everything else,
    which is not gone, only out of sight. */
 
@@ -19,7 +19,7 @@ const marksOf = article => (article.highlights || []).filter(mark => mark.text |
 const idOf = value => String(value);
 const isBook = article => BOOK_URL.test(article.url || '');
 
-const kept = articles => [
+const kept = (articles, threads) => [
   ...articles.filter(article => article.evergreen).map(article => ({
     kind: 'source',
     book: isBook(article),
@@ -37,7 +37,8 @@ const kept = articles => [
     note: mark.note || '',
     page: mark.page || null,
     at: mark.keptAt
-  })))
+  }))),
+  ...threads.map(thread => ({ kind: 'thread', threadId: thread.threadId, title: thread.title, marks: thread.marks.length, at: thread.answeredAt }))
 ].sort((a, b) => timeOf(a.at) - timeOf(b.at));
 
 // The passages you keep coming back to, most opened first, asked about in pencil.
@@ -82,10 +83,10 @@ const underneath = articles => {
   };
 };
 
-const home = ({ articles, readings, now = Date.now() }) => {
+const home = ({ articles, readings, threads = [], now = Date.now() }) => {
   const touched = lately({ articles, readings, now });
   return {
-    kept: kept(articles),
+    kept: kept(articles, threads),
     asks: asks(articles),
     forNow: forNow(touched),
     underneath: underneath(articles),
