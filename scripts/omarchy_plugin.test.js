@@ -256,6 +256,25 @@ inThrowawayHome({
   }
 });
 
+// Text read off the screen is what OCR printed and nothing else: letting the
+// region go prints nothing, and the clipboard is never read or written.
+assert.doesNotMatch(read('Service.qml'), /omarchy-capture-text/, 'screen text does not pass through the clipboard');
+for (const [what, slurp, tesseract, status, text] of [
+  ['a region', 'echo "1,2 3x4"', 'echo "Read me"', 0, 'Read me'],
+  ['a region let go', 'exit 1', 'echo "Read me"', 0, ''],
+  ['a blank region', 'echo "1,2 3x4"', 'echo " "', 1, ''],
+  ['OCR that fails partway', 'echo "1,2 3x4"', 'echo "Half"; exit 1', 1, '']
+]) {
+  inThrowawayHome({
+    slurp, tesseract: `cat >/dev/null; ${tesseract}`, grim: 'echo png', hyprpicker: 'exec sleep 5',
+    'wl-copy': 'touch "$HOME/clipboard"', 'wl-paste': 'touch "$HOME/clipboard"; echo private'
+  }, ({ at, env }) => {
+    const ran = spawnSync('bash', [script('noeis-screen-text')], { env, encoding: 'utf8' });
+    assert.deepStrictEqual([ran.status, ran.stdout], [status, text], what);
+    assert.ok(!fs.existsSync(at('clipboard')), `${what} leaves the clipboard alone`);
+  });
+}
+
 // noeis-setup: --dry-run changes nothing, a second run changes nothing, it
 // never loads anything into the browser (and takes out the old bundled
 // extension), and --remove leaves every file as it found it.

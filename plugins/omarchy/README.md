@@ -117,9 +117,9 @@ Each answers with a notification; clicking it reads what was saved.
   is two keys from a page to your nightstand.
 - `omarchy-shell noeis saveSelection` (Super+Alt+T) saves the text you have
   highlighted in any app into your Library.
-- `omarchy-shell noeis saveScreenText` (Super+Ctrl+Alt+Print) reads text off
-  a part of the screen you pick, with Omarchy's own text capture, and saves it
-  the same way.
+- `omarchy-shell noeis saveScreenText` (Super+Ctrl+Alt+Print) reads text off a
+  part of the screen you pick and saves it the same way. It never goes through
+  your clipboard.
 - `noeis-open <link>` saves a link; `noeis-open <file>` brings an EPUB, PDF
   or Markdown file into your Library.
 
@@ -183,7 +183,7 @@ Omarchy 4, which brings all of these:
 - `curl`, for `noeis-open`'s file uploads;
 - `jq`, to read the session in `noeis-open`;
 - `wl-paste` (from `wl-clipboard`), for the clipboard and highlighted text;
-- `omarchy-capture-text`, for saving text off the screen;
+- `slurp`, `grim`, `hyprpicker` and `tesseract`, for saving text off the screen;
 - Chromium or Google Chrome, for the Noeis app window.
 
 Like every Omarchy plugin it runs unsandboxed inside the shell, with your
