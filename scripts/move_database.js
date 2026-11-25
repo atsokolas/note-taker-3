@@ -103,6 +103,11 @@ if (require.main === module) {
     const source = await MongoClient.connect(FROM_URI);
     const target = await MongoClient.connect(TO_URI);
     try {
+      /* The app reads the database its URI names, so both must name the same one. */
+      if (source.db().databaseName !== target.db().databaseName) {
+        throw new Error(`FROM_URI names database "${source.db().databaseName}" but TO_URI names "${target.db().databaseName}".`);
+      }
+      console.log(`App database: ${source.db().databaseName}`);
       await moveDatabase({ source, target, apply });
       console.log(apply
         ? '\nEvery collection landed whole. Wait for the search index to read READY before switching.'
