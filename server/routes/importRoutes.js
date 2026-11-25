@@ -1486,7 +1486,7 @@ const buildImportRouter = ({
 
   const landExportSources = async ({ userId, sources, sourceLabel, importSessionId, indexing }) => {
     const tally = { newSources: 0, newHighlights: 0, sourcesWithNewHighlights: 0, alreadyHere: 0 };
-    if (!sources.length) return { tally, articles: [] };
+    if (!sources.length) return { tally, articles: [], held: [] };
     const addresses = [...new Set(sources.flatMap(source => [source.url, ...(source.aliases || [])]))];
     const byUrl = new Map();
     for (let index = 0; index < addresses.length; index += 1000) {
@@ -1502,6 +1502,7 @@ const buildImportRouter = ({
 
     const dirty = new Set();
     const madeNow = new Set();
+    const held = new Set();
     const newHighlights = [];
     const pins = [];
     sources.forEach((source) => {
@@ -1550,6 +1551,7 @@ const buildImportRouter = ({
         tally.newSources += 1;
       } else if (!source.highlights.length && !madeNow.has(article)) {
         tally.alreadyHere += 1;
+        held.add(article);
       }
       (source.tags || []).forEach((tag) => {
         const conceptId = conceptByName.get(sameText(tag));
@@ -1629,7 +1631,7 @@ const buildImportRouter = ({
       () => enqueueHighlightEmbedding({ highlight, article }),
       `Highlight indexing failed for ${article.title || article._id}`
     ));
-    return { tally, articles };
+    return { tally, articles, held: [...held] };
   };
 
   /* A Notion or Obsidian note is the reader's own writing, so it lands in

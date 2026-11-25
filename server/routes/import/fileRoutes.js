@@ -94,6 +94,8 @@ module.exports = (router, {
         warnings: warningSummary.warnings,
         articleIds,
         importedArticleIds: articleIds,
+        // What was already here, so a desktop can keep passages in the copy you have.
+        heldArticleIds: landed.held.map(article => String(article._id)),
         entryId: entryIds[0] || '',
         entryIds,
         importedEntryIds: entryIds,
