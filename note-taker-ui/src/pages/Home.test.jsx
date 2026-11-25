@@ -2,9 +2,9 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Home from './Home';
-import { keepPassage, readHome } from '../api/home';
+import { answerThread, keepPassage, readHome } from '../api/home';
 
-jest.mock('../api/home', () => ({ readHome: jest.fn(), keepPassage: jest.fn() }));
+jest.mock('../api/home', () => ({ readHome: jest.fn(), keepPassage: jest.fn(), answerThread: jest.fn() }));
 
 const DAY = 24 * 60 * 60 * 1000;
 const ago = days => new Date(Date.now() - days * DAY).toISOString();
@@ -59,6 +59,23 @@ describe('Home', () => {
     renderHome();
     fireEvent.click(await screen.findByRole('button', { name: 'Keep the old one' }));
     expect(keepPassage).toHaveBeenCalledWith({ articleId: 'v1', highlightId: 'k9' });
+  });
+
+  it('shows something forming, rarely, and takes the reader’s answer', async () => {
+    readHome.mockResolvedValue({ ...shelf, forming: {
+      threadId: 't1', title: 'A thread through Vegetius and Meditations', marks: [
+        { articleId: 'v1', highlightId: 'k9', title: 'Vegetius', text: 'Peace is kept by those ready for war.', createdAt: ago(1500) },
+        { articleId: 'm1', highlightId: 'k1', title: 'Meditations', text: 'The best revenge.', createdAt: ago(800) },
+        { articleId: 'c1', highlightId: 'h11', title: "Poor Charlie's Almanack", text: 'Pacifism is not free.', createdAt: ago(2) }
+      ]
+    } });
+    answerThread.mockResolvedValue({});
+    renderHome();
+    const forming = await screen.findByRole('region', { name: /Something’s forming/ });
+    expect(forming).toHaveTextContent('Three things you read, four years apart, keep saying one thing.');
+    fireEvent.click(screen.getByRole('button', { name: 'Not a thing' }));
+    expect(answerThread).toHaveBeenCalledWith('t1', 'not a thing');
+    await waitFor(() => expect(readHome).toHaveBeenCalledTimes(2));
   });
 
   it('says plainly when there is nothing yet', async () => {

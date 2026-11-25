@@ -42,3 +42,12 @@ export const depthSince = (since, now = Date.now()) => {
   const years = Math.floor((now - timeOf(since)) / (365.25 * DAY_MS));
   return years >= 1 ? `${counted(years, 'year')} of reading` : `reading since ${monthOf(since)}`;
 };
+
+const capital = words => words.charAt(0).toUpperCase() + words.slice(1);
+
+// What a thread is, said plainly: how many works, and the years between its ends.
+export const formedAcross = (marks = []) => {
+  const works = new Set(marks.map(mark => mark.articleId)).size;
+  const times = marks.map(mark => timeOf(mark.createdAt)).filter(Boolean);
+  return `${capital(NUMBERS[works] || String(works))} things you read, ${apart(Math.min(...times), Math.max(...times))}`;
+};

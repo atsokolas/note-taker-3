@@ -83,6 +83,7 @@ const AuthoredRecovery = lazy(() => import('./components/think/AuthoredRecovery'
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
 const WikiFrontPage = lazy(() => import('./components/wiki/WikiFrontPage'));
+const Thread = lazy(() => import('./pages/Thread'));
 /* Home is not code-split (it is imported above).
    / is where the wordmark and every sign-in land, so it is needed on
    every cold start — and splitting it meant the browser only asked for it
@@ -823,6 +824,7 @@ function App() {
                 route resolves so existing links keep working; it lands on the
                 morning paper rather than on a menu. */}
             <Route path="/today" element={<Navigate to="/" replace />} />
+            <Route path="/threads/:id" element={<Thread />} />
             <Route path="/library" element={<Library />} />
             <Route path="/library/trail" element={<LibraryTrail />} />
             <Route path="/library/save" element={<SaveLink />} />

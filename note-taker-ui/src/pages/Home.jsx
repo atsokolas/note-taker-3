@@ -1,11 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { keepPassage, readHome } from '../api/home';
-import { apart, dayOf, depthOf, depthSince, monthOf, pathOf } from '../components/home/homeModel';
+import { answerThread, keepPassage, readHome } from '../api/home';
+import ThreadPassages from '../components/home/ThreadPassages';
+import { ThreadAnswers } from './Thread';
+import { apart, dayOf, depthOf, depthSince, formedAcross, monthOf, pathOf } from '../components/home/homeModel';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import '../styles/home.css';
 
 const LET_GO = 'noeis.home.notNow';
+// What each kept thing is, under it.
+const keptAs = held => ({
+  mark: [held.title, held.page && `p. ${held.page}`].filter(Boolean).join(' · '),
+  thread: `${held.marks} passages, one thread`,
+  source: held.book ? 'A book' : 'A source'
+}[held.kind]);
 const letGo = () => { try { return new Set(JSON.parse(localStorage.getItem(LET_GO) || '[]')); } catch { return new Set(); } };
 
 /* Home: three depths of the same reading. What you keep for good, what you
@@ -22,6 +30,7 @@ export default function Home() {
   useEffect(() => { read(); }, [read]);
 
   const keep = passage => keepPassage(passage).then(read);
+  const answer = choice => answerThread(home.forming.threadId, choice).then(read);
   const putAside = ({ highlightId }) => {
     const next = new Set([...notNow, highlightId]);
     setNotNow(next);
@@ -41,6 +50,14 @@ export default function Home() {
         {reading && <p>You’re reading <Link to={pathOf(reading)}>{reading.title}</Link></p>}
       </header>
 
+      {home.forming && (
+        <section className="home__forming" aria-labelledby="home-forming">
+          <h2 id="home-forming">Something’s forming <span>{formedAcross(home.forming.marks)}, keep saying one thing.</span></h2>
+          <ThreadPassages marks={home.forming.marks} />
+          <ThreadAnswers onAnswer={answer} />
+        </section>
+      )}
+
       <div className="home__depths">
         <section className="home__kept" aria-labelledby="home-kept">
           <h2 id="home-kept">Kept <span>for good, in the order you kept them</span></h2>
@@ -49,15 +66,15 @@ export default function Home() {
               {home.kept.map(held => (
                 <li key={held.highlightId || held.articleId}>
                   <time dateTime={held.at || undefined}>{held.at ? monthOf(held.at) : 'kept'}</time>
-                  <Link to={pathOf(held)}>
+                  <Link to={held.kind === 'thread' ? `/threads/${held.threadId}` : pathOf(held)}>
                     {held.kind === 'mark' ? <q>{held.text || held.note}</q> : held.title}
-                    <small>{held.kind === 'mark' ? [held.title, held.page && `p. ${held.page}`].filter(Boolean).join(' · ') : held.book ? 'A book' : 'A source'}</small>
+                    <small>{keptAs(held)}</small>
                   </Link>
                 </li>
               ))}
             </ol>
           ) : (
-            <p className="home__quiet">Nothing kept yet. Keep what matters for good: a whole source with Evergreen, or one passage here.</p>
+            <p className="home__quiet">Nothing kept yet. Keep what matters for good: a whole source, one passage, or a thread when one forms.</p>
           )}
           {asks.map(ask => (
             <p className="home__ask" key={ask.highlightId}>

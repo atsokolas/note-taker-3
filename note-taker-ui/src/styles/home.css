@@ -106,13 +106,15 @@
 
 /* Kept: a ledger, oldest first, read down by the months in its margin. */
 .home__ledger,
-.home__drift {
+.home__drift,
+.thread-passages {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.home__ledger li {
+.home__ledger li,
+.thread-passages li {
   display: grid;
   grid-template-columns: var(--hang) minmax(0, 1fr);
   align-items: baseline;
@@ -120,7 +122,8 @@
   border-top: 1px solid var(--border-subtle-2);
 }
 
-.home__ledger time {
+.home__ledger time,
+.thread-passages time {
   color: var(--muted);
   font: 0.75rem/1.4 var(--font-sans);
   font-variant-numeric: oldstyle-nums;
@@ -128,7 +131,8 @@
   white-space: nowrap;
 }
 
-.home__ledger a {
+.home__ledger a,
+.thread-passages a {
   font: 1.02rem/1.5 var(--font-serif);
 }
 
@@ -165,6 +169,61 @@
 .home button:hover,
 .home button:focus-visible {
   text-decoration-color: currentColor;
+}
+
+/* Something forming: rare, so it gets the width of the page. Its passages
+   arrive oldest first, one after another, and the thread is drawn down the
+   margin through them, the way it took years to. */
+.home__forming {
+  padding: var(--space-5) 0 var(--space-6);
+  border-bottom: 1px solid var(--border-subtle-2);
+}
+
+.home__forming .thread-passages,
+.home--thread .thread-passages {
+  position: relative;
+  max-width: 46rem;
+}
+
+.thread-passages::before {
+  content: '';
+  position: absolute;
+  top: var(--space-4);
+  bottom: var(--space-4);
+  left: calc(var(--hang) - var(--space-3));
+  width: 1px;
+  background: var(--noeis-thread);
+  transform-origin: top;
+  animation: home-draw 2.8s var(--noeis-ease-standard) 0.2s both;
+}
+
+.thread-passages li {
+  animation: home-rise 1.6s var(--noeis-ease-standard) both;
+  animation-delay: calc(0.35s + var(--nth, 0) * 0.55s);
+}
+
+.home__answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  margin: var(--space-4) 0 0 var(--hang);
+}
+
+.home--thread {
+  max-width: 820px;
+}
+
+.home--thread .home__masthead {
+  margin-bottom: var(--space-4);
+}
+
+.home--thread > .home__quiet {
+  margin: var(--space-5) 0 0 var(--hang);
+}
+
+@keyframes home-draw {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
 }
 
 /* For now: each row as dark as it is recent, paling toward the fortnight. */
@@ -229,7 +288,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home__old { animation: none; }
+  .home__old,
+  .thread-passages::before,
+  .thread-passages li { animation: none; }
 }
 
 @media (max-width: 900px) {
