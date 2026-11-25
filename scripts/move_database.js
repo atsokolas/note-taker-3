@@ -105,7 +105,7 @@ if (require.main === module) {
     try {
       /* The app reads the database its URI names, so both must name the same one. */
       if (source.db().databaseName !== target.db().databaseName) {
-        throw new Error(`FROM_URI names database "${source.db().databaseName}" but TO_URI names "${target.db().databaseName}".`);
+        throw new Error(`FROM_URI names database "${source.db().databaseName}" but TO_URI names "${target.db().databaseName}". Write /${source.db().databaseName} right after .mongodb.net in TO_URI.`);
       }
       console.log(`App database: ${source.db().databaseName}`);
       await moveDatabase({ source, target, apply });
