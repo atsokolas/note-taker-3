@@ -30,6 +30,7 @@ import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { buildSourceOpenPath, libraryIdentity, resolveSourceDoors } from '../../utils/sourceRoutes';
 import { cleanSourceTextForDisplay, sourceTitle } from '../../utils/sourceDisplayText';
 import ClaimCitationPopover from './ClaimCitationPopover';
+import { ArticleMargins } from '../margins/LibraryMargins';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
 import { cleanWikiLinkSnippetText } from './wikiLinkText';
 import ReferencePullIn from '../references/ReferencePullIn';
@@ -1309,6 +1310,8 @@ const WikiPageReadView = ({
   const latestPageRef = useRef(null);
   const lastRefreshNonceRef = useRef(0);
   const articleRef = useRef(null);
+  const panelRef = useRef(null);
+  const bodyRef = useRef(null);
   const focusedClaimNodeRef = useRef(null);
   const recentParagraphTimersRef = useRef(new Map());
   const pageTransitionTimerRef = useRef(null);
@@ -3139,7 +3142,7 @@ const WikiPageReadView = ({
             />
           ) : null}
           <section id="wiki-read-panel-article">
-              <section className="wiki-read__article-panel">
+              <section className="wiki-read__article-panel" ref={panelRef}>
               {fromWikiPageId ? (
                 <div className="wiki-read__return-thread">
                   <span>You arrived from another page.</span>
@@ -3178,6 +3181,7 @@ const WikiPageReadView = ({
                 </div>
               ) : null}
               <section
+                ref={bodyRef}
                 className={`wiki-read__body${bodyTransitionClass}${previewMode ? ' is-preview' : ''}${showChangedOnly && diffClaimIds.length ? ' is-diff-only' : ''}`}
                 data-state={pageTransitionState}
                 data-page-transition-state={pageTransitionState}
@@ -3220,6 +3224,11 @@ const WikiPageReadView = ({
                   </WikiOpenSentenceProvider>
                 )}
               </section>
+                {/* A page that cites gives its margin to its citations; one that
+                    does not, to what you marked elsewhere that is close. */}
+                {standardWikiPage && !previewMode && !footnoteCitations.length ? (
+                  <ArticleMargins contentRef={bodyRef} frameRef={panelRef} contentKey={`${pageId}:${page.updatedAt || ''}`} />
+                ) : null}
                 {showMarginalia ? (
                   <WikiReadMarginalia
                     sources={readingPage?.sourceRefs || page.sourceRefs || []}

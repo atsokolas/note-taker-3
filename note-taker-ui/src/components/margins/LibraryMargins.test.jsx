@@ -53,6 +53,13 @@ describe('your library in the margins of the reader', () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
+  it('asks for a page that is no source of yours, such as a wiki page, leaving nothing out', async () => {
+    fetchMarginNotes.mockResolvedValue([]);
+    render(<Reader articleId="" />);
+    await settle();
+    expect(fetchMarginNotes).toHaveBeenCalledWith(expect.objectContaining({ articleId: '' }));
+  });
+
   it('asks about the long paragraphs only, and sets the note beside the one it belongs to', async () => {
     jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function rect() {
       if (this.classList.contains('article-reader-content')) return box(0, 600);

@@ -7,8 +7,8 @@ import { MarginAnswer } from './MarginAnswer';
 import './margins.css';
 
 /* Your library in the margins. One engine (POST /api/semantic/margins) and two
-   surfaces: the reader, where a paragraph you are reading meets a passage you
-   marked elsewhere, and the notebook, where the paragraph you are writing
+   surfaces: the reader (a source, a book's desk, a wiki page), where a
+   paragraph you are reading meets a passage you marked elsewhere, and the notebook, where the paragraph you are writing
    does. A note says only what the index knows: that the two are close. */
 
 // The server's floor, mirrored so a short paragraph is never sent to ask.
@@ -166,7 +166,7 @@ export const paragraphAt = (root, node) => {
    nothing at all when nothing you marked elsewhere is close. When the
    Partner can read the piece (`asking.available`), each note can be asked
    about, and the answer takes its place in the margin. */
-export const ArticleMargins = ({ articleId, contentRef, frameRef, blocks = BLOCKS, contentKey = '', layoutKey = '', hidden = false, asking = null }) => {
+export const ArticleMargins = ({ articleId = '', contentRef, frameRef, blocks = BLOCKS, contentKey = '', layoutKey = '', hidden = false, asking = null }) => {
   const [notes, setNotes] = useState([]);
   const [places, setPlaces] = useState([]);
   const answer = asking?.answer || null;
@@ -180,7 +180,7 @@ export const ArticleMargins = ({ articleId, contentRef, frameRef, blocks = BLOCK
   useEffect(() => {
     setNotes([]);
     const root = contentRef.current;
-    if (!articleId || !root) return undefined;
+    if (!root) return undefined;
     const asked = readingBlocks(root, blocks)
       .map((node, beside) => ({ beside, text: plainText(node.textContent) }))
       .filter(item => wordCount(item.text) >= MARGIN_MIN_WORDS);
