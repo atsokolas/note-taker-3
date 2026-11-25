@@ -72,6 +72,12 @@ const start = async () => {
     RecallCheck,
     Verdict,
     Disagreement,
+    // The reader inked that the marked passage answers their question.
+    Connection: model([{ fromType: 'article', fromId: ARTICLE, toType: 'question', toId: QUESTION, relationType: 'supports' }]),
+    ConnectionJudgment: model([]),
+    added: async ({ articleId, judge }) => (articleId === ARTICLE && (await judge({ pairs: [] })).length === 0
+      ? [{ kind: 'answers', key: `question:${QUESTION}`, to: { type: 'question', id: QUESTION, title: 'Do work samples predict hiring better than interviews?' }, score: 0.8 }]
+      : []),
     Article: model([{ _id: ARTICLE, title: 'Base rates', content: 'Start from the base rate before the story.', highlights: [{ _id: 'h1', text: 'Interviews predict little about hiring.', note: 'Remember for the hiring loop.' }, { _id: 'h2', text: 'The story comes after the rate.', note: 'A guess of mine.', pencil: { agent: 'Codex' } }], updatedAt: new Date() }]),
     NotebookEntry: model([{ _id: NOTE, title: 'Hiring', content: 'Hire for slope, not intercept, when hiring engineers.', pencil: { agent: 'Claude Code' }, updatedAt: new Date() }]),
     TagMeta: model([{ _id: CONCEPT, name: 'Base rates', description: 'Start from how often things like this usually go.', updatedAt: new Date() }]),
@@ -114,6 +120,9 @@ describe('recall routes', () => {
     expect(kinds[NOTE].kind).toBe('note');
     expect(kinds[ARTICLE]).toMatchObject({ kind: 'highlight', highlightId: 'h1' });
     expect(kinds[NOTE].passage).toMatch(/slope/);
+    // With what the reader inked it to, so the agent sees the connection and not the passage alone.
+    expect(kinds[ARTICLE].connected).toEqual([{ relation: 'supports', kind: 'question', id: QUESTION }]);
+    expect(kinds[NOTE].connected).toBeUndefined();
   });
 
   it('names the agent that wrote a hit still in pencil, and nothing for the reader\'s own', async () => {
@@ -148,7 +157,9 @@ describe('recall routes', () => {
 
   it('with no topic, briefs an agent on where the reader stands', async () => {
     const brief = await fetch(`${url}/api/brief`).then(res => res.json());
-    expect(Object.keys(brief)).toEqual(['topic', 'handedToYou', 'taste', 'disagreements', 'view', 'question', 'pencil', 'article']);
+    expect(Object.keys(brief)).toEqual(['topic', 'handedToYou', 'added', 'taste', 'disagreements', 'view', 'question', 'pencil', 'article']);
+    // What the reading added this week, from what the model already judged: the brief never waits on a reading.
+    expect(brief.added).toEqual([{ kind: 'article', id: ARTICLE, title: 'Base rates', added: { kind: 'answers', key: `question:${QUESTION}`, to: expect.objectContaining({ id: QUESTION }) } }]);
     // Two hands that cannot both be right are set out as a disagreement, not two facts.
     expect(brief.disagreements[0]).toMatchObject({ id: 'd1', a: { agent: 'Codex' }, b: { agent: '', kind: 'view' } });
     // What the reader keeps and strikes, with why, so no agent has to be told twice.

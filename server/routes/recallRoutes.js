@@ -5,6 +5,7 @@ const { waitingFor } = require('./handoffRoutes');
 const { openDisagreements } = require('./disagreementRoutes');
 const { pencilOf } = require('../services/agentTokenService');
 const { waitingTonight } = require('../services/nightstand');
+const { whatItAdded, lately } = require('../services/whatItAdded');
 
 const MAX_LIMIT = 25;
 const BRIEF_LIMIT = 16;
@@ -12,6 +13,8 @@ const STANDING = 8;
 // How far down recall's answers a named source may sit and still count as found.
 const KNOWS_TOP = 8;
 const TASTE_LATELY = 12;
+// What the brief says the reading added: the last week.
+const ADDED_DAYS = 7;
 // A fortune is a passage long enough to carry a thought: forty characters or more.
 const FORTUNE_WORDS = /^[\s\S]{40,}$/;
 
@@ -45,6 +48,31 @@ const asResult = hit => ({
 const recall = ({ userId, query, limit, models, semanticSearch }) => retrieveWithBearing({
   userId, query, limit, includePages: true, forModel: true, models, semanticSearch
 });
+
+/* Each passage with the connections the reader inked, from it or to it, so
+   an agent sees what it echoes, answers, argues with and belongs on, not
+   the passage alone. */
+const withConnections = async ({ Connection, userId, results }) => {
+  const ids = [...new Set(results.flatMap(hit => [hit.id, hit.highlightId]).filter(Boolean))];
+  if (!Connection || !ids.length) return results;
+  const inked = await Connection.find({ userId, $or: [{ fromId: { $in: ids } }, { toId: { $in: ids } }] })
+    .select('fromType fromId toType toId relationType').lean();
+  const of = hit => inked
+    .filter(row => [hit.id, hit.highlightId].includes(row.fromId) || [hit.id, hit.highlightId].includes(row.toId))
+    .map(row => ([hit.id, hit.highlightId].includes(row.fromId)
+      ? { relation: row.relationType, kind: row.toType, id: row.toId }
+      : { relation: row.relationType, kind: row.fromType, id: row.fromId, from: true }));
+  return results.map(hit => ({ ...hit, ...(of(hit).length ? { connected: of(hit) } : {}) }));
+};
+
+/* What the reader's reading added this week, as the reading room says it:
+   only what the model already judged, so a brief never waits on a reading. */
+const addedThisWeek = ({ userId, models, added }) => lately({
+  userId,
+  since: new Date(Date.now() - ADDED_DAYS * 24 * 60 * 60 * 1000),
+  models,
+  added: asked => added({ ...asked, judge: async () => [] })
+}).then(told => told.map(({ articleId, title, score, ...connection }) => ({ kind: 'article', id: articleId, title, added: connection })));
 
 // Results by kind, what an agent has not inked set apart from the reader's own.
 const groupByKind = results => results.reduce((groups, hit) => {
@@ -92,9 +120,12 @@ const tasteOf = async ({ Verdict, userId }) => {
   };
 };
 
-const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, Citation = null, RecallCheck = null, Verdict = null, Disagreement = null, humanOnly = (_req, _res, next) => next(), semanticSearch = null }) => {
+const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, Citation = null, RecallCheck = null, Verdict = null, Disagreement = null, Connection = null, ConnectionJudgment = null, added = whatItAdded, humanOnly = (_req, _res, next) => next(), semanticSearch = null }) => {
   const router = express.Router();
   const models = { Article, NotebookEntry, TagMeta, WikiPage, Question };
+  const recalled = async ({ userId, query, limit }) => withConnections({
+    Connection, userId, results: (await recall({ userId, query, limit, models, semanticSearch })).map(asResult)
+  });
   // Aggregations do not cast ids the way finds do.
   const userOf = req => new mongoose.Types.ObjectId(req.user.id);
 
@@ -103,8 +134,7 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
     if (!query) return res.status(400).json({ error: 'Query parameter q is required.' });
     const limit = Math.min(MAX_LIMIT, Math.max(1, Number.parseInt(req.query.limit, 10) || 8));
     try {
-      const hits = await recall({ userId: userOf(req), query, limit, models, semanticSearch });
-      res.json({ query, results: hits.map(asResult) });
+      res.json({ query, results: await recalled({ userId: userOf(req), query, limit }) });
     } catch (error) {
       console.error('[recall] search failed', error.message);
       res.status(500).json({ error: 'Recall failed.' });
@@ -119,12 +149,15 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
     try {
       const userId = userOf(req);
       const groups = topic
-        ? groupByKind((await recall({ userId, query: topic, limit: BRIEF_LIMIT, models, semanticSearch })).map(asResult))
+        ? groupByKind(await recalled({ userId, query: topic, limit: BRIEF_LIMIT }))
         : await standing({ userId, models });
-      const [handedToYou, taste, disagreements] = await Promise.all([
-        Handoff ? waitingFor({ Handoff, req }) : [], tasteOf({ Verdict, userId }), openDisagreements({ Disagreement, userId })
+      const [handedToYou, thisWeek, taste, disagreements] = await Promise.all([
+        Handoff ? waitingFor({ Handoff, req }) : [],
+        ConnectionJudgment && Verdict ? addedThisWeek({ userId, models: { Article, ConnectionJudgment, Verdict }, added }) : [],
+        tasteOf({ Verdict, userId }),
+        openDisagreements({ Disagreement, userId })
       ]);
-      res.json({ topic, handedToYou, ...(taste ? { taste } : {}), ...(disagreements.length ? { disagreements } : {}), ...groups });
+      res.json({ topic, handedToYou, ...(thisWeek.length ? { added: thisWeek } : {}), ...(taste ? { taste } : {}), ...(disagreements.length ? { disagreements } : {}), ...groups });
     } catch (error) {
       console.error('[brief] failed', error.message);
       res.status(500).json({ error: 'The brief could not be gathered.' });

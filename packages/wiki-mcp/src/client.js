@@ -1146,11 +1146,12 @@ export class NoeisClient {
 
   /* Where the reader stands, on a topic or in general, each item linked:
      the views they hold, their notes and marks, the questions they are
-     asking, and what agents left in pencil, kept apart. */
+     asking, what their reading added this week, and what agents left in
+     pencil, kept apart. Their taste is a summary, not a list, and has no link. */
   brief({ topic = '' } = {}) {
     return this.request('/api/brief', { query: { topic: cleanText(topic) } }).then(({ topic: asked, ...groups }) => ({
       topic: asked,
-      ...Object.fromEntries(Object.entries(groups).map(([kind, hits]) => [kind, hits.map(hit => ({ ...hit, link: this.linkFor(hit) }))]))
+      ...Object.fromEntries(Object.entries(groups).map(([kind, hits]) => [kind, Array.isArray(hits) ? hits.map(hit => ({ ...hit, link: this.linkFor(hit) })) : hits]))
     }));
   }
 
