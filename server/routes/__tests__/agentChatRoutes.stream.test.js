@@ -154,6 +154,15 @@ const run = async () => {
     });
     assert.strictEqual(byo.status, 200);
     assert.strictEqual(observed.calls.at(-1).persona, 'munger', 'The agent’s persona reaches the reply.');
+
+    // A question asked from nowhere in particular still reaches the agent.
+    const plain = await fetch(`${url}/api/agent/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: 'What have I written about hiring?' })
+    });
+    assert.strictEqual(plain.status, 200);
+    assert.deepStrictEqual(observed.calls.at(-1).context, {}, 'No page means an empty page, never null.');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
