@@ -4,13 +4,22 @@ jest.mock('./embed', () => ({
   isEmbeddingConfigured: jest.fn(() => true)
 }));
 
+// The model reads every pair: it bears unless a test says otherwise.
+jest.mock('../services/disagreements', () => ({
+  relations: jest.fn(async ({ pairs }) => pairs.map((_, index) => ({ index, relation: 'bears' })))
+}));
+
 const { embedText, embedTexts, isEmbeddingConfigured } = require('./embed');
+const { relations } = require('../services/disagreements');
 const { similarToSource, marginNotes, answerTo, beforeYouStart, echoOf, heardBefore, addedBy } = require('./semanticSearch');
 const { encodeVector, rawCosineToAtlasScore } = require('./vectorStore');
 
 const userId = '64b000000000000000000001';
 const conceptId = '64b000000000000000000002';
 const stored = { embedding: encodeVector([1, 0]), contentHash: 'h' };
+// Nothing judged before, and nothing kept between tests.
+const ConnectionJudgment = { find: () => ({ select: () => ({ lean: async () => [] }) }), bulkWrite: async () => {} };
+const sharesOnlyWords = quote => relations.mockImplementationOnce(async ({ pairs }) => pairs.map(({ b }, index) => ({ index, relation: b.says.includes(quote) ? 'none' : 'bears' })));
 
 const vectorsWith = (rows) => {
   const VectorItem = {
@@ -66,6 +75,7 @@ describe('marginNotes', () => {
     [hid(4)]: { _id: hid(4), text: 'Pilots adopted the checklist after a prototype bomber crashed on its first demonstration flight.', articleId: there, articleTitle: 'The Checklist Manifesto' }
   };
   const models = (rowsFor) => ({
+    ConnectionJudgment,
     VectorItem: { aggregate: jest.fn(async () => rowsFor()) },
     Article: {
       aggregate: jest.fn(async ([match]) => match.$match['highlights._id'].$in.map(id => held[String(id)]).filter(Boolean)),
@@ -86,7 +96,7 @@ describe('marginNotes', () => {
     expect(embedTexts).toHaveBeenCalledWith([paragraph]);
     expect(notes).toEqual([expect.objectContaining({
       paragraph: 1,
-      relation: 'close',
+      relation: 'bears',
       highlight: expect.objectContaining({ _id: hid(1), articleTitle: 'The Checklist Manifesto', text: long })
     })]);
   });
@@ -117,9 +127,20 @@ describe('marginNotes', () => {
     held[hid(5)] = { ...held[hid(1)], _id: hid(5), text: paragraph };
     const notes = await marginNotes({
       userId, articleId: here, paragraphs: [paragraph],
-      models: models(() => [row(1, 0.6), row(2, 0.9), row(5, 0.9), row(4, 0.99)])
+      models: models(() => [row(1, 0.25), row(2, 0.9), row(5, 0.9), row(4, 0.99)])
     });
     expect(notes).toEqual([]);
+  });
+
+  it('keeps only what the model says bears on the paragraph, read once with what is being read', async () => {
+    relations.mockClear();
+    sharesOnlyWords('prototype bomber');
+    const notes = await marginNotes({
+      userId, articleId: here, paragraphs: [paragraph, `${paragraph} Again.`], models: models(() => [row(4, 0.9), row(1, 0.4)])
+    });
+    expect(notes.map(note => note.highlight._id)).toEqual([hid(1)]);
+    expect(relations).toHaveBeenCalledTimes(1);
+    expect(relations.mock.calls[0][0].pairs[0].a).toEqual({ who: 'This one', says: paragraph });
   });
 
   it('gives each paragraph one note and each passage one paragraph, strongest first, within the limit', async () => {
@@ -154,6 +175,7 @@ describe('answerTo', () => {
     [hid(4)]: { _id: hid(4), text: `${passage} Saved again.`, articleId: 'a3', articleTitle: 'The Power Broker (Full Article)', createdAt: '2026-01-01T00:00:00Z' }
   };
   const models = rows => ({
+    ConnectionJudgment,
     VectorItem: vectorsWith(rows),
     Article: { aggregate: jest.fn(async ([match]) => match.$match['highlights._id'].$in.map(id => held[String(id)]).filter(Boolean)) }
   });
@@ -166,8 +188,10 @@ describe('answerTo', () => {
     expect(embedText).not.toHaveBeenCalled();
   });
 
-  it('stays silent under the margin floor', async () => {
-    expect(await answerTo({ userId, question, models: models([row(1, 0.6)]) })).toBeNull();
+  it('stays silent under the floor, and when the model says the closest only shares words', async () => {
+    expect(await answerTo({ userId, question, models: models([row(1, 0.25)]) })).toBeNull();
+    sharesOnlyWords('parkways');
+    expect(await answerTo({ userId, question, models: models([row(1, 0.7)]) })).toBeNull();
   });
 
   it('echoes a passage with nearly the same thought marked in another work months apart, and only that', async () => {
