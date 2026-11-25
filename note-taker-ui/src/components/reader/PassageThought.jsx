@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { updateHighlight } from '../../api/highlights';
+import KeepPassage from './KeepPassage';
 
 // A thought remains the existing highlight's note. The host only places its
 // editor beside the passage; it introduces no second annotation store.
@@ -94,6 +95,7 @@ export default function PassageThought({
         <button type="button" onClick={close} disabled={saving}>
           Close
         </button>
+        {highlight.text ? <KeepPassage articleId={articleId} highlight={highlight} label="Keep the passage for good" /> : null}
       </div>
       {error ? <p role="alert">{error}</p> : null}
     </form>

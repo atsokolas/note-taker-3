@@ -21,7 +21,7 @@ const {
 } = require('./ai/embeddingJobs');
 const { EVENT_NAMES, trackEvent, trackReturnVisit } = require('./utils/analytics');
 const { EmbeddingError } = require('./ai/embed');
-const { semanticSearch, similarToSource } = require('./ai/semanticSearch');
+const { semanticSearch, similarToSource, echoOf, formingAround } = require('./ai/semanticSearch');
 const { buildEmbeddingId } = require('./ai/embeddingTypes');
 const { buildConnectionScopeQuery } = require('./utils/connectionScopeQuery');
 const {
@@ -96,6 +96,7 @@ const {
   Folder,
   Article,
   ArticleReadingState,
+  Thread,
   Note,
   NotebookEntry,
   NotebookFolder,
@@ -194,6 +195,7 @@ const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes')
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildRecallRouter } = require('./routes/recallRoutes');
 const { buildAddedRouter } = require('./routes/addedRoutes');
+const { buildHomeRouter } = require('./routes/homeRoutes');
 const { buildSyncRouter } = require('./routes/syncRoutes');
 const { buildHandoffRouter } = require('./routes/handoffRoutes');
 const { buildDisagreementRouter } = require('./routes/disagreementRoutes');
@@ -1256,6 +1258,7 @@ app.use(buildRecallRouter({
   semanticSearch
 }));
 
+app.use(buildHomeRouter({ authenticateToken, Article, ArticleReadingState, Thread, echoOf, formingAround }));
 app.use(buildAddedRouter({ authenticateToken: authenticateUserOrAgentToken, ownDesktop: [authenticateCapture, requireHumanOrDesktop], Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent }));
 
 app.use(buildSyncRouter({

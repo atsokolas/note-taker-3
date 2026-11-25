@@ -48,7 +48,7 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     navigationGroup: 'primary',
     verb: 'Read',
     orientation: 'Everything you have saved, and where each line came from.',
-    authenticatedPrefixes: ['/library', '/articles', '/all-highlights', '/tags', '/collections', '/views', '/search', '/export']
+    authenticatedPrefixes: ['/library', '/articles', '/all-highlights', '/tags', '/collections', '/views', '/search', '/export', '/threads']
   }),
   /* The books you read with the desk open beside them. Every mark made there
      is a highlight in the Library like any other, so Books sits beside it:
@@ -79,9 +79,9 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     navigationGroup: 'primary',
     verb: 'Keep',
     orientation: 'Pages on what you know, built from what you read.',
-    activePrefixes: ['/', '/wiki', '/paper'],
+    activePrefixes: ['/wiki', '/paper'],
     authenticatedPrefixes: ['/wiki', '/paper', '/today'],
-    match: ({ pathname = '' } = {}) => pathname === '/' || prefixMatch(pathname, ['/wiki', '/paper'])
+    match: ({ pathname = '' } = {}) => prefixMatch(pathname, ['/wiki', '/paper'])
   }),
   /* Papers your agents maintain for you.
 

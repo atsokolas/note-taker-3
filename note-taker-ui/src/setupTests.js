@@ -21,7 +21,7 @@ if (typeof Range !== 'undefined' && !Range.prototype.getClientRects) {
 jest.mock('react-router-dom', () => {
   const React = require('react');
   const passthrough = ({ children }) => React.createElement(React.Fragment, null, children);
-  const linkEl = ({ children, to, ...props }) => React.createElement(
+  const linkEl = ({ children, to, end, ...props }) => React.createElement(
     'a',
     {
       ...props,

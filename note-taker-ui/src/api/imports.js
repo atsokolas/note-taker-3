@@ -57,7 +57,7 @@ export const startBook = async ({ title, author = '' } = {}) => {
 
 /* Today as this reader's calendar has it ("2026-10-19"). A book is closed
    on a day, not at a moment, so its anniversary is that day wherever you are. */
-const today = (now = new Date()) => new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+export const today = (now = new Date()) => new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
 /* Closing a book with the one sentence you will remember, or none; and
    opening it again when you are still reading it after all. */

@@ -38,11 +38,11 @@ describe('appNavigation', () => {
     expect(primaryLabels).not.toContain('Questions');
   });
 
-  it('marks Wiki active on the root route and on the paper it absorbed', () => {
+  it('marks Wiki active on the paper it absorbed, and leaves home to itself', () => {
     const wiki = getPrimaryNavItems().find(item => item.label === 'Wiki');
 
     expect(wiki.to).toBe('/wiki');
-    expect(wiki.match({ pathname: '/' })).toBe(true);
+    expect(wiki.match({ pathname: '/' })).toBe(false);
     expect(wiki.match({ pathname: '/paper' })).toBe(true);
     expect(wiki.match({ pathname: '/wiki' })).toBe(true);
     expect(wiki.match({ pathname: '/library' })).toBe(false);
@@ -307,7 +307,7 @@ describe('moving around the app', () => {
     expect(adjacentRoom({ pathname: '/judgment/view-1' }, 1)).toBe('/museum');
     expect(adjacentRoom({ pathname: '/museum' }, 1)).toBe('/work');
     expect(adjacentRoom({ pathname: '/work' }, 1)).toBe('/library');
-    expect(adjacentRoom({ pathname: '/' }, 1)).toBe('/editions');
+    expect(adjacentRoom({ pathname: '/' }, 1)).toBe('/library');
     expect(adjacentRoom({ pathname: '/settings' }, 1)).toBe('/library');
     expect(adjacentRoom({ pathname: '/settings' }, -1)).toBe('/work');
   });

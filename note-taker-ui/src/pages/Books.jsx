@@ -9,6 +9,7 @@ import WhatItAdded from '../components/added/WhatItAdded';
 import { useSettleIntoWiki } from '../components/think/settleIntoWiki';
 import BookDesk from '../components/reader/BookDesk.jsx';
 import PassageDoor from '../components/reader/PassageDoorView';
+import KeepPassage from '../components/reader/KeepPassage';
 import useSourceWhereabouts from '../components/reader/useSourceWhereabouts';
 import {
   BOOK_SAYS, bookendsOf, counted, dayOf, isEarlier, kindOf, lastTime, longDate, monthOf, mostlyWhen, openQuestionsOf, pageNow, readingSince, readingsOf, setDownOn, sittingsOf, spineOf, tallyLine
@@ -741,8 +742,11 @@ const Book = ({ id }) => {
   const deskRef = useRef(null);
   /* Each mark keeps its door to the view it was filed under, or the offer to
      file it, as it has in the reader. A mark not yet saved has no door. */
-  const doorFor = (mark) => (!isSaved(mark) || held.has(String(mark._id)) ? null : (
-    <PassageDoor articleId={id} highlightId={mark._id} pages={pages} text={mark.text || ''} />
+  const doorFor = (mark) => (!isSaved(mark) ? null : (
+    <>
+      {mark.text ? <KeepPassage articleId={id} highlight={mark} /> : null}
+      {held.has(String(mark._id)) ? null : <PassageDoor articleId={id} highlightId={mark._id} pages={pages} text={mark.text || ''} />}
+    </>
   ));
   useDocumentTitle(book?.title || 'A book', 'Books');
   // The Partner holds this book, its marks standing for the body it has none of.
