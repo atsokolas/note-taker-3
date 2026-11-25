@@ -86,6 +86,8 @@ const isFragmentTitle = (value = '') => {
   if (isGenericWord(title)) return true;
   if (/^[a-z]/.test(title)) return true;
   if (/^(?:and|but|for|in|of|or|so|the|to|with)\b/.test(title)) return true;
+  // A bare address says where a piece came from, not what it is called.
+  if (/^[\w-]+(?:\.[\w-]+)+$/.test(title)) return true;
   return false;
 };
 
@@ -121,6 +123,20 @@ const isSocialSource = ({ sourceType = '', url = '' } = {}) => (
   })())
 );
 
+/* A file saved by its raw address still names itself in its path:
+   ".../peter-thiels-cs183-startup-class-19-notes-essay.md". */
+const pathTitle = (value = '') => {
+  try {
+    const file = decodeURIComponent(new URL(String(value || '')).pathname.split('/').filter(Boolean).pop() || '');
+    const words = file.replace(/\.[a-z0-9]{1,5}$/i, '').split(/[-_\s]+/).filter(Boolean);
+    if (words.length < 2 || !words.some(word => /\p{L}{3}/u.test(word))) return '';
+    const title = clean(words.join(' '), 180);
+    return `${title[0].toUpperCase()}${title.slice(1)}`;
+  } catch (_error) {
+    return '';
+  }
+};
+
 const lastResortTitle = ({ siteName = '', url = '', publishedAt = null } = {}) => (
   `${clean(siteName, 80) || domainLabel(url) || 'Imported source'} · ${dateLabel(publishedAt)}`
 );
@@ -149,7 +165,7 @@ const deriveImportedTitle = ({
     if (named && !isFragmentTitle(named)) return named;
   }
 
-  return lastResortTitle({ siteName, url, publishedAt });
+  return pathTitle(url) || lastResortTitle({ siteName, url, publishedAt });
 };
 
 const highlightText = (article = {}) => (

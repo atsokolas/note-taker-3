@@ -130,4 +130,14 @@ describe('importTitleService', () => {
     })).toBe('Pasted text · 2026-10-04');
     expect(firstHeading('<p>Short line</p>\n\n<p>Body.</p>')).toBe('');
   });
+  test('a raw file saved under its host is named by its path', () => {
+    const url = 'https://gist.githubusercontent.com/harperreed/3201887/raw/63bd96e/peter-thiels-cs183-startup-class-19-notes-essay.md';
+    expect(isFragmentTitle('Gist.githubusercontent.com')).toBe(true);
+    expect(deriveImportedTitle({ metadataTitle: 'Gist.githubusercontent.com', url }))
+      .toBe('Peter thiels cs183 startup class 19 notes essay');
+    expect(deriveImportedTitle({ metadataTitle: 'Gist.githubusercontent.com', url, content: '# CS183: Class 19 Notes Essay\n\nBody.' }))
+      .toBe('CS183: Class 19 Notes Essay');
+    expect(deriveImportedTitle({ url: 'https://example.com/2026/', publishedAt: '2026-10-04T12:00:00.000Z' }))
+      .toBe('Example · 2026-10-04');
+  });
 });
