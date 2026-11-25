@@ -1592,6 +1592,7 @@ const OpenSentence = ({
       <section
         id={pocketId}
         className="open-sentence-pocket"
+        data-not-reading
         aria-hidden={!open}
         inert={!open}
         aria-label="Opened sentence"

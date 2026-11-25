@@ -19,6 +19,7 @@ const article = `
   <p>Too short.</p>
   <ul><li><p>${long('Listed')}</p></li></ul>
   <blockquote><p>${long('Quoted')}</p></blockquote>
+  <section data-not-reading><p>${long('Pocket')}</p></section>
 `;
 
 const passage = {

@@ -3225,9 +3225,10 @@ const WikiPageReadView = ({
                 )}
               </section>
                 {/* A page that cites gives its margin to its citations; one that
-                    does not, to what you marked elsewhere that is close. */}
+                    does not, to what you marked elsewhere that is close. The
+                    notes stay inside the article panel, clear of the rail. */}
                 {standardWikiPage && !previewMode && !footnoteCitations.length ? (
-                  <ArticleMargins contentRef={bodyRef} frameRef={panelRef} contentKey={`${pageId}:${page.updatedAt || ''}`} />
+                  <ArticleMargins contentRef={bodyRef} frameRef={panelRef} edgeRef={panelRef} contentKey={`${pageId}:${page.updatedAt || ''}`} />
                 ) : null}
                 {showMarginalia ? (
                   <WikiReadMarginalia
