@@ -74,7 +74,7 @@ Panel {
 
   // Reading happens in the window, on the list the row came from.
   function read(at) {
-    service.reader.open(words ? results : null, at)
+    service.read(words ? results : null, at)
     close()
   }
 
@@ -390,7 +390,7 @@ Panel {
       enabled: parent.articleId !== ""
       cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
       onClicked: {
-        root.service.reader.openArticle(parent.articleId)
+        root.service.readArticle(parent.articleId)
         root.close()
       }
     }

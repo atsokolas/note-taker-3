@@ -148,7 +148,7 @@ Item {
     loadNightstand()
   }
 
-  // ---- The nightstand, newest first; its count rides on the bar's tooltip.
+  // ---- The nightstand, newest first; its count rides on the bar's mark.
   function loadNightstand(then) {
     if (!signedIn) return
     request("GET", "/api/library/collection?scope=later&limit=40", null, function(status, reply) {
@@ -224,9 +224,11 @@ Item {
   IpcHandler {
     target: "noeis"
 
-    function read(): void { root.reader.open(null, -1) }
+    function read(): void { root.read(null, -1) }
 
-    function readArticle(id: string): void { root.reader.openArticle(id) }
+    function readArticle(id: string): void { root.readArticle(id) }
+
+    function readKept(): void { if (root.dayRow) root.read([root.dayRow], 0) }
 
     function save(url: string): void { root.saveQuietly(url, "That is not a link Noeis can save.") }
 
@@ -247,26 +249,60 @@ Item {
   // ---- The reading window, tiled like any app's.
   readonly property Reader reader: Reader { service: root }
 
-  // ---- The evening: at the hour you chose, what fits tonight, if anything
-  //      short waits. The click opens it in the reading window.
-  readonly property bool evening: setting("evening", true) !== false
-  readonly property int hour: Math.max(0, Math.min(23, Number(setting("hour", 20)) || 0))
+  // Reading happens in the Noeis app where it is installed, asked each time so
+  // installing it needs no restart; in the window here otherwise, and for what
+  // the app does not read.
+  function read(rows, at) {
+    var row = (rows || nightstand)[at]
+    inApp(row ? Model.appAsk(row) : ["open"], function() { reader.open(rows, at) })
+  }
 
-  onHourChanged: eveningTimer.arm()
+  function readArticle(id) { inApp(["read", String(id)], function() { reader.openArticle(id) }) }
 
-  Timer {
-    id: eveningTimer
-    repeat: true
-    running: root.evening && root.signedIn
-    function arm() { interval = Model.untilHour(root.hour, Date.now() + 1000) }
-    onRunningChanged: arm()
-    onTriggered: {
-      arm()
-      root.loadNightstand(function() {
-        var note = Model.tonight(root.nightstand)
-        if (note) root.notify(note.text, root.readAt(note.id), false)
-      })
+  function inApp(ask, here) {
+    if (!ask) return here()
+    appProc.ask = ask
+    appProc.here = here
+    appProc.running = true
+  }
+
+  Process {
+    id: appProc
+    property var ask: []
+    property var here: null
+    command: ["sh", "-c", "command -v nightstand >/dev/null"]
+    onExited: function(code) {
+      if (code === 0) Quickshell.execDetached(["nightstand"].concat(ask))
+      else here()
     }
+  }
+
+  // ---- Once a day each, at the hour you chose: in the evening, what fits
+  //      tonight, if anything short waits; and a passage you kept, if one
+  //      stands on its own. Silence otherwise. A click opens the piece.
+  readonly property var tonight: Model.tonight(nightstand)
+
+  function hourOf(name, fallback) { return Math.max(0, Math.min(23, Number(setting(name, fallback)) || 0)) }
+
+  Daily {
+    hour: root.hourOf("hour", 20)
+    running: root.setting("evening", true) !== false && root.signedIn
+    onCame: root.loadNightstand(function() {
+      if (root.tonight) root.notify(root.tonight.text, root.readAt(root.tonight.id), false)
+    })
+  }
+
+  property var dayRow: null
+
+  Daily {
+    hour: root.hourOf("passageHour", 9)
+    running: root.setting("passage", true) !== false && root.signedIn
+    onCame: root.request("GET", "/api/resurface", null, function(status, reply) {
+      var day = status === 200 ? Model.dayPassage(reply) : null
+      if (!day) return
+      root.dayRow = day.row
+      root.notify(day.text, ["omarchy-shell", "noeis", "readKept"], false)
+    })
   }
 
   // ---- The theme's palette, read from colors.toml and kept current: the

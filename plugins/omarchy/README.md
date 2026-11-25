@@ -51,7 +51,8 @@ every one:
   of noeis.io as an app in its own window, wearing your Omarchy theme once
   you choose Omarchy in noeis.io's theme settings; and **Noeis reader**, the
   reading window, which also opens EPUB, PDF and Markdown files into your
-  Library. The first fetches noeis.io's icon.
+  Library. The first fetches noeis.io's icon. The Noeis app has its own entry,
+  so once it is installed these are taken out.
 - **`~/.local/bin/noeis-open`:** a link to `bin/noeis-open`, which the
   bindings and launcher entries call.
 
@@ -74,7 +75,9 @@ left` moves it.
 
 `omarchy-shell noeis read` (Super+Alt+R, or Noeis reader in the launcher)
 opens it. It is titled "Noeis", so it moves between workspaces and takes
-window rules like any app.
+window rules like any app. Where the Noeis app (`nightstand`) is installed,
+pieces open in it instead; this window keeps what the app does not read, such
+as your notes, Wiki pages and views.
 
 | Key | |
 |---|---|
@@ -101,7 +104,8 @@ The window follows a theme change at once.
 - **Open the panel with a link on your clipboard** and it is already in the
   field, selected, so Enter saves it and typing replaces it.
 - **With the field empty** it lists your nightstand, newest first, so Enter
-  reads the next thing. The mark's tooltip says how many wait there.
+  reads the next thing. The number beside the mark says how many wait there,
+  and the mark takes your theme's accent when something short fits tonight.
 - Library, Think, Wiki, Judgment and Editions on noeis.io are one click away
   at the foot. **Sign out** ends the connection on the server as well as
   forgetting it here.
@@ -131,6 +135,14 @@ says so: "Two short pieces fit tonight. Notes on craft has waited longest,
 12 min." Short is what noeis.io calls short, fifteen minutes or less. When
 nothing short waits it says nothing. Clicking it opens that piece in the
 reading window.
+
+## A passage you kept
+
+Once a day (9 am unless you say otherwise), Noeis brings back one passage from
+your Library with the piece it came from: "“Hire for slope, not intercept, and
+the team compounds.” — Who". Only a passage that stands on its own comes, eight
+words or more; when none does, it says nothing. Clicking it opens the passage
+in the reading window. Turn it off, or move it, in the widget's settings.
 
 From a terminal, `noeis tonight` prints the same piece set as a card, and
 `noeis fortune` draws one passage of your own at random. Add `noeis fortune`
@@ -207,7 +219,8 @@ rm -f ~/.config/noeis/omarchy.json
 | File | What it is |
 |---|---|
 | `manifest.json` | The plugin's id (`io.noeis`), kinds (`service`, `bar-widget`), entry points and settings |
-| `Service.qml` | Noeis for the whole shell: the connection, the API, the nightstand, saving, `omarchy-shell noeis …`, the evening note, the theme |
+| `Service.qml` | Noeis for the whole shell: the connection, the API, the nightstand, saving, `omarchy-shell noeis …`, the evening note and the day's passage, the hand-off to the app, the theme |
+| `Daily.qml` | A moment once a day, at an hour on the clock |
 | `Reader.qml` | The reading window |
 | `BarWidget.qml` | The mark in the bar; hosts the panel and hands the Service its settings |
 | `Panel.qml` | The panel: connecting, the field, search results, the nightstand, receipts |

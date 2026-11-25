@@ -3,7 +3,7 @@
 // Everything Noeis decides without the shell: what counts as a link, where
 // a search result opens, what a save receipt says, how a failed request
 // reads, how a piece becomes paragraphs for the reading window, and what
-// the evening says. Pure functions, so they are tested in node
+// the evening and the day's passage say. Pure functions, so they are tested in node
 // (scripts/omarchy_plugin.test.js) and trusted in QML.
 
 var APP = "https://www.noeis.io"
@@ -127,10 +127,7 @@ function searchResults(library, wiki, limit) {
     sources.push({ kind: "Source", id: a._id, title: clip(a.title, TITLE_CHARS) || "Untitled", detail: trimmed(a.content, 120),
       path: articlePath(a._id) })
   })
-  ;((library && library.highlights) || []).forEach(function(h) {
-    passages.push({ kind: "Passage", id: h.articleId, passage: h.text, title: trimmed(h.text, 120), detail: clip(h.articleTitle, TITLE_CHARS),
-      path: articlePath(h.articleId) + "&highlightId=" + encodeURIComponent(h._id) })
-  })
+  ;((library && library.highlights) || []).forEach(function(h) { passages.push(passageRow(h)) })
   ;((library && library.notebook) || []).forEach(function(n) {
     notes.push({ kind: "Note", id: n._id, title: clip(n.title, TITLE_CHARS) || "Untitled note", detail: trimmed(n.content, 120),
       path: "/think?tab=notebook&entryId=" + encodeURIComponent(n._id) })
@@ -150,6 +147,19 @@ function searchResults(library, wiki, limit) {
 
 function articlePath(id) {
   return "/library?articleId=" + encodeURIComponent(id)
+}
+
+// A passage you kept, as a row: it reads in its source, opening at the passage.
+function passageRow(h) {
+  return { kind: "Passage", id: h.articleId, highlight: h._id, passage: h.text, title: trimmed(h.text, 120), detail: clip(h.articleTitle, TITLE_CHARS),
+    path: articlePath(h.articleId) + "&highlightId=" + encodeURIComponent(h._id) }
+}
+
+// How the Noeis app is asked for a row: a piece, at its passage if it names
+// one. Null for what the app does not read (a note, a page, a view).
+function appAsk(row) {
+  if (!row || ["Nightstand", "Source", "Passage"].indexOf(row.kind) < 0) return null
+  return ["read", String(row.id)].concat(row.highlight ? [String(row.highlight)] : [])
 }
 
 // The nightstand as rows: what you set aside to read later, newest first,
@@ -247,6 +257,21 @@ function tonight(rows) {
   var first = short[short.length - 1]
   return { id: first.id, text: (COUNTS[short.length] || short.length + " short pieces fit") + " tonight. "
     + first.title + " has waited longest, " + first.minutes + " min." }
+}
+
+// One passage you kept, for the day, from the server's daily sample: whole
+// enough to stand alone (a sentence, not a fragment) and from a piece still
+// here. Nothing that qualifies is silence, never a fragment offered anyway.
+var PASSAGE_WORDS = 8
+var PASSAGE_CHARS = 280
+
+function dayPassage(reply) {
+  var kept = ((reply && reply.dailyRandomHighlights) || []).filter(function(h) {
+    return h.articleId && trimmed(h.text, BLOCK_CHARS).split(" ").length >= PASSAGE_WORDS
+  })[0]
+  if (!kept) return null
+  var row = passageRow(kept)
+  return { row: row, text: "“" + trimmed(kept.text, PASSAGE_CHARS) + "”" + (row.detail ? " — " + row.detail : "") }
 }
 
 // Milliseconds until the clock next reads `hour`:00.

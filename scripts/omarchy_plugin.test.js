@@ -132,6 +132,21 @@ const passage = Model.pieceFrom(results[5], { title: 'Who', siteName: 'Essays', 
 assert.deepStrictEqual(plain(passage), { title: 'Who', byline: 'Essays', cursor: 1,
   blocks: [{ kind: 'paragraph', text: 'Intro.' }, { kind: 'paragraph', text: 'Then: Hire for slope. Always.' }] },
   'a passage opens at the paragraph that holds it');
+// The Noeis app is asked for a piece, at its passage when one is named, and
+// for nothing it does not read.
+assert.deepStrictEqual(plain(['Nightstand', 'Source', 'Note', 'Wiki', 'View'].map(kind => Model.appAsk({ kind, id: 7 }))),
+  [['read', '7'], ['read', '7'], null, null, null]);
+assert.deepStrictEqual(plain(Model.appAsk(Model.passageRow({ _id: 'h1', articleId: 'a2', text: 'x' }))), ['read', 'a2', 'h1']);
+
+// The day's passage stands on its own, or there is none.
+const day = Model.dayPassage({ dailyRandomHighlights: [
+  { _id: 'h0', articleId: 'a1', text: 'Too short.' },
+  { _id: 'h1', articleId: 'a2', articleTitle: 'Who', text: 'Hire for slope, not intercept, and the team compounds.' }
+] });
+assert.strictEqual(day.text, '“Hire for slope, not intercept, and the team compounds.” — Who', 'a fragment is passed over for a passage that stands');
+assert.deepStrictEqual([day.row.kind, day.row.id, day.row.highlight], ['Passage', 'a2', 'h1']);
+assert.strictEqual(Model.dayPassage({ dailyRandomHighlights: [{ articleId: 'a', text: 'A fragment.' }] }), null, 'only fragments is silence');
+assert.strictEqual(Model.dayPassage(null), null);
 const view = Model.pieceFrom(results[0], { title: 'Hiring bar', judgment: { currentJudgment: 'Slope beats intercept.' },
   body: { type: 'doc', content: [
     { type: 'heading', content: [{ type: 'text', text: 'Why' }] },
@@ -303,6 +318,12 @@ inThrowawayHome({
   assert.match(share, /"trigger\.share\.noeis"[^\n]*\n}\n$/, 'Share → Noeis goes in before the closing brace');
   assert.strictEqual(flags, '--ozone-platform=wayland\n--load-extension=/mine\n', 'nothing of Noeis is loaded into Chromium; the rest is kept');
   assert.match(setup(), /nothing to change/, 'a second run changes nothing');
+  // The Noeis app has its own launcher entry, so setup's give way to it.
+  write('.local/bin/nightstand', '#!/bin/sh\n');
+  fs.chmodSync(at('.local/bin/nightstand'), 0o755);
+  const native = { ...env, PATH: `${at('.local/bin')}:${env.PATH}` };
+  execFileSync('bash', [script('noeis-setup')], { env: native });
+  assert.deepStrictEqual(fs.readdirSync(at('.local/share/applications')), [], 'one Noeis in the launcher');
   setup('--remove');
   assert.deepStrictEqual(files(), [bindings, menu, flags], '--remove undoes every change');
   assert.ok(!fs.existsSync(at('.local/bin/noeis-open')) && fs.readdirSync(at('.local/share/applications')).length === 0, '--remove takes out the link and launcher entries');
