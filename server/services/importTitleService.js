@@ -121,6 +121,30 @@ const isSocialSource = ({ sourceType = '', url = '' } = {}) => (
   })())
 );
 
+// The host a piece came from says where it lives, not what it is called.
+const isAddressOf = (title = '', url = '') => {
+  try {
+    const host = new URL(String(url || '')).hostname.replace(/^www\./i, '');
+    return Boolean(host) && clean(title, 240).toLowerCase().replace(/^www\./, '') === host.toLowerCase();
+  } catch (_error) {
+    return false;
+  }
+};
+
+/* A file saved by its raw address still names itself in its path:
+   ".../peter-thiels-cs183-startup-class-19-notes-essay.md". */
+const pathTitle = (value = '') => {
+  try {
+    const file = decodeURIComponent(new URL(String(value || '')).pathname.split('/').filter(Boolean).pop() || '');
+    const words = file.replace(/\.[a-z0-9]{1,5}$/i, '').split(/[-_\s]+/).filter(Boolean);
+    if (words.length < 2 || !words.some(word => /\p{L}{3}/u.test(word))) return '';
+    const title = clean(words.join(' '), 180);
+    return `${title[0].toUpperCase()}${title.slice(1)}`;
+  } catch (_error) {
+    return '';
+  }
+};
+
 const lastResortTitle = ({ siteName = '', url = '', publishedAt = null } = {}) => (
   `${clean(siteName, 80) || domainLabel(url) || 'Imported source'} · ${dateLabel(publishedAt)}`
 );
@@ -134,7 +158,7 @@ const deriveImportedTitle = ({
   url = '',
   publishedAt = null
 } = {}) => {
-  const explicit = clean(metadataTitle, 180);
+  const explicit = isAddressOf(metadataTitle, url) ? '' : clean(metadataTitle, 180);
   if (explicit && !isFragmentTitle(explicit)) return explicit;
   const repairedExplicit = repairLeadingTitleCase(explicit);
   if (repairedExplicit) return repairedExplicit;
@@ -149,7 +173,7 @@ const deriveImportedTitle = ({
     if (named && !isFragmentTitle(named)) return named;
   }
 
-  return lastResortTitle({ siteName, url, publishedAt });
+  return pathTitle(url) || lastResortTitle({ siteName, url, publishedAt });
 };
 
 const highlightText = (article = {}) => (
@@ -160,7 +184,7 @@ const highlightText = (article = {}) => (
 
 const planArticleTitleRepair = (article = {}) => {
   const before = clean(article.title, 240);
-  if (!isFragmentTitle(before)) return null;
+  if (!isFragmentTitle(before) && !isAddressOf(before, article.url)) return null;
   const after = deriveImportedTitle({
     metadataTitle: article.title,
     content: article.content || highlightText(article),

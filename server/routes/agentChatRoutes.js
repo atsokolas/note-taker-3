@@ -82,7 +82,7 @@ const buildAgentChatRouter = ({
     }
     return {
       thread,
-      chatContext: surface || thread?.scope || null,
+      chatContext: surface || thread?.scope || {},
       allowExecution: true
     };
   };
