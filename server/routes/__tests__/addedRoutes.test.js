@@ -126,17 +126,18 @@ test('connect rate and ink rate, from judgments, inks and strikes', async () => 
     { about: `${a}>question:3`, relation: 'none' },
     { about: `${b}>highlight:4`, relation: 'none' }
   ];
-  const counted = (name, n) => ({ countDocuments: async (query) => { asked[name] = query; return n; } });
-  const found = await rates({
+  const found = (name, rows) => ({ find: (query) => { asked[name] = query; return { select: () => ({ lean: async () => rows }) }; } });
+  const rated = await rates({
     userId: 'u1',
     since,
     models: {
-      ConnectionJudgment: { find: (query) => { asked.judgments = query; return { select: () => ({ lean: async () => judgments }) }; } },
-      Connection: counted('inked', 1),
-      Verdict: counted('struck', 1)
+      ConnectionJudgment: found('judgments', judgments),
+      // One ink of an offer, and one the reader drew by hand, which is not an offer.
+      Connection: found('inked', [{ fromId: a, toType: 'highlight', toId: '1' }, { fromId: a, toType: 'note', toId: '9' }]),
+      Verdict: found('struck', [{ about: `${a}>question:2` }])
     }
   });
-  assert.deepEqual(found, { since, sources: { read: 2, connected: 1, connectRate: 0.5 }, connections: { offered: 2, inked: 1, struck: 1, inkRate: 0.5 } });
+  assert.deepEqual(rated, { since, sources: { read: 2, connected: 1, connectRate: 0.5 }, connections: { offered: 2, inked: 1, struck: 1, inkRate: 0.5 } });
   assert.equal(asked.judgments.about.$regex.test(`${a}#0123>highlight:1`), false, 'a margin pair is not a source read for what it added');
-  assert.deepEqual(asked.struck, { userId: 'u1', kind: 'connection', verdict: 'strike', createdAt: { $gte: since } });
+  assert.deepEqual(asked.struck.about, { $in: [`${a}>highlight:1`, `${a}>question:2`] });
 });

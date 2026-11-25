@@ -60,25 +60,29 @@ const lately = async ({ userId, since, models, added = whatItAdded }) => {
 
 /* How well the connections land, since a day: of the sources the model read
    for what they added, the share that connected (the connect rate), and of
-   the connections offered, how many the reader inked and struck (the ink
-   rate is what a reader actually sees of precision). Derived from what is
-   stored, never kept beside it. */
+   the connections it offered, how many the reader inked and struck (the ink
+   rate is what a reader actually sees of precision). Only inks and strikes
+   of those same offers count. Derived from what is stored, never kept
+   beside it. */
 const SOURCE_PAIR = /^([a-f\d]{24})>/;
 const rates = async ({ userId, since, models: { ConnectionJudgment, Connection, Verdict } }) => {
-  const [judgments, inked, struck] = await Promise.all([
-    ConnectionJudgment.find({ userId, about: { $regex: SOURCE_PAIR }, createdAt: { $gte: since } }).select('about relation').lean(),
-    Connection.countDocuments({ userId, fromType: 'article', createdAt: { $gte: since } }),
-    Verdict.countDocuments({ userId, kind: 'connection', verdict: 'strike', createdAt: { $gte: since } })
-  ]);
+  const judgments = await ConnectionJudgment.find({ userId, about: { $regex: SOURCE_PAIR }, createdAt: { $gte: since } }).select('about relation').lean();
   const sourceOf = row => SOURCE_PAIR.exec(row.about)[1];
   const kept = judgments.filter(row => row.relation !== 'none');
+  const offered = new Set(kept.map(row => row.about));
+  const sources = [...new Set(kept.map(sourceOf))];
+  const [inks, strikes] = await Promise.all([
+    Connection.find({ userId, fromType: 'article', fromId: { $in: sources } }).select('fromId toType toId').lean(),
+    Verdict.find({ userId, kind: 'connection', verdict: 'strike', about: { $in: [...offered] } }).select('about').lean()
+  ]);
+  const inked = new Set(inks.map(row => aboutOf(row.fromId, `${row.toType}:${row.toId}`)).filter(about => offered.has(about))).size;
+  const struck = new Set(strikes.map(row => row.about)).size;
   const read = new Set(judgments.map(sourceOf)).size;
-  const connected = new Set(kept.map(sourceOf)).size;
   const share = (part, whole) => (whole ? Math.round((part / whole) * 100) / 100 : null);
   return {
     since,
-    sources: { read, connected, connectRate: share(connected, read) },
-    connections: { offered: kept.length, inked, struck, inkRate: share(inked, kept.length) }
+    sources: { read, connected: sources.length, connectRate: share(sources.length, read) },
+    connections: { offered: offered.size, inked, struck, inkRate: share(inked, offered.size) }
   };
 };
 
