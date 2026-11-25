@@ -101,7 +101,7 @@ const KEPT_FIELDS = 'title url evergreen evergreenAt highlights._id highlights.t
 
 /* Kept on its own, without the rest of Home: for the brief an agent opens
    with and for ⌘K. Only what holds something kept is read. */
-const readKept = async ({ Article, Thread, userId }) => {
+const readKept = async ({ Article, Thread = null, userId }) => {
   const threads = Thread ? await Thread.find({ userId, answer: 'kept' }).lean() : [];
   const articles = await Article.find(applyDefaultArticleVisibility({
     userId,
