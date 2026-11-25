@@ -58,10 +58,9 @@ module.exports = (router, {
   /* Today's echo: a passage from one of your books and nearly the same
      thought, marked in another work long before or after. Null on a day
      with none. The day is the reader's own, sent as a calendar day. */
-  // A day with no pair stands as it is; a pair stands while both passages read as they did.
+  // A pair stands while both passages read as they did.
   const sameText = (a, b) => String(a || '').replace(/\s+/g, ' ').trim() === String(b || '').replace(/\s+/g, ' ').trim();
   const stillStands = async (pair, books, userId) => {
-    if (!pair) return true;
     const { mark, echo } = pair;
     const kept = books.some(book => (book.highlights || []).some(held => String(held._id) === String(mark._id) && held.text === mark.text));
     if (!kept) return false;
@@ -74,15 +73,17 @@ module.exports = (router, {
     try {
       const today = calendarDay(req.query.today);
       const books = await Article.find({ userId: req.user.id, url: BOOK_URL }).select(BOOK_MARKS).lean();
-      /* The pair holds all day, so it is looked for once a day, and again
-         when a mark is added or taken away, or either passage of the pair
-         was rewritten or deleted since. */
+      /* A pair found holds all day, so it is looked for again only when a
+         mark is added or taken away, or either passage of the pair was
+         rewritten or deleted since. A day with none yet keeps looking, since
+         new marks may still be waiting to be read. */
       const key = `${req.user.id}:${today}:${books.reduce((sum, book) => sum + (book.highlights || []).length, 0)}`;
-      if (!echoes.has(key) || !(await stillStands(echoes.get(key), books, req.user.id))) {
-        echoes.set(key, await echoToday({ books, today, echoOf: mark => echoOf({ userId: req.user.id, mark }) }));
-        if (echoes.size > ECHOES_KEPT) echoes.delete(echoes.keys().next().value);
-      }
-      return res.json({ echo: echoes.get(key) });
+      if (echoes.has(key) && await stillStands(echoes.get(key), books, req.user.id)) return res.json({ echo: echoes.get(key) });
+      const echo = await echoToday({ books, today, echoOf: mark => echoOf({ userId: req.user.id, mark }) });
+      echoes.delete(key);
+      if (echo) echoes.set(key, echo);
+      if (echoes.size > ECHOES_KEPT) echoes.delete(echoes.keys().next().value);
+      return res.json({ echo });
     } catch (error) {
       console.error('Error finding the day’s echo:', error);
       res.status(500).json({ error: 'The echo could not be found.' });

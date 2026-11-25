@@ -3,7 +3,7 @@ const express = require('express');
 const bookRoutes = require('./bookRoutes');
 
 /* Twice is looked for once a day, and looked for again when either passage
-   of the day's pair was rewritten or deleted. */
+   of the day's pair was rewritten or deleted, or while the day has none. */
 const USER = '64f600000000000000000001';
 const BOOK = '64f600000000000000000002';
 const MARK = '64f600000000000000000003';
@@ -50,6 +50,9 @@ const server = app.listen(0, '127.0.0.1', async () => {
 
     echoText = '';
     assert.strictEqual((await echo()).echo, null, 'a deleted passage is never shown');
+
+    echoText = 'Read since.';
+    assert.strictEqual((await echo()).echo.echo.text, 'Read since.', 'a day with none yet keeps looking');
     console.log('bookEcho tests passed');
   } catch (error) {
     console.error(error);
