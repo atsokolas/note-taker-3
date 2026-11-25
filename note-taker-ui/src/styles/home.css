@@ -1,0 +1,247 @@
+/* Home: three depths of one reading, set as a ruled page. Kept on the left
+   in the reading serif, with the month it was kept hanging in the margin;
+   For now in the middle, fading as it sinks; Underneath on the right, one
+   quiet sentence and, some days, an old mark rising beside a new one.
+   Every colour is a theme token, so every theme dresses it. */
+
+.home {
+  --hang: 5.5rem;
+  width: min(100% - 32px, 1120px);
+  margin: 0 auto;
+  padding: var(--space-6) 0 120px;
+  color: var(--text);
+}
+
+.home__masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--text);
+}
+
+.home__masthead h1 {
+  margin: 0;
+  font: 400 clamp(1.6rem, 3vw, 2.2rem)/1.15 var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+.home__masthead p {
+  margin: 0;
+  color: var(--muted);
+  font: 0.95rem/1.5 var(--font-serif);
+  font-style: italic;
+}
+
+.home__masthead a,
+.home a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.home a:hover q,
+.home a:hover,
+.home a:focus-visible {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+/* The three depths sit side by side, divided by hairlines, not boxes. */
+.home__depths {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.home__depths > section {
+  padding: var(--space-5) var(--space-5) 0;
+  border-left: 1px solid var(--border-subtle-2);
+}
+
+.home__depths > section:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.home__depths > section:last-child {
+  padding-right: 0;
+}
+
+.home h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.75em;
+  margin: 0 0 var(--space-4);
+  font: 600 0.72rem/1.4 var(--font-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.home h2 span {
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.home__quiet {
+  margin: 0;
+  color: var(--muted);
+  font: 0.92rem/1.55 var(--font-serif);
+}
+
+.home q {
+  quotes: '“' '”';
+}
+
+.home small {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--muted);
+  font: 0.75rem/1.45 var(--font-sans);
+}
+
+/* Kept: a ledger, oldest first, read down by the months in its margin. */
+.home__ledger,
+.home__drift {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home__ledger li {
+  display: grid;
+  grid-template-columns: var(--hang) minmax(0, 1fr);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle-2);
+}
+
+.home__ledger time {
+  color: var(--muted);
+  font: 0.75rem/1.4 var(--font-sans);
+  font-variant-numeric: oldstyle-nums;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.home__ledger a {
+  font: 1.02rem/1.5 var(--font-serif);
+}
+
+/* What you keep opening, asked about in pencil: the agent's hand, one line. */
+.home__ask {
+  margin: var(--space-4) 0 0 var(--hang);
+  color: var(--ink-agent);
+  font: italic 0.92rem/1.5 var(--font-serif);
+}
+
+.home__ask small {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.home__ask span {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-1);
+}
+
+.home button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 0.78rem/1.4 var(--font-sans);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--border-subtle-2);
+  text-underline-offset: 0.25em;
+}
+
+.home button:hover,
+.home button:focus-visible {
+  text-decoration-color: currentColor;
+}
+
+/* For now: each row as dark as it is recent, paling toward the fortnight. */
+.home__drift li {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle-2);
+  opacity: var(--depth, 1);
+}
+
+.home__drift a {
+  font: 1rem/1.4 var(--font-serif);
+}
+
+.home__drift span {
+  color: var(--muted);
+  font: 0.75rem/1.4 var(--font-sans);
+}
+
+/* Underneath: one sentence, and what rose from it today. */
+.home__deep {
+  margin: 0;
+  font: 1.05rem/1.55 var(--font-serif);
+}
+
+.home__risen {
+  margin: var(--space-6) 0 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle-2);
+}
+
+.home__risen figcaption {
+  margin-bottom: var(--space-3);
+  color: var(--muted);
+  font: 0.72rem/1.4 var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home__risen blockquote {
+  margin: 0 0 var(--space-4);
+  font: italic 0.98rem/1.55 var(--font-serif);
+}
+
+/* The old mark comes up from underneath: from the faded ink of an earlier
+   reading, slowly, to the same ink as the new one, joined by a thread. */
+.home__old {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--noeis-thread);
+  animation: home-rise 2.4s var(--noeis-ease-standard) 0.4s both;
+}
+
+.home__new {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--ink-human);
+}
+
+@keyframes home-rise {
+  from { opacity: 0.25; transform: translateY(0.9rem); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home__old { animation: none; }
+}
+
+@media (max-width: 900px) {
+  .home__depths { grid-template-columns: minmax(0, 1fr); }
+  .home__depths > section {
+    padding: var(--space-5) 0 var(--space-2);
+    border-left: 0;
+    border-top: 1px solid var(--border-subtle-2);
+  }
+  .home__depths > section:first-child { border-top: 0; }
+}
+
+@media (max-width: 520px) {
+  .home { --hang: 4.25rem; }
+}

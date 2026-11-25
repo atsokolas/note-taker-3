@@ -79,9 +79,9 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     navigationGroup: 'primary',
     verb: 'Keep',
     orientation: 'Pages on what you know, built from what you read.',
-    activePrefixes: ['/', '/wiki', '/paper'],
+    activePrefixes: ['/wiki', '/paper'],
     authenticatedPrefixes: ['/wiki', '/paper', '/today'],
-    match: ({ pathname = '' } = {}) => pathname === '/' || prefixMatch(pathname, ['/wiki', '/paper'])
+    match: ({ pathname = '' } = {}) => prefixMatch(pathname, ['/wiki', '/paper'])
   }),
   /* Papers your agents maintain for you.
 

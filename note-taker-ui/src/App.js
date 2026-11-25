@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
-import WikiFrontPage from './components/wiki/WikiFrontPage';
+import Home from './pages/Home';
 import Judgment from './pages/Judgment';
 import JudgmentMirror from './pages/JudgmentMirror';
 import NotFound from './pages/NotFound';
@@ -82,8 +82,9 @@ const WhatNoeisKnows = lazy(() => import('./pages/WhatNoeisKnows'));
 const AuthoredRecovery = lazy(() => import('./components/think/AuthoredRecovery'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
-/* Home is not code-split.
-   /wiki is where the wordmark, / and /paper all land, so this is needed on
+const WikiFrontPage = lazy(() => import('./components/wiki/WikiFrontPage'));
+/* Home is not code-split (it is imported above).
+   / is where the wordmark and every sign-in land, so it is needed on
    every cold start — and splitting it meant the browser only asked for it
    after main.js had downloaded and parsed. That is a second round trip in
    series before anything can be drawn, with a full-screen splash held over it
@@ -816,12 +817,12 @@ function App() {
             {/* One front page. The Paper is the top of the wiki now, so every
                 way in — the wordmark, /, the old /paper — lands on the same
                 page rather than on two that say overlapping things. */}
-            <Route path="/" element={<Navigate to="/wiki" replace />} />
+            <Route path="/" element={<Home />} />
             <Route path="/paper" element={<Navigate to="/wiki" replace />} />
             {/* Today was a launcher for rooms that are now the nav itself. The
                 route resolves so existing links keep working; it lands on the
                 morning paper rather than on a menu. */}
-            <Route path="/today" element={<Navigate to="/wiki" replace />} />
+            <Route path="/today" element={<Navigate to="/" replace />} />
             <Route path="/library" element={<Library />} />
             <Route path="/library/trail" element={<LibraryTrail />} />
             <Route path="/library/save" element={<SaveLink />} />

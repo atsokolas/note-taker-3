@@ -24,7 +24,7 @@ describe('the route loading fallback', () => {
   });
 
   it('keeps home out of the code-split routes, because it is needed every time', () => {
-    expect(app()).toMatch(/^import WikiFrontPage from '\.\/components\/wiki\/WikiFrontPage';$/m);
-    expect(app()).not.toMatch(/lazy\(\(\) => import\('\.\/components\/wiki\/WikiFrontPage'\)\)/);
+    expect(app()).toMatch(/^import Home from '\.\/pages\/Home';$/m);
+    expect(app()).not.toMatch(/lazy\(\(\) => import\('\.\/pages\/Home'\)\)/);
   });
 });

@@ -177,7 +177,7 @@ const TopBar = ({
       <div className="topbar__content">
         <div className="topbar__left">
           <div className="topbar__brand-nav">
-            <NavLink to="/wiki" className="topbar__brand" aria-label="Noeis home">
+            <NavLink to="/" end className="topbar__brand" aria-label="Noeis home">
               <NoeisMark />
               Noeis
             </NavLink>
