@@ -9,7 +9,8 @@
 #
 # It changes only:
 #   - ~/.local/bin/noeis-open, a link to this plugin's bin/noeis-open
-#   - two launcher entries, Noeis and Noeis reader, via omarchy-webapp-install
+#   - two launcher entries, Noeis and Noeis reader, via omarchy-webapp-install,
+#     or neither once the Noeis app, which has its own, is installed
 #   - lines under a "-- Noeis" comment in ~/.config/hypr/bindings.lua
 #   - one "trigger.share.noeis" entry in ~/.config/omarchy/extensions/omarchy-menu.jsonc
 set -euo pipefail
@@ -61,10 +62,10 @@ elif [[ $(readlink "$LINK" 2>/dev/null) != "$PLUGIN/bin/noeis-open" ]]; then
   change "linked $LINK" sh -c 'mkdir -p "$(dirname "$1")" && ln -sfn "$2" "$1"' _ "$LINK" "$PLUGIN/bin/noeis-open"
 fi
 
-# ---- Launcher entries
+# ---- Launcher entries. The Noeis app brings its own, and these give way to it.
 webapp() {
   local name=$1; shift
-  if [[ $MODE == remove ]]; then
+  if [[ $MODE == remove ]] || command -v nightstand >/dev/null; then
     [[ -f $APPS/$name.desktop ]] && change "removed the $name launcher entry" omarchy-webapp-remove "$name"
   elif [[ ! -f $APPS/$name.desktop ]]; then
     change "added $name to the launcher" sh -c '"$@" >/dev/null' _ omarchy-webapp-install "$name" "$@"
