@@ -30,7 +30,7 @@ describe('appNavigation', () => {
        rather than a room of your own work. It was in the More menu, which was
        honest about that and meant nobody found it. Named in the bar until it
        has earned or lost the place. */
-    expect(primaryLabels).toEqual(['Library', 'Books', 'Think', 'Wiki', 'Editions', 'Judgment', 'Work']);
+    expect(primaryLabels).toEqual(['Library', 'Books', 'Think', 'Wiki', 'Editions', 'Judgment', 'Museum', 'Work']);
     expect(primaryLabels.indexOf('Editions')).toBe(primaryLabels.indexOf('Wiki') + 1);
     expect(primaryLabels).not.toContain('Paper');
     expect(primaryLabels).not.toContain('Notebook');
@@ -89,7 +89,7 @@ describe('appNavigation', () => {
     });
     /* Exact, so a room cannot creep back in unnoticed. Handed off is where
        the reader comes back to what agents did while they were away. */
-    expect(secondaryLabels).toEqual(['Museum', 'Handed off', 'Help']);
+    expect(secondaryLabels).toEqual(['Handed off', 'Help']);
   });
 
   /* Every letter is the room's own initial, so the rule is guessable and the
@@ -104,6 +104,7 @@ describe('appNavigation', () => {
       'w:/wiki',
       'e:/editions',
       'j:/judgment',
+      'm:/museum',
       'c:/connections#sources',
       's:/settings'
     ]);
@@ -303,7 +304,8 @@ describe('moving around the app', () => {
     expect(adjacentRoom({ pathname: '/library' }, 1)).toBe('/books');
     expect(adjacentRoom({ pathname: '/think' }, -1)).toBe('/books');
     expect(adjacentRoom({ pathname: '/library' }, -1)).toBe('/work');
-    expect(adjacentRoom({ pathname: '/judgment/view-1' }, 1)).toBe('/work');
+    expect(adjacentRoom({ pathname: '/judgment/view-1' }, 1)).toBe('/museum');
+    expect(adjacentRoom({ pathname: '/museum' }, 1)).toBe('/work');
     expect(adjacentRoom({ pathname: '/work' }, 1)).toBe('/library');
     expect(adjacentRoom({ pathname: '/' }, 1)).toBe('/editions');
     expect(adjacentRoom({ pathname: '/settings' }, 1)).toBe('/library');
