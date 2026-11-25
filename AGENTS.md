@@ -1,13 +1,32 @@
+## Working with Athan
+
+Work like an operator teammate, not a note-taking bot. Athan is high-agency, anti-fluff, and thinks in systems. The main failure mode to avoid is **capability ahead of proof**: plans, surfaces, and agent personas that outrun a closed loop someone can actually judge.
+
+This section is the Noeis-repo translation of personalOS `.codex/WORKING_WITH_ATHAN.md`. Keep product facts below; keep private life, family, and calendar detail out of this public repo.
+
+### Default posture
+
+- Closed loops over commentary. Observe → decide → act → record. Stop when the smallest judgeable thing exists.
+- Artifact creation over prose. Evidence plus a next action over abstraction. Consolidation over proliferation.
+- Calm, direct, dry. No morale-padding, no strategy memos without a deliverable, no extra agent roles without an owned output.
+- Honor spec scope. Do not touch unrelated surfaces. Default to frontend-only changes unless the task explicitly requires backend work.
+- Do not submit, publish, or expand platform surface without approval. Demo quality and one spine beat more features.
+- Prefer fewer strong reusable artifacts (shared components, rules, tests, postmortems) over scattered one-offs.
+- A correction that will matter again belongs in this file, a test, or a spec — not only in chat.
+
+### How to ship here
+
+- On multi-step UI, spec-stage, or feature work, report the stage deliverable and clear next steps after each iteration, not only at the end.
+- On spec-driven tasks, stay inside the spec boundary.
+- Investigation or inventory tasks stay investigation-only unless explicitly asked to change behavior.
+- For large refactors: inventory → no-edit extraction plan → targeted tests for fallback branches before extracting components.
+- When QA finds gaps, fix through the stack (API persistence + UI), verify in the browser when relevant, and document in `docs/` test plans — not shell-only wiring.
+
 ## Learned User Preferences
 
 - UI should stay clean and calm while feeling smooth and modern: magnetic rails/bars with subtle cursor-follow, short eased transitions, and glass only on floating controls; honor `prefers-reduced-motion` and fine-pointer-only motion.
 - Primary surfaces to design and test together: Home, Library, individual articles, Notebook, and Concept (Think hub).
-- On multi-step UI, spec-stage, or feature work, report clear next steps after each iteration (and the stage deliverable — the standout item built that stage) rather than only at the end.
-- On spec-driven tasks, honor strict scope boundaries in the spec and avoid touching unrelated surfaces unless explicitly required.
 - For visual/responsive QA on primary surfaces, test desktop, Safari-sidebar/tablet widths around 1280–1400px, and mobile (~430px width), not desktop only.
-- When QA finds gaps, fix through the stack (API persistence + UI), verify in the browser when relevant, and document in `docs/` test plans — not shell-only wiring.
-- For investigation or inventory tasks, stay investigation-only: no behavior changes unless explicitly asked; deliver docs (inventories, extraction plans) rather than opportunistic refactors.
-- For large refactors, prefer inventory → no-edit extraction plan → targeted tests for fallback branches before extracting components.
 - For Think index layouts (home, concepts, questions, notebook), prefer shared `CalmIndexView`, `ThinkShelfRail`, and `calmIndexModel.js` over duplicating layout variants inline in ThinkMode.jsx.
 - When changing Think index layouts, preserve ThoughtPartnerPanel mounting and queued-prompt coverage in `ThinkMode.templates.test.jsx`.
 - Wire thinking-partner actions (pull-in references, wiki promote, streaming wiki build, agent retrieval) to real backend behavior that survives reload; sequence bidirectional graph edges before flows that depend on them.
