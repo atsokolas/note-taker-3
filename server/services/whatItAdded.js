@@ -58,4 +58,28 @@ const lately = async ({ userId, since, models, added = whatItAdded }) => {
   return told;
 };
 
-module.exports = { whatItAdded, lately, aboutOf };
+/* How well the connections land, since a day: of the sources the model read
+   for what they added, the share that connected (the connect rate), and of
+   the connections offered, how many the reader inked and struck (the ink
+   rate is what a reader actually sees of precision). Derived from what is
+   stored, never kept beside it. */
+const SOURCE_PAIR = /^([a-f\d]{24})>/;
+const rates = async ({ userId, since, models: { ConnectionJudgment, Connection, Verdict } }) => {
+  const [judgments, inked, struck] = await Promise.all([
+    ConnectionJudgment.find({ userId, about: { $regex: SOURCE_PAIR }, createdAt: { $gte: since } }).select('about relation').lean(),
+    Connection.countDocuments({ userId, fromType: 'article', createdAt: { $gte: since } }),
+    Verdict.countDocuments({ userId, kind: 'connection', verdict: 'strike', createdAt: { $gte: since } })
+  ]);
+  const sourceOf = row => SOURCE_PAIR.exec(row.about)[1];
+  const kept = judgments.filter(row => row.relation !== 'none');
+  const read = new Set(judgments.map(sourceOf)).size;
+  const connected = new Set(kept.map(sourceOf)).size;
+  const share = (part, whole) => (whole ? Math.round((part / whole) * 100) / 100 : null);
+  return {
+    since,
+    sources: { read, connected, connectRate: share(connected, read) },
+    connections: { offered: kept.length, inked, struck, inkRate: share(inked, kept.length) }
+  };
+};
+
+module.exports = { whatItAdded, lately, rates, aboutOf };

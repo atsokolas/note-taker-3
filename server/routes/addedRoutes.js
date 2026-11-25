@@ -2,13 +2,15 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { cleanWikiSummary } = require('../services/wikiSourceRefs');
-const { whatItAdded, lately, aboutOf } = require('../services/whatItAdded');
+const { whatItAdded, lately, rates, aboutOf } = require('../services/whatItAdded');
 
 const TITLE_KEPT = 300;
 const TEXT_KEPT = 2000;
 const KEY = /^(highlight|question|wiki_page):[a-f\d]{24}$/i;
-// What the reading room calls lately.
+// What the reading room calls lately, and how far back the rates look by default.
 const LATELY_DAYS = 7;
+const RATES_DAYS = 28;
+const DAY_MS = 24 * 60 * 60 * 1000;
 // The relation an inked connection is kept as, by what Noeis saw.
 const RELATION = { echo: 'related', answers: 'supports', belongs: 'contained_by', argues: 'contradicts' };
 
@@ -30,12 +32,23 @@ const buildAddedRouter = ({
   // What arrived this week and connected, newest first.
   router.get('/api/added', authenticateToken, async (req, res) => {
     try {
-      const since = new Date(Date.now() - LATELY_DAYS * 24 * 60 * 60 * 1000);
+      const since = new Date(Date.now() - LATELY_DAYS * DAY_MS);
       const told = await lately({ userId: req.user.id, since, models, added });
       return res.json({ lately: told.map(({ score, ...connection }) => connection) });
     } catch (error) {
       console.warn('[added] lately failed', String(error?.message || error).slice(0, 160));
       return res.json({ lately: [] });
+    }
+  });
+
+  // How well connections land: connect rate and ink rate, over the last `days`.
+  router.get('/api/added/rates', authenticateToken, async (req, res) => {
+    const days = Math.min(365, Math.max(1, Number.parseInt(String(req.query.days), 10) || RATES_DAYS));
+    try {
+      return res.json(await rates({ userId: req.user.id, since: new Date(Date.now() - days * DAY_MS), models: { ConnectionJudgment, Connection, Verdict } }));
+    } catch (error) {
+      console.error('[added] rates failed', error.message);
+      return res.status(500).json({ error: 'The rates could not be counted.' });
     }
   });
 
