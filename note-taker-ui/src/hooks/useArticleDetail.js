@@ -47,10 +47,13 @@ const useArticleDetail = (articleId, options = {}) => {
     setError('');
     setErrorKind('');
     try {
-      const [articleRes, highlightRes, referenceRes] = await Promise.all([
+      // What links here is asked at the same time but never holds the page up.
+      const references = api.get(`/api/articles/${articleId}/backlinks`, getAuthHeaders())
+        .then(res => res.data || { notebookBlocks: [], collections: [] })
+        .catch(() => ({ notebookBlocks: [], collections: [] }));
+      const [articleRes, highlightRes] = await Promise.all([
         api.get(`/articles/${articleId}`, getAuthHeaders()),
-        api.get(`/api/articles/${articleId}/highlights`, getAuthHeaders()).catch(() => ({ data: [] })),
-        api.get(`/api/articles/${articleId}/backlinks`, getAuthHeaders()).catch(() => ({ data: { notebookBlocks: [], collections: [] } }))
+        api.get(`/api/articles/${articleId}/highlights`, getAuthHeaders()).catch(() => ({ data: [] }))
       ]);
       const articleData = articleRes.data || null;
       if (!articleData) {
@@ -60,16 +63,14 @@ const useArticleDetail = (articleId, options = {}) => {
       }
       if (requestSequence.current !== requestId) return;
       const highlightData = highlightRes.data?.length ? highlightRes.data : (articleData?.highlights || []);
-      const referenceData = referenceRes.data || { notebookBlocks: [], collections: [] };
       setArticle(articleData);
       setHighlights(normalizeHighlights(highlightData, articleData));
-      setReferences(referenceData);
       logPerf('library.article.detail.load', {
         articleId,
         highlights: highlightData.length,
-        references: referenceData.notebookBlocks?.length || 0,
         durationMs: endPerfTimer(startedAt)
       });
+      references.then(found => { if (requestSequence.current === requestId) setReferences(found); });
     } catch (err) {
       if (requestSequence.current !== requestId) return;
       const failure = classifyArticleDetailError(err);

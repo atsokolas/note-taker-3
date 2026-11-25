@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { getEdition } from '../../api/editions';
 import { hasNew, latestOf } from '../../pages/editionModel';
@@ -18,20 +18,26 @@ const newsLine = (papers) => {
 };
 
 /* Each paper's newest issue, opened, since both views print what is inside.
-   Reopened with every refresh of the stand, so a finding filed while you
-   read appears, and an issue that failed to open is tried again; the last
-   good copy stays up meanwhile. */
+   The stand asks for them opened (see useStand), so an issue is fetched on
+   its own only when it came without its findings. Every refresh of the stand
+   brings them again, so a finding filed while you read appears; an issue that
+   failed to open is tried again, and the last good copy stays up meanwhile. */
 const useNewest = (papers) => {
-  const [opened, setOpened] = useState({});
+  const [fetched, setFetched] = useState({});
   useEffect(() => {
+    const closed = papers.map(latestOf).filter(issue => !issue.items);
+    if (!closed.length) return undefined;
     let active = true;
-    Promise.all(papers.map(paper => getEdition(latestOf(paper)._id).catch(() => null)))
+    Promise.all(closed.map(issue => getEdition(issue._id).catch(() => null)))
       .then(rows => {
-        if (active) setOpened(held => ({ ...held, ...Object.fromEntries(rows.filter(Boolean).map(row => [row._id, row])) }));
+        if (active) setFetched(held => ({ ...held, ...Object.fromEntries(rows.filter(Boolean).map(row => [row._id, row])) }));
       });
     return () => { active = false; };
   }, [papers]);
-  return opened;
+  return useMemo(() => ({
+    ...fetched,
+    ...Object.fromEntries(papers.map(latestOf).filter(issue => issue.items).map(issue => [issue._id, issue]))
+  }), [papers, fetched]);
 };
 
 /**

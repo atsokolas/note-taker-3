@@ -774,6 +774,18 @@ describe('the newsstand', () => {
     expect(res.body.editions[0].itemCount).toBe(2);
   });
 
+  it('opens each paper’s newest issue on the stand when asked', async () => {
+    asAgent = true;
+    await send('/api/editions', 'POST', week());
+    await send('/api/editions', 'POST', week({ windowStart: '2026-09-08', windowEnd: '2026-09-14' }));
+    asAgent = false;
+    // The stand lists newest first, so the paper's first row is its newest issue.
+    const [newest, older] = (await send('/api/editions?open=newest')).body.editions;
+    expect(newest.items.map(row => row.title)).toEqual(['A paper about scaling', 'A second']);
+    expect(newest.filings).toHaveLength(2);
+    expect(older.items).toBeUndefined();
+  });
+
   /* OpenClaw lists the stand before filing so it continues a run. A hundred
      was a season of a daily paper; the clamp ate the rest. Five hundred is
      still a bound — not a scan of everything. */

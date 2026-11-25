@@ -860,6 +860,16 @@ const buildEditionRouter = ({
           .filter(entry => entry.matches).slice(0, limit)
         : found.map(edition => ({ edition }));
       const editions = matched.map(entry => entry.edition);
+      /* Asked with ?open=newest (the stand), each paper's newest issue comes
+         opened, so the front page needs no second round of requests. */
+      const opened = new Set();
+      if (req.query?.open === 'newest') {
+        const papers = new Set();
+        for (const edition of editions) {
+          if (!papers.has(edition.profile)) opened.add(edition);
+          papers.add(edition.profile);
+        }
+      }
       const receipts = new Map(await Promise.all(
         [...new Set(editions.map(edition => edition.profile))]
           .map(async key => [key, await receiptsSinceFor(req.user.id, key)])
@@ -871,6 +881,7 @@ const buildEditionRouter = ({
             profiles,
             receiptsSince: receipts.get(edition.profile)
           }),
+          ...(opened.has(edition) ? { items: (edition.items || []).map(serializeItem) } : {}),
           ...(matches ? { matches } : {})
         }))
       });

@@ -2,17 +2,9 @@ import { countWords } from '../../../pages/thinkNotesModel';
 import { replaceEditorTargetText, scopeNotebookTarget, targetFromEditor, turnWordings } from '../../../utils/notebookWorkbench';
 import { locatePassage } from './notebookWorkbenchDecorations';
 
-/* Three moves borrowed from Jason Fried's Write_On, kept on the keyboard so the
-   hand never leaves the page: dim what you might cut, set a paragraph aside,
-   and turn an underlined passage through its wordings where it stands. Control
-   on every platform, as Write_On does; Write_On's Control-/ already opens
-   arrangement here, so dimming takes the full stop. */
-export const WRITE_ON_KEYS = [
-  { keys: ['Ctrl', '.'], label: 'Dim the sentence or selection, or bring it back' },
-  { keys: ['Ctrl', 'Shift', 'X'], label: 'Set the paragraph or selection aside in the scratchpad' },
-  { keys: ['Alt', '↑'], label: 'Previous wording of an underlined passage' },
-  { keys: ['Alt', '↓'], label: 'Next wording of an underlined passage' }
-];
+/* Three moves borrowed from Jason Fried's Write_On: dim what you might cut,
+   set a paragraph aside, and turn an underlined passage through its wordings
+   where it stands. The keys are listed for the reader in KeyboardShortcutOverlay. */
 
 const SCRATCHPAD_LIMIT = 80;
 // The server keeps a thought up to this long; a longer passage would lose its end on reload.

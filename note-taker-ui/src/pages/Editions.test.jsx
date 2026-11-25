@@ -217,6 +217,14 @@ it('sets every paper as one front page, led by the finding with the most you can
   fireEvent.keyDown(document, { key: ']' });
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions?paper=weekend');
 });
+it('prints the front page from the stand alone when each newest issue comes opened', async () => {
+  const ai = twoPapers();
+  api.listEditions.mockResolvedValue([{ ...edition, newCount: 2 }, { ...ai, newCount: 0 }]);
+  render(<Editions />);
+  expect(await screen.findByRole('link', { name: 'Few recover when a step fails.' })).toHaveAttribute('href', '/editions/ai?item=x');
+  expect(api.listEditions).toHaveBeenCalledWith({ limit: 500, open: 'newest' });
+  expect(api.getEdition).not.toHaveBeenCalled();
+});
 it('turns the stand into a newsstand of covers, and back', async () => {
   twoPapers();
   render(<Editions />);

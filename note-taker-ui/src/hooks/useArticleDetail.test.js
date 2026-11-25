@@ -50,6 +50,22 @@ describe('useArticleDetail', () => {
     expect(articleAttempts).toBe(2);
   });
 
+  it('opens the source before what links to it has answered', async () => {
+    let answerLinks;
+    api.get.mockImplementation((url) => {
+      if (url === '/articles/a1') return Promise.resolve(articleResponse('a1'));
+      if (url.endsWith('/backlinks')) return new Promise(resolve => { answerLinks = resolve; });
+      return Promise.resolve(supportingResponse(url));
+    });
+
+    const { result } = renderHook(() => useArticleDetail('a1'));
+    await waitFor(() => expect(result.current.article?._id).toBe('a1'));
+    expect(result.current.references.collections).toEqual([]);
+
+    await act(async () => { answerLinks({ data: { notebookBlocks: [], collections: [{ _id: 'c1' }] } }); });
+    expect(result.current.references.collections).toEqual([{ _id: 'c1' }]);
+  });
+
   it('does not let a late response replace a newer source', async () => {
     let resolveFirst;
     const first = new Promise(resolve => { resolveFirst = resolve; });
