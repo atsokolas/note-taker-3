@@ -78,7 +78,10 @@ const articleSchema = new mongoose.Schema({
        has a location instead, kept where its import put it. */
     page: { type: Number, min: 1 },
     importMeta: { type: importMetaSchema, default: /** @returns {object} */ () => ({}) },
-    pencil: { type: pencilSchema, default: null }
+    pencil: { type: pencilSchema, default: null },
+    /* Kept: this one passage is held for good, as evergreen holds a whole
+       source. The date is when you first kept it. Only the reader sets it. */
+    keptAt: { type: Date, default: null }
   }],
   pencil: { type: pencilSchema, default: null },
   pdfs: { type: [pdfAttachmentSchema], default: [] },
