@@ -1,4 +1,6 @@
 const { BOOK_URL } = require('./import/exportFiles');
+const { threadAsItIs } = require('./threads');
+const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // What you read lately stays on top this long, then sinks underneath.
@@ -95,4 +97,17 @@ const home = ({ articles, readings, threads = [], now = Date.now() }) => {
   };
 };
 
-module.exports = { ASKED_AFTER_OPENS, SINKS_AFTER_DAYS, home };
+const KEPT_FIELDS = 'title url evergreen evergreenAt highlights._id highlights.text highlights.note highlights.page highlights.createdAt highlights.keptAt';
+
+/* Kept on its own, without the rest of Home: for the brief an agent opens
+   with and for ⌘K. Only what holds something kept is read. */
+const readKept = async ({ Article, Thread, userId }) => {
+  const threads = Thread ? await Thread.find({ userId, answer: 'kept' }).lean() : [];
+  const articles = await Article.find(applyDefaultArticleVisibility({
+    userId,
+    $or: [{ evergreen: true }, { 'highlights.keptAt': { $ne: null } }, { _id: { $in: threads.flatMap(thread => thread.marks.map(mark => mark.articleId)) } }]
+  })).select(KEPT_FIELDS).lean();
+  return kept(articles, threads.map(thread => threadAsItIs(thread, articles)).filter(Boolean));
+};
+
+module.exports = { ASKED_AFTER_OPENS, SINKS_AFTER_DAYS, home, readKept };

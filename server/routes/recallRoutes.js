@@ -6,6 +6,7 @@ const { openDisagreements } = require('./disagreementRoutes');
 const { pencilOf } = require('../services/agentTokenService');
 const { waitingTonight } = require('../services/nightstand');
 const { whatItAdded, lately } = require('../services/whatItAdded');
+const { readKept } = require('../services/home');
 
 const MAX_LIMIT = 25;
 const BRIEF_LIMIT = 16;
@@ -74,6 +75,17 @@ const addedThisWeek = ({ userId, models, added }) => lately({
   added: asked => added({ ...asked, judge: async () => [] })
 }).then(told => told.map(({ articleId, title, score, ...connection }) => ({ kind: 'article', id: articleId, title, added: connection })));
 
+/* What the reader keeps for good, oldest first: whole sources, single
+   passages and threads they kept. Start from it; never argue it away. */
+const keptFor = async ({ Article, Thread, userId }) => (await readKept({ Article, Thread, userId })).map(held => ({
+  kind: { source: 'article', mark: 'highlight', thread: 'thread' }[held.kind],
+  id: held.threadId || held.articleId,
+  ...(held.highlightId ? { highlightId: held.highlightId } : {}),
+  title: held.title,
+  ...(held.text || held.note ? { passage: held.text || held.note } : {}),
+  keptAt: held.at
+}));
+
 // Results by kind, what an agent has not inked set apart from the reader's own.
 const groupByKind = results => results.reduce((groups, hit) => {
   const kind = hit.pencil ? 'pencil' : hit.kind;
@@ -120,7 +132,7 @@ const tasteOf = async ({ Verdict, userId }) => {
   };
 };
 
-const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, Citation = null, RecallCheck = null, Verdict = null, Disagreement = null, Connection = null, ConnectionJudgment = null, added = whatItAdded, humanOnly = (_req, _res, next) => next(), semanticSearch = null }) => {
+const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta, WikiPage, Question = null, Handoff = null, Citation = null, RecallCheck = null, Verdict = null, Disagreement = null, Connection = null, ConnectionJudgment = null, Thread = null, added = whatItAdded, humanOnly = (_req, _res, next) => next(), semanticSearch = null }) => {
   const router = express.Router();
   const models = { Article, NotebookEntry, TagMeta, WikiPage, Question };
   const recalled = async ({ userId, query, limit }) => withConnections({
@@ -142,7 +154,7 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
   });
 
   /* One call at the start of a session: what the reader handed over, first;
-     then on a topic, everything of theirs that bears on it, by kind; with
+     what they keep for good; then on a topic, everything of theirs that bears on it, by kind; with
      none, where they stand. */
   router.get('/api/brief', authenticateToken, async (req, res) => {
     const topic = String(req.query.topic || '').trim().slice(0, 500);
@@ -151,13 +163,14 @@ const buildRecallRouter = ({ authenticateToken, Article, NotebookEntry, TagMeta,
       const groups = topic
         ? groupByKind(await recalled({ userId, query: topic, limit: BRIEF_LIMIT }))
         : await standing({ userId, models });
-      const [handedToYou, thisWeek, taste, disagreements] = await Promise.all([
+      const [handedToYou, kept, thisWeek, taste, disagreements] = await Promise.all([
         Handoff ? waitingFor({ Handoff, req }) : [],
+        keptFor({ Article, Thread, userId }),
         ConnectionJudgment && Verdict ? addedThisWeek({ userId, models: { Article, ConnectionJudgment, Verdict }, added }) : [],
         tasteOf({ Verdict, userId }),
         openDisagreements({ Disagreement, userId })
       ]);
-      res.json({ topic, handedToYou, ...(thisWeek.length ? { added: thisWeek } : {}), ...(taste ? { taste } : {}), ...(disagreements.length ? { disagreements } : {}), ...groups });
+      res.json({ topic, handedToYou, ...(kept.length ? { kept } : {}), ...(thisWeek.length ? { added: thisWeek } : {}), ...(taste ? { taste } : {}), ...(disagreements.length ? { disagreements } : {}), ...groups });
     } catch (error) {
       console.error('[brief] failed', error.message);
       res.status(500).json({ error: 'The brief could not be gathered.' });

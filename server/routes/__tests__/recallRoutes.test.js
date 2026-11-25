@@ -78,7 +78,7 @@ const start = async () => {
     added: async ({ articleId, judge }) => (articleId === ARTICLE && (await judge({ pairs: [] })).length === 0
       ? [{ kind: 'answers', key: `question:${QUESTION}`, to: { type: 'question', id: QUESTION, title: 'Do work samples predict hiring better than interviews?' }, score: 0.8 }]
       : []),
-    Article: model([{ _id: ARTICLE, title: 'Base rates', content: 'Start from the base rate before the story.', highlights: [{ _id: 'h1', text: 'Interviews predict little about hiring.', note: 'Remember for the hiring loop.' }, { _id: 'h2', text: 'The story comes after the rate.', note: 'A guess of mine.', pencil: { agent: 'Codex' } }], updatedAt: new Date() }]),
+    Article: model([{ _id: ARTICLE, title: 'Base rates', content: 'Start from the base rate before the story.', highlights: [{ _id: 'h1', text: 'Interviews predict little about hiring.', note: 'Remember for the hiring loop.', keptAt: new Date('2026-01-02T00:00:00Z') }, { _id: 'h2', text: 'The story comes after the rate.', note: 'A guess of mine.', pencil: { agent: 'Codex' } }], updatedAt: new Date() }]),
     NotebookEntry: model([{ _id: NOTE, title: 'Hiring', content: 'Hire for slope, not intercept, when hiring engineers.', pencil: { agent: 'Claude Code' }, updatedAt: new Date() }]),
     TagMeta: model([{ _id: CONCEPT, name: 'Base rates', description: 'Start from how often things like this usually go.', updatedAt: new Date() }]),
     WikiPage: model([]),
@@ -157,7 +157,9 @@ describe('recall routes', () => {
 
   it('with no topic, briefs an agent on where the reader stands', async () => {
     const brief = await fetch(`${url}/api/brief`).then(res => res.json());
-    expect(Object.keys(brief)).toEqual(['topic', 'handedToYou', 'added', 'taste', 'disagreements', 'view', 'question', 'pencil', 'article']);
+    expect(Object.keys(brief)).toEqual(['topic', 'handedToYou', 'kept', 'added', 'taste', 'disagreements', 'view', 'question', 'pencil', 'article']);
+    // What the reader keeps for good comes before anything an agent might argue with.
+    expect(brief.kept).toEqual([{ kind: 'highlight', id: ARTICLE, highlightId: 'h1', title: 'Base rates', passage: 'Interviews predict little about hiring.', keptAt: '2026-01-02T00:00:00.000Z' }]);
     // What the reading added this week, from what the model already judged: the brief never waits on a reading.
     expect(brief.added).toEqual([{ kind: 'article', id: ARTICLE, title: 'Base rates', added: { kind: 'answers', key: `question:${QUESTION}`, to: expect.objectContaining({ id: QUESTION }) } }]);
     // Two hands that cannot both be right are set out as a disagreement, not two facts.
