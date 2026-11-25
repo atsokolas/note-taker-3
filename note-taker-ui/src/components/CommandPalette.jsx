@@ -29,6 +29,7 @@ import { buildSettingsPaletteRows } from '../settings/settingsRegistry';
 import { getFolders } from '../api/folders';
 import { currentAccountId } from '../utils/browserScope';
 import { readKept } from '../api/home';
+import { useAgentRail } from '../agent/AgentRailContext';
 import { keptLabel, pathOf } from './home/homeModel';
 
 const EMPTY_GROUPS = {
@@ -277,6 +278,7 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
   const [recentWiki, setRecentWiki] = useState([]);
   // What you keep is asked first.
   const [kept, setKept] = useState([]);
+  const { ask, canAsk } = useAgentRail();
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const isWikiSurface = currentPathname().startsWith('/wiki');
@@ -875,7 +877,14 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
         { id: 'action-new-note', type: 'Action', label: 'New Think note', action: createNote },
         { id: 'action-quick-work-note', type: 'Action', label: 'Quick Work note', path: '/work?capture=1' },
         { id: 'action-pull-reference', type: 'Action', label: 'Insert a link to…', path: pullReferencePath },
-        q ? { id: 'action-new-wiki', type: 'Action', label: `New Wiki page from "${q.slice(0, 48)}"`, action: createWiki } : null
+        q ? { id: 'action-new-wiki', type: 'Action', label: `New Wiki page from "${q.slice(0, 48)}"`, action: createWiki } : null,
+        // The Partner has no pill on the page: it is asked from here, or with ⌘J.
+        canAsk ? {
+          id: 'action-ask-partner',
+          type: 'Action',
+          label: q ? `Ask the Partner: “${q.slice(0, 60)}”` : 'Ask the Partner',
+          action: () => (q ? ask(q) : window.dispatchEvent(new Event('noeis:open-agent')))
+        } : null
       ]
     };
 
@@ -1038,7 +1047,7 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
     return list
       .map(section => ({ ...section, items: section.items.filter(Boolean) }))
       .filter(section => section.items.length > 0);
-  }, [articles, capabilityModel.commands, concepts, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, kept, notebook, pages, pullReferencePath, query, recentWiki, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
+  }, [articles, ask, canAsk, capabilityModel.commands, concepts, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, kept, notebook, pages, pullReferencePath, query, recentWiki, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
 
   const selectableItems = useMemo(
     () => sections.flatMap(section => section.items),

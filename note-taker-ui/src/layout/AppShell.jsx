@@ -20,7 +20,6 @@ const AppShell = ({
   const [partnerOpen, setPartnerOpen] = useState(false);
   const isOpen = useRef(false);
   isOpen.current = partnerOpen;
-  const triggerRef = useRef(null);
   const sheetRef = useRef(null);
   const returnFocus = useRef(null);
 
@@ -32,7 +31,7 @@ const AppShell = ({
 
   const closePartner = useCallback(() => {
     setPartnerOpen(false);
-    const target = returnFocus.current?.isConnected ? returnFocus.current : triggerRef.current;
+    const target = returnFocus.current?.isConnected ? returnFocus.current : null;
     window.requestAnimationFrame(() => target?.focus?.());
   }, []);
 
@@ -98,40 +97,28 @@ const AppShell = ({
         <div id="main-content" className="app-shell-new__body" tabIndex="-1">
           <div className="app-shell-new__column">{children}</div>
           {partner ? (
-            <>
+            /* No pill: the Partner waits off the page until asked, with ⌘J
+               or from ⌘K, and says nothing until then. */
+            <div id="noeis-partner" className="agent-rail-drawer" data-open={partnerOpen ? 'true' : 'false'}>
               <button
-                ref={triggerRef}
                 type="button"
-                className="agent-rail-drawer__trigger"
-                aria-expanded={partnerOpen}
-                aria-controls="noeis-partner"
-                aria-keyshortcuts="Meta+J Control+J"
-                title="Partner · ⌘J"
-                onClick={openPartner}
+                className="agent-rail-drawer__backdrop"
+                aria-label="Close Partner"
+                tabIndex={-1}
+                onClick={closePartner}
+              />
+              <div
+                ref={sheetRef}
+                className="agent-rail-drawer__sheet"
+                role={partnerOpen ? 'dialog' : undefined}
+                aria-modal={partnerOpen || undefined}
+                aria-label={partnerOpen ? 'Partner' : undefined}
+                inert={partnerOpen ? undefined : true}
               >
-                Partner
-              </button>
-              <div id="noeis-partner" className="agent-rail-drawer" data-open={partnerOpen ? 'true' : 'false'}>
-                <button
-                  type="button"
-                  className="agent-rail-drawer__backdrop"
-                  aria-label="Close Partner"
-                  tabIndex={-1}
-                  onClick={closePartner}
-                />
-                <div
-                  ref={sheetRef}
-                  className="agent-rail-drawer__sheet"
-                  role={partnerOpen ? 'dialog' : undefined}
-                  aria-modal={partnerOpen || undefined}
-                  aria-label={partnerOpen ? 'Partner' : undefined}
-                  inert={partnerOpen ? undefined : true}
-                >
-                  <button type="button" className="agent-rail-drawer__close" onClick={closePartner}>Close</button>
-                  {partner}
-                </div>
+                <button type="button" className="agent-rail-drawer__close" onClick={closePartner}>Close</button>
+                {partner}
               </div>
-            </>
+              </div>
           ) : null}
         </div>
       </div>

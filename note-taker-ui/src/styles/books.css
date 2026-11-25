@@ -703,7 +703,7 @@
 }
 
 @media print {
-  :root:has(.book-cards) :is(.topbar, .app-shell-new__nav, .app-shell-new__skip-link, .agent-rail-drawer__trigger, .agent-rail-drawer) {
+  :root:has(.book-cards) :is(.topbar, .app-shell-new__nav, .app-shell-new__skip-link, .agent-rail-drawer) {
     display: none !important;
   }
 

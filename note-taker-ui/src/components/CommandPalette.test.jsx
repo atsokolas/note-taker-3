@@ -27,6 +27,9 @@ jest.mock('react-router-dom', () => ({
   useNavigationType: () => 'POP'
 }));
 
+const mockRail = { canAsk: false, ask: jest.fn() };
+jest.mock('../agent/AgentRailContext', () => ({ useAgentRail: () => mockRail }));
+
 jest.mock('../api', () => ({
   get: jest.fn(),
   post: jest.fn()
@@ -491,6 +494,27 @@ describe('CommandPalette', () => {
     expect(screen.queryByText('New Wiki page')).not.toBeInTheDocument();
     expect(screen.queryByText('Concepts')).not.toBeInTheDocument();
     expect(screen.queryByText('Notebook')).not.toBeInTheDocument();
+  });
+
+  it('asks the Partner from here, since it has no pill on the page', async () => {
+    mockRail.canAsk = true;
+    const opened = jest.fn();
+    window.addEventListener('noeis:open-agent', opened);
+    try {
+      const { onClose } = await renderPalette();
+      fireEvent.click(await screen.findByText('Ask the Partner'));
+      expect(opened).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+
+      await renderPalette();
+      fireEvent.change(screen.getAllByPlaceholderText('Find a note, highlight or page…').pop(), { target: { value: 'why do moats erode' } });
+      await flushSearch();
+      fireEvent.click(screen.getByText('Ask the Partner: “why do moats erode”'));
+      expect(mockRail.ask).toHaveBeenCalledWith('why do moats erode');
+    } finally {
+      mockRail.canAsk = false;
+      window.removeEventListener('noeis:open-agent', opened);
+    }
   });
 
   it('asks what you keep first, before anything else in the library', async () => {

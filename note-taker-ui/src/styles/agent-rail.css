@@ -396,45 +396,6 @@
 
 /* ---------- the sheet ---------- */
 
-.agent-rail-drawer__trigger {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  z-index: 72;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 62px;
-  min-height: 40px;
-  padding: 8px 14px;
-  border: 1px solid var(--noeis-rule);
-  border-radius: 999px;
-  background: var(--noeis-floating);
-  box-shadow: var(--noeis-shadow-float, 0 12px 32px rgba(23, 27, 35, 0.12));
-  color: var(--noeis-ink);
-  font: 600 0.7rem/1 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  backdrop-filter: blur(14px);
-  cursor: pointer;
-}
-
-/* On a phone the Partner floats over the end of the page, where a room's last
-   action usually sits. The page keeps a band clear for it, so scrolling to the
-   end brings that action out from under it. */
-@media (max-width: 720px) {
-  .agent-rail-drawer__trigger {
-    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-    right: 14px;
-    min-height: 44px;
-  }
-
-  .app-shell-new__body:has(> .agent-rail-drawer__trigger),
-  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(> .agent-rail-drawer__trigger) {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-  }
-}
-
 .agent-rail-drawer {
   position: fixed;
   inset: 0;
