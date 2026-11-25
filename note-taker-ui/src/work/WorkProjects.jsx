@@ -2,6 +2,9 @@ import WorkProjectActions from './WorkProjectActions';
 import WorkInlineRename from './WorkInlineRename';
 import WorkNoteActions from './WorkNoteActions';
 import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { readKept } from '../api/home';
+import { keptBeside } from './workKept';
 import { noteTitle } from './workSession';
 import WorkIcon from './WorkIcon';
 import './work-project.css';
@@ -20,6 +23,16 @@ const keyed = event => !event.metaKey && !event.ctrlKey && !event.altKey && !eve
 
 function Line({ item, onAction, aside = null }) {
   return <div className="work-planner-task work-outstanding-row"><label><input type="checkbox" checked={false} onChange={() => onAction(item.clientId, { type: 'complete' })} /><span>{item.title}</span></label>{aside ? <span className="work-carried">{aside}</span> : null}</div>;
+}
+
+/* Read-only, in pencil: what you keep for good that shares this project's
+   words. The match runs here; nothing of Work is sent to find it. */
+function KeptBeside({ text }) {
+  const [kept, setKept] = useState([]);
+  useEffect(() => { let live = true; readKept().then(found => live && setKept(found), () => {}); return () => { live = false; }; }, []);
+  const beside = keptBeside(kept, text);
+  if (!beside.length) return null;
+  return <div className="work-project-beside"><small>From what you keep for good</small>{beside.map(held => <Link key={held.highlightId || held.articleId} to={held.path}>{held.kind === 'mark' ? <q>{held.text || held.note}</q> : held.title}{held.kind === 'mark' ? <small>{held.title}</small> : null}</Link>)}</div>;
 }
 
 function Links({ links, onRemove }) {
@@ -132,7 +145,8 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
         {item.schedule.length ? <section aria-label="Schedule"><h2>Schedule</h2>{item.schedule.map(line => <p className="work-project-decision" key={line.id}>{displayDay(line.on, { weekday: 'short', day: 'numeric', month: 'short' })} · {line.startTime ? `${line.startTime} ` : ''}{line.title}<small>{line.kind === 'appointment' ? 'meeting' : line.on === line.plannedOn ? 'planned' : 'due'}</small></p>)}</section> : null}
         {item.decisions.length ? <section aria-label="Decided"><h2>Decided</h2>{item.decisions.map(({ text, note }, index) => <p className="work-project-decision" key={`${note.clientId}:${index}`}>{text}<button onClick={() => onOpenNote(note.clientId)}>{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}</button></p>)}</section> : null}
         <section aria-label="Kept"><h2>Kept</h2><Links links={item.links} onRemove={link => onSave(record, { links: item.links.filter(other => other !== link) })} />
-          <p className="work-outstanding-line">To keep {item.links.length ? 'another' : 'an'} article, book or page here, open it and choose Add to project.</p></section>
+          <p className="work-outstanding-line">To keep {item.links.length ? 'another' : 'an'} article, book or page here, open it and choose Add to project.</p>
+          <KeptBeside text={[record.name, record.brief, answered?.text, ...item.next.map(next => next.title)].filter(Boolean).join(' ')} /></section>
       </div>
     </div>
   </section>;

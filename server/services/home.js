@@ -101,11 +101,12 @@ const KEPT_FIELDS = 'title url evergreen evergreenAt highlights._id highlights.t
 
 /* Kept on its own, without the rest of Home: for the brief an agent opens
    with and for ⌘K. Only what holds something kept is read. */
-const readKept = async ({ Article, Thread, userId }) => {
+const readKept = async ({ Article, Thread = null, userId }) => {
   const threads = Thread ? await Thread.find({ userId, answer: 'kept' }).lean() : [];
   const articles = await Article.find(applyDefaultArticleVisibility({
     userId,
-    $or: [{ evergreen: true }, { 'highlights.keptAt': { $ne: null } }, { _id: { $in: threads.flatMap(thread => thread.marks.map(mark => mark.articleId)) } }]
+    // One kept passage is enough: $elemMatch asks of each mark, not of the whole array.
+    $or: [{ evergreen: true }, { highlights: { $elemMatch: { keptAt: { $ne: null } } } }, { _id: { $in: threads.flatMap(thread => thread.marks.map(mark => mark.articleId)) } }]
   })).select(KEPT_FIELDS).lean();
   return kept(articles, threads.map(thread => threadAsItIs(thread, articles)).filter(Boolean));
 };
