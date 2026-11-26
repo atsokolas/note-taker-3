@@ -278,7 +278,8 @@ const passageOf = found => ({
   text: plain(found.text),
   createdAt: found.createdAt || null,
   articleId: String(found.articleId),
-  articleTitle: found.articleTitle || ''
+  articleTitle: found.articleTitle || '',
+  articleUrl: found.articleUrl || ''
 });
 
 /* Before you start a book: the passages you already marked elsewhere that

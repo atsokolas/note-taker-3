@@ -169,7 +169,7 @@ describe('answerTo', () => {
   const question = { _id: hid(10), note: 'Why did he build the roads before the parks?', createdAt: '2026-06-01T00:00:00Z' };
   const passage = 'The parkways were built to carry cars out of the city, and the parks were what the cars were driven to.';
   const held = {
-    [hid(1)]: { _id: hid(1), text: passage, articleId: 'a1', articleTitle: 'The Power Broker', createdAt: '2026-07-01T00:00:00Z' },
+    [hid(1)]: { _id: hid(1), text: passage, articleId: 'a1', articleTitle: 'The Power Broker', articleUrl: 'import://readwise/book/7', createdAt: '2026-07-01T00:00:00Z' },
     [hid(2)]: { _id: hid(2), text: `${passage} Marked long before.`, articleId: 'a2', articleTitle: 'Earlier', createdAt: '2026-01-01T00:00:00Z' },
     [hid(3)]: { _id: hid(3), text: 'Roads first.', articleId: 'a1', articleTitle: 'Too short', createdAt: '2026-07-02T00:00:00Z' },
     [hid(4)]: { _id: hid(4), text: `${passage} Saved again.`, articleId: 'a3', articleTitle: 'The Power Broker (Full Article)', createdAt: '2026-01-01T00:00:00Z' }
@@ -184,7 +184,7 @@ describe('answerTo', () => {
   it('answers with the closest passage marked since the question, from its own vector', async () => {
     embedText.mockClear();
     const answer = await answerTo({ userId, question, models: models([row(2, 0.8), row(3, 0.75), row(1, 0.7)]) });
-    expect(answer).toMatchObject({ _id: hid(1), text: passage, articleTitle: 'The Power Broker' });
+    expect(answer).toMatchObject({ _id: hid(1), text: passage, articleTitle: 'The Power Broker', articleUrl: 'import://readwise/book/7' });
     expect(embedText).not.toHaveBeenCalled();
   });
 
