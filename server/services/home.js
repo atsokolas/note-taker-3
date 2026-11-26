@@ -127,4 +127,16 @@ const readKept = async ({ Article, Thread = null, userId }) => {
   return kept(articles, threads.map(thread => threadAsItIs(thread, articles)).filter(Boolean));
 };
 
-module.exports = { ASKED_AFTER_OPENS, SINKS_AFTER_DAYS, home, readKept };
+/* Which sources are for now, for the Library's shelves: the same fortnight
+   as Home, so a source is on For now or Underneath, never both. */
+const forNowIds = async ({ Article, ArticleReadingState, userId, now = Date.now() }) => {
+  const since = new Date(now - SINKS_AFTER_DAYS * DAY_MS);
+  const [articles, readings] = await Promise.all([
+    Article.find({ userId, $or: [{ createdAt: { $gte: since } }, { 'highlights.createdAt': { $gte: since } }] }).select('createdAt highlights.createdAt highlights.text highlights.note').lean(),
+    ArticleReadingState.find({ userId, visitedAt: { $gte: since } }).select('articleId visitedAt').lean()
+  ]);
+  const read = await Article.find({ userId, _id: { $in: readings.map(reading => reading.articleId) } }).select('createdAt highlights.createdAt highlights.text highlights.note').lean();
+  return lately({ articles: [...articles, ...read], readings, now }).map(({ article }) => article._id);
+};
+
+module.exports = { ASKED_AFTER_OPENS, SINKS_AFTER_DAYS, forNowIds, home, readKept };

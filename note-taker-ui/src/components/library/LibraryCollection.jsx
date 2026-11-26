@@ -27,6 +27,12 @@ import { hasWaitedLong, tonightFrom, waitingSince } from './nightstand';
 import Pencil from '../pencil/Pencil';
 import { inkPencil } from '../../api/pencil';
 
+// What an empty shelf says, where it has something of its own to say.
+const QUIET = {
+  'set-aside': 'A clear desk.',
+  'for-now': 'Nothing read lately. What you save, read or mark stays here for a fortnight.',
+  underneath: 'Nothing has sunk yet. What you read stays on For now for a fortnight first.'
+};
 const LABELS = {
   unfiled: 'Unfiled',
   ...Object.fromEntries(SHELVES)
@@ -429,11 +435,7 @@ export default function LibraryCollection({
           !state.error &&
           (scope !== 'kept' || keptPages !== null) ? (
             <EmptyState
-              title={query
-                ? 'Nothing matches that yet.'
-                : scope === 'set-aside'
-                  ? 'A clear desk.'
-                  : 'Nothing here yet.'}
+              title={query ? 'Nothing matches that yet.' : QUIET[scope] || 'Nothing here yet.'}
             />
           ) : null}
           {scope === 'kept' && letGo ? (
