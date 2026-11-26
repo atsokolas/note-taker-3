@@ -950,8 +950,8 @@ body.think-rails-away .next-sentence { opacity: 0.35; }
 .think-notes .think-desk button { cursor: pointer; text-align: start; }
 .think-notes .think-desk button:disabled { color: var(--text-muted); cursor: default; }
 .think-desk__spread { display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--vellum-line); }
-.think-desk__spread:has(.think-desk__evergreen) { grid-template-columns: minmax(0, 1.65fr) minmax(200px, 1fr); }
-.think-desk__lead, .think-desk__evergreen { padding: clamp(18px, 3cqw, 32px); min-width: 0; }
+.think-desk__spread:has(.think-desk__kept) { grid-template-columns: minmax(0, 1.65fr) minmax(200px, 1fr); }
+.think-desk__lead, .think-desk__kept { padding: clamp(18px, 3cqw, 32px); min-width: 0; }
 .think-desk__lead { background: var(--noeis-paper); border-inline-start: 2px solid var(--noeis-action); }
 .think-notes .think-desk h2 { margin: 0 0 var(--space-2); color: var(--text-primary); font: 400 1.5rem/1.1 var(--font-serif); letter-spacing: -.02em; text-transform: none; }
 .think-notes .think-desk__lead h2 { margin: var(--space-3) 0 var(--space-5); font-size: clamp(2rem, 5cqw, 2.9rem); line-height: 1.06; letter-spacing: -.02em; overflow-wrap: anywhere; }
@@ -969,7 +969,7 @@ body.think-rails-away .next-sentence { opacity: 0.35; }
 .think-notes .think-desk button.think-desk__resume[data-line]:hover { color: var(--text-primary); }
 @keyframes think-desk-caret { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .think-desk__resume[data-line]::before { animation: none; } }
-.think-desk__evergreen { background: var(--noeis-active); border-inline-start: 1px solid var(--vellum-line); }
+.think-desk__kept { background: var(--noeis-active); border-inline-start: 1px solid var(--vellum-line); }
 .think-desk ul { padding: 0; margin: 0; list-style: none; }
 .think-desk li { border-top: 1px solid var(--vellum-line); padding-block: var(--space-2); }
 .think-notes .think-desk .think-desk__row { display: flex; align-items: center; min-height: 36px; padding: 0; color: var(--text-primary); font: 1.12rem/1.15 var(--font-serif); text-decoration: none; overflow-wrap: anywhere; }
@@ -983,8 +983,8 @@ body.think-rails-away .next-sentence { opacity: 0.35; }
 .think-desk__lately p { margin: 0; color: var(--text-secondary); font-size: .84rem; }
 .think-notes .think-desk__lately button { padding: 0; text-decoration: underline; text-underline-offset: .22em; }
 @container think-desk (max-width: 590px) {
-  .think-desk__spread:has(.think-desk__evergreen) { grid-template-columns: minmax(0, 1fr); }
-  .think-desk__evergreen { border-inline-start: 0; border-top: 1px solid var(--vellum-line); }
+  .think-desk__spread:has(.think-desk__kept) { grid-template-columns: minmax(0, 1fr); }
+  .think-desk__kept { border-inline-start: 0; border-top: 1px solid var(--vellum-line); }
 }
 
 

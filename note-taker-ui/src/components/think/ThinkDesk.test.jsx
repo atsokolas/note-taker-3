@@ -1,10 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { getLibraryCollection } from '../../api/libraryCollection';
+import { readKept } from '../../api/home';
 import ThinkDesk from './ThinkDesk';
 import { getNotebookCuttings } from '../../api/notebook';
 
-jest.mock('../../api/libraryCollection', () => ({ getLibraryCollection: jest.fn() }));
+jest.mock('../../api/home', () => ({ readKept: jest.fn() }));
 jest.mock('../../api/notebook', () => ({ getNotebookCuttings: jest.fn() }));
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -12,7 +12,7 @@ const ago = days => new Date(Date.now() - days * DAY).toISOString();
 
 it('remembers what you started a year ago this week and lets old ideas fade', async () => {
   getNotebookCuttings.mockResolvedValue([]);
-  getLibraryCollection.mockResolvedValue({ items: [] });
+  readKept.mockResolvedValue([]);
   const onOpen = jest.fn();
   const begun = { id: 'essay', kind: 'note', title: 'On slow reading', createdAt: ago(366), updatedAt: ago(200), board: { movedAt: ago(200) } };
   const ideas = [
@@ -29,18 +29,29 @@ it('remembers what you started a year ago this week and lets old ideas fade', as
   await screen.findByRole('heading', { name: 'Nothing is underway.' });
 });
 
-it('shows a bounded shelf of actual Keepers and links to the source', async () => {
+it('keeps what you kept beside the paragraph you stopped in, or else the latest you kept', async () => {
   getNotebookCuttings.mockResolvedValue([]);
-  getLibraryCollection.mockResolvedValue({ items: [{ _id: 'source-1', title: 'The craft of attention' }] });
+  readKept.mockResolvedValue([
+    { kind: 'mark', articleId: 'm1', highlightId: 'h1', title: 'Meditations', text: 'The best revenge is not to be like your enemy.' },
+    { kind: 'mark', articleId: 'c1', highlightId: 'h2', title: "Poor Charlie's Almanack", text: 'Patience is the float that funds the moat.' },
+    { kind: 'source', articleId: 's1', title: 'Going Founder Mode On Cancer' }
+  ]);
+  const draft = { id: 'moat', kind: 'note', title: 'On patience', updatedAt: ago(2), lastLine: 'Float is money that arrives early, and the moat is patience.' };
+  const { unmount } = render(<ThinkDesk working={[draft]} ideas={[]} closed={[]} onOpen={jest.fn()} onView={jest.fn()} onStart={jest.fn()} />);
+  expect(await screen.findByRole('heading', { name: 'Kept, for this paragraph' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Patience is the float/ })).toHaveAttribute('href', expect.stringContaining('h2'));
+  expect(screen.queryByText(/best revenge/)).not.toBeInTheDocument();
+  unmount();
+
   render(<ThinkDesk working={[]} ideas={[]} closed={[]} />);
-  expect(getLibraryCollection).toHaveBeenCalledWith({ scope: 'kept', limit: 4 });
-  expect(await screen.findByRole('link', { name: 'The craft of attention' })).toHaveAttribute('href', '/library?articleId=source-1');
-  expect(screen.getByRole('link', { name: 'Browse keepers' })).toHaveAttribute('href', '/library?scope=kept');
+  expect(await screen.findByRole('heading', { name: 'Kept' })).toBeInTheDocument();
+  expect(screen.getAllByRole('link').map(link => link.textContent)[0]).toBe('Going Founder Mode On Cancer');
+  expect(screen.getByRole('link', { name: /Everything you keep/ })).toHaveAttribute('href', '/');
 });
 
 it('opens on the last thing you wrote, and the line below it is for the next sentence', async () => {
   getNotebookCuttings.mockResolvedValue([]);
-  getLibraryCollection.mockResolvedValue({ items: [] });
+  readKept.mockResolvedValue([]);
   const onOpen = jest.fn();
   const draft = {
     id: 'moat', kind: 'note', title: 'On patience', updatedAt: ago(2),

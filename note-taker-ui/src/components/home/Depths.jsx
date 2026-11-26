@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { keepPassage, readHome } from '../../api/home';
-import { apart, dayOf, depthOf, depthSince, monthOf, pathOf } from './homeModel';
+import { keepPassage, readHome, readKept } from '../../api/home';
+import { apart, dayOf, depthOf, depthSince, keptBeside, monthOf, pathOf } from './homeModel';
 import '../../styles/home.css';
 
 /* The three depths of one reading, read once and shown wherever a room
@@ -106,5 +106,25 @@ export function CameBack({ pair: { mark, echo }, onKeep }) {
       </blockquote>
       <button type="button" onClick={() => onKeep({ articleId: echo.articleId, highlightId: echo._id })}>Keep the old one</button>
     </figure>
+  );
+}
+
+/* Read-only, in pencil: what you keep for good that bears on this writing.
+   The match runs here; nothing you wrote is sent to find it. */
+export function KeptBeside({ text, label, className }) {
+  const [kept, setKept] = useState([]);
+  useEffect(() => { let live = true; readKept().then(found => live && setKept(found), () => {}); return () => { live = false; }; }, []);
+  const beside = keptBeside(kept, text);
+  if (!beside.length) return null;
+  return (
+    <div className={className}>
+      <small>{label}</small>
+      {beside.map(held => (
+        <Link key={held.highlightId || held.articleId} to={held.path}>
+          {held.kind === 'mark' ? <q>{held.text || held.note}</q> : held.title}
+          {held.kind === 'mark' ? <small>{held.title}</small> : null}
+        </Link>
+      ))}
+    </div>
   );
 }

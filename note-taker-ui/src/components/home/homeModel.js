@@ -1,4 +1,5 @@
 import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../utils/sourceRoutes';
+import { tokensOf } from '../../utils/libraryPassageRetrieval';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // The server's fortnight: For now fades across it, then sinks.
@@ -55,3 +56,23 @@ export const formedAcross = (marks = []) => {
 
 // What a kept thing is called, in a list: a passage by its words, anything else by its title.
 export const keptLabel = held => (held.kind === 'mark' ? `“${held.text || held.note}” · ${held.title}` : held.title);
+
+/* What you keep for good that bears on what you are working on, matched in
+   the browser by the words the two share, so none of your writing leaves
+   the page. Eligible: anything on Kept except threads' own titles, which
+   name books, not ideas. Bar: two distinct words of four letters or more in
+   common. Silence: below the bar, nothing. */
+export const KEPT_BESIDE = 3;
+const SHARED_WORDS = 2;
+const wordsOf = text => new Set(tokensOf(text).filter(word => word.length >= 4).map(word => word.replace(/s$/, '')));
+
+export const keptBeside = (kept, text) => {
+  const writing = wordsOf(text);
+  return kept
+    .filter(held => held.kind !== 'thread')
+    .map(held => ({ held, shared: [...wordsOf(`${held.title} ${held.text || ''} ${held.note || ''}`)].filter(word => writing.has(word)).length }))
+    .filter(({ shared }) => shared >= SHARED_WORDS)
+    .sort((a, b) => b.shared - a.shared)
+    .slice(0, KEPT_BESIDE)
+    .map(({ held }) => ({ ...held, path: pathOf(held) }));
+};
