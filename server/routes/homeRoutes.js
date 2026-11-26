@@ -9,6 +9,8 @@ const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
 const HOME_FIELDS = 'title url author createdAt evergreen evergreenAt highlights._id highlights.text highlights.note highlights.page highlights.createdAt highlights.opens highlights.keptAt';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REMEMBERED = 500;
+// Each search of the open web is paid for, so a reader gets this many a day.
+const WORLD_SEARCHES_A_DAY = 20;
 // How many of the marks made lately are asked whether something formed around them.
 const FORMING_TRIES = 4;
 
@@ -31,7 +33,7 @@ const remember = (memory, key, value) => {
 /* Home: what you keep, what you are reading for now, and what lies
    underneath, with the one old mark that came back up today beside a new
    one, and, rarely, a thread forming. Only the reader keeps or answers. */
-const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thread, echoOf, formingAround, now = () => Date.now() }) => {
+const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thread, echoOf, formingAround, searchWorld, now = () => Date.now() }) => {
   const router = express.Router();
   // What came back holds all day, and is looked for again when a new mark arrives.
   const cameBack = new Map();
@@ -39,6 +41,9 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thre
   const looked = new Set();
   // What a kept thread could grow by, looked for once a day per thread.
   const growing = new Map();
+  // The open web, searched only when asked: each answer kept for the day, and a daily allowance.
+  const searched = new Map();
+  const searches = new Map();
 
   /* The thread waiting for your answer; or, once a fortnight, one newly
      formed around a mark made lately: passages from other works and other
@@ -86,6 +91,26 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thre
     } catch (error) {
       console.error('Error reading kept:', error);
       return res.status(500).json({ error: 'Kept could not be read.' });
+    }
+  });
+
+  // Beyond your library, for ⌘K: a few pages from the open web, only when asked.
+  router.get('/api/world', authenticateToken, async (req, res) => {
+    const query = String(req.query.q || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (query.length < 3) return res.status(400).json({ error: 'Ask about something.' });
+    const today = calendarDay(req.query.today);
+    const key = `${today}:${query.toLowerCase()}`;
+    if (searched.has(key)) return res.json({ query, pages: searched.get(key) });
+    const spent = `${req.user.id}:${today}`;
+    if ((searches.get(spent) || 0) >= WORLD_SEARCHES_A_DAY) return res.status(429).json({ error: 'That is enough of the world for today.' });
+    remember(searches, spent, (searches.get(spent) || 0) + 1);
+    try {
+      const pages = await searchWorld(query);
+      remember(searched, key, pages);
+      return res.json({ query, pages });
+    } catch (error) {
+      console.warn('[world] search failed', String(error?.message || error).slice(0, 160));
+      return res.json({ query, pages: [] });
     }
   });
 

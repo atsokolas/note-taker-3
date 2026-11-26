@@ -17,4 +17,8 @@ export const growThread = async (threadId, { articleId, highlightId }, joins) =>
 export const answerThread = async (threadId, answer) => (
   (await api.patch(`/api/threads/${encodeURIComponent(threadId)}`, { answer }, getAuthHeaders())).data
 );
+// Beyond your library: a few pages from the open web, searched only when asked.
+export const readWorld = async query => (
+  (await api.get(`/api/world?q=${encodeURIComponent(query)}&today=${today()}`, getAuthHeaders())).data?.pages || []
+);
 export const readKept = async () => (await api.get('/api/kept', getAuthHeaders())).data?.kept || [];

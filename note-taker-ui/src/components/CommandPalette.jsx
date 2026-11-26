@@ -28,7 +28,7 @@ import { buildPaletteDestinations } from '../system/paletteDestinations';
 import { buildSettingsPaletteRows } from '../settings/settingsRegistry';
 import { getFolders } from '../api/folders';
 import { currentAccountId } from '../utils/browserScope';
-import { readKept } from '../api/home';
+import { readKept, readWorld } from '../api/home';
 import { useAgentRail } from '../agent/AgentRailContext';
 import { keptLabel, pathOf } from './home/homeModel';
 
@@ -249,6 +249,9 @@ const currentLocationSearch = () => (
   typeof window === 'undefined' ? '' : window.location?.search || ''
 );
 
+// A page from the open web is named by where it lives.
+const hostOf = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return 'Web'; } };
+
 const resultKey = item => `${item.type}:${item.id || item.path}`;
 
 const CommandPalette = ({ open, onOpen, onClose }) => {
@@ -278,6 +281,8 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
   const [recentWiki, setRecentWiki] = useState([]);
   // What you keep is asked first.
   const [kept, setKept] = useState([]);
+  // The open web for one query, fetched only when asked: { query, pages }.
+  const [world, setWorld] = useState(null);
   const { ask, canAsk } = useAgentRail();
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -811,6 +816,13 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
     }
   }, [navigate, onClose, systemStatus]);
 
+  const lookBeyond = useCallback(async q => {
+    if (world?.query === q) return;
+    setWorld({ query: q, pages: null });
+    const pages = await readWorld(q).catch(() => []);
+    setWorld(current => (current?.query === q ? { query: q, pages } : current));
+  }, [world]);
+
   const sections = useMemo(() => {
     const q = query.trim();
     const wikiBuildCommand = parseWikiBuildCommand(q);
@@ -1026,6 +1038,22 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
       if (rankedConnections.length) {
         list.push({ title: 'Connections', items: rankedConnections });
       }
+      // The world comes last, in blue, and only when asked: each search is paid for.
+      const looked = world?.query === q ? world : null;
+      list.push({
+        title: 'Beyond your library',
+        world: true,
+        items: looked?.pages
+          ? looked.pages.map(page => ({ id: page.url, type: hostOf(page.url), label: page.title, href: page.url }))
+          : [{
+            id: 'action-look-beyond',
+            type: 'Action',
+            label: looked ? 'Looking…' : `Look beyond your library: “${q.slice(0, 60)}”`,
+            stays: true,
+            immediate: true,
+            action: () => lookBeyond(q)
+          }]
+      });
     } else {
       list.push({
         title: 'Think concepts',
@@ -1048,7 +1076,7 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
     return list
       .map(section => ({ ...section, items: section.items.filter(Boolean) }))
       .filter(section => section.items.length > 0);
-  }, [articles, ask, canAsk, capabilityModel.commands, concepts, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, kept, notebook, pages, pullReferencePath, query, recentWiki, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
+  }, [articles, ask, canAsk, capabilityModel.commands, concepts, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, kept, lookBeyond, notebook, pages, pullReferencePath, query, recentWiki, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages, world]);
 
   const selectableItems = useMemo(
     () => sections.flatMap(section => section.items),
@@ -1090,6 +1118,15 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
 
   const handleSelect = (item) => {
     if (!item || (loading && !item.immediate && !restoring.current)) return;
+    if (item.stays) {
+      item.action();
+      return;
+    }
+    if (item.href) {
+      window.open(item.href, '_blank', 'noopener,noreferrer');
+      onClose();
+      return;
+    }
     if (item.action) {
       onClose({ handedOn: Boolean(item.handsOnFocus) });
       item.action();
@@ -1183,7 +1220,7 @@ const CommandPalette = ({ open, onOpen, onClose }) => {
         <div className="palette-list" ref={listRef}>
           {!loading && selectableItems.length === 0 && <p className="muted small">No results.</p>}
           {sections.map(section => (
-            <div key={section.title} className="palette-group">
+            <div key={section.title} className={`palette-group${section.world ? ' palette-group--world' : ''}`}>
               <div className="palette-group-title">{section.title}</div>
               {section.items.map(item => {
                 renderedIndex += 1;
