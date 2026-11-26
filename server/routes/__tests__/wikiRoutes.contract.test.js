@@ -2378,6 +2378,29 @@ const run = async () => {
     }
     assert.strictEqual(asyncStatus, 'ready', 'expected the detached build to reach ready');
 
+    // A page made from what you kept gets its draft as a proposal, and that is
+    // a finished build, not a rejected one.
+    const keptPage = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Patience',
+        pageType: 'overview',
+        sourceScope: 'entire_library',
+        createdFrom: { type: 'article', objectId: new mongoose.Types.ObjectId().toString(), label: 'kept-subject:patience' }
+      })
+    });
+    assert.strictEqual(keptPage.res.status, 201, keptPage.text);
+    await request(url, `/api/wiki/pages/${keptPage.body._id}/ai/draft/async`, { method: 'POST' });
+    let keptState = {};
+    for (let attempt = 0; attempt < 80 && !['ready', 'error'].includes(keptState.draftStatus); attempt += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise(resolve => setTimeout(resolve, 50));
+      // eslint-disable-next-line no-await-in-loop
+      keptState = (await request(url, `/api/wiki/pages/${keptPage.body._id}`)).body?.aiState || {};
+    }
+    assert.strictEqual(keptState.draftStatus, 'ready', keptState.lastError);
+    assert.strictEqual(keptState.candidateStatus, 'awaiting_maintenance_acceptance');
+
     // A build that hangs must still end. Before this, the page stayed 'maintaining'
     // forever and the client sat on a spinner until its own give-up.
     const hangPage = await request(url, '/api/wiki/pages', {
