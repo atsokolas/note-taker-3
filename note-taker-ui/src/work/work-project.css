@@ -59,3 +59,12 @@
 .work-project-beside-note { display: block; color: var(--noeis-ink-muted); font: 0.72rem/1.4 var(--font-sans); }
 /* On Actions the same margin sits under the week, ruled off from it. */
 .work-actions-beside { max-width: 38rem; margin-top: var(--space-5); }
+
+/* Underneath: what each finished project became, in the reading serif, the month it ended in the margin. */
+.work-project-underneath ol { margin: 0; padding: 0; list-style: none; }
+.work-project-underneath li { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); align-items: baseline; padding: var(--space-3) 0; border-top: 1px solid var(--border-subtle-2); }
+.work-project-underneath time { color: var(--noeis-ink-muted); font: 0.75rem/1.4 var(--font-sans); }
+.work-project-underneath button { padding: 0; border: 0; background: none; color: var(--noeis-ink); font: 1rem/1.5 var(--font-serif); text-align: left; cursor: pointer; }
+.work-project-underneath button:hover q, .work-project-underneath button:focus-visible q { text-decoration: underline; text-underline-offset: 0.2em; }
+.work-project-underneath q { quotes: '“' '”'; }
+.work-project-underneath small { display: block; color: var(--noeis-ink-muted); font: 0.75rem/1.4 var(--font-sans); }

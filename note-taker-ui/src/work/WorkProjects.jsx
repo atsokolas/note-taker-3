@@ -3,6 +3,7 @@ import WorkInlineRename from './WorkInlineRename';
 import WorkNoteActions from './WorkNoteActions';
 import React, { useEffect, useRef, useState } from 'react';
 import { KeptBeside } from '../components/home/Depths';
+import { monthOf } from '../components/home/homeModel';
 import { noteTitle } from './workSession';
 import WorkIcon from './WorkIcon';
 import './work-project.css';
@@ -44,7 +45,7 @@ function Lineup({ rows, today, onDay }) {
 // Every project on one page. Everything open unfolds them all: each open line, who owes what, what is kept with it.
 export default function WorkProjects({ records, notes, items, today, onOpen, onAction, onNew, onDay }) {
   const groups = projects(records, notes, items, today);
-  const rows = [...groups.active, ...groups.paused, ...groups.done];
+  const rows = [...groups.active, ...groups.paused];
   const [everything, setEverything] = useState(false);
   const [unfolded, setUnfolded] = useState(() => new Set());
   const [selected, setSelected] = useState(-1);
@@ -82,9 +83,19 @@ export default function WorkProjects({ records, notes, items, today, onOpen, onA
   return <section className="work-outstanding work-projects" aria-label="Projects"><h1 className="work-page-title">Projects</h1><p className="work-page-sense">{sense} <button className="work-project-add" onClick={onNew}>New project</button></p>
     {groups.active.length + groups.paused.length ? <Lineup rows={[...groups.active, ...groups.paused]} today={today} onDay={onDay} /> : null}
     {rows.length ? <div className="work-project-tools"><span role="group" aria-label="Show"><button aria-pressed={!everything} onClick={() => { setEverything(false); setUnfolded(new Set()); }}>Projects</button><button aria-pressed={everything} onClick={() => setEverything(true)}>Everything open</button></span><small>Open</small><small>Waiting</small><small>Touched</small></div> : null}
-    {group('Active', groups.active)}{group('Paused', groups.paused)}{group('Done', groups.done)}
+    {group('Active', groups.active)}{group('Paused', groups.paused)}<Underneath done={groups.done} onOpen={onOpen} />
     {rows.length ? <p className="work-project-keys"><kbd>j</kbd> <kbd>k</kbd> to move, <kbd>↵</kbd> to open, <kbd>→</kbd> to unfold, <kbd>e</kbd> for everything open</p> : null}
   </section>;
+}
+
+/* A finished project sinks underneath, leaving the one line on what it
+   became, with the month it ended hanging in the margin. */
+function Underneath({ done, onOpen }) {
+  if (!done.length) return null;
+  return <section className="work-project-underneath" aria-label="Underneath"><h2>Underneath</h2><ol>
+    {done.map(item => <li key={item.id}><time dateTime={item.record.archivedAt}>{monthOf(item.record.archivedAt)}</time>
+      <button onClick={() => onOpen(item.id)}>{item.record.closingLine ? <q>{item.record.closingLine}</q> : 'Done.'}<small>{item.name}</small></button></li>)}
+  </ol></section>;
 }
 
 // One project, laid out the same way every time: what it is, this week's question, its log on the left,

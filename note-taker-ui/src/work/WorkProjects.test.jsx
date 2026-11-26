@@ -208,3 +208,11 @@ test('canceling project completion leaves the project active, and a completed pr
   expect(page.getByRole('button', { name: 'New note in Fund II diligence' })).toBeInTheDocument();
   expect(folders[1].archivedAt).toBeNull();
 });
+
+test('a finished project sinks underneath, leaving the line on what it became', async () => {
+  folders.push({ _id: 'd', name: 'Series A', kind: 'project', revision: 0, archivedAt: '2026-10-14T12:00:00Z', closingLine: 'We passed, and the churn question answered itself.' });
+  work('view=projects');
+  const under = within(await screen.findByRole('region', { name: 'Underneath' }));
+  expect(under.getByRole('button', { name: /We passed, and the churn question answered itself\..*Series A/ })).toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: 'Done' })).toBeNull();
+});
