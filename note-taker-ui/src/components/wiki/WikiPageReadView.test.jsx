@@ -313,6 +313,16 @@ describe('WikiPageReadView', () => {
     expect(screen.getByRole('link', { name: 'Open the note' })).toHaveAttribute('href', '/think?tab=notebook&entryId=note-1');
   });
 
+  it('shows what Noeis wrote when a build started elsewhere finishes', async () => {
+    getWikiPage
+      .mockResolvedValueOnce({ ...page, aiState: { draftStatus: 'maintaining' } })
+      .mockResolvedValue({ ...page, title: 'Memory, written around', aiState: { draftStatus: 'ready' } });
+    renderReadView();
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    await act(async () => { jest.advanceTimersByTime(5000); });
+    expect(await screen.findByRole('heading', { name: 'Memory, written around' })).toBeInTheDocument();
+  });
+
   it('links a written-up book back to the book', async () => {
     getWikiPage.mockResolvedValue({ ...page, createdFrom: { type: 'article', objectId: 'book-1', label: 'settled-book:book-1' } });
     renderReadView();
