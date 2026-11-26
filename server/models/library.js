@@ -334,15 +334,15 @@ const Collection = mongoose.model('Collection', collectionSchema);
    together around one you marked lately. Noeis notices one now and then and
    asks; only the reader answers. Kept, it stays, with a page of its own;
    "not yet" lets it sink back underneath; "not a thing" means those
-   passages are never offered as a thread again. */
+   passages are never offered as a thread again. A kept thread grows: what
+   you mark later that bears on it is offered, and joins only if you add it;
+   one you pass on is not offered again. */
+const threadMark = { _id: false, articleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', required: true }, highlightId: { type: mongoose.Schema.Types.ObjectId, required: true } };
 const threadSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   // Oldest first: the order it formed in.
-  marks: [{
-    _id: false,
-    articleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', required: true },
-    highlightId: { type: mongoose.Schema.Types.ObjectId, required: true }
-  }],
+  marks: [threadMark],
+  passed: [threadMark],
   answer: { type: String, enum: THREAD_ANSWERS, default: null },
   answeredAt: { type: Date, default: null }
 }, { timestamps: true });

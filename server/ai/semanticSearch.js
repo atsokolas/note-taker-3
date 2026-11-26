@@ -141,7 +141,8 @@ const highlightsById = async ({ Article: articles, userId, ids }) => {
       tags: '$highlights.tags',
       createdAt: '$highlights.createdAt',
       articleId: '$_id',
-      articleTitle: '$title'
+      articleTitle: '$title',
+      articleUrl: '$url'
     } }
   ]);
   return new Map(rows.map(row => [String(row._id), row]));

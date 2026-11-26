@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const { SINKS_AFTER_DAYS, home, readKept } = require('../services/home');
 const { echoToday } = require('../services/bookShelf');
 const { calendarDay } = require('../services/closedBooks');
-const { THREAD_ANSWERS, refused, threadAsItIs, threadFrom, timeToLook, waiting } = require('../services/threads');
+const { THREAD_ANSWERS, joining, refused, threadAsItIs, threadFrom, timeToLook, waiting } = require('../services/threads');
 const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
 
 const HOME_FIELDS = 'title url author createdAt evergreen evergreenAt highlights._id highlights.text highlights.note highlights.page highlights.createdAt highlights.opens highlights.keptAt';
@@ -37,6 +37,8 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thre
   const cameBack = new Map();
   // A new thread is looked for once a day at most, and only when one is due.
   const looked = new Set();
+  // What a kept thread could grow by, looked for once a day per thread.
+  const growing = new Map();
 
   /* The thread waiting for your answer; or, once a fortnight, one newly
      formed around a mark made lately: passages from other works and other
@@ -115,15 +117,51 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thre
     userId, _id: { $in: thread.marks.map(mark => mark.articleId) }
   })).select(HOME_FIELDS).lean());
 
+  /* A kept thread grows from where it began: around its oldest passage, the
+     closest you marked since you kept it, offered in pencil. */
+  const grownBy = async ({ thread, found, userId, today }) => {
+    if (thread.answer !== 'kept') return null;
+    const key = `${thread._id}:${today}`;
+    if (!growing.has(key)) {
+      const [first] = found.marks;
+      const passages = await formingAround({ userId, mark: { _id: first.highlightId, bookId: first.articleId, text: first.text, createdAt: first.createdAt } }).catch(() => []);
+      remember(growing, key, joining(thread, passages));
+    }
+    return growing.get(key);
+  };
+
   router.get('/api/threads/:id', authenticateToken, async (req, res) => {
     try {
       const thread = await yours(req, res);
       if (!thread) return null;
       const found = await read(thread, req.user.id);
-      return found ? res.json(found) : res.status(404).json({ error: 'That thread came apart: its passages are gone.' });
+      if (!found) return res.status(404).json({ error: 'That thread came apart: its passages are gone.' });
+      return res.json({ ...found, offered: await grownBy({ thread, found, userId: req.user.id, today: calendarDay(req.query.today) }) });
     } catch (error) {
       console.error('Error reading a thread:', error);
       return res.status(500).json({ error: 'That thread could not be read.' });
+    }
+  });
+
+  // The reader adds what was offered to the thread, or passes on it for good.
+  router.post('/api/threads/:id/offered', authenticateToken, async (req, res) => {
+    const { articleId, highlightId, joins } = req.body || {};
+    if (typeof joins !== 'boolean' || !mongoose.isValidObjectId(articleId) || !mongoose.isValidObjectId(highlightId)) {
+      return res.status(400).json({ error: 'Name a passage of yours, and whether it joins.' });
+    }
+    try {
+      const thread = await yours(req, res);
+      if (!thread) return null;
+      if (!await Article.findOne({ _id: articleId, userId: req.user.id, 'highlights._id': highlightId })) {
+        return res.status(404).json({ error: 'That passage is not in your library.' });
+      }
+      thread[joins ? 'marks' : 'passed'].push({ articleId, highlightId });
+      await thread.save();
+      for (const key of [...growing.keys()]) if (key.startsWith(`${thread._id}:`)) growing.delete(key);
+      return res.json({ ...await read(thread, req.user.id), offered: null });
+    } catch (error) {
+      console.error('Error growing a thread:', error);
+      return res.status(500).json({ error: 'That did not save.' });
     }
   });
 
