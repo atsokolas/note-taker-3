@@ -15,7 +15,7 @@ import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiCreationComposer from './WikiCreationComposer';
 import { WIKI_KINDS, WIKI_KIND_LABELS, wikiKindForPage, withoutHeldViews } from './wikiFacetModel';
 import { readKept } from '../../api/home';
-import { createWikiPage } from '../../api/wiki';
+import { createKeptPage } from '../../api/wiki';
 import { couldBeAPage } from '../home/homeModel';
 import { buildSubjectPagePayload, subjectOfPage, threadOfPage } from '../../utils/wikiCreate';
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
@@ -291,7 +291,7 @@ const FromKeptThreads = ({ pages }) => {
   const makePage = async () => {
     setMaking(true);
     try {
-      navigate(wikiReadPath((await createWikiPage(buildSubjectPagePayload(offer)))._id));
+      navigate(wikiReadPath((await createKeptPage(buildSubjectPagePayload(offer)))._id));
     } finally {
       setMaking(false);
     }

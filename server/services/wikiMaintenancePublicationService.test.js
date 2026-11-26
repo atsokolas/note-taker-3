@@ -276,6 +276,22 @@ const run = async () => {
   assert.strictEqual(passing.page.aiState.lastCandidateQuality.ok, true);
   assert.strictEqual(WikiRevision.records.length, 7);
 
+  // A page made from what you kept: the agent's draft waits in pencil, your passages stay.
+  const keptPage = { ...trustedPage(), createdFrom: { label: 'kept-subject:pricing' }, plainText: '“Pricing power is the decision.” (Seven Powers)' };
+  const drafted = await runWikiMaintenanceCandidate({
+    page: keptPage,
+    userId: 'user-1',
+    WikiRevision,
+    maintainWikiPageFn: async ({ page }) => {
+      page.plainText = 'Pricing power is what lets a business raise prices without losing customers.';
+      page.aiState = { ...page.aiState, draftStatus: 'ready', quality: { ok: true, status: 'pass' } };
+      return page;
+    }
+  });
+  assert.strictEqual(drafted.awaitingAcceptance, true);
+  assert.strictEqual(drafted.page.plainText, '“Pricing power is the decision.” (Seven Powers)');
+  assert.strictEqual(drafted.page.aiState.candidateStatus, 'awaiting_maintenance_acceptance');
+
   console.log('wikiMaintenancePublicationService tests passed');
 };
 

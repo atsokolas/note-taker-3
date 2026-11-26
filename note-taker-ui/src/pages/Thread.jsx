@@ -4,7 +4,7 @@ import { answerThread, growThread, readThread } from '../api/home';
 import ThreadPassages from '../components/home/ThreadPassages';
 import { dayOf, formedAcross, pathOf } from '../components/home/homeModel';
 import useDocumentTitle from '../hooks/useDocumentTitle';
-import { createWikiPage } from '../api/wiki';
+import { createKeptPage } from '../api/wiki';
 import { buildThreadPagePayload } from '../utils/wikiCreate';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import HangInMuseum from '../components/museum/HangInMuseum';
@@ -27,7 +27,7 @@ export default function Thread() {
 
   const answer = async choice => setThread(await answerThread(id, choice));
   const grow = async joins => setThread(await growThread(id, thread.offered, joins));
-  const makePage = async () => navigate(wikiPagePath((await createWikiPage(buildThreadPagePayload(thread)))._id));
+  const makePage = async () => navigate(wikiPagePath((await createKeptPage(buildThreadPagePayload(thread)))._id));
 
   if (!thread) {
     return <main className="home home--thread"><p className="home__quiet" role={problem ? 'alert' : 'status'}>{problem || 'Opening…'}</p></main>;

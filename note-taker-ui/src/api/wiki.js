@@ -502,6 +502,15 @@ export const startWikiPageBuild = async (id, options = {}) => {
  * Read a detached build's state off the page itself.
  * Returns one of: maintaining | ready | error | idle.
  */
+/* A page made from what you kept (a thread, or passages on one subject),
+   then handed to Noeis to write around. What it writes waits in pencil on
+   the page until you take it up; your quoted passages stay as they are. */
+export const createKeptPage = async (payload) => {
+  const page = await createWikiPage(payload);
+  startWikiPageBuild(page._id).catch(() => {});
+  return page;
+};
+
 export const getWikiPageBuildStatus = async (id) => {
   const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}`, getAuthHeaders());
   const page = res.data || {};
