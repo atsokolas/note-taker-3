@@ -10,6 +10,8 @@ import '../../styles/home.css';
    came back are the same everywhere. */
 
 const LET_GO = 'noeis.home.notNow';
+// For now shows the newest few of what a room touched in the fortnight.
+const FOR_NOW_SHOWN = 8;
 const letGo = () => { try { return new Set(JSON.parse(localStorage.getItem(LET_GO) || '[]')); } catch { return new Set(); } };
 
 // What each kept thing is, under it.
@@ -72,7 +74,7 @@ export function Kept({ kept, asks, onKeep, onNotNow, empty }) {
 export function ForNow({ works, empty }) {
   return works.length ? (
     <ul className="home__drift">
-      {works.map(work => (
+      {works.slice(0, FOR_NOW_SHOWN).map(work => (
         <li key={work.articleId} style={{ '--depth': depthOf(work.at) }}>
           <Link to={pathOf(work)}>{work.title}</Link>
           <span>{[work.marks ? `${work.marks} ${work.marks === 1 ? 'mark' : 'marks'}` : '', dayOf(work.at)].filter(Boolean).join(' · ')}</span>

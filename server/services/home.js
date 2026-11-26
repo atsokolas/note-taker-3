@@ -5,7 +5,6 @@ const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
 const DAY_MS = 24 * 60 * 60 * 1000;
 // What you read lately stays on top this long, then sinks underneath.
 const SINKS_AFTER_DAYS = 14;
-const FOR_NOW_SHOWN = 8;
 // A passage you keep opening, and have not kept, is asked about.
 const ASKED_AFTER_OPENS = 3;
 const ASKS_SHOWN = 2;
@@ -66,7 +65,8 @@ const lately = ({ articles, readings = [], now = Date.now() }) => {
     .sort((a, b) => b.at - a.at);
 };
 
-const forNow = touched => touched.slice(0, FOR_NOW_SHOWN).map(({ article, marks, at }) => ({
+// All of the fortnight, so each room chooses its own before any is left out.
+const forNow = touched => touched.map(({ article, marks, at }) => ({
   articleId: idOf(article._id),
   title: article.title,
   book: isBook(article),
