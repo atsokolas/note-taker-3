@@ -7,6 +7,7 @@ import useDocumentTitle from '../hooks/useDocumentTitle';
 import { createWikiPage } from '../api/wiki';
 import { buildThreadPagePayload } from '../utils/wikiCreate';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
+import HangInMuseum from '../components/museum/HangInMuseum';
 import '../styles/home.css';
 
 /* A kept thread's own page: the passages that came together, in the order
@@ -40,7 +41,7 @@ export default function Thread() {
       <ThreadPassages marks={thread.marks} />
       {thread.offered && <Offered passage={thread.offered} onGrow={grow} />}
       {thread.answer === 'kept'
-        ? <p className="home__quiet">Kept for good. <button type="button" onClick={makePage}>Make it a page</button></p>
+        ? <p className="home__quiet">Kept for good. <button type="button" onClick={makePage}>Make it a page</button> <HangInMuseum kind="thread" id={thread.threadId} /></p>
         : <ThreadAnswers onAnswer={answer} />}
     </main>
   );

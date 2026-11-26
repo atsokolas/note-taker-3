@@ -24,7 +24,7 @@ test('real Mongo: a wall shows the one passage its owner hung, and nothing else 
   let server;
   try {
     await mongoose.connect(mongo.getUri());
-    const { Museum, Article, WikiPage, NotebookEntry } = require('../models');
+    const { Museum, Article, WikiPage, NotebookEntry, Thread } = require('../models');
     await Museum.init();
     const [owner, stranger] = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
     const hamming = await Article.create({
@@ -43,11 +43,18 @@ test('real Mongo: a wall shows the one passage its owner hung, and nothing else 
       { text: 'The first principle is that you must not fool yourself.', keptAt: new Date('2019-01-01') }
     ] });
     const theirs = await Article.create({ userId: stranger, title: 'Not yours', url: 'https://example.com/theirs' });
+    // A kept thread hangs whole: the passages it holds, from the works it runs through.
+    const meditations = await Article.create({ userId: owner, title: 'Meditations', url: 'https://example.com/meditations', highlights: [{ text: 'The best revenge is not to be like your enemy.' }] });
+    const kept = await Thread.create({ userId: owner, answer: 'kept', answeredAt: new Date('2020-01-01'), marks: [
+      { articleId: feynman._id, highlightId: feynman.highlights[1]._id },
+      { articleId: meditations._id, highlightId: meditations.highlights[0]._id }
+    ] });
+    const unkept = await Thread.create({ userId: owner, answer: 'not a thing', marks: kept.marks });
     const page = await WikiPage.create({ userId: owner, title: 'Alphabet is Berkshire Hathaway 2.0', slug: 'alphabet-berkshire', status: 'published', visibility: 'shared', plainText: 'A collection of compounding businesses. Run by people who think in decades. More.' });
 
     const app = express();
     app.use(express.json());
-    app.use(buildMuseumRouter({ auth, humanOnly: requireHumanReader, Museum, Article, WikiPage, NotebookEntry }));
+    app.use(buildMuseumRouter({ auth, humanOnly: requireHumanReader, Museum, Article, WikiPage, NotebookEntry, Thread }));
     let url;
     ({ server, url } = await listen(app));
     const call = async (method, path, body, { as = owner, agent = false } = {}) => {
@@ -62,7 +69,15 @@ test('real Mongo: a wall shows the one passage its owner hung, and nothing else 
     const first = await call('GET', '/api/museum');
     assert.equal(first.status, 200);
     assert.deepEqual(first.body.museum.pieces, []);
-    assert.deepEqual(first.body.kept.map(kept => kept.title), ['You and Your Research', 'Ten principles for good design', 'Cargo Cult Science']);
+    assert.deepEqual(first.body.kept.map(held => held.title), ['You and Your Research', 'Ten principles for good design', 'Cargo Cult Science', 'A thread through Cargo Cult Science and Meditations']);
+    assert.deepEqual(first.body.kept[3], { kind: 'thread', id: String(kept._id), title: 'A thread through Cargo Cult Science and Meditations', passage: '' });
+    const strand = await call('GET', `/api/museum/sources/thread/${kept._id}`);
+    assert.deepEqual(strand.body.source.passages, [
+      { text: 'The first principle is that you must not fool yourself.', note: 'Cargo Cult Science' },
+      { text: 'The best revenge is not to be like your enemy.', note: 'Meditations' }
+    ]);
+    assert.equal(strand.body.source.medium, 'A thread in Noeis');
+    assert.equal((await call('GET', `/api/museum/sources/thread/${unkept._id}`)).status, 404);
     assert.deepEqual(first.body.kept[2], { kind: 'article', id: String(feynman._id), title: 'Cargo Cult Science', passage: 'The first principle is that you must not fool yourself.' });
 
     const offer = await call('GET', `/api/museum/sources/article/${hamming._id}`);

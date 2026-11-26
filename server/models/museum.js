@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 const museumPieceSchema = new mongoose.Schema({
   // "AT.2016.1": given once when hung, never reused, because links to it get sent.
   accession: { type: String, required: true },
-  kind: { type: String, enum: ['article', 'wiki', 'note'], required: true },
+  kind: { type: String, enum: ['article', 'wiki', 'note', 'thread'], required: true },
   targetId: { type: mongoose.Schema.Types.ObjectId, required: true },
   own: { type: Boolean, default: false },
   passage: { type: String, default: '', maxlength: 400 },

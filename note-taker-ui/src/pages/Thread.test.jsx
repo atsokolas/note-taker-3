@@ -8,6 +8,7 @@ import { answerThread, growThread, readThread } from '../api/home';
 
 jest.mock('../api/home', () => ({ readThread: jest.fn(), answerThread: jest.fn(), growThread: jest.fn() }));
 jest.mock('../api/wiki', () => ({ createWikiPage: jest.fn() }));
+jest.mock('../components/museum/useOwnMuseum', () => () => ({ museum: { name: 'Athan', pieces: [] } }));
 
 const thread = answer => ({
   threadId: 't1',
@@ -33,6 +34,7 @@ describe('Thread', () => {
     ]);
     expect(screen.getByRole('link', { name: /revenge/ })).toHaveAttribute('href', '/books/m?highlight=h2');
     expect(screen.getByText(/Kept for good/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hang in museum' })).toBeInTheDocument();
   });
 
   it('becomes a page: its passages quoted and cited, a draft that remembers its thread', async () => {

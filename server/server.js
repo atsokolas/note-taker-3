@@ -1280,7 +1280,7 @@ const checkWhatItWrote = ({ handoff, wrote }) => checkDisagreements({ userId: ha
   .catch(error => console.error('[disagreements] check failed', error.message));
 app.use(buildHandoffRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Handoff, Article, NotebookEntry, onHandedToNoeis: workForNoeis, onFinished: checkWhatItWrote }));
 app.use(buildDisagreementRouter({ authenticateToken: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Disagreement }));
-app.use(buildMuseumRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Museum, Article, WikiPage, NotebookEntry }));
+app.use(buildMuseumRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Museum, Article, WikiPage, NotebookEntry, Thread }));
 
 app.use(buildSemanticSearchRouter({
   authenticateToken,
