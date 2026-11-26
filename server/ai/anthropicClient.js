@@ -123,14 +123,14 @@ const requestAnthropic = async ({ token, model, timeoutMs, payload = {}, signal 
    pages it found (title, address, age), never its prose. A search that
    fails or finds nothing is an empty list. */
 const WORLD_RESULTS = 3;
-const searchWeb = async ({ token, model, query, signal }) => {
+const searchWeb = async ({ token, model, query }) => {
   const message = await clientFor(token).messages.create({
     model,
     max_tokens: 1024,
     output_config: { effort: 'low' },
     tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 1 }],
     messages: [{ role: 'user', content: `Search the web once for: ${query}\nThen reply with one word: done.` }]
-  }, { signal, timeout: 30000 });
+  }, { timeout: 30000 });
   return message.content
     .filter(block => block.type === 'web_search_tool_result' && Array.isArray(block.content))
     .flatMap(block => block.content)
