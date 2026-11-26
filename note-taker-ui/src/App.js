@@ -74,6 +74,7 @@ const LibraryTrail = lazy(() => import('./pages/LibraryTrail'));
 const SaveLink = lazy(() => import('./pages/SaveLink'));
 const Editions = lazy(() => import('./pages/Editions'));
 const EditionRead = lazy(() => import('./pages/EditionRead'));
+const Underneath = lazy(() => import('./pages/Underneath'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
 const ThinkNotes = lazy(() => import('./pages/ThinkNotes'));
 const WorkNotes = lazy(() => import('./work/WorkNotes'));
@@ -841,6 +842,7 @@ function App() {
                 four rooms are what you did, and an edition is something that
                 arrived. The Paper carries the door to it. */}
             <Route path="/editions" element={<Editions />} />
+            <Route path="/editions/underneath/:month" element={<Underneath />} />
             <Route path="/editions/:id" element={<EditionRead />} />
             {/* Think opens the note you were last in. The legacy postures stay
                 addressable: a URL that names a concept, question, thread or

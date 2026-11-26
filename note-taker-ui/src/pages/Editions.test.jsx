@@ -16,6 +16,8 @@ jest.mock('react-router-dom', () => ({
 }));
 jest.mock('../api/editions');
 jest.mock('../api/notebook', () => ({ createNotebookEntry: jest.fn() }));
+jest.mock('../api/home', () => ({ readUnderneathMonths: jest.fn() }));
+const { readUnderneathMonths } = require('../api/home');
 jest.mock('../api', () => ({ get: jest.fn().mockResolvedValue({ data: { content: '<p>Saved source.</p>' } }) }));
 jest.mock('../components/editions/editionReadingState', () => ({
   ...jest.requireActual('../components/editions/editionReadingState'),
@@ -33,6 +35,7 @@ beforeEach(() => {
   api.getEditionInbox.mockResolvedValue({ items: [], remaining: 0 });
   api.setEditionItemState.mockResolvedValue({});
   api.getEditionHeld.mockResolvedValue({ held: null });
+  readUnderneathMonths.mockResolvedValue([]);
   window.scrollTo = jest.fn();
 });
 it('powers through what is new one finding at a time, narrowed to a paper', async () => {
@@ -580,4 +583,13 @@ it('prints your last word on the previous issue as a letter, its year in the ear
   expect(screen.getByText('Vol. I · Est. August 2026')).toBeVisible();
   expect(within(document.getElementById('edition-item-late')).getByText('Late edition')).toBeVisible();
   expect(within(document.getElementById('edition-item-one')).queryByText('Late edition')).toBeNull();
+});
+
+it('keeps an issue made from your own marks on the stand, even with no paper, and its back issues', async () => {
+  mockId = undefined; api.listEditions.mockResolvedValue([]);
+  readUnderneathMonths.mockResolvedValue(['2026-11', '2026-10']);
+  render(<Editions />);
+  const own = within(await screen.findByRole('region', { name: /^Underneath, November/ }));
+  expect(own.getByRole('link', { name: /^Underneath, November/ })).toHaveAttribute('href', '/editions/underneath/2026-11');
+  expect(own.getByRole('link', { name: /^October/ })).toHaveAttribute('href', '/editions/underneath/2026-10');
 });

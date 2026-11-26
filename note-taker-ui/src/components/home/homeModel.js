@@ -15,6 +15,11 @@ export const pathOf = ({ threadId, book, articleId, highlightId }) => {
   return highlightId ? buildCanonicalHighlightPath({ articleId, highlightId }) : buildCanonicalArticlePath(articleId);
 };
 
+// "2026-11" as the issue's name: "November 2026", or "November" this year.
+export const issueMonth = (month, now = Date.now()) => new Date(`${month}-01T12:00:00Z`).toLocaleDateString('en', {
+  month: 'long', timeZone: 'UTC', ...(month.slice(0, 4) === new Date(now).toISOString().slice(0, 4) ? {} : { year: 'numeric' })
+});
+
 export const monthOf = value => new Date(value).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 
 export const dayOf = (value, now = Date.now()) => {

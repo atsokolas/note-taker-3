@@ -1262,7 +1262,7 @@ app.use(buildRecallRouter({
 
 // ⌘K reaches the open web only when asked, through Claude's web search.
 const searchWorld = query => searchWeb({ token: String(process.env.ANTHROPIC_API_KEY || '').trim(), model: process.env.ANTHROPIC_TEXT_MODEL || DEFAULT_ANTHROPIC_TEXT_MODEL, query });
-app.use(buildHomeRouter({ authenticateToken, Article, ArticleReadingState, Thread, echoOf, formingAround, searchWorld }));
+app.use(buildHomeRouter({ authenticateToken, Article, ArticleReadingState, Thread, ConnectionJudgment, echoOf, formingAround, searchWorld }));
 app.use(buildAddedRouter({ authenticateToken: authenticateUserOrAgentToken, ownDesktop: [authenticateCapture, requireHumanOrDesktop], Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent }));
 
 app.use(buildSyncRouter({

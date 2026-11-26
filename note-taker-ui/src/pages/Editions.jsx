@@ -6,6 +6,7 @@ import EditionReading from '../components/editions/EditionReading';
 import EditionRun from '../components/editions/EditionRun';
 import EditionStand from '../components/editions/EditionStand';
 import EditionZoom from '../components/editions/EditionZoom';
+import UnderneathIssues from '../components/editions/UnderneathIssues';
 import { editionIssuePath, findingHash, readEditionLocal, readingPosition } from '../components/editions/editionReadingState';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { buttonClass } from '../components/ui';
@@ -166,6 +167,7 @@ export default function Editions() {
           </section>
         ) : null}
         {level === 4 && papers.length ? <EditionStand papers={papers} resume={resume} /> : null}
+        {level >= 3 && editions ? <UnderneathIssues /> : null}
         {level === 3 ? <EditionRun paper={paper} /> : null}
         {issue && editions ? (
           <EditionReading

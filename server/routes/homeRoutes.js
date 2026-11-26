@@ -5,6 +5,7 @@ const { echoToday } = require('../services/bookShelf');
 const { calendarDay } = require('../services/closedBooks');
 const { THREAD_ANSWERS, joining, refused, threadAsItIs, threadFrom, timeToLook, waiting } = require('../services/threads');
 const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
+const { readUnderneath, underneathMonths } = require('../services/underneath');
 
 const HOME_FIELDS = 'title url author createdAt evergreen evergreenAt highlights._id highlights.text highlights.note highlights.page highlights.createdAt highlights.opens highlights.keptAt';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -33,7 +34,7 @@ const remember = (memory, key, value) => {
 /* Home: what you keep, what you are reading for now, and what lies
    underneath, with the one old mark that came back up today beside a new
    one, and, rarely, a thread forming. Only the reader keeps or answers. */
-const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thread, echoOf, formingAround, searchWorld, now = () => Date.now() }) => {
+const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thread, ConnectionJudgment, echoOf, formingAround, searchWorld, now = () => Date.now() }) => {
   const router = express.Router();
   // What came back holds all day, and is looked for again when a new mark arrives.
   const cameBack = new Map();
@@ -91,6 +92,26 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thre
     } catch (error) {
       console.error('Error reading kept:', error);
       return res.status(500).json({ error: 'Kept could not be read.' });
+    }
+  });
+
+  // Underneath, by month: an issue made from your own marks, read on the day it is opened.
+  router.get('/api/underneath', authenticateToken, async (req, res) => {
+    try {
+      return res.json({ months: await underneathMonths({ userId: req.user.id, models: { ConnectionJudgment, Thread } }) });
+    } catch (error) {
+      console.error('Error reading underneath:', error);
+      return res.status(500).json({ error: 'Underneath could not be read.' });
+    }
+  });
+
+  router.get('/api/underneath/:month', authenticateToken, async (req, res) => {
+    try {
+      const issue = await readUnderneath({ userId: req.user.id, month: req.params.month, models: { ConnectionJudgment, Thread, Article } });
+      return issue ? res.json(issue) : res.status(404).json({ error: 'Nothing came back that month.' });
+    } catch (error) {
+      console.error('Error reading underneath:', error);
+      return res.status(500).json({ error: 'Underneath could not be read.' });
     }
   });
 

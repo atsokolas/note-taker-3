@@ -22,3 +22,6 @@ export const readWorld = async query => (
   (await api.get(`/api/world?q=${encodeURIComponent(query)}`, getAuthHeaders())).data?.pages || []
 );
 export const readKept = async () => (await api.get('/api/kept', getAuthHeaders())).data?.kept || [];
+// Underneath, by month: an issue made from your own marks.
+export const readUnderneathMonths = async () => (await api.get('/api/underneath', getAuthHeaders())).data?.months || [];
+export const readUnderneath = async month => (await api.get(`/api/underneath/${encodeURIComponent(month)}`, getAuthHeaders())).data;
