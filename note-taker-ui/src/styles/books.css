@@ -774,4 +774,5 @@
 
 /* Books' depths sit two across: the desk for now, and what you kept. */
 .home__depths.books__depths { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); }
-@media (max-width: 900px) { .home__depths.books__depths { grid-template-columns: minmax(0, 1fr); } }
+.home__depths.books__depths--back { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr); }
+@media (max-width: 900px) { .home__depths.books__depths, .home__depths.books__depths--back { grid-template-columns: minmax(0, 1fr); } }

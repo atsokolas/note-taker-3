@@ -382,6 +382,10 @@ const normalizeSourceRef = (value = {}) => {
   return { value: sourceRef };
 };
 
+// A new page may cite this many sources at birth: enough for every passage of a
+// kept thread or subject, bounded so one request cannot carry an archive.
+const INITIAL_SOURCE_REFS_MAX = 50;
+
 const normalizeInitialSourceRefs = ({ initialSourceRef, initialSourceRefs, createdFrom }) => {
   const rawRefs = [];
   if (initialSourceRef !== undefined) rawRefs.push(initialSourceRef);
@@ -393,7 +397,7 @@ const normalizeInitialSourceRefs = ({ initialSourceRef, initialSourceRefs, creat
   }
   const sourceRefs = [];
   const seen = new Set();
-  for (const rawRef of rawRefs.slice(0, 8)) {
+  for (const rawRef of rawRefs.slice(0, INITIAL_SOURCE_REFS_MAX)) {
     const sourceRef = normalizeSourceRef(rawRef);
     if (sourceRef?.error) return { error: sourceRef.error };
     const value = {

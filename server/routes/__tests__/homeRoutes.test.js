@@ -64,6 +64,7 @@ test('home: kept, for now, underneath, and what came back', async () => {
     assert.equal(body.underneath.marks, 3);
     assert.equal(body.underneath.works, 2);
     assert.equal(body.underneath.since, ago(800).toISOString(), 'underneath goes back to the first mark');
+    assert.deepEqual([body.underneath.glimpse.text, body.underneath.glimpse.book], ['Invert, always invert.', true], 'a glimpse is a mark that sank: not one made lately, not one kept');
     assert.equal(body.cameBack.mark.bookTitle, "Poor Charlie's Almanack");
     assert.equal(body.cameBack.echo.articleTitle, 'Meditations');
     assert.deepEqual(asked, [id(11)], 'only what was marked lately goes looking');
@@ -261,6 +262,34 @@ test('kept argues: one kept passage against a view you hold, from Kept alone, un
     assert.equal((await call('/api/kept/argues/strike', { method: 'POST', body: JSON.stringify({ about: 'anything' }) })).status, 400);
     await call('/api/kept/argues/strike', { method: 'POST', body: JSON.stringify({ about: body.argues.about }) });
     assert.equal((await call('/api/kept/argues?today=2026-11-25')).body.argues, null, 'a struck pairing is not offered again');
+  } finally {
+    server.close();
+  }
+});
+
+// A passage kept from an issue: its source joins the Library once, and the passage is on Kept.
+test('kept passages: a passage from outside the Library is kept on its source, once', async () => {
+  const saved = [];
+  function Article(fields) { Object.assign(this, fields); }
+  Article.prototype.save = async function save() { this._id = this._id || id(50); this.highlights.forEach((mark, at) => { mark._id = mark._id || id(60 + at); }); if (!saved.includes(this)) saved.push(this); };
+  Article.findOne = async ({ url }) => saved.find(article => article.url === url) || null;
+  const app = express();
+  app.use(express.json());
+  app.use(buildHomeRouter({ authenticateToken: (req, _res, next) => { req.user = { id: 'reader' }; next(); }, Article, Thread: {}, ArticleReadingState: {}, now: () => NOW }));
+  const server = app.listen(0);
+  const post = async body => {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/kept/passages`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    return { status: response.status, body: await response.json() };
+  };
+  try {
+    const passage = { url: 'https://example.com/scaling', title: 'Scaling laws, revisited', text: '  Compute is   no longer the constraint; data is. ' };
+    assert.equal((await post({ ...passage, url: 'javascript:alert(1)' })).status, 400);
+    const first = await post(passage);
+    assert.equal(first.status, 201);
+    const again = await post(passage);
+    assert.equal(again.body.highlightId, first.body.highlightId, 'the same passage is kept once');
+    assert.equal(saved.length, 1);
+    assert.deepEqual(saved[0].highlights.map(mark => [mark.text, mark.keptAt.toISOString()]), [['Compute is no longer the constraint; data is.', new Date(NOW).toISOString()]]);
   } finally {
     server.close();
   }

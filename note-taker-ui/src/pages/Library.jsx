@@ -21,6 +21,7 @@ import ReferencePullIn from '../components/references/ReferencePullIn';
 import { getConnectionsForItem } from '../api/connections';
 import { deleteHighlight } from '../api/highlights';
 import api from '../api';
+import { quoteIntoNote } from '../api/notebook';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { chatWithAgent } from '../api/agent';
 import { startLibraryFilingSuggestions } from '../api/library';
@@ -601,13 +602,9 @@ const Library = () => {
   }, [navigate]);
 
   const handleSendToNotebook = useCallback(async (highlight, entryId) => {
-    const response = await api.post(
-      `/api/notebook/${entryId}/append-highlight`,
-      { highlightId: highlight._id },
-      getAuthHeaders()
-    );
+    const quoted = await quoteIntoNote(entryId, highlight._id);
     setNotebookModal({ open: false, highlight: null });
-    const notebookId = String(response?.data?._id || entryId || '').trim();
+    const notebookId = String(quoted?._id || entryId || '').trim();
     if (notebookId) {
       navigate(`/think?tab=notebook&entryId=${encodeURIComponent(notebookId)}`);
     }

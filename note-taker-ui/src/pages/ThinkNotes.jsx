@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import authoredExplorations from '../api/authoredExplorations';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
-import { clearNotebookCache, getNotebookShelf, moveNotebookEntry } from '../api/notebook';
+import { clearNotebookCache, getNotebookShelf, moveNotebookEntry, quoteIntoNote } from '../api/notebook';
 import { getConcepts, updateConcept } from '../api/concepts';
 import { createQuestion, getQuestions } from '../api/questions';
 import { getAgentThread } from '../api/agent';
@@ -433,9 +433,7 @@ const ThinkNotes = () => {
       if (mark?._id) {
         // The note exists now; a passage that cannot be quoted into it must not
         // lose it, or the next try leaves a second blank note behind.
-        const quoted = await api.post(
-          `/api/notebook/${created._id}/append-highlight`, { highlightId: mark._id }, getAuthHeaders()
-        ).then(({ data }) => data, () => null);
+        const quoted = await quoteIntoNote(created._id, mark._id).catch(() => null);
         if (quoted?._id) created = quoted;
         else setCreationError('The note is open, but the passage could not be quoted into it. Add it from Library.');
       }

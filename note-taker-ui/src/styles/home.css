@@ -371,3 +371,40 @@
   padding: 0;
   border-top: 1px solid var(--border-subtle-2);
 }
+
+/* A page from outside, in the world's blue ink, named by where it lives. */
+.home__world { margin: var(--space-2) 0 0; }
+.home__world a { color: var(--ink-world); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--ink-world) 35%, transparent); }
+.home__world small { display: block; color: var(--muted); font-size: 0.82rem; }
+
+/* One mark that sank, drifting down through the page and fading as it goes,
+   over a minute. Touch it and it comes back up to the surface. */
+.home__sinking {
+  display: block;
+  margin-top: var(--space-3);
+  color: var(--muted);
+  font: italic 0.95rem/1.5 var(--font-serif);
+  text-decoration: none;
+  animation: home-sink 60s cubic-bezier(0.2, 0, 0.4, 1) 3s both;
+}
+.home__sinking q {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.home__sinking small { display: block; font: 0.78rem/1.4 var(--font-sans); font-style: normal; }
+.home__sinking:hover,
+.home__sinking:focus-visible {
+  animation: none;
+  color: var(--text);
+}
+
+@keyframes home-sink {
+  from { opacity: 0.9; transform: none; }
+  to { opacity: 0.18; transform: translateY(1.6rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home__sinking { animation: none; opacity: 0.6; }
+}

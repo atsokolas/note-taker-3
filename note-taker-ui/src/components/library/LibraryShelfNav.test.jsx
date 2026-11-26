@@ -139,11 +139,11 @@ describe('LibraryShelfNav', () => {
       expect(screen.queryByRole('button', { name: /^Ask about/ })).not.toBeInTheDocument();
     });
 
-    it('keeps placement and Keepers directly available at every width', () => {
+    it('keeps placement and Kept directly available at every width', () => {
       renderNav({});
       expect(screen.getByRole('button', { name: /^Nightstand/ })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /^On the desk/ })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /^Keepers/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Kept$/ })).toBeInTheDocument();
     });
   });
 
@@ -157,7 +157,7 @@ describe('LibraryShelfNav', () => {
     it('offers collection scopes only once', () => {
       renderNav({});
       const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
-      expect(labels).toEqual(['All sources', 'On the desk', 'Nightstand', 'Keepers', 'Read by agents', 'Unfiled6', 'Passages']);
+      expect(labels).toEqual(['All sources', 'Kept', 'On the desk', 'Nightstand', 'Read by agents', 'Unfiled6', 'Passages']);
     });
 
     it('leaves the cabinet to the shelves and the ways of narrowing', () => {

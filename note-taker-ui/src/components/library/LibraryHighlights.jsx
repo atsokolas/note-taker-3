@@ -13,6 +13,7 @@ import LibraryQuestionModal from './LibraryQuestionModal';
 import { createQuestion } from '../../api/questions';
 import { createWikiPage, holdClaimFromHighlight } from '../../api/wiki';
 import api from '../../api';
+import { quoteIntoNote } from '../../api/notebook';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
 import VirtualList from '../virtual/VirtualList';
 import { createProfilerLogger } from '../../utils/perf';
@@ -234,7 +235,7 @@ const LibraryHighlights = ({
   };
 
   const handleSendToNotebook = async (highlight, entryId) => {
-    await api.post(`/api/notebook/${entryId}/append-highlight`, { highlightId: highlight._id }, getAuthHeaders());
+    await quoteIntoNote(entryId, highlight._id);
     setNotebookModal({ open: false, highlight: null });
   };
 

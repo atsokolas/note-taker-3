@@ -15,7 +15,8 @@ import { getHighlights } from '../api/highlights';
 jest.mock('../api/notebook', () => ({
   clearNotebookCache: jest.fn(),
   getNotebookCuttings: jest.fn(),
-  getNotebookShelf: jest.fn()
+  getNotebookShelf: jest.fn(),
+  quoteIntoNote: (...args) => jest.requireActual('../api/notebook').quoteIntoNote(...args)
 }));
 
 jest.mock('../api', () => ({
@@ -103,7 +104,7 @@ describe('ThinkNotes first paint', () => {
     expect(screen.getByRole('button', { name: /New idea/ })).toBeDisabled();
 
     await act(async () => {
-      resolveShelf([{ _id: 'note-1', title: 'A real note', updatedAt: '2026-08-29T12:00:00.000Z' }]);
+      resolveShelf([{ _id: 'note-1', title: 'A real note', updatedAt: new Date().toISOString() }]);
     });
 
     expect(await screen.findByRole('button', { name: /A real note/ })).toBeInTheDocument();
@@ -111,7 +112,7 @@ describe('ThinkNotes first paint', () => {
 
   it('opens on the desk: the pieces underway with their next sentence, then ideas and what closed', async () => {
     getNotebookShelf.mockResolvedValue([
-      { _id: 'note-1', title: 'A real note', updatedAt: '2026-08-01T00:00:00.000Z' },
+      { _id: 'note-1', title: 'A real note', updatedAt: new Date().toISOString() },
       { _id: 'note-2', title: 'The essay', board: { stage: 'in_progress' }, workingState: { nextTimeLine: { text: 'Start from the renewal rate.' } }, updatedAt: '2026-08-04T00:00:00.000Z' },
       { _id: 'note-3', title: 'Sent piece', board: { stage: 'done', became: 'Sent to Sam', movedAt: new Date().toISOString() }, updatedAt: '2026-07-01T00:00:00.000Z' }
     ]);

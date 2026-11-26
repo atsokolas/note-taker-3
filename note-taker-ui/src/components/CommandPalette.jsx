@@ -30,7 +30,7 @@ import { getFolders } from '../api/folders';
 import { currentAccountId } from '../utils/browserScope';
 import { readKept, readWorld } from '../api/home';
 import { useAgentRail } from '../agent/AgentRailContext';
-import { keptLabel, pathOf } from './home/homeModel';
+import { hostOf, keptLabel, pathOf } from './home/homeModel';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -250,7 +250,6 @@ const currentLocationSearch = () => (
 );
 
 // A page from the open web is named by where it lives.
-const hostOf = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return 'Web'; } };
 
 const resultKey = item => `${item.type}:${item.id || item.path}`;
 

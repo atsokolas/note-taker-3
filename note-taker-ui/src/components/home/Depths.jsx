@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { keepPassage, readHome, readKept } from '../../api/home';
-import { apart, dayOf, depthOf, depthSince, keptBeside, monthOf, pathOf } from './homeModel';
+import { keepPassage, readHome, readKept, readWorld } from '../../api/home';
+import { apart, dayOf, depthOf, depthSince, hostOf, keptBeside, monthOf, pathOf } from './homeModel';
 import '../../styles/home.css';
 
 /* The three depths of one reading, read once and shown wherever a room
@@ -84,12 +84,22 @@ export function ForNow({ works, empty }) {
   ) : <p className="home__quiet">{empty}</p>;
 }
 
+/* Underneath, and below it one mark of yours that sank, drifting down out
+   of sight as you watch: a different one each day. */
 export function Underneath({ underneath }) {
-  return underneath.marks ? (
+  if (!underneath.marks) return <p className="home__quiet">Nothing underneath yet. Everything you mark ends up here, and some of it comes back.</p>;
+  const { glimpse } = underneath;
+  return <>
     <p className="home__deep">
       {underneath.marks.toLocaleString()} marks in {underneath.works.toLocaleString()} works{underneath.since ? `, ${depthSince(underneath.since)}` : ''}. Not gone, only out of sight.
     </p>
-  ) : <p className="home__quiet">Nothing underneath yet. Everything you mark ends up here, and some of it comes back.</p>;
+    {glimpse ? (
+      <Link className="home__sinking" to={pathOf(glimpse)}>
+        <q>{glimpse.text}</q>
+        <small>{glimpse.title}, {monthOf(glimpse.createdAt)}</small>
+      </Link>
+    ) : null}
+  </>;
 }
 
 /* One old mark risen beside a new one: nearly the same thought, from another
@@ -130,4 +140,23 @@ export function KeptBeside({ text, label, className, children = null }) {
       {children}
     </div>
   );
+}
+
+/* One page from the open web, in blue, for something of yours that is under
+   way: a thread forming, a note you are writing. Searched only when a room
+   has one, and the server answers the same question once a day. */
+export function Outside({ about, children }) {
+  const [page, setPage] = useState(null);
+  useEffect(() => {
+    if (!about) return undefined;
+    let live = true;
+    readWorld(about).then(pages => live && setPage(pages[0] || null), () => {});
+    return () => { live = false; };
+  }, [about]);
+  return page ? (
+    <p className="home__world">
+      <a href={page.url} target="_blank" rel="noreferrer">{page.title}</a>
+      <small>{hostOf(page.url)} · {children}</small>
+    </p>
+  ) : null;
 }

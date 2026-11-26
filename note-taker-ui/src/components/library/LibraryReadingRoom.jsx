@@ -5,7 +5,7 @@ import { LEADS, Says } from '../added/WhatItAdded';
 import { scopedKey } from '../../utils/browserScope';
 import { pickLine, progressPhrase, showsWeather, weekKey } from './libraryReadingRoomModel';
 import { clothOf } from '../../utils/cloth';
-import { CameBack, Kept, Underneath, roomOf, useHome } from '../home/Depths';
+import { CameBack, Kept, Outside, Underneath, roomOf, useHome } from '../home/Depths';
 import '../../styles/library-reading-room.css';
 
 const WEATHER_KEY = 'library.readingWeather.seenWeek';
@@ -169,6 +169,7 @@ export default function LibraryReadingRoom({ onOpen }) {
                 ))}
               </ul>
             ) : null}
+            {home?.forming ? <Outside about={home.forming.marks.at(-1).text}>from outside, for a thread that is forming</Outside> : null}
             {!home?.cameBack && !connected.length ? <p className="home__quiet">Quiet this week. When something new meets something old, it shows here.</p> : null}
           </section>
         </div>

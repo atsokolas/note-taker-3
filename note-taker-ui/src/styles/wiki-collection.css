@@ -603,7 +603,7 @@
   padding: 10px 0;
   border-bottom: 1px solid var(--noeis-rule, #dcded3);
 }
-.wiki-collection__threads a { color: inherit; font: 17px/1.4 var(--font-serif); text-decoration: none; }
-.wiki-collection__threads a:hover { text-decoration: underline; text-underline-offset: 0.2em; }
+.wiki-collection__threads a, .wiki-collection__threads button { padding: 0; border: 0; background: none; color: inherit; font: 17px/1.4 var(--font-serif); text-align: left; text-decoration: none; cursor: pointer; }
+.wiki-collection__threads a:hover, .wiki-collection__threads button:hover { text-decoration: underline; text-underline-offset: 0.2em; }
 .wiki-collection__threads small { color: var(--muted, #676e62); font-size: 12px; }
 .wiki-collection__could, .wiki-collection__could small { color: var(--ink-agent); font-style: italic; }

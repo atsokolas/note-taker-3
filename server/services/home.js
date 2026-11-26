@@ -39,7 +39,8 @@ const kept = (articles, threads) => [
     page: mark.page || null,
     at: mark.keptAt
   }))),
-  ...threads.map(thread => ({ kind: 'thread', threadId: thread.threadId, title: thread.title, marks: thread.marks.length, at: thread.answeredAt }))
+  // A thread's passages ride along in one line, so what bears on your writing can find the thread by what it says.
+  ...threads.map(thread => ({ kind: 'thread', threadId: thread.threadId, title: thread.title, text: thread.marks.map(mark => mark.text).join(' '), marks: thread.marks.length, at: thread.answeredAt }))
 ].sort((a, b) => timeOf(a.at) - timeOf(b.at));
 
 // The passages you keep coming back to, most opened first, asked about in pencil.
@@ -75,13 +76,28 @@ const forNow = touched => touched.map(({ article, marks, at }) => ({
   at: new Date(at)
 }));
 
-const underneath = articles => {
+/* Underneath, and one glimpse of it: a mark of yours that sank, not kept,
+   a different one each day, chosen by the day and not by chance, so the
+   whole of it passes by in time. */
+const underneath = (articles, now) => {
   const marks = articles.flatMap(marksOf);
   const dated = marks.map(mark => timeOf(mark.createdAt)).filter(Boolean);
+  const sank = articles
+    .flatMap(article => marksOf(article).filter(mark => mark.text && !mark.keptAt && now - timeOf(mark.createdAt) > SINKS_AFTER_DAYS * DAY_MS).map(mark => ({ article, mark })))
+    .sort((a, b) => idOf(a.mark._id).localeCompare(idOf(b.mark._id)));
+  const glimpse = sank[Math.floor(now / DAY_MS) % sank.length];
   return {
     marks: marks.length,
     works: articles.filter(article => marksOf(article).length).length,
-    since: dated.length ? new Date(Math.min(...dated)) : null
+    since: dated.length ? new Date(Math.min(...dated)) : null,
+    glimpse: glimpse ? {
+      articleId: idOf(glimpse.article._id),
+      highlightId: idOf(glimpse.mark._id),
+      book: isBook(glimpse.article),
+      title: glimpse.article.title,
+      text: glimpse.mark.text,
+      createdAt: glimpse.mark.createdAt
+    } : null
   };
 };
 
@@ -91,7 +107,7 @@ const home = ({ articles, readings, threads = [], now = Date.now() }) => {
     kept: kept(articles, threads),
     asks: asks(articles),
     forNow: forNow(touched),
-    underneath: underneath(articles),
+    underneath: underneath(articles, now),
     // The works with marks made lately, for what comes back from underneath.
     recent: touched.filter(({ marks }) => marks.length).map(({ article, marks }) => ({ _id: article._id, title: article.title, highlights: marks }))
   };

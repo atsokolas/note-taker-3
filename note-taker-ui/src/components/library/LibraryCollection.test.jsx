@@ -125,7 +125,7 @@ test('sort uses the same disclosure menu as the rest of Library tools', async ()
   expect(onSortChange).toHaveBeenCalledWith('oldest');
   expect(summary.closest('details').open).toBe(false);
 });
-test('Keepers retains pages and beliefs alongside sources, including retired beliefs and undo', async () => {
+test('Kept retains pages and beliefs alongside sources, including retired beliefs and undo', async () => {
   const undo = jest.fn(async () => {});
   renderCollection({
     scope: 'kept',
