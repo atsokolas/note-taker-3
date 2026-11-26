@@ -221,6 +221,31 @@
   margin: var(--space-5) 0 0 var(--hang);
 }
 
+/* What a kept thread may grow by: in pencil, hanging off the end of the
+   thread line, dashed because it is not part of it yet. */
+.thread-offered {
+  position: relative;
+  max-width: 46rem;
+  margin: 0 0 0 var(--hang);
+  padding: var(--space-3) 0 0 var(--space-4);
+  color: var(--ink-agent);
+  font: italic 0.95rem/1.5 var(--font-serif);
+}
+
+.thread-offered::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: var(--space-4);
+  left: calc(-1 * var(--space-3));
+  border-left: 1px dashed var(--noeis-thread);
+}
+
+.thread-offered > small { margin: 0 0 var(--space-1); }
+.thread-offered small { color: inherit; opacity: 0.8; }
+.thread-offered a { display: block; }
+.thread-offered .home__answers { margin-left: 0; }
+
 @keyframes home-draw {
   from { transform: scaleY(0); }
   to { transform: scaleY(1); }
