@@ -1,9 +1,11 @@
 import React, { useContext, useEffect, useState } from 'react';
+import { KeptBeside } from '../components/home/Depths';
 import { InPlace, WorkAppointmentRow, WorkTaskAssignment, WorkTaskRow } from './WorkPlanItem';
 import WorkItemSource from './WorkItemSource';
 import { CHASE_DAYS, daysBetween, nudge, sortedSince } from './workOutstanding';
 import { displayDay, shiftDay, writtenDay } from './workPlannerModel';
 import { noteTitle } from './workSession';
+import { projectOfLine } from './workProjects';
 import { TASK_DRAG, acceptsTask } from './workTaskDrag';
 
 export const ACTION_LISTS = { all: 'Everything', new: 'To sort', next: 'Next', waiting: 'Waiting on', someday: 'Someday', upcoming: 'Upcoming' };
@@ -33,7 +35,7 @@ function ActionFields({ item, list, today, onMove, onSort }) {
   </span>;
 }
 
-export default function WorkActions({ filter, onFilter, needs, items, notes, folders, projects, today, onSort, onRename, onAction, onOpen, onEdit, onStart, onNew }) {
+export default function WorkActions({ filter, onFilter, needs, items, notes, folders, projects = [], today, onSort, onRename, onAction, onOpen, onEdit, onStart, onNew }) {
   const assignment = useContext(WorkTaskAssignment);
   const { priorities = [], link, onWeek } = assignment || {};
   const [draft, setDraft] = useState(null);
@@ -96,6 +98,14 @@ export default function WorkActions({ filter, onFilter, needs, items, notes, fol
   const under = priority => priority.taskIds.map(id => list.find(item => item._id === id)).filter(Boolean);
   const nested = priorities.map(priority => ({ priority, lines: under(priority) })).filter(group => everything || group.lines.length);
   const loose = list.filter(item => !priorities.some(priority => priority.taskIds.includes(item._id)));
+  // Beside the week's priorities, only those touching a project you switched it on for: the rest of Work is never read for it.
+  const current = projects.filter(project => !project.archivedAt);
+  const on = current.filter(project => project.keptBeside);
+  const bearing = priorities.flatMap(priority => {
+    const lines = priority.taskIds.map(id => items.find(item => item._id === id)).filter(item => item && on.some(project => String(project._id) === projectOfLine(item, notes)));
+    return lines.length ? [priority.title, ...lines.map(line => line.title)] : [];
+  });
+  const off = current.filter(project => !project.keptBeside).map(project => project.name);
   const drop = priority => ({
     onDragOver: event => { if (link && acceptsTask(event)) { event.preventDefault(); setDropTarget(priority.id); } },
     onDragLeave: () => setDropTarget(''),
@@ -122,6 +132,9 @@ export default function WorkActions({ filter, onFilter, needs, items, notes, fol
         onAction(closed.item.clientId, { type: 'undo', undoOf: closed.operation }); setClosed(null);
       }}>Undo</button></div> : null}
     </section></WorkTaskAssignment.Provider>
+    {bearing.length ? <KeptBeside className="work-project-beside work-actions-beside" label="Kept that bears on this week" text={bearing.join(' ')}>
+      <small>On for {on.map(project => project.name).join(', ')}{off.length ? ` · off for ${off.join(', ')}` : ''}</small>
+    </KeptBeside> : null}
   </section>;
 }
 

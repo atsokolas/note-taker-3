@@ -256,6 +256,9 @@ const notebookFolderSchema = new mongoose.Schema({
   deleted: { type: new mongoose.Schema({ batchId: String, deletedAt: Date, expiresAt: Date, autoErase: { type: Boolean, default: false }, consentVersion: Number, consentedAt: Date, erasedAt: Date, erasureBlocked: String, erasureAttemptedAt: Date, restoredAt: { type: Date, default: null }, entryIds: [{ type: mongoose.Schema.Types.ObjectId }], counts: { notes: Number, tasks: Number, alreadyDeleted: Number, excludedTasks: Number } }, { _id: false }), default: null },
   brief: { type: String, default: '', maxlength: 8000 },
   closingLine: { type: String, default: '', maxlength: 280 },
+  /* Work is about an employer, so what you keep for good shows beside a
+     project only once you switch it on there. The match runs in the browser. */
+  keptBeside: { type: Boolean, default: false },
   links: { type: [new mongoose.Schema({ kind: { type: String, enum: ['article', 'wiki', 'book'], required: true }, id: { type: String, required: true, maxlength: 64 }, title: { type: String, default: '', maxlength: 300 } }, { _id: false })], default: [] },
   checkIns: { type: [new mongoose.Schema({ on: { type: String, required: true }, text: { type: String, required: true, maxlength: 500 } }, { _id: false })], default: [] },
   operationId: { type: String, immutable: true },

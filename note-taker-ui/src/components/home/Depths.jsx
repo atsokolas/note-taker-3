@@ -111,7 +111,7 @@ export function CameBack({ pair: { mark, echo }, onKeep }) {
 
 /* Read-only, in pencil: what you keep for good that bears on this writing.
    The match runs here; nothing you wrote is sent to find it. */
-export function KeptBeside({ text, label, className }) {
+export function KeptBeside({ text, label, className, children = null }) {
   const [kept, setKept] = useState([]);
   useEffect(() => { let live = true; readKept().then(found => live && setKept(found), () => {}); return () => { live = false; }; }, []);
   const beside = keptBeside(kept, text);
@@ -125,6 +125,7 @@ export function KeptBeside({ text, label, className }) {
           {held.kind === 'mark' ? <small>{held.title}</small> : null}
         </Link>
       ))}
+      {children}
     </div>
   );
 }

@@ -54,3 +54,8 @@
 .work-project-beside a:hover, .work-project-beside a:focus-visible { text-decoration: underline; text-underline-offset: 0.2em; }
 .work-project-beside q { quotes: '“' '”'; }
 .work-project-beside a small { display: block; font: normal 0.72rem/1.4 var(--font-sans); opacity: 0.8; }
+.work-project-beside-switch { justify-self: start; margin-top: var(--space-3); padding: 0; border: 0; background: none; color: var(--noeis-ink-muted); font: 0.85rem/1.4 var(--font-sans); text-decoration: underline; text-decoration-color: var(--noeis-rule); text-underline-offset: 3px; cursor: pointer; }
+.work-project-beside-switch:hover, .work-project-beside-switch:focus-visible { color: var(--noeis-ink); text-decoration-color: currentColor; }
+.work-project-beside-note { display: block; color: var(--noeis-ink-muted); font: 0.72rem/1.4 var(--font-sans); }
+/* On Actions the same margin sits under the week, ruled off from it. */
+.work-actions-beside { max-width: 38rem; margin-top: var(--space-5); }

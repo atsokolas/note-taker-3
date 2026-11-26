@@ -134,7 +134,9 @@ export function WorkProject({ record, notes, items, today, onAction, onCapture, 
         {item.decisions.length ? <section aria-label="Decided"><h2>Decided</h2>{item.decisions.map(({ text, note }, index) => <p className="work-project-decision" key={`${note.clientId}:${index}`}>{text}<button onClick={() => onOpenNote(note.clientId)}>{displayDay(writtenDay(note), { day: 'numeric', month: 'short' })}</button></p>)}</section> : null}
         <section aria-label="Kept"><h2>Kept</h2><Links links={item.links} onRemove={link => onSave(record, { links: item.links.filter(other => other !== link) })} />
           <p className="work-outstanding-line">To keep {item.links.length ? 'another' : 'an'} article, book or page here, open it and choose Add to project.</p>
-          <KeptBeside className="work-project-beside" label="From what you keep for good" text={[record.name, record.brief, answered?.text, ...item.next.map(next => next.title)].filter(Boolean).join(' ')} /></section>
+          {record.keptBeside ? <KeptBeside className="work-project-beside" label="From what you keep for good" text={[record.name, record.brief, answered?.text, ...item.next.map(next => next.title)].filter(Boolean).join(' ')} /> : null}
+          <button className="work-project-beside-switch" aria-pressed={Boolean(record.keptBeside)} onClick={() => onSave(record, { keptBeside: !record.keptBeside })}>{record.keptBeside ? 'Stop showing what you keep for good beside it' : 'Show what you keep for good beside it'}</button>
+          <small className="work-project-beside-note">Matched here, read only. Nothing from Work is sent anywhere for it.</small></section>
       </div>
     </div>
   </section>;
