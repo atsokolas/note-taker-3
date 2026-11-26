@@ -25,6 +25,7 @@ import AddToProject from '../work/AddToProject';
 import HangInMuseum from '../components/museum/HangInMuseum';
 import '../styles/books.css';
 import { ForNow, Kept, roomOf, useHome } from '../components/home/Depths';
+import { readBookComingBack } from '../api/home';
 
 // A book's paragraphs are what you marked in it and wrote beside it.
 const MARK_BLOCKS = '.book-desk__mark > blockquote, .book-desk__margin > .book-desk__own';
@@ -198,6 +199,9 @@ const Shelf = () => {
   // Books' own depths: books and the threads that run through them.
   const { home: whole, keep, putAside } = useHome();
   const home = roomOf(whole, item => item.book || item.kind === 'thread');
+  // An old book whose marks keep meeting what you read now, asked about once a day.
+  const [comingBack, setComingBack] = useState(null);
+  useEffect(() => { let live = true; readBookComingBack().then(found => live && setComingBack(found), () => {}); return () => { live = false; }; }, []);
   const keptIn = id => (home?.kept || []).filter(held => held.kind === 'mark' && held.articleId === id).length;
 
   useEffect(() => {
@@ -279,8 +283,8 @@ const Shelf = () => {
 
       {returning ? <Returning book={returning} /> : null}
 
-      {home && (home.forNow.length || home.kept.length || home.asks.length) ? (
-        <div className="home home--band home__depths books__depths">
+      {home && (home.forNow.length || home.kept.length || home.asks.length || comingBack) ? (
+        <div className={`home home--band home__depths books__depths${comingBack ? ' books__depths--back' : ''}`}>
           <section aria-labelledby="books-desk">
             <h2 id="books-desk">On the desk <span>for now</span></h2>
             <ForNow works={home.forNow} empty="No book open lately." />
@@ -290,6 +294,16 @@ const Shelf = () => {
             <Kept kept={home.kept} asks={home.asks} onKeep={keep} onNotNow={putAside}
               empty="Nothing kept from a book yet. Keep a passage at the desk and it stays here for good." />
           </section>
+          {comingBack ? (
+            <section aria-labelledby="books-back">
+              <h2 id="books-back">Came back</h2>
+              <p className="home__deep">
+                Your <cite>{comingBack.title}</cite> marks from {monthOf(new Date(comingBack.since))} keep landing next to what you read now: {comingBack.times} things this past month.
+              </p>
+              <blockquote className="home__old"><q>{comingBack.mark.text}</q></blockquote>
+              <Link to={`/books/${comingBack.articleId}`}>Open it</Link>
+            </section>
+          ) : null}
         </div>
       ) : null}
 

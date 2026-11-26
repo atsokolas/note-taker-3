@@ -30,3 +30,5 @@ export const readKeptArgues = async () => (await api.get(`/api/kept/argues?today
 export const strikeKeptArgues = async about => (await api.post('/api/kept/argues/strike', { about }, getAuthHeaders())).data;
 // Keep a passage read outside the Library, such as in an issue: its source joins the Library.
 export const keepFrom = async ({ url, title, text }) => (await api.post('/api/kept/passages', { url, title, text }, getAuthHeaders())).data;
+// Books' margin: an old book whose marks keep meeting what you read now, or null.
+export const readBookComingBack = async () => (await api.get(`/api/books/returning?today=${today()}`, getAuthHeaders())).data?.book || null;

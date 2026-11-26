@@ -5,7 +5,7 @@ const { echoToday } = require('../services/bookShelf');
 const { calendarDay } = require('../services/closedBooks');
 const { THREAD_ANSWERS, joining, refused, threadAsItIs, threadFrom, timeToLook, waiting } = require('../services/threads');
 const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
-const { readUnderneath, underneathMonths } = require('../services/underneath');
+const { readBookComingBack, readUnderneath, underneathMonths } = require('../services/underneath');
 const { ARGUES_ABOUT, keptArgues } = require('../services/keptArgues');
 const { relations } = require('../services/disagreements');
 
@@ -51,6 +51,8 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thre
   const searches = new Map();
   // Whether something you kept argues with a view: asked once a day.
   const arguing = new Map();
+  // Which old book is coming back: read once a day.
+  const returning = new Map();
 
   /* The thread waiting for your answer; or, once a fortnight, one newly
      formed around a mark made lately: passages from other works and other
@@ -124,6 +126,18 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thre
     } catch (error) {
       console.error('Error striking what argues:', error);
       return res.status(500).json({ error: 'That could not be struck.' });
+    }
+  });
+
+  // Books' margin: an old book whose marks keep meeting what you read now, or nothing.
+  router.get('/api/books/returning', authenticateToken, async (req, res) => {
+    const key = `${req.user.id}:${calendarDay(req.query.today)}`;
+    try {
+      if (!returning.has(key)) remember(returning, key, await readBookComingBack({ userId: req.user.id, models: { ConnectionJudgment, Thread, Article }, now: now() }));
+      return res.json({ book: returning.get(key) });
+    } catch (error) {
+      console.error('Error reading what is coming back:', error);
+      return res.status(500).json({ error: 'That could not be read.' });
     }
   });
 

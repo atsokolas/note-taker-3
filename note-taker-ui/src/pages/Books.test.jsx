@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as Router from 'react-router-dom';
 import Books from './Books';
 import { askBook, beforeBook, bookEcho, closeBook, lendBook, listBookQuestions, listBooks, readAgain, renameBook, reopenBook, startBook, takeBookBack } from '../api/imports';
@@ -7,12 +7,12 @@ import { updateHighlight } from '../api/highlights';
 import useArticleDetail from '../hooks/useArticleDetail';
 import { listWikiPages, settleIntoWiki } from '../api/wiki';
 import { fetchAdded, fetchMarginNotes } from '../api/retrieval';
-import { readHome } from '../api/home';
+import { readBookComingBack, readHome } from '../api/home';
 
 jest.mock('../api/imports', () => ({ askBook: jest.fn(), beforeBook: jest.fn(), bookEcho: jest.fn(), lendBook: jest.fn(), takeBookBack: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), renameBook: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
-jest.mock('../api/home', () => ({ readHome: jest.fn(), keepPassage: jest.fn() }));
+jest.mock('../api/home', () => ({ readHome: jest.fn(), keepPassage: jest.fn(), readBookComingBack: jest.fn() }));
 jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn(), settleIntoWiki: jest.fn() }));
 jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn(), fetchAdded: jest.fn() }));
 
@@ -31,6 +31,7 @@ beforeEach(() => {
   bookEcho.mockResolvedValue(null);
   beforeBook.mockResolvedValue([]);
   readHome.mockRejectedValue(new Error('offline'));
+  readBookComingBack.mockResolvedValue(null);
 });
 
 test('the shelf opens on the desk and what you kept from books, and inks each spine by what you kept', async () => {
@@ -54,6 +55,15 @@ test('the shelf opens on the desk and what you kept from books, and inks each sp
   expect(screen.queryByText('Escher')).not.toBeInTheDocument();
   const spine = await screen.findByRole('button', { name: 'Meditations' });
   expect(spine.closest('li')).toHaveStyle({ '--kept': '1' });
+});
+
+test('an old book whose marks keep meeting what you read now asks to be reopened', async () => {
+  listBooks.mockResolvedValue([]);
+  readBookComingBack.mockResolvedValue({ articleId: 'm1', title: 'Meditations', times: 3, since: '2023-04-02T00:00:00Z', mark: { text: 'The best revenge is not to be like your enemy.' } });
+  at();
+  const back = await screen.findByRole('region', { name: 'Came back' });
+  expect(back).toHaveTextContent(/Your Meditations marks from .*2023 keep landing next to what you read now: 3 things this past month\./);
+  expect(within(back).getByRole('link', { name: 'Open it' })).toHaveAttribute('href', '/books/m1');
 });
 
 test('the shelf shows each book with what was written in it and the last line', async () => {

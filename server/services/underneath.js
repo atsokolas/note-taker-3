@@ -26,14 +26,15 @@ const spanOf = month => {
 const meeting = judgment => MEETS_MARK.exec(judgment.about);
 const turnedAway = thread => thread.answer === 'not a thing';
 
-const underneathIssue = ({ month, judgments, articles, threads }) => {
-  const { start } = spanOf(month);
+/* The old marks something new met: each judgment that a source bears on,
+   or argues with, a mark made before a given day, read as they are now. */
+const cameBackOf = ({ judgments, articles, before }) => {
   const titles = new Map(articles.map(article => [idOf(article._id), article.title]));
   const marks = new Map(articles.flatMap(article => (article.highlights || []).map(mark => [idOf(mark._id), { article, mark }])));
-  const cameBack = judgments.flatMap(judgment => {
+  return judgments.flatMap(judgment => {
     const [, sourceId, highlightId] = meeting(judgment) || [];
     const old = marks.get(highlightId);
-    if (!titles.has(sourceId) || !old?.mark.text || new Date(old.mark.createdAt) >= start) return [];
+    if (!titles.has(sourceId) || !old?.mark.text || new Date(old.mark.createdAt) >= before) return [];
     return [{
       relation: judgment.relation,
       says: judgment.says || '',
@@ -50,6 +51,10 @@ const underneathIssue = ({ month, judgments, articles, threads }) => {
       }
     }];
   });
+};
+
+const underneathIssue = ({ month, judgments, articles, threads }) => {
+  const cameBack = cameBackOf({ judgments, articles, before: spanOf(month).start });
   const met = new Map();
   for (const { old } of cameBack) met.set(old.highlightId, { ...old, times: (met.get(old.highlightId)?.times || 0) + 1 });
   const collided = [...met.values()].filter(old => old.times >= COLLIDED_AT).sort((a, b) => b.times - a.times).slice(0, COLLIDED_SHOWN);
@@ -68,20 +73,50 @@ const underneathMonths = async ({ userId, models: { ConnectionJudgment, Thread }
   return [...new Set([...judgments, ...threads].map(row => monthOf(row.createdAt)))].sort().reverse();
 };
 
-const readUnderneath = async ({ userId, month, models: { ConnectionJudgment, Thread, Article } }) => {
-  if (!MONTH.test(month)) return null;
-  const { start, end } = spanOf(month);
-  const during = { $gte: start, $lt: end };
+// What was judged in a span, and the works on both sides of it.
+const meetingsIn = async ({ userId, during, models: { ConnectionJudgment, Thread, Article }, threads: withThreads = true }) => {
   const [judgments, threads] = await Promise.all([
     ConnectionJudgment.find({ userId, relation: { $in: MET }, about: MEETS_MARK, createdAt: during }).sort({ createdAt: 1 }).lean(),
-    Thread.find({ userId, createdAt: during }).sort({ createdAt: 1 }).lean()
+    withThreads ? Thread.find({ userId, createdAt: during }).sort({ createdAt: 1 }).lean() : []
   ]);
   const pairs = judgments.map(meeting);
   const articles = await Article.find(applyDefaultArticleVisibility({ userId, $or: [
     { _id: { $in: [...pairs.map(([, sourceId]) => sourceId), ...threads.flatMap(thread => thread.marks.map(mark => mark.articleId))] } },
     { 'highlights._id': { $in: pairs.map(([, , highlightId]) => highlightId) } }
   ] })).select(ISSUE_FIELDS).lean();
-  return underneathIssue({ month, judgments, articles, threads });
+  return { judgments, threads, articles };
 };
 
-module.exports = { MONTH, readUnderneath, underneathIssue, underneathMonths };
+const readUnderneath = async ({ userId, month, models }) => {
+  if (!MONTH.test(month)) return null;
+  const { start, end } = spanOf(month);
+  return underneathIssue({ month, ...await meetingsIn({ userId, during: { $gte: start, $lt: end }, models }) });
+};
+
+/* An old book coming back: a book you have not marked lately whose old
+   marks were met by RETURNING_SOURCES different things you read in the last
+   RETURNING_DAYS. Gate: books only, judged meetings only. Bar: three
+   different sources. Silence: no book clears it, nothing is said. */
+const RETURNING_DAYS = 30;
+const RETURNING_SOURCES = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const bookComingBack = ({ judgments, articles, since }) => {
+  const met = new Map();
+  for (const { old, source } of cameBackOf({ judgments, articles, before: since })) {
+    if (!old.book) continue;
+    const book = met.get(old.articleId) || { articleId: old.articleId, title: old.title, sources: new Set(), mark: old };
+    book.sources.add(source.articleId);
+    met.set(old.articleId, book);
+  }
+  const lately = book => articles.find(article => idOf(article._id) === book.articleId)?.highlights.some(mark => new Date(mark.createdAt) >= since);
+  const [found] = [...met.values()].filter(book => book.sources.size >= RETURNING_SOURCES && !lately(book)).sort((a, b) => b.sources.size - a.sources.size);
+  return found ? { articleId: found.articleId, title: found.title, times: found.sources.size, since: found.mark.createdAt, mark: found.mark } : null;
+};
+
+const readBookComingBack = async ({ userId, models, now = Date.now() }) => {
+  const since = new Date(now - RETURNING_DAYS * DAY_MS);
+  return bookComingBack({ since, ...await meetingsIn({ userId, during: { $gte: since }, models, threads: false }) });
+};
+
+module.exports = { MONTH, bookComingBack, readBookComingBack, readUnderneath, underneathIssue, underneathMonths };
