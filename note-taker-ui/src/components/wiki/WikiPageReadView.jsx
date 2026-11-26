@@ -600,6 +600,7 @@ const visibleInfoboxRows = (rows = []) => (
 const WIKI_LINK_PREVIEW_SHOW_DELAY_MS = 250;
 const WIKI_LINK_PREVIEW_DISMISS_GRACE_MS = 100;
 const PAGE_TRANSITION_DURATION_MS = 200;
+const BUILD_LOOK_AGAIN_MS = 5000;
 
 const useReducedMotion = () => {
   const getReducedMotion = () => (
@@ -1479,6 +1480,23 @@ const WikiPageReadView = ({
       });
     return () => { cancelled = true; };
   }, [pageId, refreshNonce, streamBusy]);
+
+  // A build started elsewhere (a page made from what you kept) finishes on the
+  // server; look again until the page says it is done, then show what it wrote.
+  const writtenElsewhere = page?.aiState?.draftStatus === 'maintaining' && !maintenanceActive;
+  useEffect(() => {
+    if (!writtenElsewhere) return undefined;
+    const timer = window.setInterval(() => {
+      getWikiPage(pageId, { reader: 1 })
+        .then((loaded) => {
+          if (loaded?.aiState?.draftStatus === 'maintaining') return;
+          latestPageRef.current = loaded;
+          setPage(loaded);
+        })
+        .catch(() => {});
+    }, BUILD_LOOK_AGAIN_MS);
+    return () => window.clearInterval(timer);
+  }, [pageId, writtenElsewhere]);
 
   useEffect(() => {
     if (!page || !isRepoDossierPage(page)) {

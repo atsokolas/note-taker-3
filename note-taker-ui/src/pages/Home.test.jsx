@@ -11,7 +11,7 @@ const ago = days => new Date(Date.now() - days * DAY).toISOString();
 
 const shelf = {
   kept: [
-    { kind: 'mark', articleId: 'm1', highlightId: 'k1', title: 'Meditations', text: 'The best revenge is not to be like your enemy.', at: ago(300) },
+    { kind: 'mark', articleId: 'm1', highlightId: 'k1', title: 'Meditations', text: 'The best revenge is not to be like your enemy.', at: ago(300), since: ago(8 * 366) },
     { kind: 'source', book: false, articleId: 's1', title: 'Going Founder Mode On Cancer', at: ago(40) }
   ],
   asks: [{ articleId: 'c1', highlightId: 'h12', book: true, title: "Poor Charlie's Almanack", text: 'Invert, always invert.', opens: 4 }],
@@ -38,6 +38,7 @@ describe('Home', () => {
   it('lays out Kept, For now and Underneath, with what came back', async () => {
     renderHome();
     expect(await screen.findByText('The best revenge is not to be like your enemy.')).toBeInTheDocument();
+    expect(screen.getByText('The best revenge is not to be like your enemy.').closest('li').style.getPropertyValue('--held')).toBe('6');
     expect(screen.getByRole('link', { name: /Going Founder Mode On Cancer/ })).toBeInTheDocument();
     expect(screen.getByText(/You’re reading/)).toHaveTextContent("You’re reading Poor Charlie's Almanack");
     expect(screen.getByText(/1,204 marks in 211 works, seven years of reading/)).toBeInTheDocument();

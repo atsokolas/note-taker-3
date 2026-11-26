@@ -68,3 +68,39 @@ test('real Mongo: the nightstand is sized in minutes, and tonight is the longest
     await memory.stop();
   }
 });
+
+test('real Mongo: For now is the fortnight you saved, read or marked in, and Underneath is everything else', async () => {
+  const memory = await MongoMemoryServer.create();
+  let server;
+  try {
+    await mongoose.connect(memory.getUri());
+    const { Article, ArticleReadingState } = require('../../models');
+    const userId = new mongoose.Types.ObjectId();
+    const ago = days => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const [saved, read, marked, sank] = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
+    await Article.collection.insertMany([
+      { _id: saved, userId, title: 'Saved this week', url: 'https://x.example/saved', placement: 'stream', pencil: null, createdAt: ago(2), highlights: [] },
+      { _id: read, userId, title: 'Read again Monday', url: 'https://x.example/read', placement: 'stream', pencil: null, createdAt: ago(90), highlights: [] },
+      { _id: marked, userId, title: 'Marked yesterday', url: 'https://x.example/marked', placement: 'stream', pencil: null, createdAt: ago(200), highlights: [{ _id: new mongoose.Types.ObjectId(), text: 'A line.', createdAt: ago(1) }] },
+      { _id: sank, userId, title: 'Sank long ago', url: 'https://x.example/sank', placement: 'stream', pencil: null, createdAt: ago(300), highlights: [{ _id: new mongoose.Types.ObjectId(), text: 'Old line.', createdAt: ago(299) }] }
+    ]);
+    await ArticleReadingState.create({ userId, articleId: read, anchor: { text: 'Where you stopped.', startOffsetApprox: 0 }, ratio: 0.4, visitedAt: ago(3) });
+
+    const app = express();
+    app.use(buildLibraryCollectionRouter({
+      auth: (req, _res, next) => { req.user = { id: String(userId) }; next(); },
+      humanOnly: (_req, _res, next) => next(),
+      mongoose,
+      Article,
+      ArticleReadingState
+    }));
+    server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+    const titles = async scope => (await (await fetch(`http://127.0.0.1:${server.address().port}/api/library/collection?scope=${scope}`)).json()).items.map(row => row.title).sort();
+    assert.deepEqual(await titles('for-now'), ['Marked yesterday', 'Read again Monday', 'Saved this week']);
+    assert.deepEqual(await titles('underneath'), ['Sank long ago']);
+  } finally {
+    server?.close();
+    await mongoose.disconnect();
+    await memory.stop();
+  }
+});

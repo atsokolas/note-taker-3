@@ -59,6 +59,7 @@ test('home: kept, for now, underneath, and what came back', async () => {
   try {
     const { body } = await call('/api/home?today=2026-11-25');
     assert.deepEqual(body.kept.map(item => [item.kind, item.title]), [['mark', 'Meditations'], ['source', 'Going Founder Mode On Cancer']], 'Kept reads in the order it was kept');
+    assert.equal(body.kept[0].since, ago(800).toISOString(), 'a kept passage says how long you have carried it: since you marked it');
     assert.deepEqual(body.asks.map(ask => ask.highlightId), [id(12)], 'a passage opened again and again is asked about');
     assert.deepEqual(body.forNow.map(item => [item.title, item.book, item.marks]), [["Poor Charlie's Almanack", true, 1], ['Escher, Relativity', false, 0]], 'a fortnight, then it sinks');
     assert.equal(body.underneath.marks, 3);

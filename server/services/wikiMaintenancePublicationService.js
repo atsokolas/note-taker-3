@@ -94,6 +94,11 @@ const recordReviewCandidate = async ({
   summary: summary || `Held first trusted-head candidate for "${candidate?.title || page?.title || 'page'}" for owner review.`
 });
 
+/* A page made from what you kept (a kept thread, kept passages on one
+   subject) is yours: whatever the agent drafts on it, from any route or
+   background run, waits in pencil for you to take up. */
+const madeFromKept = page => /^(thread|kept-subject):/.test(String(page?.createdFrom?.label || ''));
+
 const runWikiMaintenanceCandidate = async ({
   page,
   userId,
@@ -180,7 +185,7 @@ const runWikiMaintenanceCandidate = async ({
     candidate.aiState = { ...(candidate.aiState || {}), quality };
   }
   const awaitingFirstHead = requireFirstHeadAcceptance && isFreshCompanyDossier;
-  if ((awaitingFirstHead || requireOwnerAcceptance) && !candidateFailedQuality(candidate)) {
+  if ((awaitingFirstHead || requireOwnerAcceptance || madeFromKept(page)) && !candidateFailedQuality(candidate)) {
     const reviewRevision = await recordReviewCandidate({
       WikiRevision,
       userId,

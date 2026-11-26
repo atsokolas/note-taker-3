@@ -331,6 +331,14 @@ module.exports = (router, {
           });
           let built = publication.page;
 
+          // A proposal waiting on the reader is a finished build: the service has
+          // already marked it ready and awaiting acceptance.
+          if (publication.awaitingAcceptance) {
+            await savePageWithVersionRetry(built, userId);
+            clearTimeout(stallTimer);
+            return;
+          }
+
           if (!publication.promoted) {
             // The publication service has already written why it refused, in its
             // own words — which claims had no anchor in the evidence, what the

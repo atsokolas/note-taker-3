@@ -3,6 +3,7 @@ const { stripTags } = require('../services/readableArticle');
 const plainTextFrom = (value) => stripTags(value).replace(/\s+/g, ' ').trim();
 const { projectReadingPlace } = require('./articleReadingStateRoutes');
 const { readingMinutes, lengthProjection } = require('../services/nightstand');
+const { forNowIds } = require('../services/home');
 const excerpt = (text, query = '') => {
   const value = plainTextFrom(text || '');
   const found = query ? value.toLowerCase().indexOf(query.toLowerCase()) : 0;
@@ -149,7 +150,9 @@ const buildLibraryCollectionRouter = ({
         'set-aside',
         'kept',
         'feed',
-        'pencil'
+        'pencil',
+        'for-now',
+        'underneath'
       ].includes(scope) ||
       !['recent', 'oldest', 'title'].includes(sort) ||
       typeof query !== 'string' ||
@@ -179,6 +182,10 @@ const buildLibraryCollectionRouter = ({
       if (scope === 'later') match.placement = 'later';
       if (scope === 'set-aside') match.placement = 'setAside';
       if (scope === 'kept') match.evergreen = true;
+      // For now is Home's fortnight; Underneath is everything that sank out of it.
+      if (scope === 'for-now' || scope === 'underneath') {
+        match._id = { [scope === 'for-now' ? '$in' : '$nin']: await forNowIds({ Article, ArticleReadingState, userId, now: Date.now() }) };
+      }
       // What agents read waits on its own shelf until you ink it; one they put
       // on your nightstand is there for you to read.
       if (scope === 'pencil') match.pencil = { $ne: null };

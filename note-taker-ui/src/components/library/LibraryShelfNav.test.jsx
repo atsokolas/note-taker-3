@@ -157,7 +157,7 @@ describe('LibraryShelfNav', () => {
     it('offers collection scopes only once', () => {
       renderNav({});
       const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
-      expect(labels).toEqual(['All sources', 'Kept', 'On the desk', 'Nightstand', 'Read by agents', 'Unfiled6', 'Passages']);
+      expect(labels).toEqual(['All sources', 'Kept', 'For now', 'Underneath', 'On the desk', 'Nightstand', 'Read by agents', 'Unfiled6', 'Passages']);
     });
 
     it('leaves the cabinet to the shelves and the ways of narrowing', () => {

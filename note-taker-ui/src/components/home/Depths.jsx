@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { keepPassage, readHome, readKept, readWorld } from '../../api/home';
-import { apart, dayOf, depthOf, depthSince, hostOf, keptBeside, monthOf, pathOf } from './homeModel';
+import { apart, dayOf, depthOf, depthSince, hostOf, keptBeside, monthOf, pathOf, yearsHeld } from './homeModel';
 import '../../styles/home.css';
 
 /* The three depths of one reading, read once and shown wherever a room
@@ -51,7 +51,7 @@ export function Kept({ kept, asks, onKeep, onNotNow, empty }) {
     {kept.length ? (
       <ol className="home__ledger">
         {kept.map(held => (
-          <li key={held.highlightId || held.threadId || held.articleId}>
+          <li key={held.highlightId || held.threadId || held.articleId} style={held.since ? { '--held': yearsHeld(held.since) } : undefined}>
             <time dateTime={held.at || undefined}>{held.at ? monthOf(held.at) : 'kept'}</time>
             <Link to={pathOf(held)}>
               {held.kind === 'mark' ? <q>{held.text || held.note}</q> : held.title}

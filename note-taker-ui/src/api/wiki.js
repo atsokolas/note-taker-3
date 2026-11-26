@@ -498,6 +498,16 @@ export const startWikiPageBuild = async (id, options = {}) => {
   return res.data || {};
 };
 
+/* A page made from what you kept (a thread, or passages on one subject),
+   then handed to Noeis to write around. What it writes waits in pencil on
+   the page until you take it up; your quoted passages stay as they are. */
+export const createKeptPage = async (payload) => {
+  const page = await createWikiPage(payload);
+  // Waiting for the 202 means the page opens already marked as being written.
+  await startWikiPageBuild(page._id).catch(() => {});
+  return page;
+};
+
 /**
  * Read a detached build's state off the page itself.
  * Returns one of: maintaining | ready | error | idle.
