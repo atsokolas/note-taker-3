@@ -84,12 +84,22 @@ export function ForNow({ works, empty }) {
   ) : <p className="home__quiet">{empty}</p>;
 }
 
+/* Underneath, and below it one mark of yours that sank, drifting down out
+   of sight as you watch: a different one each day. */
 export function Underneath({ underneath }) {
-  return underneath.marks ? (
+  if (!underneath.marks) return <p className="home__quiet">Nothing underneath yet. Everything you mark ends up here, and some of it comes back.</p>;
+  const { glimpse } = underneath;
+  return <>
     <p className="home__deep">
       {underneath.marks.toLocaleString()} marks in {underneath.works.toLocaleString()} works{underneath.since ? `, ${depthSince(underneath.since)}` : ''}. Not gone, only out of sight.
     </p>
-  ) : <p className="home__quiet">Nothing underneath yet. Everything you mark ends up here, and some of it comes back.</p>;
+    {glimpse ? (
+      <Link className="home__sinking" to={pathOf(glimpse)}>
+        <q>{glimpse.text}</q>
+        <small>{glimpse.title}, {monthOf(glimpse.createdAt)}</small>
+      </Link>
+    ) : null}
+  </>;
 }
 
 /* One old mark risen beside a new one: nearly the same thought, from another

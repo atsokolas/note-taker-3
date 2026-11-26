@@ -64,6 +64,7 @@ test('home: kept, for now, underneath, and what came back', async () => {
     assert.equal(body.underneath.marks, 3);
     assert.equal(body.underneath.works, 2);
     assert.equal(body.underneath.since, ago(800).toISOString(), 'underneath goes back to the first mark');
+    assert.deepEqual([body.underneath.glimpse.text, body.underneath.glimpse.book], ['Invert, always invert.', true], 'a glimpse is a mark that sank: not one made lately, not one kept');
     assert.equal(body.cameBack.mark.bookTitle, "Poor Charlie's Almanack");
     assert.equal(body.cameBack.echo.articleTitle, 'Meditations');
     assert.deepEqual(asked, [id(11)], 'only what was marked lately goes looking');

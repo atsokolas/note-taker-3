@@ -19,7 +19,7 @@ const shelf = {
     { articleId: 'c1', title: "Poor Charlie's Almanack", book: true, marks: 1, at: ago(2) },
     { articleId: 'e1', title: 'Escher, Relativity', book: false, marks: 0, at: ago(9) }
   ],
-  underneath: { marks: 1204, works: 211, since: ago(7 * 366) },
+  underneath: { marks: 1204, works: 211, since: ago(7 * 366), glimpse: { articleId: 'z1', highlightId: 'z7', book: true, title: 'Zero to One', text: 'Competition is for losers.', createdAt: '2024-03-01T12:00:00Z' } },
   cameBack: {
     mark: { _id: 'h11', text: 'Pacifism is not free.', createdAt: ago(2), bookId: 'c1', bookTitle: "Poor Charlie's Almanack" },
     echo: { _id: 'k9', text: 'Peace is kept by those ready for war.', createdAt: ago(800), articleId: 'v1', articleTitle: 'Vegetius' }
@@ -42,6 +42,7 @@ describe('Home', () => {
     expect(screen.getByText(/You’re reading/)).toHaveTextContent("You’re reading Poor Charlie's Almanack");
     expect(screen.getByText(/1,204 marks in 211 works, seven years of reading/)).toBeInTheDocument();
     expect(screen.getByRole('figure', { name: 'Came back today' })).toHaveTextContent('two years apart');
+    expect(screen.getByRole('link', { name: /Competition is for losers/ })).toHaveAttribute('href', expect.stringContaining('/books/z1'));
   });
 
   it('keeps the passage you keep opening, or lets it rest', async () => {
