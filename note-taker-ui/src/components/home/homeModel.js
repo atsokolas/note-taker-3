@@ -23,6 +23,9 @@ export const issueMonth = (month, now = Date.now()) => new Date(`${month}-01T12:
 // Where a page from the open web lives, as its host.
 export const hostOf = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return 'Web'; } };
 
+// Years you have carried something, to a sixth year: ink warms with it, then holds.
+export const yearsHeld = (since, now = Date.now()) => Math.min(6, Math.max(0, (now - timeOf(since)) / (365.25 * DAY_MS)));
+
 export const monthOf = value => new Date(value).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 
 export const dayOf = (value, now = Date.now()) => {

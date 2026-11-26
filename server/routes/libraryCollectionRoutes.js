@@ -183,7 +183,7 @@ const buildLibraryCollectionRouter = ({
       if (scope === 'set-aside') match.placement = 'setAside';
       if (scope === 'kept') match.evergreen = true;
       // For now is Home's fortnight; Underneath is everything that sank out of it.
-      if (['for-now', 'underneath'].includes(scope)) {
+      if (scope === 'for-now' || scope === 'underneath') {
         match._id = { [scope === 'for-now' ? '$in' : '$nin']: await forNowIds({ Article, ArticleReadingState, userId, now: Date.now() }) };
       }
       // What agents read waits on its own shelf until you ink it; one they put

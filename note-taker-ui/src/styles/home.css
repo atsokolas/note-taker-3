@@ -136,6 +136,12 @@
   font: 1.02rem/1.5 var(--font-serif);
 }
 
+/* Kept ages like paper: the longer you have carried a thought, the warmer
+   its ink, a little each year for six years. Nothing is said about it. */
+.home__ledger li > a {
+  color: color-mix(in srgb, var(--noeis-thread) calc(var(--held, 0) * 7%), var(--text));
+}
+
 /* What you keep opening, asked about in pencil: the agent's hand, one line. */
 .home__ask {
   margin: var(--space-4) 0 0 var(--hang);

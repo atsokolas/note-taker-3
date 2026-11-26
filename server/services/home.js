@@ -20,13 +20,15 @@ const marksOf = article => (article.highlights || []).filter(mark => mark.text |
 const idOf = value => String(value);
 const isBook = article => BOOK_URL.test(article.url || '');
 
+// Each kept thing says when it was kept (at) and how long you have carried it (since: when you first saved or marked it).
 const kept = (articles, threads) => [
   ...articles.filter(article => article.evergreen).map(article => ({
     kind: 'source',
     book: isBook(article),
     articleId: idOf(article._id),
     title: article.title,
-    at: article.evergreenAt
+    at: article.evergreenAt,
+    since: article.createdAt
   })),
   ...articles.flatMap(article => marksOf(article).filter(mark => mark.keptAt).map(mark => ({
     kind: 'mark',
@@ -37,10 +39,11 @@ const kept = (articles, threads) => [
     text: mark.text || '',
     note: mark.note || '',
     page: mark.page || null,
-    at: mark.keptAt
+    at: mark.keptAt,
+    since: mark.createdAt
   }))),
   // A thread's passages ride along in one line, so what bears on your writing can find the thread by what it says.
-  ...threads.map(thread => ({ kind: 'thread', threadId: thread.threadId, title: thread.title, text: thread.marks.map(mark => mark.text).join(' '), marks: thread.marks.length, at: thread.answeredAt }))
+  ...threads.map(thread => ({ kind: 'thread', threadId: thread.threadId, title: thread.title, text: thread.marks.map(mark => mark.text).join(' '), marks: thread.marks.length, at: thread.answeredAt, since: new Date(Math.min(...thread.marks.map(mark => timeOf(mark.createdAt)))) }))
 ].sort((a, b) => timeOf(a.at) - timeOf(b.at));
 
 // The passages you keep coming back to, most opened first, asked about in pencil.
@@ -113,7 +116,7 @@ const home = ({ articles, readings, threads = [], now = Date.now() }) => {
   };
 };
 
-const KEPT_FIELDS = 'title url evergreen evergreenAt highlights._id highlights.text highlights.note highlights.page highlights.createdAt highlights.keptAt';
+const KEPT_FIELDS = 'title url createdAt evergreen evergreenAt highlights._id highlights.text highlights.note highlights.page highlights.createdAt highlights.keptAt';
 
 /* Kept on its own, without the rest of Home: for the brief an agent opens
    with and for ⌘K. Only what holds something kept is read. */
