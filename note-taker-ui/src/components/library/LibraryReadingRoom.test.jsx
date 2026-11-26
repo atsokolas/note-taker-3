@@ -5,12 +5,14 @@ import LibraryReadingRoom from './LibraryReadingRoom';
 import { getReadingRoom, getWorthSayingPhrasing } from '../../api/readingRoom';
 import { fetchLately } from '../../api/retrieval';
 import { weekKey } from './libraryReadingRoomModel';
+import { readHome } from '../../api/home';
 
 jest.mock('../../api/readingRoom', () => ({
   getReadingRoom: jest.fn(),
   getWorthSayingPhrasing: jest.fn()
 }));
 jest.mock('../../api/retrieval', () => ({ fetchLately: jest.fn() }));
+jest.mock('../../api/home', () => ({ readHome: jest.fn(), keepPassage: jest.fn() }));
 
 const EMPTY = { pick: null, stillReading: [], newFromSources: [], weather: null, worthSaying: [], modelAvailable: false };
 const SAYING = [1, 2, 3].map((n) => ({ articleId: `s${n}`, title: `Source ${n}`, highlightId: `h${n}`, quote: `Quoted line ${n}.` }));
@@ -32,11 +34,32 @@ const MONDAY = new Date(2026, 9, 12, 9);
 beforeEach(() => {
   jest.clearAllMocks();
   fetchLately.mockResolvedValue([]);
+  readHome.mockRejectedValue(new Error('offline'));
   window.localStorage.clear();
 });
 afterEach(() => jest.useRealTimers());
 
 describe('LibraryReadingRoom', () => {
+  it('opens on the Library’s own depths: kept sources, what lies underneath, and what came back', async () => {
+    readHome.mockResolvedValue({
+      kept: [
+        { kind: 'source', book: false, articleId: 's1', title: 'Going Founder Mode On Cancer', at: '2026-10-01T00:00:00Z' },
+        { kind: 'mark', book: true, articleId: 'b1', highlightId: 'k1', title: 'Meditations', text: 'Not like your enemy.', at: '2025-03-01T00:00:00Z' },
+        { kind: 'thread', threadId: 't1', title: 'A thread', marks: 3, at: '2026-11-01T00:00:00Z' }
+      ],
+      asks: [],
+      forNow: [],
+      underneath: { marks: 1553, works: 49, since: '2019-01-01T00:00:00Z' },
+      cameBack: null
+    });
+    renderRoom(EMPTY);
+    expect(await screen.findByRole('link', { name: /Going Founder Mode On Cancer/ })).toBeInTheDocument();
+    expect(screen.queryByText('Not like your enemy.')).not.toBeInTheDocument();
+    expect(screen.queryByText('A thread')).not.toBeInTheDocument();
+    expect(screen.getByText(/1,553 marks in 49 works/)).toBeInTheDocument();
+    expect(screen.getByText(/Quiet this week/)).toBeInTheDocument();
+  });
+
   it('renders nothing at all when every section is empty', async () => {
     const { container } = renderRoom(EMPTY);
     await waitFor(() => expect(getReadingRoom).toHaveBeenCalled());
@@ -56,7 +79,7 @@ describe('LibraryReadingRoom', () => {
       to: { type: 'highlight', id: 'h1', articleId: 'b1', title: 'Thinking in Bets', quote: 'Keep the cue and change the routine.' }
     }]);
     const { onOpen } = renderRoom(EMPTY);
-    expect(await screen.findByText('Connected this week')).toBeInTheDocument();
+    expect(await screen.findByText('Came back')).toBeInTheDocument();
     expect(screen.getByTestId('reading-room-connected')).toHaveTextContent('Atomic Habits echoes “Keep the cue and change the routine.”, which you marked in Thinking in Bets.');
     fireEvent.click(screen.getByRole('button', { name: 'Atomic Habits' }));
     expect(onOpen).toHaveBeenCalledWith('a7', undefined);
@@ -68,7 +91,7 @@ describe('LibraryReadingRoom', () => {
     expect(onOpen).toHaveBeenCalledWith('p1', undefined);
     expect(screen.getByText(/Not yet opened\. · Aeon/)).toBeInTheDocument();
     expect(screen.getByText(/One a day, from the oldest things you saved/)).toBeInTheDocument();
-    expect(screen.queryByText('Still reading')).not.toBeInTheDocument();
+    expect(screen.queryByText('For now')).not.toBeInTheDocument();
     expect(screen.queryByText('New from your sources')).not.toBeInTheDocument();
   });
 
@@ -78,7 +101,7 @@ describe('LibraryReadingRoom', () => {
       stillReading: [{ articleId: 'r1', title: 'Halfway piece', ratio: 0.5 }, { articleId: 'r2', title: 'Marked piece', ratio: null }],
       newFromSources: [{ articleId: 'n1', title: 'Fresh letter', sourceName: 'Stratechery' }]
     });
-    expect(await screen.findByText('Still reading')).toBeInTheDocument();
+    expect(await screen.findByText('For now')).toBeInTheDocument();
     expect(screen.getByText('about halfway')).toBeInTheDocument();
     expect(screen.getByText('marked recently')).toBeInTheDocument();
     expect(screen.getByText('New from your sources')).toBeInTheDocument();

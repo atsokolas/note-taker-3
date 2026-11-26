@@ -331,3 +331,11 @@
 @media (max-width: 520px) {
   .home { --hang: 4.25rem; }
 }
+
+/* The same depths inside a room: a band in the room's own column. */
+.home--band {
+  width: auto;
+  margin: var(--space-5) 0;
+  padding: 0;
+  border-top: 1px solid var(--border-subtle-2);
+}
