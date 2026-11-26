@@ -98,7 +98,8 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thre
   router.get('/api/world', authenticateToken, async (req, res) => {
     const query = String(req.query.q || '').replace(/\s+/g, ' ').trim().slice(0, 200);
     if (query.length < 3) return res.status(400).json({ error: 'Ask about something.' });
-    const today = calendarDay(req.query.today);
+    // The allowance runs on the server's day: a reader's own date could be anything.
+    const today = new Date(now()).toISOString().slice(0, 10);
     const key = `${today}:${query.toLowerCase()}`;
     if (searched.has(key)) return res.json({ query, pages: searched.get(key) });
     const spent = `${req.user.id}:${today}`;

@@ -19,6 +19,6 @@ export const answerThread = async (threadId, answer) => (
 );
 // Beyond your library: a few pages from the open web, searched only when asked.
 export const readWorld = async query => (
-  (await api.get(`/api/world?q=${encodeURIComponent(query)}&today=${today()}`, getAuthHeaders())).data?.pages || []
+  (await api.get(`/api/world?q=${encodeURIComponent(query)}`, getAuthHeaders())).data?.pages || []
 );
 export const readKept = async () => (await api.get('/api/kept', getAuthHeaders())).data?.kept || [];

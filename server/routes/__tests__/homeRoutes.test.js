@@ -180,6 +180,7 @@ test('home: a thread forms, waits for an answer, and is kept', async () => {
    allowance, and silence when the search fails. */
 test('world: searched once a day per question, within an allowance, quiet on failure', async () => {
   const searched = [];
+  let clock = NOW;
   const searchWorld = async query => {
     searched.push(query);
     if (query === 'broken search') throw new Error('upstream');
@@ -195,7 +196,7 @@ test('world: searched once a day per question, within an allowance, quiet on fai
     echoOf: async () => null,
     formingAround: async () => [],
     searchWorld,
-    now: () => NOW
+    now: () => clock
   }));
   const server = app.listen(0);
   const call = async path => {
@@ -205,14 +206,15 @@ test('world: searched once a day per question, within an allowance, quiet on fai
 
   try {
     assert.equal((await call('/api/world?q=ab')).status, 400, 'ask about something');
-    const first = await call('/api/world?q=Deterrence%20%20theory&today=2026-11-25');
+    const first = await call('/api/world?q=Deterrence%20%20theory');
     assert.deepEqual(first.body, { query: 'Deterrence theory', pages: [{ title: 'Deterrence', url: 'https://example.org/deterrence', age: '' }] });
-    await call('/api/world?q=deterrence%20theory&today=2026-11-25');
+    await call('/api/world?q=deterrence%20theory');
     assert.deepEqual(searched, ['Deterrence theory'], 'the same question is searched once a day');
-    assert.deepEqual((await call('/api/world?q=broken%20search&today=2026-11-25')).body.pages, [], 'a failed search is silence');
-    for (let n = searched.length; n < 20; n += 1) await call(`/api/world?q=question%20${n}&today=2026-11-25`);
-    assert.equal((await call('/api/world?q=one%20more&today=2026-11-25')).status, 429, 'twenty a day');
-    assert.equal((await call('/api/world?q=one%20more&today=2026-11-26')).status, 200, 'a new day, a new allowance');
+    assert.deepEqual((await call('/api/world?q=broken%20search')).body.pages, [], 'a failed search is silence');
+    for (let n = searched.length; n < 20; n += 1) await call(`/api/world?q=question%20${n}`);
+    assert.equal((await call('/api/world?q=one%20more&today=2030-01-01')).status, 429, 'twenty a day, whatever day the reader says it is');
+    clock = NOW + DAY;
+    assert.equal((await call('/api/world?q=one%20more')).status, 200, 'a new day, a new allowance');
   } finally {
     server.close();
   }
