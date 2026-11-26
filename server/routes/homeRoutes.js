@@ -12,6 +12,8 @@ const { relations } = require('../services/disagreements');
 const HOME_FIELDS = 'title url author createdAt evergreen evergreenAt highlights._id highlights.text highlights.note highlights.page highlights.createdAt highlights.opens highlights.keptAt';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REMEMBERED = 500;
+// A kept passage is a passage, not a page.
+const KEPT_PASSAGE_MAX = 1200;
 // Each search of the open web is paid for, so a reader gets this many a day.
 const WORLD_SEARCHES_A_DAY = 20;
 // How many of the marks made lately are asked whether something formed around them.
@@ -178,6 +180,26 @@ const buildHomeRouter = ({ authenticateToken, Article, ArticleReadingState, Thre
       mark.keptAt = req.body.kept ? (mark.keptAt || new Date(now())) : null;
       await article.save();
       return res.json({ highlightId, keptAt: mark.keptAt });
+    } catch (error) {
+      console.error('Error keeping a passage:', error);
+      return res.status(500).json({ error: 'That passage could not be kept.' });
+    }
+  });
+
+  /* Keep a passage from something you read outside the Library, such as an
+     issue an agent wrote: its source joins the Library if it is not there,
+     and the passage is kept on it, so it is on Kept like anything else. */
+  router.post('/api/kept/passages', authenticateToken, async (req, res) => {
+    const text = String(req.body?.text || '').replace(/\s+/g, ' ').trim();
+    const title = String(req.body?.title || '').trim().slice(0, 300);
+    const url = String(req.body?.url || '').trim();
+    if (!text || text.length > KEPT_PASSAGE_MAX || !title || !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'Name the passage, its title and where it lives.' });
+    try {
+      const article = await Article.findOne({ userId: req.user.id, url }) || new Article({ userId: req.user.id, url, title, highlights: [] });
+      const mark = article.highlights.find(held => held.text === text) || article.highlights[article.highlights.push({ text }) - 1];
+      mark.keptAt = mark.keptAt || new Date(now());
+      await article.save();
+      return res.status(201).json({ articleId: String(article._id), highlightId: String(mark._id), keptAt: mark.keptAt });
     } catch (error) {
       console.error('Error keeping a passage:', error);
       return res.status(500).json({ error: 'That passage could not be kept.' });

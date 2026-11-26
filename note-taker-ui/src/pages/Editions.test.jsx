@@ -16,8 +16,8 @@ jest.mock('react-router-dom', () => ({
 }));
 jest.mock('../api/editions');
 jest.mock('../api/notebook', () => ({ createNotebookEntry: jest.fn() }));
-jest.mock('../api/home', () => ({ readUnderneathMonths: jest.fn() }));
-const { readUnderneathMonths } = require('../api/home');
+jest.mock('../api/home', () => ({ readUnderneathMonths: jest.fn(), keepFrom: jest.fn() }));
+const { keepFrom, readUnderneathMonths } = require('../api/home');
 jest.mock('../api', () => ({ get: jest.fn().mockResolvedValue({ data: { content: '<p>Saved source.</p>' } }) }));
 jest.mock('../components/editions/editionReadingState', () => ({
   ...jest.requireActual('../components/editions/editionReadingState'),
@@ -434,6 +434,25 @@ it('keeps the selected words in a Notebook quote with the exact finding link', a
     expect(screen.getByRole('link', { name: /Open note/ })).toHaveAttribute('href', '/think?tab=notebook&entryId=clipped-note');
     const payload = { source: 'edition-selection', title: item.title, blocks: [{ type: 'quote', text: excerpt, articleTitle: 'Weekend Readings · Edition 2', sourcePath: '/editions/e1#edition-item-one' }] };
     expect(createNotebookEntry.mock.calls).toEqual([[payload], [payload]]);
+  } finally {
+    selection.removeAllRanges();
+  }
+});
+it('keeps the selected words for good, on the finding\'s source', async () => {
+  keepFrom.mockResolvedValue({ articleId: 'a', highlightId: 'h' });
+  render(<Editions />);
+  const prose = await screen.findByText(item.finding);
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.setStart(prose.firstChild, 0);
+  range.setEnd(prose.firstChild, 'Being informed'.length);
+  selection.removeAllRanges();
+  try {
+    selection.addRange(range);
+    fireEvent(document, new Event('selectionchange'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Keep for good' }));
+    expect(await screen.findByRole('button', { name: 'Kept for good' })).toHaveAttribute('aria-disabled', 'true');
+    expect(keepFrom).toHaveBeenCalledWith({ url: 'https://example.com/source', title: item.title, text: 'Being informed' });
   } finally {
     selection.removeAllRanges();
   }

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import useEvidenceReturnFocus from '../../hooks/useEvidenceReturnFocus';
 import { setEditionItemState } from '../../api/editions';
 import { createNotebookEntry } from '../../api/notebook';
+import { keepFrom } from '../../api/home';
 import {
   aheadLine,
   byHand,
@@ -61,6 +62,7 @@ export default function EditionReading({
   const [peek, setPeek] = useState(null);
   const [selection, setSelection] = useState(null);
   const [keptSelection, setKeptSelection] = useState(null);
+  const [keptForGood, setKeptForGood] = useState('');
   const keeping = useRef(false);
   const thoughts = useEditionThoughts(issue._id);
   useEffect(() => {
@@ -248,6 +250,8 @@ export default function EditionReading({
     keeping.current = false;
     setKeptSelection(note?._id ? { key: selectionKey, entryId: note._id } : { key: selectionKey, phase: 'failed' });
   };
+  // Kept for good: the passage joins Kept, on its source in the Library.
+  const keepForGood = item => keepFrom({ url: item.url, title: item.title, text: selection.quote }).then(() => setKeptForGood(selectionKey), () => {});
   const run = paper?.issues || [];
   const place = run.findIndex(other => other._id === issue._id);
   const before = place > 0 ? run[place - 1] : null;
@@ -289,6 +293,9 @@ export default function EditionReading({
           <button type="button" aria-disabled={keptSelection?.phase === 'saving' || Boolean(keepReceipt?.entryId)} onClick={() => keepSelection(item)}>
             {keepReceipt?.entryId ? 'Kept in Notebook' : keepReceipt?.phase === 'saving' ? 'Keeping…' : 'Keep in Notebook'}
           </button>
+          {item.url ? <button type="button" aria-disabled={keptForGood === selectionKey} onClick={() => keptForGood !== selectionKey && keepForGood(item)}>
+            {keptForGood === selectionKey ? 'Kept for good' : 'Keep for good'}
+          </button> : null}
           {selection.lead ? <button type="button" onClick={() => {
             const origin = document.getElementById(findingAnchor(item.itemId))?.querySelector('.reading-actions button:last-child');
             openPeek(item, 'thought', origin, selection.quote);

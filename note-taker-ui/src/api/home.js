@@ -28,3 +28,5 @@ export const readUnderneath = async month => (await api.get(`/api/underneath/${e
 // Judgment's margin: a passage you kept that argues with a view you hold, or null.
 export const readKeptArgues = async () => (await api.get(`/api/kept/argues?today=${today()}`, getAuthHeaders())).data?.argues || null;
 export const strikeKeptArgues = async about => (await api.post('/api/kept/argues/strike', { about }, getAuthHeaders())).data;
+// Keep a passage read outside the Library, such as in an issue: its source joins the Library.
+export const keepFrom = async ({ url, title, text }) => (await api.post('/api/kept/passages', { url, title, text }, getAuthHeaders())).data;

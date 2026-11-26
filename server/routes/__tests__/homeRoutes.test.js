@@ -265,3 +265,31 @@ test('kept argues: one kept passage against a view you hold, from Kept alone, un
     server.close();
   }
 });
+
+// A passage kept from an issue: its source joins the Library once, and the passage is on Kept.
+test('kept passages: a passage from outside the Library is kept on its source, once', async () => {
+  const saved = [];
+  function Article(fields) { Object.assign(this, fields); }
+  Article.prototype.save = async function save() { this._id = this._id || id(50); this.highlights.forEach((mark, at) => { mark._id = mark._id || id(60 + at); }); if (!saved.includes(this)) saved.push(this); };
+  Article.findOne = async ({ url }) => saved.find(article => article.url === url) || null;
+  const app = express();
+  app.use(express.json());
+  app.use(buildHomeRouter({ authenticateToken: (req, _res, next) => { req.user = { id: 'reader' }; next(); }, Article, Thread: {}, ArticleReadingState: {}, now: () => NOW }));
+  const server = app.listen(0);
+  const post = async body => {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/kept/passages`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    return { status: response.status, body: await response.json() };
+  };
+  try {
+    const passage = { url: 'https://example.com/scaling', title: 'Scaling laws, revisited', text: '  Compute is   no longer the constraint; data is. ' };
+    assert.equal((await post({ ...passage, url: 'javascript:alert(1)' })).status, 400);
+    const first = await post(passage);
+    assert.equal(first.status, 201);
+    const again = await post(passage);
+    assert.equal(again.body.highlightId, first.body.highlightId, 'the same passage is kept once');
+    assert.equal(saved.length, 1);
+    assert.deepEqual(saved[0].highlights.map(mark => [mark.text, mark.keptAt.toISOString()]), [['Compute is no longer the constraint; data is.', new Date(NOW).toISOString()]]);
+  } finally {
+    server.close();
+  }
+});
