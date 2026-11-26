@@ -7,10 +7,12 @@ import { updateHighlight } from '../api/highlights';
 import useArticleDetail from '../hooks/useArticleDetail';
 import { listWikiPages, settleIntoWiki } from '../api/wiki';
 import { fetchAdded, fetchMarginNotes } from '../api/retrieval';
+import { readHome } from '../api/home';
 
 jest.mock('../api/imports', () => ({ askBook: jest.fn(), beforeBook: jest.fn(), bookEcho: jest.fn(), lendBook: jest.fn(), takeBookBack: jest.fn(), closeBook: jest.fn(), listBookQuestions: jest.fn(), listBooks: jest.fn(), readAgain: jest.fn(), renameBook: jest.fn(), reopenBook: jest.fn(), startBook: jest.fn() }));
 jest.mock('../api/highlights', () => ({ createHighlight: jest.fn(), deleteHighlight: jest.fn(), updateHighlight: jest.fn() }));
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
+jest.mock('../api/home', () => ({ readHome: jest.fn(), keepPassage: jest.fn() }));
 jest.mock('../api/wiki', () => ({ listWikiPages: jest.fn(), settleIntoWiki: jest.fn() }));
 jest.mock('../api/retrieval', () => ({ fetchMarginNotes: jest.fn(), fetchAdded: jest.fn() }));
 
@@ -28,6 +30,30 @@ beforeEach(() => {
   listBookQuestions.mockResolvedValue([]);
   bookEcho.mockResolvedValue(null);
   beforeBook.mockResolvedValue([]);
+  readHome.mockRejectedValue(new Error('offline'));
+});
+
+test('the shelf opens on the desk and what you kept from books, and inks each spine by what you kept', async () => {
+  readHome.mockResolvedValue({
+    kept: [
+      { kind: 'mark', book: true, articleId: 'b1', highlightId: 'k1', title: 'Meditations', text: 'Not like your enemy.', at: '2025-03-01T00:00:00Z' },
+      { kind: 'source', book: false, articleId: 's1', title: 'Going Founder Mode On Cancer', at: '2026-10-01T00:00:00Z' },
+      { kind: 'thread', threadId: 't1', title: 'A thread through Meditations and Vegetius', marks: 3, at: '2026-11-01T00:00:00Z' }
+    ],
+    asks: [],
+    forNow: [{ articleId: 'b1', title: 'Meditations', book: true, marks: 2, at: new Date().toISOString() }, { articleId: 'e1', title: 'Escher', book: false, marks: 0, at: new Date().toISOString() }],
+    underneath: { marks: 10, works: 2, since: null },
+    cameBack: null
+  });
+  listBooks.mockResolvedValue([{ _id: 'b1', title: 'Meditations', marks: [{ _id: 'k1', text: 'Not like your enemy.', createdAt: '2025-03-01T00:00:00Z' }] }]);
+  at();
+  const kept = await screen.findByRole('region', { name: /Kept from books/ });
+  expect(kept).toHaveTextContent('Not like your enemy.');
+  expect(screen.getByText('A thread through Meditations and Vegetius')).toBeInTheDocument();
+  expect(screen.queryByText('Going Founder Mode On Cancer')).not.toBeInTheDocument();
+  expect(screen.queryByText('Escher')).not.toBeInTheDocument();
+  const spine = await screen.findByRole('button', { name: 'Meditations' });
+  expect(spine.closest('li')).toHaveStyle({ '--kept': '1' });
 });
 
 test('the shelf shows each book with what was written in it and the last line', async () => {

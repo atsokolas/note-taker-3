@@ -19,6 +19,13 @@
 }
 
 .editions__empty { margin: 40px 0; max-width: 58ch; }
+/* Your own issue, ruled off below the papers agents write. */
+.editions__underneath { margin: 40px 0 0; padding-top: 16px; max-width: 58ch; border-top: 1px solid var(--border-subtle-2); }
+.editions__underneath h2 { margin: 0 0 6px; font: 500 1.3rem/1.2 var(--font-serif); }
+.editions__underneath a { color: inherit; text-decoration: none; }
+.editions__underneath a:hover, .editions__underneath a:focus-visible { text-decoration: underline; text-underline-offset: 0.2em; }
+.editions__underneath p { margin: 0 0 6px; line-height: 1.55; }
+.editions__underneath-back { color: var(--muted); font-size: 0.9rem; }
 .editions__empty h2 { margin: 0 0 10px; font-size: 1.4rem; }
 .editions__empty p { margin: 0 0 8px; line-height: 1.55; }
 .editions__specimen {

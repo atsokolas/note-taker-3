@@ -7,12 +7,13 @@ import AddToProject from './AddToProject';
 import { FRIDAYS, decisionsIn, entriesOf, fade, hillOn, project, projects } from './workProjects';
 import api from '../api';
 import { forgetWorkSession } from './workSessions';
-import { dayInZone } from './workPlannerModel';
+import { dayInZone, weekDays } from './workPlannerModel';
 jest.mock('../api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), put: jest.fn() }, clearStoredTokens: jest.fn() }));
 
 const today = dayInZone(new Date());
 const ago = days => new Date(Date.now() - days * 86400000).toISOString();
 let records, folders;
+const kept = [{ kind: 'mark', highlightId: 'k1', articleId: 'a1', title: 'Poor Charlie\'s Almanack', text: 'Ask for the churn file before you trust the story.' }];
 beforeEach(() => {
   forgetWorkSession('owner'); localStorage.clear(); localStorage.setItem('token', `x.${btoa(JSON.stringify({ id: 'owner' }))}.x`); jest.clearAllMocks();
   folders = [{ _id: 'm', name: 'Meetings', kind: 'folder', revision: 0 },
@@ -23,7 +24,7 @@ beforeEach(() => {
     { _id: 'ask', revision: 0, title: 'Ask Priya for the churn file', takenOn: today, workItem: { kind: 'task', noteId: 'call', priority: 0, history: [] } },
     { _id: 'owed', revision: 0, title: 'The data room login', project: 'f', takenOn: today, workItem: { kind: 'task', list: 'waiting', waitingOn: 'Priya', sortedOn: today, priority: 0, history: [] } },
     { _id: 'bands', revision: 0, title: 'Send Sam the comp bands', project: 'h', takenOn: '2026-01-05', updatedAt: ago(40), workItem: { kind: 'task', list: 'next', sortedOn: '2026-01-05', priority: 0, history: [] } }];
-  api.get.mockImplementation(async path => path.endsWith('/projects') ? { data: folders.filter(x => x.kind === 'project') } : { data: { entries: records.filter(x => !x.workItem), items: records.filter(x => x.workItem), folders } });
+  api.get.mockImplementation(async path => path === '/api/kept' ? { data: { kept } } : path.endsWith('/projects') ? { data: folders.filter(x => x.kind === 'project') } : { data: { entries: records.filter(x => !x.workItem), items: records.filter(x => x.workItem), folders } });
   api.post.mockImplementation(async (path, body) => { const record = { ...body, _id: 'new-' + records.length, revision: 0 }; records.push(record); return { data: record }; });
   api.put.mockImplementation(async (path, body) => {
     const list = path.includes('/folders/') ? folders : records, index = list.findIndex(x => x._id === path.split('/').pop()), current = list[index];
@@ -114,6 +115,32 @@ test('a project page reads the same way every time: log, next with what is owed,
   expect(within(page.getByRole('region', { name: 'Decided' })).getByText('We ask for the 2024 cohort.')).toBeInTheDocument();
   expect(within(page.getByRole('region', { name: 'Kept' })).getByRole('link', { name: 'Acme Analytics' })).toBeInTheDocument();
   for (const gone of ['Waiting on', 'Notes', 'Decisions', 'From the rest of Noeis']) expect(page.queryByRole('region', { name: gone })).toBeNull();
+});
+
+test('what you keep for good shows beside a project only once you switch it on there, and no Work text is sent for it', async () => {
+  work('view=project&folder=f');
+  const page = within(await screen.findByRole('region', { name: 'Fund II diligence' }));
+  const shelf = within(page.getByRole('region', { name: 'Kept' }));
+  expect(shelf.queryByText('From what you keep for good')).toBeNull();
+  fireEvent.click(shelf.getByRole('button', { name: 'Show what you keep for good beside it' }));
+  await waitFor(() => expect(folders[1].keptBeside).toBe(true));
+  expect(await shelf.findByRole('link', { name: /churn file before you trust/ })).toHaveAttribute('href', '/library?articleId=a1&highlightId=k1');
+  expect(api.get.mock.calls.filter(([path]) => path === '/api/kept').every(([, options]) => !JSON.stringify(options || {}).includes('Priya'))).toBe(true);
+  fireEvent.click(shelf.getByRole('button', { name: 'Stop showing what you keep for good beside it' }));
+  await waitFor(() => expect(folders[1].keptBeside).toBe(false));
+});
+
+test('Actions keeps a read-only margin beside the week, from projects switched on and no others', async () => {
+  folders[1].keptBeside = true;
+  const monday = weekDays(today)[0];
+  records.push({ _id: 'week', revision: 0, workItem: { kind: 'week', plannedOn: monday, priorities: [
+    { id: 'p1', title: 'Settle the churn question', taskIds: ['ask'], status: 'active', reviewed: true },
+    { id: 'p2', title: 'Close the comp bands', taskIds: ['bands'], status: 'active', reviewed: true }
+  ] } });
+  work('view=actions&list=all');
+  expect(await screen.findByText('Kept that bears on this week')).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /churn file before you trust/ })).toBeInTheDocument();
+  expect(screen.getByText('On for Fund II diligence · off for Hiring, Office move')).toBeInTheDocument();
 });
 
 test('the Monday question is answered once a week and the answer reads in the log', async () => {

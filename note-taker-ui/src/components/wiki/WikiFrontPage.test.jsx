@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as router from 'react-router-dom';
+import { readKept } from '../../api/home';
 import WikiFrontPage from './WikiFrontPage';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import * as api from '../../api/wiki';
@@ -9,6 +10,7 @@ import { getReadingContinuation } from '../../api/readingRoom';
 
 const { listWikiPages } = api;
 
+jest.mock('../../api/home', () => ({ readKept: jest.fn() }));
 jest.mock('../../api/readingRoom', () => ({
   getReadingContinuation: jest.fn()
 }));
@@ -76,6 +78,7 @@ describe('WikiFrontPage collection', () => {
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
     listWikiPages.mockResolvedValue(pages);
+    readKept.mockResolvedValue([]);
     api.listWikiChanges.mockResolvedValue({ pageCount: 0, changes: [] });
     getPushesAgainst.mockResolvedValue(null);
     getDueView.mockResolvedValue(null);
@@ -229,11 +232,31 @@ describe('WikiFrontPage collection', () => {
     expect(await screen.findByText('Nothing has changed this week. 3 pages, all current.')).toBeInTheDocument();
   });
 
+  it('leads with pages made from kept threads, and offers a kept thread that has none, in pencil', async () => {
+    listWikiPages.mockResolvedValue([...pages, { _id: 'wiki-thread', title: 'Retaliate once, then forgive', createdFrom: { label: 'thread:t1' }, updatedAt: '2026-11-20T12:00:00.000Z' }]);
+    readKept.mockResolvedValue([
+      { kind: 'thread', threadId: 't1', title: 'A thread through Meditations and Vegetius', marks: 3 },
+      { kind: 'thread', threadId: 't2', title: 'A thread through Zero to One and CS183', marks: 4 }
+    ]);
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    const made = await screen.findByRole('region', { name: 'Made from kept threads' });
+    expect(within(made).getByRole('link', { name: 'Retaliate once, then forgive' })).toHaveAttribute('href', expect.stringContaining('wiki-thread'));
+    expect(await within(made).findByRole('link', { name: 'A thread through Zero to One and CS183' })).toHaveAttribute('href', '/threads/t2');
+    expect(within(made).queryByText('A thread through Meditations and Vegetius')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Retaliate once, then forgive' })).toHaveLength(1);
+  });
+
   it('bylines rows instead of naming their type', async () => {
-    listWikiPages.mockResolvedValueOnce([{ ...pages[0], aiState: { lastDraftedAt: '2026-06-10T12:00:00.000Z' } }, pages[1]]);
+    listWikiPages.mockResolvedValue([{ ...pages[0], aiState: { lastDraftedAt: '2026-06-10T12:00:00.000Z' } }, pages[1]]);
+    const { unmount } = render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    expect(await screen.findByText('written by you')).toBeInTheDocument();
+    expect(screen.queryByText(`kept by ${AGENT_DISPLAY_NAME}`)).not.toBeInTheDocument();
+    unmount();
+    // What Noeis drafted on its own has its own shelf, so your pages lead.
+    jest.spyOn(router, 'useLocation').mockReturnValue({ pathname: '/wiki', search: '?view=papers' });
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
     expect(await screen.findByText(`kept by ${AGENT_DISPLAY_NAME}`)).toBeInTheDocument();
-    expect(screen.getByText('written by you')).toBeInTheDocument();
+    expect(screen.queryByText('written by you')).not.toBeInTheDocument();
     expect(screen.queryByText('General wikis')).not.toBeInTheDocument();
   });
 
@@ -309,6 +332,7 @@ describe('WikiFrontPage collection', () => {
         aiState: { candidateStatus: 'awaiting_maintenance_acceptance', lastCandidateSummary: 'UNIQUE_CANDIDATE_PHRASE' }
       }
     ]);
+    jest.spyOn(router, 'useLocation').mockReturnValue({ pathname: '/wiki', search: '?view=all' });
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
     expect(await screen.findByRole('link', { name: 'Atlas repository' })).toBeInTheDocument();
     expect(screen.getAllByText('Repository wikis').length).toBeGreaterThan(0);

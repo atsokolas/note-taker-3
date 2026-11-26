@@ -318,6 +318,38 @@
   .thread-passages li { animation: none; }
 }
 
+/* Underneath, an issue: one column, the model's reading of each meeting in pencil. */
+.home--issue {
+  max-width: 46rem;
+}
+
+.home--issue section {
+  margin-top: var(--space-6);
+}
+
+.home__says {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-agent);
+  font: italic 0.92rem/1.5 var(--font-serif);
+}
+
+.home__keep {
+  margin-top: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: 0.75rem/1.4 var(--font-sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.home__keep:hover,
+.home__keep:focus-visible {
+  color: var(--text);
+}
+
 @media (max-width: 900px) {
   .home__depths { grid-template-columns: minmax(0, 1fr); }
   .home__depths > section {
@@ -330,4 +362,12 @@
 
 @media (max-width: 520px) {
   .home { --hang: 4.25rem; }
+}
+
+/* The same depths inside a room: a band in the room's own column. */
+.home--band {
+  width: auto;
+  margin: var(--space-5) 0;
+  padding: 0;
+  border-top: 1px solid var(--border-subtle-2);
 }

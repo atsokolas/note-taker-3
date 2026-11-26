@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getNotebookCuttings } from '../../api/notebook';
-import { getLibraryCollection } from '../../api/libraryCollection';
-import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
-import { sourceTitle } from '../../utils/sourceDisplayText';
+import { readKept } from '../../api/home';
+import { keptBeside, keptLabel, pathOf } from '../home/homeModel';
 import { inkAge } from '../../utils/inkAge';
-import { sourceLabel } from '../library/libraryColumnModel';
 import { dayLabel } from './notebook/notebookStages';
 import { whereYouStopped } from '../../pages/thinkNotesModel';
 
@@ -57,10 +55,13 @@ const WhereYouStopped = ({ lead, onOpen }) => {
 const ThinkDesk = ({ working, ideas, closed, questions = [], onOpen, onView, onStart, creating, children }) => {
   const [thought, setThought] = useState('');
   const [cutting, setCutting] = useState(null);
-  const [evergreen, setEvergreen] = useState([]);
+  const [kept, setKept] = useState([]);
   const lead = working.find(item => item.nextTimeLine) || working[0];
   const otherWork = working.filter(item => item !== lead);
   const yearAgo = [...working, ...ideas, ...closed].find(item => aYearAgo(item.createdAt));
+  // Beside the paragraph you stopped in: what you kept that bears on it, or else the latest you kept.
+  const beside = lead ? keptBeside(kept, `${lead.title} ${lead.lastLine || ''}`) : [];
+  const margin = beside.length ? beside : kept.slice(-DESK_LIMIT).reverse();
   const closedLately = closed.filter(item => thisMonth(item.board?.movedAt || item.board?.archivedAt));
 
   useEffect(() => {
@@ -68,9 +69,7 @@ const ThinkDesk = ({ working, ideas, closed, questions = [], onOpen, onView, onS
     getNotebookCuttings()
       .then(rows => { if (live && rows.length) setCutting(rows[Math.floor(Date.now() / DAY) % rows.length]); })
       .catch(() => {});
-    getLibraryCollection({ scope: 'kept', limit: DESK_LIMIT })
-      .then(({ items }) => { if (live) setEvergreen(items.filter(item => item._id)); })
-      .catch(() => {});
+    readKept().then(found => { if (live) setKept(found); }).catch(() => {});
     return () => { live = false; };
   }, []);
 
@@ -97,18 +96,17 @@ const ThinkDesk = ({ working, ideas, closed, questions = [], onOpen, onView, onS
             <p>Open an idea and choose Working to keep it on your desk.</p>
           </>}
         </section>
-        {evergreen.length ? (
-          <section className="think-desk__evergreen" aria-labelledby="think-desk-evergreen">
-            <h2 id="think-desk-evergreen">Evergreen</h2>
+        {margin.length ? (
+          <section className="think-desk__kept" aria-labelledby="think-desk-kept">
+            <h2 id="think-desk-kept">{beside.length ? 'Kept, for this paragraph' : 'Kept'}</h2>
             <ul>
-              {evergreen.map(item => (
-                <li key={item._id}>
-                  <Link className="think-desk__row" to={buildCanonicalArticlePath(item._id)}>{sourceTitle(item)}</Link>
-                  {sourceLabel(item) ? <small>{sourceLabel(item)}</small> : null}
+              {margin.map(held => (
+                <li key={held.highlightId || held.threadId || held.articleId}>
+                  <Link className="think-desk__row" to={pathOf(held)}>{keptLabel(held)}</Link>
                 </li>
               ))}
             </ul>
-            <Link className="think-desk__more" to="/library?scope=kept">Browse keepers <span aria-hidden="true">↗</span></Link>
+            <Link className="think-desk__more" to="/">Everything you keep <span aria-hidden="true">↗</span></Link>
           </section>
         ) : null}
       </div>

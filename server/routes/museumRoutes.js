@@ -2,6 +2,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { readKept } = require('../services/home');
+const { threadAsItIs } = require('../services/threads');
 const { PASSAGE_MAX, PIECE_DETAIL, SOURCES, nextAccession, ownerMuseum, publicMuseum, sourceOffer } = require('../services/museumShape');
 
 const HANDLE = /^[a-z0-9](?:[a-z0-9-]{0,28}[a-z0-9])?$/;
@@ -34,13 +35,25 @@ const safely = handler => async (req, res) => {
   }
 };
 
-const buildMuseumRouter = ({ auth, humanOnly, Museum, Article, WikiPage, NotebookEntry }) => {
+const buildMuseumRouter = ({ auth, humanOnly, Museum, Article, WikiPage, NotebookEntry, Thread }) => {
   const router = express.Router();
-  const models = { Article, WikiPage, NotebookEntry };
+  const models = { Article, WikiPage, NotebookEntry, Thread };
 
-  const sourceOf = (userId, kind, id) => (SOURCES[kind] && mongoose.isValidObjectId(id)
-    ? models[SOURCES[kind].model].findOne({ _id: id, userId }).select(SOURCES[kind].fields).lean()
-    : null);
+  // Only a kept thread hangs, read through the passages it holds today.
+  const asHung = {
+    thread: async thread => {
+      if (thread?.answer !== 'kept') return null;
+      const articles = await Article.find({ _id: { $in: thread.marks.map(mark => mark.articleId) }, userId: thread.userId }).select('title url highlights._id highlights.text highlights.createdAt').lean();
+      const read = threadAsItIs(thread, articles);
+      return read && { ...read, _id: thread._id, createdAt: thread.answeredAt };
+    }
+  };
+
+  const sourceOf = async (userId, kind, id) => {
+    if (!SOURCES[kind] || !mongoose.isValidObjectId(id)) return null;
+    const record = await models[SOURCES[kind].model].findOne({ _id: id, userId }).select(`${SOURCES[kind].fields} userId`).lean();
+    return asHung[kind] ? asHung[kind](record) : record;
+  };
 
   // Pages of your own on the wall, read live, so a page's link follows whether it is shared today.
   const pagesOn = async museum => {
@@ -54,18 +67,20 @@ const buildMuseumRouter = ({ auth, humanOnly, Museum, Article, WikiPage, Noteboo
 
   /* What you kept for good and have not hung, the longest held first: the
      same Kept as Home, so the wall is Kept, shown. A work hangs once, and a
-     passage you kept in it is the one it offers. A thread runs through
-     several works, so it is not one piece. Keeping is the one decision no
+     passage you kept in it is the one it offers; a kept thread hangs whole,
+     with its passages. Keeping is the one decision no
      agent may make, so this offers only your own. */
   const keptNotHung = async (userId, museum) => {
     const hung = new Set((museum?.pieces || []).map(piece => String(piece.targetId)));
     const [held, pages] = await Promise.all([
-      readKept({ Article, userId }),
+      readKept({ Article, Thread, userId }),
       WikiPage.find({ userId, evergreen: true }).select('title evergreenAt').lean()
     ]);
     const offers = new Map();
     for (const { kind, id, title, passage, at } of [
-      ...held.filter(item => item.kind !== 'thread').map(item => ({ kind: 'article', id: item.articleId, title: item.title, passage: item.text || '', at: item.at })),
+      ...held.map(item => (item.kind === 'thread'
+        ? { kind: 'thread', id: item.threadId, title: item.title, passage: '', at: item.at }
+        : { kind: 'article', id: item.articleId, title: item.title, passage: item.text || '', at: item.at })),
       ...pages.map(page => ({ kind: 'wiki', id: String(page._id), title: page.title, passage: '', at: page.evergreenAt }))
     ].sort((a, b) => new Date(a.at || 0).getTime() - new Date(b.at || 0).getTime())) {
       if (!title || hung.has(id)) continue;

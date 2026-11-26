@@ -141,6 +141,7 @@ function buildWorkNoteRouter({ authenticateToken, NotebookEntry, NotebookFolder,
     if (req.body.name !== undefined) { if (typeof req.body.name !== 'string' || !req.body.name.trim()) throw fail(400, 'Folder name is required.'); values.name = req.body.name; }
     if (req.body.archived !== undefined) { if (typeof req.body.archived !== 'boolean') throw fail(400, 'Choose done or reopen.'); values.archivedAt = req.body.archived ? new Date() : null; }
     if (req.body.paused !== undefined) { if (typeof req.body.paused !== 'boolean') throw fail(400, 'Choose pause or resume.'); values.pausedAt = req.body.paused ? new Date() : null; }
+    if (req.body.keptBeside !== undefined) { if (typeof req.body.keptBeside !== 'boolean') throw fail(400, 'Choose on or off.'); values.keptBeside = req.body.keptBeside; }
     for (const key of ['brief', 'closingLine']) if (req.body[key] !== undefined) { if (typeof req.body[key] !== 'string') throw fail(400, `${key} must be text.`); values[key] = req.body[key]; }
     if (req.body.links !== undefined) values.links = projectLinks(req.body.links);
     if (req.body.checkIns !== undefined) values.checkIns = checkIns(req.body.checkIns);

@@ -243,7 +243,8 @@
   padding: 0;
   border: 0;
   border-radius: 3px 3px 1px 1px;
-  background: var(--cloth);
+  /* Inked by what you kept from it, not by how much you marked. */
+  background: color-mix(in srgb, var(--cloth), var(--noeis-ink) clamp(0%, calc(var(--kept, 0) * 7%), 35%));
   color: var(--text-primary);
   box-shadow: inset -1px 0 0 color-mix(in srgb, var(--noeis-ink) 22%, transparent);
   cursor: pointer;
@@ -770,3 +771,7 @@
   display: block;
   font: italic 0.95rem/1.5 var(--font-serif);
 }
+
+/* Books' depths sit two across: the desk for now, and what you kept. */
+.home__depths.books__depths { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); }
+@media (max-width: 900px) { .home__depths.books__depths { grid-template-columns: minmax(0, 1fr); } }

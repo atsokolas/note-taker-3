@@ -24,6 +24,7 @@ import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import AddToProject from '../work/AddToProject';
 import HangInMuseum from '../components/museum/HangInMuseum';
 import '../styles/books.css';
+import { ForNow, Kept, roomOf, useHome } from '../components/home/Depths';
 
 // A book's paragraphs are what you marked in it and wrote beside it.
 const MARK_BLOCKS = '.book-desk__mark > blockquote, .book-desk__margin > .book-desk__own';
@@ -170,9 +171,9 @@ const shelfTicks = (ticks = []) => [...new Map([...ticks]
    height how far into it your marks go, its cloth the same every visit; the
    gold ticks are where you marked. A book set down leans; a finished one
    wears the month you closed it. */
-const Volume = ({ book, bookend, pulled, onPull }) => (
+const Volume = ({ book, bookend, pulled, onPull, kept = 0 }) => (
   <li className="books__volume" data-status={book.status} data-bookend={bookend || undefined}
-    style={{ '--marks': book.marks, '--furthest': book.furthest, '--cloth': clothOf(book.title) }}>
+    style={{ '--marks': book.marks, '--furthest': book.furthest, '--cloth': clothOf(book.title), '--kept': kept }}>
     <button type="button" id={shelfRowId(book.id)} aria-pressed={pulled} aria-controls="books-preview" onClick={onPull}>
       <span className="books__volume-title">{book.title}</span>
       {book.ticks.length ? <span className="books__volume-ticks" aria-hidden="true">
@@ -194,6 +195,10 @@ const Shelf = () => {
   const [selectedId, setSelectedId] = useState(place?.id);
   const previewTitle = useRef(null);
   useDocumentTitle('Books');
+  // Books' own depths: books and the threads that run through them.
+  const { home: whole, keep, putAside } = useHome();
+  const home = roomOf(whole, item => item.book || item.kind === 'thread');
+  const keptIn = id => (home?.kept || []).filter(held => held.kind === 'mark' && held.articleId === id).length;
 
   useEffect(() => {
     let cancelled = false;
@@ -274,6 +279,20 @@ const Shelf = () => {
 
       {returning ? <Returning book={returning} /> : null}
 
+      {home && (home.forNow.length || home.kept.length || home.asks.length) ? (
+        <div className="home home--band home__depths books__depths">
+          <section aria-labelledby="books-desk">
+            <h2 id="books-desk">On the desk <span>for now</span></h2>
+            <ForNow works={home.forNow} empty="No book open lately." />
+          </section>
+          <section aria-labelledby="books-kept">
+            <h2 id="books-kept">Kept from books <span>passages and threads</span></h2>
+            <Kept kept={home.kept} asks={home.asks} onKeep={keep} onNotNow={putAside}
+              empty="Nothing kept from a book yet. Keep a passage at the desk and it stays here for good." />
+          </section>
+        </div>
+      ) : null}
+
       {books?.length ? <>
         <div className="books__catalogue-filters" role="group" aria-label="Filter books">
           {BOOK_STATUSES.map(label => (
@@ -284,11 +303,11 @@ const Shelf = () => {
           <div className="books__catalogue">
             <ol className="books__shelf" aria-label="Books on this shelf">
               {entries.map((book, index) => (
-                <Volume key={book.id} book={book} pulled={selected.id === book.id} onPull={() => preview(book.id)}
+                <Volume key={book.id} book={book} kept={keptIn(book.id)} pulled={selected.id === book.id} onPull={() => preview(book.id)}
                   bookend={index && entries[index - 1].status !== book.status ? book.status : ''} />
               ))}
             </ol>
-            <p className="books__key">Wider spines are books you marked more; the gold is where you marked.</p>
+            <p className="books__key">Wider spines are books you marked more, the gold is where you marked, and the darker the cloth, the more you kept.</p>
             <aside className="books__preview" id="books-preview" aria-labelledby="books-preview-title">
               <div>
                 {selected.author ? <p className="books__author">{selected.author}</p> : null}

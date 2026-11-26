@@ -5,6 +5,7 @@ import { LEADS, Says } from '../added/WhatItAdded';
 import { scopedKey } from '../../utils/browserScope';
 import { pickLine, progressPhrase, showsWeather, weekKey } from './libraryReadingRoomModel';
 import { clothOf } from '../../utils/cloth';
+import { CameBack, Kept, Underneath, roomOf, useHome } from '../home/Depths';
 import '../../styles/library-reading-room.css';
 
 const WEATHER_KEY = 'library.readingWeather.seenWeek';
@@ -59,13 +60,13 @@ const Nightstand = ({ pick, stillReading, onOpen }) => (
   <div className="nightstand">
     {stillReading.length ? (
       <div className="nightstand__stack" data-testid="reading-room-still">
-        <h2 className="reading-room__eyebrow">Still reading</h2>
+        <h2 className="reading-room__eyebrow">For now</h2>
         <ul>
           {stillReading.map((row) => (
             <Spine key={row.articleId} row={row}><Title id={row.articleId} title={row.title} onOpen={onOpen} /></Spine>
           ))}
         </ul>
-        <p className="reading-room__rule">The longer the spine, the more you marked in it. The ribbon is where you stopped.</p>
+        <p className="reading-room__rule">The longer the spine, the more you marked in it. The ribbon is where you stopped. It sinks underneath in a couple of weeks.</p>
       </div>
     ) : null}
     {pick ? (
@@ -92,6 +93,9 @@ export default function LibraryReadingRoom({ onOpen }) {
   const [said, setSaid] = useState(null);
   const [connected, setConnected] = useState([]);
   const weatherVisible = useWeatherVisible();
+  // The Library's own depths: sources and their passages, not books or threads.
+  const { home: whole, keep, putAside } = useHome();
+  const home = roomOf(whole, item => !item.book && item.kind !== 'thread');
 
   // Asked after the room: the model may read a new arrival's pairs first.
   useEffect(() => {
@@ -127,7 +131,7 @@ export default function LibraryReadingRoom({ onOpen }) {
   const pick = room.pick?.articleId ? room.pick : null;
   const stillReading = Array.isArray(room.stillReading) ? room.stillReading : [];
   const arrivals = Array.isArray(room.newFromSources) ? room.newFromSources : [];
-  if (!weather && !pick && !stillReading.length && !arrivals.length && !worthSaying.length && !connected.length) return null;
+  if (!weather && !pick && !stillReading.length && !arrivals.length && !worthSaying.length && !connected.length && !home) return null;
 
   return (
     <section className="reading-room" aria-label="Reading room" data-testid="library-reading-room">
@@ -140,16 +144,33 @@ export default function LibraryReadingRoom({ onOpen }) {
 
       {pick || stillReading.length ? <Nightstand pick={pick} stillReading={stillReading} onOpen={onOpen} /> : null}
 
-      {connected.length ? (
-        <div className="reading-room__connected" data-testid="reading-room-connected">
-          <h2 className="reading-room__eyebrow">Connected this week</h2>
-          <ul>
-            {connected.map(({ articleId, title, ...connection }) => (
-              <li key={articleId}>
-                <Title id={articleId} title={title} onOpen={onOpen} /> {LEADS[connection.kind].toLowerCase()} <Says {...connection} />.
-              </li>
-            ))}
-          </ul>
+      {home || connected.length ? (
+        <div className="home home--band home__depths">
+          {home ? <>
+          <section aria-labelledby="library-kept">
+            <h2 id="library-kept">Kept <span>sources and passages you hold on to</span></h2>
+            <Kept kept={home.kept} asks={home.asks} onKeep={keep} onNotNow={putAside}
+              empty="Nothing kept from your sources yet. Keep a source, or one passage in it, for good." />
+          </section>
+          <section aria-labelledby="library-under">
+            <h2 id="library-under">Underneath <span>everything else, still searchable</span></h2>
+            <Underneath underneath={home.underneath} />
+          </section>
+          </> : null}
+          <section aria-labelledby="library-back" data-testid="reading-room-connected">
+            <h2 id="library-back">Came back</h2>
+            {home?.cameBack ? <CameBack pair={home.cameBack} onKeep={keep} /> : null}
+            {connected.length ? (
+              <ul className="reading-room__connected">
+                {connected.map(({ articleId, title, ...connection }) => (
+                  <li key={articleId}>
+                    <Title id={articleId} title={title} onOpen={onOpen} /> {LEADS[connection.kind].toLowerCase()} <Says {...connection} />.
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {!home?.cameBack && !connected.length ? <p className="home__quiet">Quiet this week. When something new meets something old, it shows here.</p> : null}
+          </section>
         </div>
       ) : null}
 

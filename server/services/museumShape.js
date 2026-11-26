@@ -33,6 +33,12 @@ const SOURCES = Object.freeze({
     fields: 'title plainText createdAt',
     read: page => ({ title: page.title, medium: 'Wiki page in Noeis', own: true, passages: offered(opening(page.plainText)) })
   },
+  // A kept thread, read as it is now; its title already names the works it runs through.
+  thread: {
+    model: 'Thread',
+    fields: 'marks answer answeredAt createdAt',
+    read: thread => ({ title: thread.title, medium: 'A thread in Noeis', own: true, passages: thread.marks.flatMap(mark => offered(mark.text, mark.title)) })
+  },
   note: {
     model: 'NotebookEntry',
     fields: 'title content createdAt',

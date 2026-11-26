@@ -1,10 +1,14 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import * as Router from 'react-router-dom';
 import { MemoryRouter } from 'react-router-dom';
+import { createWikiPage } from '../api/wiki';
 import Thread from './Thread';
 import { answerThread, growThread, readThread } from '../api/home';
 
 jest.mock('../api/home', () => ({ readThread: jest.fn(), answerThread: jest.fn(), growThread: jest.fn() }));
+jest.mock('../api/wiki', () => ({ createWikiPage: jest.fn() }));
+jest.mock('../components/museum/useOwnMuseum', () => () => ({ museum: { name: 'Athan', pieces: [] } }));
 
 const thread = answer => ({
   threadId: 't1',
@@ -30,6 +34,21 @@ describe('Thread', () => {
     ]);
     expect(screen.getByRole('link', { name: /revenge/ })).toHaveAttribute('href', '/books/m?highlight=h2');
     expect(screen.getByText(/Kept for good/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hang in museum' })).toBeInTheDocument();
+  });
+
+  it('becomes a page: its passages quoted and cited, a draft that remembers its thread', async () => {
+    const navigate = jest.fn();
+    jest.spyOn(Router, 'useNavigate').mockReturnValue(navigate);
+    readThread.mockResolvedValue(thread('kept'));
+    createWikiPage.mockResolvedValue({ _id: 'p1' });
+    open();
+    fireEvent.click(await screen.findByRole('button', { name: 'Make it a page' }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=p1'));
+    const payload = createWikiPage.mock.calls[0][0];
+    expect(payload.createdFrom).toMatchObject({ type: 'highlight', objectIds: ['h1', 'h2', 'h3'], label: 'thread:t1' });
+    expect(payload.body).toBe('“Let him who desires peace prepare for war.” (De Re Militari)\n\n“The best revenge is not to be like your enemy.” (Meditations)\n\n“Pacifism is not free.” (Poor Charlie\'s Almanack)');
+    expect(payload.initialSourceRefs.map(ref => [ref.type, ref.objectId, ref.parentObjectId])).toEqual([['highlight', 'h1', 'v'], ['highlight', 'h2', 'm'], ['highlight', 'h3', 'c']]);
   });
 
   it('asks, when it is not answered yet', async () => {

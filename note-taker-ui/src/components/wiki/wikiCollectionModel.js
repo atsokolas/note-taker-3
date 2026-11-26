@@ -43,17 +43,29 @@ export const pendingWikiProposal = (page = {}) => (
 
 export const isCurrentCollectionPage = (page = {}) => !isPageQualityBlocked(page);
 
+/* Papers are made for you: dossiers, repository wikis and the pages Noeis
+   drafts on its own. They keep their own shelf, so your pages lead. */
+export const isPaper = (page = {}) => wikiKindForPage(page) !== 'general' || Boolean(page?.aiState?.lastDraftedAt);
+
+// Each shelf of the Wiki, by what belongs on it.
+const SHELVES = {
+  yours: page => isCurrentCollectionPage(page) && !isPaper(page),
+  papers: page => isCurrentCollectionPage(page) && isPaper(page),
+  proposed: pendingWikiProposal,
+  all: isCurrentCollectionPage
+};
+export const WIKI_SHELVES = Object.keys(SHELVES);
+
 export const filterCollectionPages = ({
   pages = [],
   query = '',
-  scope = 'all',
+  scope = 'yours',
   kind = ''
 } = {}) => {
   const needle = asText(query);
   let visible = (Array.isArray(pages) ? pages : []).filter(Boolean);
   if (kind) visible = visible.filter(page => wikiKindForPage(page) === kind);
-  if (scope === 'proposed') visible = visible.filter(pendingWikiProposal);
-  else visible = visible.filter(isCurrentCollectionPage);
+  visible = visible.filter(SHELVES[scope] || SHELVES.yours);
   if (needle) visible = visible.filter(page => pageMatchesCollectionQuery(page, needle));
   return visible;
 };

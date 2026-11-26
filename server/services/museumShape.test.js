@@ -34,6 +34,15 @@ test('a note of your own offers its opening, dated by when you began it, and lea
   assert.equal(offer.url, '');
 });
 
+test('a kept thread hangs whole: each passage it holds, named by its work, dated by when you kept it', () => {
+  const offer = sourceOffer('thread', {
+    title: 'A thread through Cargo Cult Science and Meditations', createdAt: '2020-01-01T00:00:00Z',
+    marks: [{ title: 'Cargo Cult Science', text: 'You must not fool yourself.' }, { title: 'Meditations', text: 'x'.repeat(401) }]
+  });
+  assert.deepEqual(offer.passages, [{ text: 'You must not fool yourself.', note: 'Cargo Cult Science' }]);
+  assert.deepEqual([offer.medium, offer.own, offer.year, offer.url], ['A thread in Noeis', true, '2020', '']);
+});
+
 test('a visitor sees what the owner hung and nothing of where it came from', () => {
   const museum = {
     name: 'Athan', handle: 'athan', intro: 'What shaped how I think.', open: true, userId: 'u1', retired: ['2016.2'],
