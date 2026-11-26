@@ -141,7 +141,8 @@ const highlightsById = async ({ Article: articles, userId, ids }) => {
       tags: '$highlights.tags',
       createdAt: '$highlights.createdAt',
       articleId: '$_id',
-      articleTitle: '$title'
+      articleTitle: '$title',
+      articleUrl: '$url'
     } }
   ]);
   return new Map(rows.map(row => [String(row._id), row]));
@@ -277,7 +278,8 @@ const passageOf = found => ({
   text: plain(found.text),
   createdAt: found.createdAt || null,
   articleId: String(found.articleId),
-  articleTitle: found.articleTitle || ''
+  articleTitle: found.articleTitle || '',
+  articleUrl: found.articleUrl || ''
 });
 
 /* Before you start a book: the passages you already marked elsewhere that

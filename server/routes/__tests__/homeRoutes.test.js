@@ -111,18 +111,23 @@ test('home: a thread forms, waits for an answer, and is kept', async () => {
       return thread;
     }
   };
+  const seneca = { _id: id(4), title: 'Letters from a Stoic', url: 'import://readwise/book/4', createdAt: ago(1), highlights: [{ _id: id(41), text: 'We suffer more in imagination than in reality.', createdAt: new Date(NOW + DAY) }] };
+  const marked = [
+    { _id: id(21), articleId: id(2), createdAt: ago(800), text: meditations.highlights[0].text },
+    { _id: id(31), articleId: id(3), createdAt: ago(1500), text: vegetius.highlights[0].text }
+  ];
   const formingAround = async ({ mark }) => {
     asked.push(mark._id);
-    return [
-      { _id: id(21), articleId: id(2), createdAt: ago(800), text: meditations.highlights[0].text },
-      { _id: id(31), articleId: id(3), createdAt: ago(1500), text: vegetius.highlights[0].text }
-    ];
+    return marked;
   };
   const app = express();
   app.use(express.json());
   app.use(buildHomeRouter({
     authenticateToken: (req, _res, next) => { req.user = { id: 'reader' }; next(); },
-    Article: { find: () => lean(articles) },
+    Article: {
+      find: () => lean(articles),
+      findOne: async ({ _id, 'highlights._id': mark }) => articles.find(article => article._id === _id && article.highlights.some(held => held._id === mark)) || null
+    },
     ArticleReadingState: { find: () => lean([]) },
     Thread,
     echoOf: async () => null,
@@ -153,6 +158,63 @@ test('home: a thread forms, waits for an answer, and is kept', async () => {
     assert.equal((await call(`/api/threads/${body.forming.threadId}`)).body.marks.length, 3, 'it has a page of its own');
     assert.deepEqual((await call('/api/kept')).body.kept.map(item => item.threadId), [body.forming.threadId], 'Kept alone, for ⌘K and the brief');
     assert.equal((await call(`/api/threads/${id(99)}`)).status, 404);
+
+    /* Kept, it grows: a passage marked since, from another work, is offered
+       in pencil and joins only when the reader adds it. */
+    const page = `/api/threads/${body.forming.threadId}`;
+    assert.equal(kept.body.offered, undefined);
+    articles.push(seneca);
+    marked.push({ _id: id(41), articleId: id(4), articleTitle: 'Letters from a Stoic', createdAt: new Date(NOW + DAY), text: seneca.highlights[0].text });
+    const grown = (await call(`${page}?today=2026-11-27`)).body;
+    assert.deepEqual([grown.offered.highlightId, grown.offered.title], [id(41), 'Letters from a Stoic'], 'marked since it was kept');
+    assert.equal((await call(`${page}/offered`, { method: 'POST', body: JSON.stringify({ articleId: id(4), highlightId: id(41) }) })).status, 400);
+    const joined = (await call(`${page}/offered`, { method: 'POST', body: JSON.stringify({ articleId: id(4), highlightId: id(41), joins: true }) })).body;
+    assert.deepEqual(joined.marks.map(mark => mark.highlightId), [id(31), id(21), id(11), id(41)], 'it joins at the end, the newest');
+    assert.equal((await call(`${page}?today=2026-11-27`)).body.offered, null, 'nothing more to offer');
+  } finally {
+    server.close();
+  }
+});
+
+/* The world, only when asked: one search per question a day, a daily
+   allowance, and silence when the search fails. */
+test('world: searched once a day per question, within an allowance, quiet on failure', async () => {
+  const searched = [];
+  let clock = NOW;
+  const searchWorld = async query => {
+    searched.push(query);
+    if (query === 'broken search') throw new Error('upstream');
+    return [{ title: 'Deterrence', url: 'https://example.org/deterrence', age: '' }];
+  };
+  const lean = value => ({ select: () => ({ lean: async () => value }) });
+  const app = express();
+  app.use(buildHomeRouter({
+    authenticateToken: (req, _res, next) => { req.user = { id: 'reader' }; next(); },
+    Article: { find: () => lean([]) },
+    ArticleReadingState: { find: () => lean([]) },
+    Thread: { find: () => ({ sort: () => ({ lean: async () => [] }) }) },
+    echoOf: async () => null,
+    formingAround: async () => [],
+    searchWorld,
+    now: () => clock
+  }));
+  const server = app.listen(0);
+  const call = async path => {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}${path}`);
+    return { status: response.status, body: await response.json() };
+  };
+
+  try {
+    assert.equal((await call('/api/world?q=ab')).status, 400, 'ask about something');
+    const first = await call('/api/world?q=Deterrence%20%20theory');
+    assert.deepEqual(first.body, { query: 'Deterrence theory', pages: [{ title: 'Deterrence', url: 'https://example.org/deterrence', age: '' }] });
+    await call('/api/world?q=deterrence%20theory');
+    assert.deepEqual(searched, ['Deterrence theory'], 'the same question is searched once a day');
+    assert.deepEqual((await call('/api/world?q=broken%20search')).body.pages, [], 'a failed search is silence');
+    for (let n = searched.length; n < 20; n += 1) await call(`/api/world?q=question%20${n}`);
+    assert.equal((await call('/api/world?q=one%20more&today=2030-01-01')).status, 429, 'twenty a day, whatever day the reader says it is');
+    clock = NOW + DAY;
+    assert.equal((await call('/api/world?q=one%20more')).status, 200, 'a new day, a new allowance');
   } finally {
     server.close();
   }

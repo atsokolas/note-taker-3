@@ -538,6 +538,29 @@ describe('CommandPalette', () => {
     expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('h1'));
   });
 
+  it('looks beyond the library only when asked, last, in blue, and opens the world in a new tab', async () => {
+    api.get.mockImplementation((path) => (path.startsWith('/api/world')
+      ? Promise.resolve({ data: { pages: [{ title: 'Deterrence theory', url: 'https://www.example.org/deterrence', age: '' }] } })
+      : Promise.resolve({ data: [] })));
+    const opened = jest.spyOn(window, 'open').mockImplementation(() => null);
+
+    await renderPalette();
+    fireEvent.change(screen.getByPlaceholderText('Find a note, highlight or page…'), { target: { value: 'deterrence' } });
+    await flushSearch();
+    const headings = () => [...document.querySelectorAll('.palette-group-title')].map(title => title.textContent);
+    expect(headings()[headings().length - 1]).toBe('Beyond your library');
+    expect(api.get).not.toHaveBeenCalledWith(expect.stringContaining('/api/world'), expect.anything());
+
+    fireEvent.click(screen.getByText('Look beyond your library: “deterrence”'));
+    expect(await screen.findByText('Deterrence theory')).toBeInTheDocument();
+    expect(screen.getByText('example.org')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith(expect.stringContaining('/api/world?q=deterrence'), expect.anything());
+
+    fireEvent.click(screen.getByText('Deterrence theory'));
+    expect(opened).toHaveBeenCalledWith('https://www.example.org/deterrence', '_blank', 'noopener,noreferrer');
+    opened.mockRestore();
+  });
+
   it('opens the first search result before wiki creation when pressing Enter', async () => {
     await renderPalette();
 

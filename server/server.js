@@ -196,6 +196,7 @@ const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildRecallRouter } = require('./routes/recallRoutes');
 const { buildAddedRouter } = require('./routes/addedRoutes');
 const { buildHomeRouter } = require('./routes/homeRoutes');
+const { DEFAULT_ANTHROPIC_TEXT_MODEL, searchWeb } = require('./ai/anthropicClient');
 const { buildSyncRouter } = require('./routes/syncRoutes');
 const { buildHandoffRouter } = require('./routes/handoffRoutes');
 const { buildDisagreementRouter } = require('./routes/disagreementRoutes');
@@ -1259,7 +1260,9 @@ app.use(buildRecallRouter({
   semanticSearch
 }));
 
-app.use(buildHomeRouter({ authenticateToken, Article, ArticleReadingState, Thread, echoOf, formingAround }));
+// ⌘K reaches the open web only when asked, through Claude's web search.
+const searchWorld = query => searchWeb({ token: String(process.env.ANTHROPIC_API_KEY || '').trim(), model: process.env.ANTHROPIC_TEXT_MODEL || DEFAULT_ANTHROPIC_TEXT_MODEL, query });
+app.use(buildHomeRouter({ authenticateToken, Article, ArticleReadingState, Thread, echoOf, formingAround, searchWorld }));
 app.use(buildAddedRouter({ authenticateToken: authenticateUserOrAgentToken, ownDesktop: [authenticateCapture, requireHumanOrDesktop], Article, Connection, ConnectionJudgment, Verdict, WikiSourceEvent }));
 
 app.use(buildSyncRouter({

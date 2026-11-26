@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { refused, threadAsItIs, threadFrom, timeToLook, waiting } = require('../threads');
+const { joining, refused, threadAsItIs, threadFrom, timeToLook, waiting } = require('../threads');
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse('2026-11-25T18:00:00Z');
@@ -34,4 +34,11 @@ test('threads: read as the library is now', () => {
   assert.equal(read.title, 'A thread through Meditations and Vegetius');
   assert.deepEqual(read.marks.map(mark => [mark.book, mark.text]), [[true, 'One'], [false, 'Two']]);
   assert.equal(threadAsItIs(thread, articles.slice(0, 1)), null, 'fewer than two passages is no thread');
+});
+
+test('a kept thread grows only by what was marked since, elsewhere, and not passed on', () => {
+  const thread = { answeredAt: ago(10), marks: [{ articleId: 'a', highlightId: 'ha' }, { articleId: 'b', highlightId: 'hb' }], passed: [{ articleId: 'd', highlightId: 'hd' }] };
+  const passage = (articleId, days) => ({ _id: `h${articleId}`, articleId, articleTitle: `Work ${articleId}`, text: 'Words', createdAt: ago(days) });
+  assert.equal(joining(thread, [passage('c', 20), passage('a', 1), passage('d', 1)]), null, 'before it was kept, already on it, or passed on');
+  assert.deepEqual(joining(thread, [passage('e', 2)]), { articleId: 'e', highlightId: 'he', book: false, title: 'Work e', text: 'Words', createdAt: ago(2) });
 });

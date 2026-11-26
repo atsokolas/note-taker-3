@@ -1465,6 +1465,18 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   background: var(--accent-soft);
 }
 
+/* Beyond your library: the world, in blue ink, named by where it lives. */
+.palette-group--world .palette-item,
+.palette-group--world .palette-item > span:first-child {
+  color: var(--ink-world);
+}
+
+.palette-group--world .palette-item > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .palette-shortcut-guide > summary {
   padding-block: 9px;
   color: var(--text-muted);

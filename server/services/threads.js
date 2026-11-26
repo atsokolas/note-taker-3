@@ -41,6 +41,17 @@ const refused = (threads, marks) => {
   return threads.some(thread => thread.answer === 'not a thing' && thread.marks.filter(mark => keys.has(keyOf(mark))).length >= SAME_THREAD_MARKS);
 };
 
+/* What a kept thread could grow by: the closest passage you marked after you
+   kept it, from a work not on it yet, that you have not passed on. */
+const joining = (thread, passages) => {
+  const on = new Set(thread.marks.map(mark => idOf(mark.articleId)));
+  const passed = new Set((thread.passed || []).map(keyOf));
+  const found = passages.find(passage => timeOf(passage.createdAt) > timeOf(thread.answeredAt)
+    && !on.has(idOf(passage.articleId))
+    && !passed.has(keyOf({ articleId: passage.articleId, highlightId: passage._id })));
+  return found ? { articleId: idOf(found.articleId), highlightId: idOf(found._id), book: BOOK_URL.test(found.articleUrl || ''), title: found.articleTitle, text: found.text, createdAt: found.createdAt } : null;
+};
+
 const listed = titles => (titles.length > 1 ? `${titles.slice(0, -1).join(', ')} and ${titles[titles.length - 1]}` : titles[0] || '');
 
 /* A thread as it reads now, from the library as it is: each passage with its
@@ -70,4 +81,4 @@ const threadAsItIs = (thread, articles) => {
   };
 };
 
-module.exports = { FORMING_EVERY_DAYS, THREAD_ANSWERS, refused, threadAsItIs, threadFrom, timeToLook, waiting };
+module.exports = { FORMING_EVERY_DAYS, THREAD_ANSWERS, joining, refused, threadAsItIs, threadFrom, timeToLook, waiting };

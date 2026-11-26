@@ -1,10 +1,10 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Thread from './Thread';
-import { answerThread, readThread } from '../api/home';
+import { answerThread, growThread, readThread } from '../api/home';
 
-jest.mock('../api/home', () => ({ readThread: jest.fn(), answerThread: jest.fn() }));
+jest.mock('../api/home', () => ({ readThread: jest.fn(), answerThread: jest.fn(), growThread: jest.fn() }));
 
 const thread = answer => ({
   threadId: 't1',
@@ -39,5 +39,19 @@ describe('Thread', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Keep it' }));
     expect(answerThread).toHaveBeenCalledWith(undefined, 'kept');
     expect(await screen.findByText(/Kept for good/)).toBeInTheDocument();
+  });
+
+  it('offers, in pencil, what you marked since that may belong, and adds it only when you say', async () => {
+    const offered = { articleId: 's', highlightId: 'h4', book: true, title: 'Letters from a Stoic', text: 'We suffer more in imagination than in reality.', createdAt: new Date().toISOString() };
+    readThread.mockResolvedValue({ ...thread('kept'), offered });
+    growThread.mockResolvedValue({ ...thread('kept'), offered: null, marks: [...thread('kept').marks, offered] });
+    open();
+    const pencil = await screen.findByRole('complementary', { name: 'It may belong here' });
+    expect(pencil).toHaveTextContent('Marked today, and it may belong here');
+    expect(screen.getByRole('link', { name: /imagination/ })).toHaveAttribute('href', '/books/s?highlight=h4');
+    fireEvent.click(screen.getByRole('button', { name: 'Add it to the thread' }));
+    expect(growThread).toHaveBeenCalledWith(undefined, offered, true);
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(4));
+    expect(screen.queryByRole('complementary', { name: 'It may belong here' })).not.toBeInTheDocument();
   });
 });

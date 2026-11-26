@@ -6440,6 +6440,8 @@ body.noeis-editorial {
      know who spoke, without a badge. */
   --ink-human: var(--vellum-ink);
   --ink-agent: color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink));
+  /* The world outside your reading is in blue: the pointer's cool, set in ink. */
+  --ink-world: color-mix(in srgb, var(--noeis-pointer) 55%, var(--vellum-ink));
   --vellum-muted: var(--text-secondary);
   --vellum-subtle: var(--text-muted);
   --vellum-line: var(--surface-border);
