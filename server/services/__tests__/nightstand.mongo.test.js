@@ -84,7 +84,7 @@ test('real Mongo: For now is the fortnight you saved, read or marked in, and Und
       { _id: marked, userId, title: 'Marked yesterday', url: 'https://x.example/marked', placement: 'stream', pencil: null, createdAt: ago(200), highlights: [{ _id: new mongoose.Types.ObjectId(), text: 'A line.', createdAt: ago(1) }] },
       { _id: sank, userId, title: 'Sank long ago', url: 'https://x.example/sank', placement: 'stream', pencil: null, createdAt: ago(300), highlights: [{ _id: new mongoose.Types.ObjectId(), text: 'Old line.', createdAt: ago(299) }] }
     ]);
-    await ArticleReadingState.collection.insertOne({ userId, articleId: read, visitedAt: ago(3) });
+    await ArticleReadingState.create({ userId, articleId: read, anchor: { text: 'Where you stopped.', startOffsetApprox: 0 }, ratio: 0.4, visitedAt: ago(3) });
 
     const app = express();
     app.use(buildLibraryCollectionRouter({
