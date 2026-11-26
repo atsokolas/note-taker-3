@@ -219,3 +219,49 @@ test('world: searched once a day per question, within an allowance, quiet on fai
     server.close();
   }
 });
+
+/* Judgment's margin: a kept passage that argues with a view, read once a
+   day and only from Kept; a pairing struck is never offered again. */
+test('kept argues: one kept passage against a view you hold, from Kept alone, until you strike it', async () => {
+  const cells = {
+    _id: id(1), title: 'The Battery Book', url: 'https://example.com/cells', highlights: [
+      { _id: id(11), text: 'Cell prices fall so fast that value in batteries accrues to whoever owns the customer, not the cell maker.', keptAt: ago(10) },
+      { _id: id(12), text: 'Cell makers capture value in batteries while prices keep falling.' }
+    ]
+  };
+  const view = { _id: id(9), title: 'Batteries: where value accrues', judgment: { currentJudgment: 'Value in batteries accrues to the cell makers as prices fall.' } };
+  const lean = value => ({ select: () => ({ lean: async () => value }) });
+  const judgments = [];
+  const struck = [];
+  const read = [];
+  const models = {
+    Article: { find: () => lean([cells]) },
+    WikiPage: { find: () => lean([view]) },
+    ConnectionJudgment: { find: () => lean(judgments), bulkWrite: async ops => ops.forEach(({ updateOne }) => judgments.push(updateOne.update.$set)) },
+    Verdict: { find: ({ about }) => lean(struck.filter(row => about.$in.includes(row.about))), create: async row => struck.push(row) }
+  };
+  const judge = async ({ pairs }) => { read.push(...pairs.map(pair => pair.about)); return pairs.map((_, index) => ({ index, relation: 'argues', a: 'The customer owner, not the cell maker, keeps the value.' })); };
+
+  const app = express();
+  app.use(express.json());
+  app.use(buildHomeRouter({ authenticateToken: (req, _res, next) => { req.user = { id: 'reader' }; next(); }, ...models, Thread: {}, ArticleReadingState: {}, judge, now: () => NOW }));
+  const server = app.listen(0);
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const call = async (path, init) => {
+    const response = await fetch(`${base}${path}`, { headers: { 'content-type': 'application/json' }, ...init });
+    return { status: response.status, body: await response.json() };
+  };
+  try {
+    const { body } = await call('/api/kept/argues?today=2026-11-25');
+    assert.equal(body.argues.view.title, 'Batteries: where value accrues');
+    assert.equal(body.argues.kept.highlightId, id(11), 'only a kept passage argues, never one merely marked');
+    assert.equal(body.argues.says, 'The customer owner, not the cell maker, keeps the value.');
+    await call('/api/kept/argues?today=2026-11-25');
+    assert.deepEqual(read, [`view:${id(9)}>highlight:${id(11)}`], 'each pairing is read once');
+    assert.equal((await call('/api/kept/argues/strike', { method: 'POST', body: JSON.stringify({ about: 'anything' }) })).status, 400);
+    await call('/api/kept/argues/strike', { method: 'POST', body: JSON.stringify({ about: body.argues.about }) });
+    assert.equal((await call('/api/kept/argues?today=2026-11-25')).body.argues, null, 'a struck pairing is not offered again');
+  } finally {
+    server.close();
+  }
+});

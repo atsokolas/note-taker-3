@@ -5,6 +5,7 @@ import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { Button, EmptyState, PageHeader } from '../components/ui';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
 import JudgmentView from '../components/judgment/JudgmentView';
+import KeptArgues from '../components/judgment/KeptArgues';
 import { buildJudgmentIndex, createJudgment, oneSentence } from './judgmentModel';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import useDocumentTitle from '../hooks/useDocumentTitle';
@@ -111,6 +112,7 @@ const JudgmentIndex = ({ items, loading, error, setAsideView, initialHold = '' }
           ))}
         </ul>
       ) : null}
+      {!setAsideView && shown.length ? <KeptArgues /> : null}
       {setAsideView && !loading && !shown.length ? <EmptyState title="Nothing set aside." /> : null}
       {error ? <p className="judgment-error" role="alert">{error}</p> : null}
     </main>

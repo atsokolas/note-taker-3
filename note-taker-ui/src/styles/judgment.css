@@ -651,3 +651,58 @@
   .judgment-view__columns { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .judgment-mirror__decision dl { grid-template-columns: 1fr; }
 }
+
+/* Something you kept argues: one quiet margin note under your views, the
+   model's reading of it in pencil, struck with "Not so". */
+.judgment-kept-argues {
+  display: grid;
+  gap: 4px;
+  max-width: 40rem;
+  margin-top: 28px;
+  padding-top: 14px;
+  border-top: 1px solid var(--judgment-rule);
+  font: 400 1rem/1.5 var(--font-serif);
+}
+
+.judgment-kept-argues > small {
+  color: var(--judgment-muted);
+  font: 600 0.72rem/1.4 var(--judgment-ui);
+  letter-spacing: 0.02em;
+}
+
+.judgment-kept-argues p {
+  margin: 0;
+}
+
+.judgment-kept-argues a {
+  color: var(--judgment-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--judgment-rule);
+  text-underline-offset: 0.2em;
+}
+
+.judgment-kept-argues q {
+  quotes: '“' '”';
+}
+
+.judgment-kept-argues span {
+  color: var(--judgment-muted);
+  font: 0.8rem/1.4 var(--judgment-ui);
+}
+
+.judgment-kept-argues__says {
+  color: var(--ink-agent);
+  font-style: italic;
+}
+
+.judgment-kept-argues button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--judgment-muted);
+  font: 0.8rem/1.4 var(--judgment-ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}

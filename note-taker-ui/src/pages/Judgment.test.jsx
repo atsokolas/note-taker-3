@@ -2,6 +2,7 @@ import React from 'react';
 import * as router from 'react-router-dom';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import Judgment from './Judgment';
+import { readKeptArgues, strikeKeptArgues } from '../api/home';
 import { openFocusedItem, walkItems } from '../navigation/appNavigation';
 import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import {
@@ -33,6 +34,8 @@ jest.mock('../api/wiki', () => ({
   resolveJudgmentChange: jest.fn(),
   updateWikiPage: jest.fn()
 }));
+
+jest.mock('../api/home', () => ({ readKeptArgues: jest.fn(), strikeKeptArgues: jest.fn() }));
 
 jest.mock('../api/judgmentResolution', () => ({
   fileJudgmentEvidence: jest.fn(),
@@ -82,6 +85,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.restoreAllMocks();
   listWikiPages.mockResolvedValue([]);
+  readKeptArgues.mockResolvedValue(null);
   listReadingProposals.mockResolvedValue([]);
   getJudgmentLibraryEvidence.mockResolvedValue({ candidates: [] });
   getWikiPage.mockResolvedValue(viewPage());
@@ -135,6 +139,26 @@ describe('the index', () => {
     expect(screen.getByRole('link', { name: 'Set aside' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Record' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Your track record' })).toBeInTheDocument();
+  });
+
+  it('says, rarely, when something you kept argues with a view, until you say not so', async () => {
+    const argues = {
+      about: 'view:view-1>highlight:h1',
+      says: 'Members trade down to the cheapest club, not away from it.',
+      view: { id: 'view-1', title: CLAIM },
+      kept: { articleId: 'a1', highlightId: 'h1', book: true, title: 'The Costco Way', text: 'In 2009 renewals dipped for the first time.' }
+    };
+    listWikiPages.mockResolvedValue([viewPage()]);
+    readKeptArgues.mockResolvedValue(argues);
+    strikeKeptArgues.mockResolvedValue({ struck: true });
+    openIndex();
+    const margin = within(await screen.findByRole('complementary', { name: 'Something you kept argues' }));
+    expect(margin.getByRole('link', { name: /renewals dipped/ })).toHaveAttribute('href', '/books/a1?highlight=h1');
+    expect(margin.getByRole('link', { name: CLAIM })).toHaveAttribute('href', '/judgment/view-1');
+    expect(margin.getByText(/trade down/)).toHaveClass('judgment-kept-argues__says');
+    fireEvent.click(margin.getByRole('button', { name: 'Not so' }));
+    expect(strikeKeptArgues).toHaveBeenCalledWith('view:view-1>highlight:h1');
+    expect(screen.queryByRole('complementary', { name: 'Something you kept argues' })).not.toBeInTheDocument();
   });
 
   /* J and K walk the views from the keyboard, and Enter opens the one you

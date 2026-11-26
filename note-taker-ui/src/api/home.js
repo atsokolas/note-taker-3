@@ -25,3 +25,6 @@ export const readKept = async () => (await api.get('/api/kept', getAuthHeaders()
 // Underneath, by month: an issue made from your own marks.
 export const readUnderneathMonths = async () => (await api.get('/api/underneath', getAuthHeaders())).data?.months || [];
 export const readUnderneath = async month => (await api.get(`/api/underneath/${encodeURIComponent(month)}`, getAuthHeaders())).data;
+// Judgment's margin: a passage you kept that argues with a view you hold, or null.
+export const readKeptArgues = async () => (await api.get(`/api/kept/argues?today=${today()}`, getAuthHeaders())).data?.argues || null;
+export const strikeKeptArgues = async about => (await api.post('/api/kept/argues/strike', { about }, getAuthHeaders())).data;
