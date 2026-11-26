@@ -1103,3 +1103,6 @@ body.noeis-editorial .ProseMirror p[data-pencil],
   text-decoration: underline dotted 1px color-mix(in srgb, var(--text-muted) 45%, transparent);
   text-underline-offset: 0.4em;
 }
+/* A kept thread offered to the note, in pencil: one click quotes it in. */
+.think-desk__bring { display: block; padding: 0; margin: var(--space-2) 0 0; border: 0; background: none; color: var(--ink-agent); font: italic .92rem/1.4 var(--font-serif); text-align: left; cursor: pointer; }
+.think-desk__bring:hover { text-decoration: underline; text-underline-offset: .22em; }

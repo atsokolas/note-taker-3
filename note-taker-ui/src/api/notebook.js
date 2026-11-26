@@ -107,6 +107,11 @@ export const disposeNotebookSourceCorrection = async (id, { eventId, action, rea
 };
 
 /* Every note, compact, with where it stands; the board is never stale cache. */
+// A passage you marked, quoted into a note with its source.
+export const quoteIntoNote = async (entryId, highlightId) => (
+  (await api.post(`/api/notebook/${encodeURIComponent(entryId)}/append-highlight`, { highlightId }, getAuthHeaders())).data
+);
+
 export const getNotebookCuttings = async () => {
   const res = await api.get('/api/notebook/cuttings', getAuthHeaders());
   return Array.isArray(res.data) ? res.data : [];

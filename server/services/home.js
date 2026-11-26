@@ -39,7 +39,8 @@ const kept = (articles, threads) => [
     page: mark.page || null,
     at: mark.keptAt
   }))),
-  ...threads.map(thread => ({ kind: 'thread', threadId: thread.threadId, title: thread.title, marks: thread.marks.length, at: thread.answeredAt }))
+  // A thread's passages ride along in one line, so what bears on your writing can find the thread by what it says.
+  ...threads.map(thread => ({ kind: 'thread', threadId: thread.threadId, title: thread.title, text: thread.marks.map(mark => mark.text).join(' '), marks: thread.marks.length, at: thread.answeredAt }))
 ].sort((a, b) => timeOf(a.at) - timeOf(b.at));
 
 // The passages you keep coming back to, most opened first, asked about in pencil.
