@@ -17,7 +17,8 @@ jest.mock('../../api/readingRoom', () => ({
 
 jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn(),
-  listWikiChanges: jest.fn()
+  listWikiChanges: jest.fn(),
+  createWikiPage: jest.fn()
 }));
 
 jest.mock('../../api/judgmentResolution', () => ({
@@ -244,6 +245,21 @@ describe('WikiFrontPage collection', () => {
     expect(await within(made).findByRole('link', { name: 'A thread through Zero to One and CS183' })).toHaveAttribute('href', '/threads/t2');
     expect(within(made).queryByText('A thread through Meditations and Vegetius')).not.toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Retaliate once, then forgive' })).toHaveLength(1);
+  });
+
+  it('offers a page, in pencil, when enough kept passages share a subject, and makes it from them', async () => {
+    const navigate = jest.fn();
+    jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
+    const pricing = ['Pricing power is the single most important decision.', 'Raise prices and see who leaves: that is pricing power.', 'Their pricing held through the downturn.', 'Pricing is a promise about value.', 'Nobody priced the fleet like insurance, so pricing drifted.'];
+    readKept.mockResolvedValue(pricing.map((text, n) => ({ kind: 'mark', articleId: `a${n % 2}`, highlightId: `h${n}`, title: n % 2 ? "Poor Charlie's Almanack" : 'Seven Powers', text })));
+    api.createWikiPage.mockResolvedValue({ _id: 'wiki-pricing' });
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    const made = await screen.findByRole('region', { name: 'Made from kept threads' });
+    expect(within(made).getByText('Your kept “pricing” passages, 5 of them. Make it a page?')).toBeInTheDocument();
+    fireEvent.click(within(made).getByRole('button', { name: 'Could be a page: Pricing' }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.stringContaining('wiki-pricing')));
+    const payload = api.createWikiPage.mock.calls[0][0];
+    expect([payload.title, payload.createdFrom.label, payload.initialSourceRefs.length]).toEqual(['Pricing', 'kept-subject:pricing', 5]);
   });
 
   it('bylines rows instead of naming their type', async () => {

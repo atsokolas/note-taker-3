@@ -15,7 +15,9 @@ import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiCreationComposer from './WikiCreationComposer';
 import { WIKI_KINDS, WIKI_KIND_LABELS, wikiKindForPage, withoutHeldViews } from './wikiFacetModel';
 import { readKept } from '../../api/home';
-import { threadOfPage } from '../../utils/wikiCreate';
+import { createWikiPage } from '../../api/wiki';
+import { couldBeAPage } from '../home/homeModel';
+import { buildSubjectPagePayload, subjectOfPage, threadOfPage } from '../../utils/wikiCreate';
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
 import { dedupePagesByRepoKey } from './wikiRepoDedupeModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
@@ -271,20 +273,30 @@ export const ComesDue = ({ due, onSettled }) => {
   );
 };
 
-/* What moved since you last looked. Silence is a state: when nothing moved,
-   one line says so and the list follows. */
 /* Pages that grew out of your reading lead: a kept thread with a page of
-   its own, and in pencil, a kept thread that could have one. */
+   its own, and in pencil, a kept thread that could have one, or kept
+   passages that share a subject. */
 const FromKeptThreads = ({ pages }) => {
-  const [threads, setThreads] = useState([]);
+  const navigate = useNavigate();
+  const [kept, setKept] = useState([]);
+  const [making, setMaking] = useState(false);
   useEffect(() => {
     let live = true;
-    readKept().then(kept => { if (live) setThreads(kept.filter(held => held.kind === 'thread')); }).catch(() => {});
+    readKept().then(found => { if (live) setKept(found); }).catch(() => {});
     return () => { live = false; };
   }, []);
   const made = new Map(pages.map(page => [threadOfPage(page), page]).filter(([threadId]) => threadId));
-  const waiting = threads.filter(thread => !made.has(thread.threadId));
-  if (!made.size && !waiting.length) return null;
+  const waiting = kept.filter(held => held.kind === 'thread' && !made.has(held.threadId));
+  const offer = couldBeAPage(kept, pages.flatMap(page => [page.title, subjectOfPage(page)]));
+  const makePage = async () => {
+    setMaking(true);
+    try {
+      navigate(wikiReadPath((await createWikiPage(buildSubjectPagePayload(offer)))._id));
+    } finally {
+      setMaking(false);
+    }
+  };
+  if (!made.size && !waiting.length && !offer) return null;
   return (
     <section className="wiki-collection__threads" aria-labelledby="wiki-threads-title">
       <h2 id="wiki-threads-title">Made from kept threads</h2>
@@ -297,11 +309,19 @@ const FromKeptThreads = ({ pages }) => {
             <Link to={`/threads/${thread.threadId}`}>{thread.title}</Link><small>{thread.marks} passages you kept together. Make it a page?</small>
           </li>
         ))}
+        {offer ? (
+          <li className="wiki-collection__could">
+            <button type="button" disabled={making} onClick={makePage}>Could be a page: {offer.title}</button>
+            <small>Your kept “{offer.subject}” passages, {offer.marks.length} of them. Make it a page?</small>
+          </li>
+        ) : null}
       </ul>
     </section>
   );
 };
 
+/* What moved since you last looked. Silence is a state: when nothing moved,
+   one line says so and the list follows. */
 const SinceYouLooked = ({ since, changes, pageCount, proposedCount }) => {
   if (!since || !changes || (!pageCount && !changes.length)) return null;
   const when = since.first ? 'this week' : `since ${sinceLabel(since.at)}`;

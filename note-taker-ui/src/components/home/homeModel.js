@@ -83,3 +83,25 @@ export const keptBeside = (kept, text) => {
     .slice(0, KEPT_BESIDE)
     .map(({ held }) => ({ ...held, path: pathOf(held) }));
 };
+
+/* Kept passages that share a subject could be a page. Gate: passages on
+   Kept only, and a word of five letters or more, not a common one, that no
+   page of yours already has in its title or came from. Bar: KEPT_FOR_A_PAGE
+   passages from at least two works say it (untuned). Silence: below the
+   bar, nothing is offered. The match runs here, on what the page already
+   read. */
+export const KEPT_FOR_A_PAGE = 5;
+const COMMON = new Set(['about', 'after', 'again', 'always', 'another', 'around', 'because', 'before', 'being', 'better', 'between', 'could', 'every', 'everything', 'first', 'great', 'little', 'never', 'other', 'people', 'really', 'should', 'something', 'still', 'their', 'there', 'these', 'thing', 'things', 'think', 'those', 'through', 'under', 'until', 'where', 'which', 'while', 'without', 'world', 'would', 'years']);
+const subjectWords = text => new Set(tokensOf(text).map(word => word.replace(/'s$/, '').replace(/([^su])s$/, '$1')).filter(word => word.length >= 5 && !COMMON.has(word) && !COMMON.has(`${word}s`)));
+
+export const couldBeAPage = (kept, taken = []) => {
+  const named = taken.map(title => subjectWords(title));
+  const bySubject = new Map();
+  for (const held of kept.filter(held => held.kind === 'mark' && held.text)) {
+    for (const word of subjectWords(held.text)) bySubject.set(word, [...(bySubject.get(word) || []), held]);
+  }
+  const [best] = [...bySubject]
+    .filter(([word, marks]) => marks.length >= KEPT_FOR_A_PAGE && new Set(marks.map(mark => mark.articleId)).size >= 2 && !named.some(words => words.has(word)))
+    .sort(([a, x], [b, y]) => y.length - x.length || b.length - a.length);
+  return best ? { subject: best[0], title: capital(best[0]), marks: best[1] } : null;
+};

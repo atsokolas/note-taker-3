@@ -80,21 +80,26 @@ export const openWikiDraft = ({ navigate, pageId }) => {
   navigate(wikiPagePath(pageId, '&draft=1'));
 };
 
-/* A kept thread becomes a page: its passages quoted in the order they
-   formed, each cited, left as a draft for you to write around. The page
-   remembers its thread by its label, so the Wiki can tell which threads
-   already have one. */
+/* What you kept becomes a page: a kept thread, or kept passages that share
+   a subject. Its passages are quoted in order, each cited, and left as a
+   draft for you to write around. The page remembers where it came from by
+   its label, so the Wiki can tell what already has one. */
 const THREAD_LABEL = 'thread:';
-export const threadOfPage = page => {
+const SUBJECT_LABEL = 'kept-subject:';
+const labelled = prefix => page => {
   const label = String(page?.createdFrom?.label || '');
-  return label.startsWith(THREAD_LABEL) ? label.slice(THREAD_LABEL.length) : '';
+  return label.startsWith(prefix) ? label.slice(prefix.length) : '';
 };
+export const threadOfPage = labelled(THREAD_LABEL);
+export const subjectOfPage = labelled(SUBJECT_LABEL);
 
-export const buildThreadPagePayload = ({ threadId, title, marks = [] }) => ({
+const keptPagePayload = ({ label, title, marks = [] }) => ({
   title,
   pageType: 'topic',
   sourceScope: 'selected_sources',
   body: marks.map(mark => `“${mark.text}” (${mark.title})`).join('\n\n'),
   initialSourceRefs: marks.map(mark => buildWikiSourceRef({ type: 'highlight', objectId: mark.highlightId, articleId: mark.articleId, title: mark.title, text: mark.text })),
-  createdFrom: { type: 'highlight', objectIds: marks.map(mark => mark.highlightId), text: '', label: `${THREAD_LABEL}${threadId}` }
+  createdFrom: { type: 'highlight', objectIds: marks.map(mark => mark.highlightId), text: '', label }
 });
+export const buildThreadPagePayload = ({ threadId, ...thread }) => keptPagePayload({ ...thread, label: `${THREAD_LABEL}${threadId}` });
+export const buildSubjectPagePayload = ({ subject, ...offer }) => keptPagePayload({ ...offer, label: `${SUBJECT_LABEL}${subject}` });
