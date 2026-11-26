@@ -14,14 +14,18 @@ import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiCreationComposer from './WikiCreationComposer';
 import { WIKI_KINDS, WIKI_KIND_LABELS, wikiKindForPage, withoutHeldViews } from './wikiFacetModel';
+import { readKept } from '../../api/home';
+import { threadOfPage } from '../../utils/wikiCreate';
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
 import { dedupePagesByRepoKey } from './wikiRepoDedupeModel';
+import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { canonicalWikiPages } from './wikiTitleGroupModel';
 import {
   collectionRowCopy,
   collectionSearchHit,
   filterCollectionPages,
-  pendingWikiProposal
+  pendingWikiProposal,
+  WIKI_SHELVES
 } from './wikiCollectionModel';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { Button, EmptyState, PageHeader, buttonClass } from '../ui';
@@ -171,6 +175,8 @@ const CollectionNavButton = ({ active, onClick, children }) => (
   </button>
 );
 
+const SHELF_NAMES = { yours: 'Your pages', papers: 'Papers', proposed: 'Proposed changes', all: 'All pages' };
+
 const CollectionNav = ({
   wikiFilter,
   proposedCount,
@@ -180,13 +186,12 @@ const CollectionNav = ({
   <>
     <p className="wiki-collection__nav-title">Wiki</p>
     <div className="wiki-collection__nav-group">
-      <CollectionNavButton active={wikiFilter !== 'proposed'} onClick={() => onSelect('all')}>
-        <span>All pages</span>
-      </CollectionNavButton>
-      <CollectionNavButton active={wikiFilter === 'proposed'} onClick={() => onSelect('proposed')}>
-        <span>Proposed changes</span>
-        {proposedCount > 0 ? <span className="wiki-collection__nav-count">{proposedCount}</span> : null}
-      </CollectionNavButton>
+      {WIKI_SHELVES.map(shelf => (
+        <CollectionNavButton key={shelf} active={wikiFilter === shelf} onClick={() => onSelect(shelf)}>
+          <span>{SHELF_NAMES[shelf]}</span>
+          {shelf === 'proposed' && proposedCount > 0 ? <span className="wiki-collection__nav-count">{proposedCount}</span> : null}
+        </CollectionNavButton>
+      ))}
     </div>
     <div className="wiki-collection__nav-group">
       <Link
@@ -268,6 +273,35 @@ export const ComesDue = ({ due, onSettled }) => {
 
 /* What moved since you last looked. Silence is a state: when nothing moved,
    one line says so and the list follows. */
+/* Pages that grew out of your reading lead: a kept thread with a page of
+   its own, and in pencil, a kept thread that could have one. */
+const FromKeptThreads = ({ pages }) => {
+  const [threads, setThreads] = useState([]);
+  useEffect(() => {
+    let live = true;
+    readKept().then(kept => { if (live) setThreads(kept.filter(held => held.kind === 'thread')); }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  const made = new Map(pages.map(page => [threadOfPage(page), page]).filter(([threadId]) => threadId));
+  const waiting = threads.filter(thread => !made.has(thread.threadId));
+  if (!made.size && !waiting.length) return null;
+  return (
+    <section className="wiki-collection__threads" aria-labelledby="wiki-threads-title">
+      <h2 id="wiki-threads-title">Made from kept threads</h2>
+      <ul>
+        {[...made.values()].map(page => (
+          <li key={page._id}><Link to={wikiReadPath(page._id)}>{displayWikiPageTitle(page)}</Link><small>A page from a thread you kept</small></li>
+        ))}
+        {waiting.map(thread => (
+          <li key={thread.threadId} className="wiki-collection__could">
+            <Link to={`/threads/${thread.threadId}`}>{thread.title}</Link><small>{thread.marks} passages you kept together. Make it a page?</small>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+};
+
 const SinceYouLooked = ({ since, changes, pageCount, proposedCount }) => {
   if (!since || !changes || (!pageCount && !changes.length)) return null;
   const when = since.first ? 'this week' : `since ${sinceLabel(since.at)}`;
@@ -333,7 +367,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   const requestedKind = searchParams.get('kind') || initialKind;
   const requestedView = searchParams.get('view');
   const kind = WIKI_KINDS.includes(requestedKind) ? requestedKind : '';
-  const wikiFilter = ['proposed', 'review'].includes(requestedView) ? 'proposed' : 'all';
+  const wikiFilter = requestedView === 'review' ? 'proposed' : WIKI_SHELVES.includes(requestedView) ? requestedView : 'yours';
   const [since] = useState(readLastLooked);
   useEffect(markLooked, []);
   const [changes, setChanges] = useState(null);
@@ -357,7 +391,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     navigate(`/wiki${query ? `?${query}` : ''}`, { replace: true });
     setMobileNavOpen(false);
   };
-  const selectWikiFilter = value => setQuery('view', value === 'proposed' ? 'proposed' : '');
+  const selectWikiFilter = value => setQuery('view', value === 'yours' ? '' : value);
 
   useEffect(() => {
     let cancelled = false;
@@ -444,7 +478,8 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     [canonicalPages]
   );
 
-  const scope = wikiFilter;
+  // A kind asked for by name is shown whole, whoever made its pages.
+  const scope = kind && wikiFilter === 'yours' ? 'all' : wikiFilter;
   const presentKinds = useMemo(
     () => WIKI_KINDS.filter(item => canonicalPages.some(page => wikiKindForPage(page) === item)),
     [canonicalPages]
@@ -457,13 +492,14 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     return changes.filter(change => ids.has(String(change.pageId)));
   }, [canonicalPages, changes]);
   const sourcePages = searchedPages || canonicalPages;
-  const showingSince = scope === 'all' && !kind && !wikiSearch.trim();
+  const showingSince = scope === 'yours' && !kind && !wikiSearch.trim();
   /* A page told above as what moved is not listed again under it. */
   const visiblePages = useMemo(() => {
     const filtered = filterCollectionPages({ pages: sourcePages, query: wikiSearch, scope, kind });
-    if (!showingSince || !visibleChanges?.length) return filtered;
-    const told = new Set(visibleChanges.map(change => String(change.pageId)));
-    return filtered.filter(page => !told.has(String(page?._id || page?.id || '')));
+    if (!showingSince) return filtered;
+    // Told above, as what moved or as made from a thread, it is not listed again.
+    const told = new Set((visibleChanges || []).map(change => String(change.pageId)));
+    return filtered.filter(page => !threadOfPage(page) && !told.has(String(page?._id || page?.id || '')));
   }, [kind, scope, showingSince, sourcePages, visibleChanges, wikiSearch]);
   const toldAbove = showingSince && visibleChanges?.length > 0;
   const countedAbove = showingSince && Boolean(since) && Array.isArray(visibleChanges) && !visibleChanges.length;
@@ -575,6 +611,8 @@ const WikiFrontPage = ({ initialKind = '' }) => {
         {availabilityNotice ? <p className="wiki-collection__status" role="status">{availabilityNotice}</p> : null}
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
 
+        {showingSince ? <FromKeptThreads pages={canonicalPages} /> : null}
+
         {showingSince && due ? <ComesDue due={due} onSettled={() => setDue(null)} /> : null}
         {showingSince && argues ? <ArguesWithYou reading={argues} onSettled={() => setArgues(null)} /> : null}
 
@@ -594,7 +632,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
                 ? `${visiblePages.length} matching page${visiblePages.length === 1 ? '' : 's'}`
                 : toldAbove
                   ? `${visiblePages.length} more page${visiblePages.length === 1 ? '' : 's'}`
-                  : `${visiblePages.length} page${visiblePages.length === 1 ? '' : 's'}${scope === 'proposed' ? ' with a proposed change' : kind ? ` · ${WIKI_KIND_LABELS[kind]}` : ''}`}
+                  : `${visiblePages.length} page${visiblePages.length === 1 ? '' : 's'}${scope === 'proposed' ? ' with a proposed change' : scope === 'papers' ? ' made for you' : kind ? ` · ${WIKI_KIND_LABELS[kind]}` : ''}`}
             </span>
           </div>
         )}

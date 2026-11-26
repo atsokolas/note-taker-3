@@ -79,3 +79,22 @@ export const buildWikiCreatePayload = ({
 export const openWikiDraft = ({ navigate, pageId }) => {
   navigate(wikiPagePath(pageId, '&draft=1'));
 };
+
+/* A kept thread becomes a page: its passages quoted in the order they
+   formed, each cited, left as a draft for you to write around. The page
+   remembers its thread by its label, so the Wiki can tell which threads
+   already have one. */
+const THREAD_LABEL = 'thread:';
+export const threadOfPage = page => {
+  const label = String(page?.createdFrom?.label || '');
+  return label.startsWith(THREAD_LABEL) ? label.slice(THREAD_LABEL.length) : '';
+};
+
+export const buildThreadPagePayload = ({ threadId, title, marks = [] }) => ({
+  title,
+  pageType: 'topic',
+  sourceScope: 'selected_sources',
+  body: marks.map(mark => `“${mark.text}” (${mark.title})`).join('\n\n'),
+  initialSourceRefs: marks.map(mark => buildWikiSourceRef({ type: 'highlight', objectId: mark.highlightId, articleId: mark.articleId, title: mark.title, text: mark.text })),
+  createdFrom: { type: 'highlight', objectIds: marks.map(mark => mark.highlightId), text: '', label: `${THREAD_LABEL}${threadId}` }
+});

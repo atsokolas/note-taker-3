@@ -584,3 +584,26 @@
     font-size: 16pt;
   }
 }
+
+/* Made from kept threads: pages that grew out of your reading, and in
+   pencil, a kept thread that could become one. */
+.wiki-collection__threads { margin-top: 26px; }
+.wiki-collection__threads h2 {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #676e62);
+}
+.wiki-collection__threads ul { list-style: none; margin: 0; padding: 0; }
+.wiki-collection__threads li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--noeis-rule, #dcded3);
+}
+.wiki-collection__threads a { color: inherit; font: 17px/1.4 var(--font-serif); text-decoration: none; }
+.wiki-collection__threads a:hover { text-decoration: underline; text-underline-offset: 0.2em; }
+.wiki-collection__threads small { color: var(--muted, #676e62); font-size: 12px; }
+.wiki-collection__could, .wiki-collection__could small { color: var(--ink-agent); font-style: italic; }
