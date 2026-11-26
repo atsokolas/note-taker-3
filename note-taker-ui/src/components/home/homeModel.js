@@ -20,6 +20,9 @@ export const issueMonth = (month, now = Date.now()) => new Date(`${month}-01T12:
   month: 'long', timeZone: 'UTC', ...(month.slice(0, 4) === new Date(now).toISOString().slice(0, 4) ? {} : { year: 'numeric' })
 });
 
+// Where a page from the open web lives, as its host.
+export const hostOf = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return 'Web'; } };
+
 export const monthOf = value => new Date(value).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 
 export const dayOf = (value, now = Date.now()) => {
@@ -64,9 +67,9 @@ export const keptLabel = held => (held.kind === 'mark' ? `“${held.text || held
 
 /* What you keep for good that bears on what you are working on, matched in
    the browser by the words the two share, so none of your writing leaves
-   the page. Eligible: anything on Kept except threads' own titles, which
-   name books, not ideas. Bar: two distinct words of four letters or more in
-   common. Silence: below the bar, nothing. */
+   the page. Eligible: anything on Kept; a thread by its passages alone,
+   since its title names books, not ideas. Bar: two distinct words of four
+   letters or more in common. Silence: below the bar, nothing. */
 export const KEPT_BESIDE = 3;
 const SHARED_WORDS = 2;
 const wordsOf = text => new Set(tokensOf(text).filter(word => word.length >= 4).map(word => word.replace(/s$/, '')));
@@ -74,8 +77,7 @@ const wordsOf = text => new Set(tokensOf(text).filter(word => word.length >= 4).
 export const keptBeside = (kept, text) => {
   const writing = wordsOf(text);
   return kept
-    .filter(held => held.kind !== 'thread')
-    .map(held => ({ held, shared: [...wordsOf(`${held.title} ${held.text || ''} ${held.note || ''}`)].filter(word => writing.has(word)).length }))
+    .map(held => ({ held, shared: [...wordsOf(held.kind === 'thread' ? held.text : `${held.title} ${held.text || ''} ${held.note || ''}`)].filter(word => writing.has(word)).length }))
     .filter(({ shared }) => shared >= SHARED_WORDS)
     .sort((a, b) => b.shared - a.shared)
     .slice(0, KEPT_BESIDE)

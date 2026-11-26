@@ -5,14 +5,14 @@ import LibraryReadingRoom from './LibraryReadingRoom';
 import { getReadingRoom, getWorthSayingPhrasing } from '../../api/readingRoom';
 import { fetchLately } from '../../api/retrieval';
 import { weekKey } from './libraryReadingRoomModel';
-import { readHome } from '../../api/home';
+import { readHome, readWorld } from '../../api/home';
 
 jest.mock('../../api/readingRoom', () => ({
   getReadingRoom: jest.fn(),
   getWorthSayingPhrasing: jest.fn()
 }));
 jest.mock('../../api/retrieval', () => ({ fetchLately: jest.fn() }));
-jest.mock('../../api/home', () => ({ readHome: jest.fn(), keepPassage: jest.fn() }));
+jest.mock('../../api/home', () => ({ readHome: jest.fn(), keepPassage: jest.fn(), readWorld: jest.fn() }));
 
 const EMPTY = { pick: null, stillReading: [], newFromSources: [], weather: null, worthSaying: [], modelAvailable: false };
 const SAYING = [1, 2, 3].map((n) => ({ articleId: `s${n}`, title: `Source ${n}`, highlightId: `h${n}`, quote: `Quoted line ${n}.` }));
@@ -58,6 +58,19 @@ describe('LibraryReadingRoom', () => {
     expect(screen.queryByText('A thread')).not.toBeInTheDocument();
     expect(screen.getByText(/1,553 marks in 49 works/)).toBeInTheDocument();
     expect(screen.getByText(/Quiet this week/)).toBeInTheDocument();
+    expect(readWorld).not.toHaveBeenCalled();
+  });
+
+  it('brings one outside page into the margin, in blue, only while a thread is forming', async () => {
+    readWorld.mockResolvedValue([{ title: 'Inference pricing, this quarter', url: 'https://www.example.com/pricing' }]);
+    readHome.mockResolvedValue({
+      kept: [], asks: [], forNow: [], underneath: { marks: 0, works: 0 }, cameBack: null,
+      forming: { threadId: 't9', marks: [{ text: 'Pricing power is the decision.' }, { text: 'Inference gets cheaper every quarter.' }] }
+    });
+    renderRoom(EMPTY);
+    expect(await screen.findByRole('link', { name: 'Inference pricing, this quarter' })).toHaveAttribute('href', 'https://www.example.com/pricing');
+    expect(readWorld).toHaveBeenCalledWith('Inference gets cheaper every quarter.');
+    expect(screen.getByText(/example\.com · from outside, for a thread that is forming/)).toBeInTheDocument();
   });
 
   it('renders nothing at all when every section is empty', async () => {

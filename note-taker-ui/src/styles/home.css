@@ -371,3 +371,8 @@
   padding: 0;
   border-top: 1px solid var(--border-subtle-2);
 }
+
+/* A page from outside, in the world's blue ink, named by where it lives. */
+.home__world { margin: var(--space-2) 0 0; }
+.home__world a { color: var(--ink-world); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--ink-world) 35%, transparent); }
+.home__world small { display: block; color: var(--muted); font-size: 0.82rem; }

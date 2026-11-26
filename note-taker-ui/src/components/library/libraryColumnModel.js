@@ -1,11 +1,12 @@
 import { humanizeLabel } from '../../utils/humanizeLabel';
 import { normalizeSpaces } from '../../utils/editorialText';
 
-/* The shelves beside All sources, by the name the reader sees. */
+/* The shelves beside All sources, by the name the reader sees. Kept comes
+   first: what you hold on to for good stays on top. */
 export const SHELVES = [
+  ['kept', 'Kept'],
   ['set-aside', 'On the desk'],
   ['later', 'Nightstand'],
-  ['kept', 'Keepers'],
   ['pencil', 'Read by agents']
 ];
 
